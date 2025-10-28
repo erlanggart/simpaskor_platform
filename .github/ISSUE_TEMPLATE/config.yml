@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Community Discussions
+    url: https://github.com/yourusername/simpaskor-platform/discussions
+    about: Ask questions, share ideas, and engage with the community
+  - name: 📚 Documentation
+    url: https://docs.simpaskor.com
+    about: Check out our comprehensive documentation
+  - name: 🆘 Support
+    url: mailto:support@simpaskor.com
+    about: Get direct support from our team
+  - name: 💡 Ideas & Feedback
+    url: https://github.com/yourusername/simpaskor-platform/discussions/categories/ideas
+    about: Share your ideas and feedback with the community

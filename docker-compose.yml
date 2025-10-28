@@ -1,0 +1,79 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  database:
+    image: postgres:15
+    container_name: simpaskor_database
+    environment:
+      POSTGRES_DB: simpaskor_db
+      POSTGRES_USER: simpaskor_user
+      POSTGRES_PASSWORD: simpaskor_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - simpaskor-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: simpaskor_backend
+    environment:
+      DATABASE_URL: postgresql://simpaskor_user:simpaskor_password@database:5432/simpaskor_db
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      NODE_ENV: development
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - database
+    networks:
+      - simpaskor-network
+    command: npm run dev
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: simpaskor_frontend
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - simpaskor-network
+    command: npm run dev
+
+  # pgAdmin (Optional database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: simpaskor_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@simpaskor.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - database
+    networks:
+      - simpaskor-network
+
+volumes:
+  postgres_data:
+
+networks:
+  simpaskor-network:
+    driver: bridge
