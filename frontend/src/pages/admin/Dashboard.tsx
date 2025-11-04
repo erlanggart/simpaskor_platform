@@ -1,4 +1,5 @@
 import { useAuth } from "../../hooks/useAuth";
+import { Link } from "react-router-dom";
 import {
 	UserGroupIcon,
 	CalendarIcon,
@@ -6,6 +7,8 @@ import {
 	CogIcon,
 	ExclamationTriangleIcon,
 	CheckCircleIcon,
+	PhotoIcon,
+	TicketIcon,
 } from "@heroicons/react/24/outline";
 
 const AdminDashboard = () => {
@@ -95,9 +98,7 @@ const AdminDashboard = () => {
 							<h1 className="text-3xl font-bold text-gray-900">
 								SuperAdmin Dashboard
 							</h1>
-							<p className="text-gray-600">
-								Selamat datang, {user?.firstName} {user?.lastName}
-							</p>
+							<p className="text-gray-600">Selamat datang, {user?.name}</p>
 						</div>
 						<div className="flex items-center space-x-4">
 							<span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -191,18 +192,43 @@ const AdminDashboard = () => {
 						</div>
 						<div className="p-6">
 							<div className="grid grid-cols-2 gap-4">
-								<button className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50">
+								<Link
+									to="/admin/users"
+									className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+								>
 									<UserGroupIcon className="h-8 w-8 text-blue-500 mb-2" />
 									<span className="text-sm font-medium">Manage Users</span>
-								</button>
-								<button className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50">
-									<CalendarIcon className="h-8 w-8 text-green-500 mb-2" />
+								</Link>
+								<Link
+									to="/admin/coupons"
+									className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+								>
+									<TicketIcon className="h-8 w-8 text-green-500 mb-2" />
+									<span className="text-sm font-medium">Manage Coupons</span>
+								</Link>
+								<Link
+									to="/admin/banners"
+									className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+								>
+									<PhotoIcon className="h-8 w-8 text-purple-500 mb-2" />
+									<span className="text-sm font-medium">Manage Banners</span>
+								</Link>
+								<Link
+									to="/admin/assessment-categories"
+									className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+								>
+									<ChartBarIcon className="h-8 w-8 text-orange-500 mb-2" />
+									<span className="text-sm font-medium">
+										Assessment Categories
+									</span>
+								</Link>
+								<Link
+									to="/admin/events"
+									className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+								>
+									<CalendarIcon className="h-8 w-8 text-indigo-500 mb-2" />
 									<span className="text-sm font-medium">Manage Events</span>
-								</button>
-								<button className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50">
-									<ChartBarIcon className="h-8 w-8 text-purple-500 mb-2" />
-									<span className="text-sm font-medium">View Reports</span>
-								</button>
+								</Link>
 								<button className="flex flex-col items-center p-4 border border-gray-300 rounded-lg hover:bg-gray-50">
 									<CogIcon className="h-8 w-8 text-gray-500 mb-2" />
 									<span className="text-sm font-medium">System Settings</span>

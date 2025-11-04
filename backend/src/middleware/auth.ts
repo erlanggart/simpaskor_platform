@@ -10,7 +10,7 @@ export const authenticate = (
 	req: AuthenticatedRequest,
 	res: Response,
 	next: NextFunction
-) => {
+): Response | void => {
 	try {
 		const authHeader = req.headers.authorization;
 
@@ -35,7 +35,11 @@ export const authenticate = (
 };
 
 export const authorize = (...allowedRoles: UserRole[]) => {
-	return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+	return (
+		req: AuthenticatedRequest,
+		res: Response,
+		next: NextFunction
+	): Response | void => {
 		if (!req.user) {
 			return res.status(401).json({
 				error: "Access denied",
@@ -81,7 +85,7 @@ export const requireOwnershipOrAdmin = (
 	req: AuthenticatedRequest,
 	res: Response,
 	next: NextFunction
-) => {
+): Response | void => {
 	if (!req.user) {
 		return res.status(401).json({
 			error: "Access denied",

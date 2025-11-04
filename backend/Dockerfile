@@ -1,15 +1,25 @@
-# Backend Dockerfile
-FROM node:18-alpine
+# Backend Dockerfile for Development
+FROM node:24-alpine
+
+# Install dependencies for Prisma
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
+
+# Copy Prisma schema
+COPY prisma ./prisma
+
+# Install dependencies
 RUN npm install
 
+# Copy application files
 COPY . .
 
-RUN npm run build
-
+# Expose port
 EXPOSE 3001
 
-CMD ["npm", "start"]
+# Development command (will be overridden by docker-compose)
+CMD ["npm", "run", "dev"]

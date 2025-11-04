@@ -2,10 +2,11 @@
 
 **Platform Kompetisi Terdepan Indonesia** - Full-stack application untuk mengelola kompetisi, penilaian, dan pelatihan secara terintegrasi.
 
-![Tech Stack](https://img.shields.io/badge/React-18-blue?style=for-the-badge&logo=react)
-![Express](https://img.shields.io/badge/Express.js-4.18-green?style=for-the-badge&logo=express)
+![Tech Stack](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)
+![Express](https://img.shields.io/badge/Express.js-4.21-green?style=for-the-badge&logo=express)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?style=for-the-badge&logo=postgresql)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?style=for-the-badge&logo=typescript)
+![Node.js](https://img.shields.io/badge/Node.js-24.11_LTS-green?style=for-the-badge&logo=node.js)
 ![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)
 
 ## 🌟 Overview
@@ -60,6 +61,7 @@ simpaskor-platform/
 ### Prerequisites
 
 Make sure you have installed:
+
 - **Node.js** 18+ ([Download](https://nodejs.org/))
 - **Docker** & **Docker Compose** ([Download](https://www.docker.com/))
 - **Git** ([Download](https://git-scm.com/))
@@ -82,6 +84,7 @@ nano backend/.env
 ```
 
 **Required Environment Variables:**
+
 ```env
 DATABASE_URL="postgresql://simpaskor_user:simpaskor_password@localhost:5432/simpaskor_db"
 JWT_SECRET="your-super-secret-jwt-key-min-32-characters"
@@ -104,6 +107,7 @@ docker-compose down
 ```
 
 **🌐 Access Points:**
+
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:3001
 - **pgAdmin**: http://localhost:5050 (admin@admin.com / admin)
@@ -112,6 +116,7 @@ docker-compose down
 ### 4️⃣ Manual Development Setup
 
 #### Backend Setup
+
 ```bash
 cd backend
 npm install
@@ -122,6 +127,7 @@ npm run dev
 ```
 
 #### Frontend Setup
+
 ```bash
 cd frontend
 npm install
@@ -130,17 +136,18 @@ npm run dev
 
 ## 🔑 Default Login Credentials
 
-| Role | Email | Password | Dashboard |
-|------|-------|----------|-----------|
-| 🔴 SuperAdmin | superadmin@simpaskor.com | Admin123! | `/admin/dashboard` |
-| 🟣 Panitia | panitia@simpaskor.com | Panitia123! | `/panitia/dashboard` |
-| 🔵 Juri | juri@simpaskor.com | Juri123! | `/juri/dashboard` |
-| 🟡 Peserta | demo@simpaskor.com | password123 | `/peserta/dashboard` |
-| 🟢 Pelatih | pelatih@simpaskor.com | Pelatih123! | `/pelatih/dashboard` |
+| Role          | Email                    | Password    | Dashboard            |
+| ------------- | ------------------------ | ----------- | -------------------- |
+| 🔴 SuperAdmin | superadmin@simpaskor.com | Admin123!   | `/admin/dashboard`   |
+| 🟣 Panitia    | panitia@simpaskor.com    | Panitia123! | `/panitia/dashboard` |
+| 🔵 Juri       | juri@simpaskor.com       | Juri123!    | `/juri/dashboard`    |
+| 🟡 Peserta    | demo@simpaskor.com       | password123 | `/peserta/dashboard` |
+| 🟢 Pelatih    | pelatih@simpaskor.com    | Pelatih123! | `/pelatih/dashboard` |
 
 ## 🎯 Role-Based Features
 
 ### 🔴 SuperAdmin Dashboard
+
 - **System Overview**: Complete system monitoring
 - **User Management**: CRUD operations untuk semua users
 - **Event Oversight**: Monitor semua events dan activities
@@ -148,6 +155,7 @@ npm run dev
 - **Settings**: System configuration management
 
 ### 🟣 Panitia Dashboard
+
 - **Event Creation**: Comprehensive event creation form
 - **Event Management**: Edit, monitor, dan manage events
 - **Participant Management**: Track registrations dan participants
@@ -155,6 +163,7 @@ npm run dev
 - **Juri Assignment**: Assign juri ke events
 
 ### 🔵 Juri Dashboard
+
 - **Assigned Events**: View events yang di-assign
 - **Judging Tasks**: Manage penilaian tasks dengan priority
 - **Evaluation Tools**: Interface untuk scoring dan evaluation
@@ -162,6 +171,7 @@ npm run dev
 - **Event Calendar**: Schedule dan deadlines
 
 ### 🟡 Peserta Dashboard
+
 - **Event Discovery**: Search dan filter available events
 - **Event Registration**: Easy registration process
 - **My Events**: Track registered events dan status
@@ -169,6 +179,7 @@ npm run dev
 - **Achievement Tracking**: View accomplishments
 
 ### 🟢 Pelatih Dashboard
+
 - **Student Management**: Manage student profiles dan progress
 - **Training Programs**: Create dan monitor training programs
 - **Event Monitoring**: Track student participation in events
@@ -178,15 +189,17 @@ npm run dev
 ## 📚 API Documentation
 
 ### Authentication Endpoints
+
 ```http
 POST /api/auth/login      # User login
-POST /api/auth/register   # User registration  
+POST /api/auth/register   # User registration
 GET  /api/auth/me         # Get current user profile
 POST /api/auth/logout     # User logout
 GET  /api/health          # Health check endpoint
 ```
 
 ### User Management (Protected)
+
 ```http
 GET    /api/users         # Get all users (admin only)
 GET    /api/users/:id     # Get user by ID
@@ -195,12 +208,14 @@ DELETE /api/users/:id     # Delete user (admin only)
 ```
 
 ### Request Headers
+
 ```http
 Authorization: Bearer <jwt-token>
 Content-Type: application/json
 ```
 
 ### Example API Usage
+
 ```bash
 # Health check
 curl http://localhost:3001/api/health
@@ -218,11 +233,12 @@ curl -X GET http://localhost:3001/api/auth/me \
 ## 🧪 Testing
 
 ### Run Tests
+
 ```bash
 # Backend tests
 cd backend && npm test
 
-# Frontend tests  
+# Frontend tests
 cd frontend && npm test
 
 # Run all tests
@@ -230,6 +246,7 @@ npm run test:all
 ```
 
 ### Manual Testing
+
 ```bash
 # Test backend API
 npm run test:api
@@ -244,6 +261,7 @@ npm run test:integration
 ## 🔧 Development Commands
 
 ### Database Management
+
 ```bash
 # Generate Prisma client
 npx prisma generate
@@ -262,6 +280,7 @@ npx prisma migrate dev --name your-migration-name
 ```
 
 ### Docker Commands
+
 ```bash
 # Build and start all services
 docker-compose up --build
@@ -281,6 +300,7 @@ docker-compose down -v
 ```
 
 ### Development Utilities
+
 ```bash
 # Install new package to backend
 cd backend && npm install package-name
@@ -298,6 +318,7 @@ npm audit
 ## 🚦 Production Deployment
 
 ### Build for Production
+
 ```bash
 # Build frontend
 cd frontend && npm run build
@@ -310,6 +331,7 @@ docker-compose -f docker-compose.prod.yml build
 ```
 
 ### Production Environment Variables
+
 ```env
 NODE_ENV=production
 DATABASE_URL=your-production-database-url
@@ -319,6 +341,7 @@ PORT=3001
 ```
 
 ### Deploy with Docker
+
 ```bash
 # Production deployment
 docker-compose -f docker-compose.prod.yml up -d
@@ -332,6 +355,7 @@ curl https://your-domain.com/api/health
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### Quick Contribution Steps
+
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit changes (`git commit -m 'Add amazing feature'`)
@@ -339,6 +363,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 5. Open Pull Request
 
 ### Development Guidelines
+
 - Follow TypeScript best practices
 - Write comprehensive tests
 - Update documentation
@@ -352,7 +377,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **React Team** - Amazing frontend framework
-- **Express.js** - Fast, unopinionated web framework  
+- **Express.js** - Fast, unopinionated web framework
 - **Prisma** - Next-generation ORM
 - **Tailwind CSS** - Utility-first CSS framework
 - **PostgreSQL** - Advanced open source database

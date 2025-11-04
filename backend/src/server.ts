@@ -3,10 +3,14 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import path from "path";
 
 // Import routes
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
+import eventRoutes from "./routes/events";
+import couponRoutes from "./routes/coupons";
+import assessmentCategoryRoutes from "./routes/assessmentCategories";
 
 dotenv.config();
 
@@ -14,7 +18,11 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(helmet());
+app.use(
+	helmet({
+		crossOriginResourcePolicy: { policy: "cross-origin" },
+	})
+);
 
 // CORS configuration for development
 app.use(
@@ -34,6 +42,9 @@ app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files for uploads
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 // Routes
 app.get("/", (req, res) => {
 	res.json({
@@ -43,6 +54,9 @@ app.get("/", (req, res) => {
 		endpoints: {
 			auth: "/api/auth",
 			users: "/api/users",
+			events: "/api/events",
+			coupons: "/api/coupons",
+			assessmentCategories: "/api/assessment-categories",
 			health: "/api/health",
 		},
 	});
@@ -60,6 +74,9 @@ app.get("/api/health", (req, res) => {
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/assessment-categories", assessmentCategoryRoutes);
 
 // Error handling middleware
 app.use(

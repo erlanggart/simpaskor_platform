@@ -180,7 +180,7 @@ const JuriDashboard = () => {
 								Juri Dashboard
 							</h1>
 							<p className="text-gray-600">
-								Panel Penilaian Event - {user?.firstName} {user?.lastName}
+								Panel Penilaian Event - {user?.name}
 							</p>
 						</div>
 						<div className="flex items-center space-x-4">

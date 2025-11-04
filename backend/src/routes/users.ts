@@ -3,12 +3,11 @@ import { prisma } from "../lib/prisma";
 import { AuthUtils } from "../utils/auth";
 import {
 	authenticate,
-	authorize,
 	AuthenticatedRequest,
 	requireSuperAdmin,
 	requireOwnershipOrAdmin,
 } from "../middleware/auth";
-import { UserRole, UserStatus } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
 const router = Router();
@@ -25,13 +24,21 @@ const updateUserSchema = z.object({
 });
 
 const updateProfileSchema = z.object({
+	firstName: z.string().min(1).optional(),
+	lastName: z.string().min(1).optional(),
+	phone: z.string().optional(),
 	bio: z.string().optional(),
 	institution: z.string().optional(),
 	address: z.string().optional(),
 	city: z.string().optional(),
 	province: z.string().optional(),
 	birthDate: z.string().optional(),
-	gender: z.enum(["MALE", "FEMALE"]).optional(),
+	gender: z.string().optional(),
+});
+
+const updatePasswordSchema = z.object({
+	currentPassword: z.string().min(6),
+	newPassword: z.string().min(6),
 });
 
 // Get all users (Admin only)
@@ -196,7 +203,9 @@ router.put(
 						: undefined,
 				},
 				create: {
-					userId,
+					user: {
+						connect: { id: userId },
+					},
 					...validatedData,
 					birthDate: validatedData.birthDate
 						? new Date(validatedData.birthDate)
@@ -260,6 +269,236 @@ router.delete(
 			console.error("Delete user error:", error);
 			res.status(500).json({
 				error: "Failed to delete user",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Update own profile (authenticated user)
+router.put(
+	"/profile",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const userId = req.user?.userId;
+			if (!userId) {
+				return res.status(401).json({
+					error: "Unauthorized",
+					message: "User not authenticated",
+				});
+			}
+
+			const validatedData = updateProfileSchema.parse(req.body);
+
+			// Extract user fields and profile fields
+			const { firstName, lastName, phone, ...profileData } = validatedData;
+
+			// Update user basic info
+			const userUpdate: any = {};
+			if (firstName) userUpdate.firstName = firstName;
+			if (lastName) userUpdate.lastName = lastName;
+			if (phone !== undefined) userUpdate.phone = phone;
+
+			const user = await prisma.user.update({
+				where: { id: userId },
+				data: userUpdate,
+				include: { profile: true },
+			});
+
+			// Update or create profile
+			if (Object.keys(profileData).length > 0) {
+				await prisma.userProfile.upsert({
+					where: { userId },
+					update: {
+						...profileData,
+						birthDate: profileData.birthDate
+							? new Date(profileData.birthDate)
+							: undefined,
+					},
+					create: {
+						userId,
+						...profileData,
+						birthDate: profileData.birthDate
+							? new Date(profileData.birthDate)
+							: undefined,
+					},
+				});
+			}
+
+			// Fetch updated user with profile
+			const updatedUser = await prisma.user.findUnique({
+				where: { id: userId },
+				include: { profile: true },
+			});
+
+			res.json({
+				message: "Profile updated successfully",
+				user: AuthUtils.sanitizeUser(updatedUser!),
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+
+			console.error("Update profile error:", error);
+			res.status(500).json({
+				error: "Failed to update profile",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Update password (authenticated user)
+router.put(
+	"/password",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const userId = req.user?.userId;
+			if (!userId) {
+				return res.status(401).json({
+					error: "Unauthorized",
+					message: "User not authenticated",
+				});
+			}
+
+			const { currentPassword, newPassword } = updatePasswordSchema.parse(
+				req.body
+			);
+
+			// Get current user
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+			});
+
+			if (!user) {
+				return res.status(404).json({
+					error: "User not found",
+					message: "User does not exist",
+				});
+			}
+
+			// Verify current password
+			const isValidPassword = await AuthUtils.comparePassword(
+				currentPassword,
+				user.passwordHash
+			);
+
+			if (!isValidPassword) {
+				return res.status(400).json({
+					error: "Invalid password",
+					message: "Current password is incorrect",
+				});
+			}
+
+			// Hash new password
+			const newPasswordHash = await AuthUtils.hashPassword(newPassword);
+
+			// Update password
+			await prisma.user.update({
+				where: { id: userId },
+				data: {
+					passwordHash: newPasswordHash,
+				},
+			});
+
+			res.json({
+				message: "Password updated successfully",
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+
+			console.error("Update password error:", error);
+			res.status(500).json({
+				error: "Failed to update password",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Upload avatar (authenticated user)
+router.post(
+	"/avatar",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const userId = req.user?.userId;
+			if (!userId) {
+				return res.status(401).json({
+					error: "Unauthorized",
+					message: "User not authenticated",
+				});
+			}
+
+			// For now, just return success
+			// In production, you would:
+			// 1. Use multer to handle file upload
+			// 2. Validate file type and size
+			// 3. Upload to cloud storage (S3, Cloudinary, etc.)
+			// 4. Save URL to database
+
+			const avatarUrl = `/avatars/${userId}.jpg`; // Placeholder
+
+			await prisma.userProfile.upsert({
+				where: { userId },
+				update: { avatar: avatarUrl },
+				create: {
+					userId,
+					avatar: avatarUrl,
+				},
+			});
+
+			res.json({
+				message: "Avatar uploaded successfully",
+				avatarUrl,
+			});
+		} catch (error) {
+			console.error("Upload avatar error:", error);
+			res.status(500).json({
+				error: "Failed to upload avatar",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Delete avatar (authenticated user)
+router.delete(
+	"/avatar",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const userId = req.user?.userId;
+			if (!userId) {
+				return res.status(401).json({
+					error: "Unauthorized",
+					message: "User not authenticated",
+				});
+			}
+
+			await prisma.userProfile.update({
+				where: { userId },
+				data: { avatar: null },
+			});
+
+			res.json({
+				message: "Avatar deleted successfully",
+			});
+		} catch (error) {
+			console.error("Delete avatar error:", error);
+			res.status(500).json({
+				error: "Failed to delete avatar",
 				message: "Internal server error",
 			});
 		}

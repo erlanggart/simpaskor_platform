@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # PostgreSQL Database
   database:
@@ -16,6 +14,11 @@ services:
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - simpaskor-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simpaskor_user -d simpaskor_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Backend API
   backend:
@@ -27,16 +30,21 @@ services:
       DATABASE_URL: postgresql://simpaskor_user:simpaskor_password@database:5432/simpaskor_db
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       NODE_ENV: development
+      PORT: 3001
+      FRONTEND_URL: http://localhost:5173
     ports:
       - "3001:3001"
     volumes:
       - ./backend:/app
+      - ./backend/uploads:/app/uploads
       - /app/node_modules
+      - /app/dist
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     networks:
       - simpaskor-network
-    command: npm run dev
+    command: sh -c "npx prisma generate && npx prisma db push && npm run dev"
 
   # Frontend React App
   frontend:

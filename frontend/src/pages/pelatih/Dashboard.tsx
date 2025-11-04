@@ -170,8 +170,7 @@ const PelatihDashboard = () => {
 								Pelatih Dashboard
 							</h1>
 							<p className="text-gray-600">
-								Kelola Siswa & Program Latihan - {user?.firstName}{" "}
-								{user?.lastName}
+								Kelola Siswa & Program Latihan - {user?.name}
 							</p>
 						</div>
 						<div className="flex items-center space-x-4">

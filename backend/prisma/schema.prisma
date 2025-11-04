@@ -29,8 +29,7 @@ model User {
   id            String     @id @default(uuid())
   email         String     @unique
   passwordHash  String     @map("password_hash")
-  firstName     String     @map("first_name")
-  lastName      String     @map("last_name")
+  name          String
   phone         String?
   role          UserRole   @default(PESERTA)
   status        UserStatus @default(PENDING)
@@ -45,6 +44,8 @@ model User {
   createdEvents  Event[]              @relation("EventCreator")
   participations EventParticipation[]
   evaluations    Evaluation[]
+  createdCoupons EventCoupon[]        @relation("CouponCreator")
+  usedCoupons    EventCoupon[]        @relation("CouponUser")
 
   @@map("users")
 }
@@ -78,57 +79,166 @@ model UserSession {
   @@map("user_sessions")
 }
 
-model Event {
-  id              String   @id @default(uuid())
-  title           String
-  description     String?
-  startDate       DateTime @map("start_date")
-  endDate         DateTime @map("end_date")
-  location        String?
-  maxParticipants Int?     @map("max_participants")
-  status          String   @default("DRAFT") // DRAFT, PUBLISHED, ONGOING, COMPLETED, CANCELLED
-  createdById     String   @map("created_by_id")
-  createdBy       User     @relation("EventCreator", fields: [createdById], references: [id])
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+// Many-to-many relationship: Event can be available for multiple school levels
+
+// School Category for Paskibra (SD, SMP, SMA, Purna)
+model SchoolCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique // SD, SMP, SMA, PURNA
+  description String?
+  order       Int      @default(0) // For sorting
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
   participations EventParticipation[]
-  evaluations    Evaluation[]
+  eventLimits    EventSchoolCategoryLimit[]
+
+  @@map("school_categories")
+}
+
+// Assessment Category for Paskibra judging (PBB, Komandan, Variasi, etc.)
+model AssessmentCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique // PBB, KOMANDAN, VARIASI, FORMASI, KOSTUM_MAKEUP
+  description String?
+  order       Int      @default(0) // For sorting display order
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  eventCategories EventAssessmentCategory[]
+  evaluations     Evaluation[]
+
+  @@map("assessment_categories")
+}
+
+// Many-to-many relationship between Event and AssessmentCategory
+model EventAssessmentCategory {
+  id                   String             @id @default(uuid())
+  eventId              String             @map("event_id")
+  event                Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assessmentCategoryId String             @map("assessment_category_id")
+  assessmentCategory   AssessmentCategory @relation(fields: [assessmentCategoryId], references: [id], onDelete: Cascade)
+  isRequired           Boolean            @default(true) @map("is_required")
+  customMaxScore       Int?               @map("custom_max_score") // Override default max score for this event
+  customWeight         Decimal?           @map("custom_weight") @db.Decimal(5, 2) // Override default weight
+  createdAt            DateTime           @default(now()) @map("created_at")
+
+  @@unique([eventId, assessmentCategoryId])
+  @@map("event_assessment_categories")
+}
+
+// Event School Category Limit - Defines max participants per school category for each event
+model EventSchoolCategoryLimit {
+  id               String         @id @default(uuid())
+  eventId          String         @map("event_id")
+  event            Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  schoolCategoryId String         @map("school_category_id")
+  schoolCategory   SchoolCategory @relation(fields: [schoolCategoryId], references: [id], onDelete: Cascade)
+  maxParticipants  Int            @map("max_participants") // Max participants for this category in this event
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([eventId, schoolCategoryId])
+  @@map("event_school_category_limits")
+}
+
+model Event {
+  id                   String       @id @default(uuid())
+  title                String // e.g., "Lomba Paskibra Tingkat Nasional 2025"
+  slug                 String?      @unique
+  description          String? // Event description
+  thumbnail            String? // URL/path to event thumbnail image
+  startDate            DateTime     @map("start_date")
+  endDate              DateTime     @map("end_date")
+  registrationDeadline DateTime?    @map("registration_deadline")
+  location             String? // City/Province
+  venue                String? // Specific venue name
+  maxParticipants      Int?         @map("max_participants")
+  currentParticipants  Int          @default(0) @map("current_participants")
+  registrationFee      Decimal?     @map("registration_fee") @db.Decimal(10, 2)
+  organizer            String? // Organization/institution name
+  contactEmail         String?      @map("contact_email")
+  contactPhone         String?      @map("contact_phone")
+  status               String       @default("DRAFT") // DRAFT, PUBLISHED, ONGOING, COMPLETED, CANCELLED
+  featured             Boolean      @default(false) // Featured events appear on landing page
+  isPinned             Boolean      @default(false) @map("is_pinned") // Pinned events appear in carousel
+  pinnedOrder          Int?         @map("pinned_order") // Display order in carousel (lower = first)
+  couponId             String?      @map("coupon_id") // Coupon used to create this event
+  coupon               EventCoupon? @relation(fields: [couponId], references: [id])
+  createdById          String       @map("created_by_id")
+  createdBy            User         @relation("EventCreator", fields: [createdById], references: [id])
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  participations       EventParticipation[]
+  evaluations          Evaluation[]
+  assessmentCategories EventAssessmentCategory[]
+  schoolCategoryLimits EventSchoolCategoryLimit[]
 
   @@map("events")
 }
 
+model EventCoupon {
+  id               String    @id @default(uuid())
+  code             String    @unique // Unique coupon code (e.g., "EVENT2025-ABC123")
+  description      String? // Description/notes about this coupon
+  assignedToEmail  String?   @map("assigned_to_email") // Email of Panitia this coupon is assigned to
+  isUsed           Boolean   @default(false) @map("is_used")
+  usedById         String?   @map("used_by_id")
+  usedBy           User?     @relation("CouponUser", fields: [usedById], references: [id])
+  usedAt           DateTime? @map("used_at")
+  createdByAdminId String    @map("created_by_admin_id")
+  createdByAdmin   User      @relation("CouponCreator", fields: [createdByAdminId], references: [id])
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  events Event[]
+
+  @@map("event_coupons")
+}
+
 model EventParticipation {
-  id        String   @id @default(uuid())
-  eventId   String   @map("event_id")
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status    String   @default("REGISTERED") // REGISTERED, CONFIRMED, ATTENDED, CANCELLED
-  score     Float?
-  rank      Int?
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id               String         @id @default(uuid())
+  eventId          String         @map("event_id")
+  event            Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId           String         @map("user_id")
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolCategoryId String         @map("school_category_id")
+  schoolCategory   SchoolCategory @relation(fields: [schoolCategoryId], references: [id])
+  teamName         String?        @map("team_name") // Name of the Paskibra team
+  schoolName       String?        @map("school_name") // Name of the school
+  status           String         @default("REGISTERED") // REGISTERED, CONFIRMED, ATTENDED, CANCELLED
+  totalScore       Float?         @map("total_score") // Calculated from all evaluations
+  rank             Int?
+  notes            String?
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
 
   @@unique([eventId, userId])
   @@map("event_participations")
 }
 
 model Evaluation {
-  id            String   @id @default(uuid())
-  eventId       String   @map("event_id")
-  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  juryId        String   @map("jury_id")
-  jury          User     @relation(fields: [juryId], references: [id])
-  participantId String   @map("participant_id")
-  criteria      String // JSON string untuk kriteria penilaian
-  score         Float
-  notes         String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                   String             @id @default(uuid())
+  eventId              String             @map("event_id")
+  event                Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assessmentCategoryId String             @map("assessment_category_id")
+  assessmentCategory   AssessmentCategory @relation(fields: [assessmentCategoryId], references: [id])
+  juryId               String             @map("jury_id")
+  jury                 User               @relation(fields: [juryId], references: [id])
+  participantId        String             @map("participant_id")
+  score                Float // Score given for this specific assessment category
+  maxScore             Int                @default(100) @map("max_score") // Max score for this evaluation
+  notes                String?
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
 
-  @@unique([eventId, juryId, participantId])
+  @@unique([eventId, assessmentCategoryId, juryId, participantId])
   @@map("evaluations")
 }

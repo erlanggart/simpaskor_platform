@@ -1,20 +1,30 @@
 import axios from "axios";
+import { config } from "./config";
 
-const API_BASE_URL =
-	(import.meta as any).env?.VITE_API_URL || "http://localhost:3001";
+// Debug log for development
+if (config.dev.debugMode) {
+	console.log("🌐 API Configuration:", {
+		baseUrl: config.api.baseUrl,
+		timeout: config.api.timeout,
+	});
+}
 
 export const api = axios.create({
-	baseURL: API_BASE_URL,
+	baseURL: config.api.baseUrl,
 	headers: {
 		"Content-Type": "application/json",
 	},
 	withCredentials: true, // Enable credentials for CORS
-	timeout: 10000, // 10 second timeout
+	timeout: config.api.timeout, // Configurable timeout
 });
+
+// Configuration constants from environment
+const TOKEN_KEY = config.auth.tokenKey;
+const USER_KEY = config.auth.userKey;
 
 // Request interceptor untuk menambahkan token
 api.interceptors.request.use((config) => {
-	const token = localStorage.getItem("token");
+	const token = localStorage.getItem(TOKEN_KEY);
 	if (token) {
 		config.headers.Authorization = `Bearer ${token}`;
 	}
@@ -26,8 +36,8 @@ api.interceptors.response.use(
 	(response) => response,
 	(error) => {
 		if (error.response?.status === 401) {
-			localStorage.removeItem("token");
-			localStorage.removeItem("user");
+			localStorage.removeItem(TOKEN_KEY);
+			localStorage.removeItem(USER_KEY);
 			window.location.href = "/login";
 		}
 		return Promise.reject(error);
@@ -42,9 +52,8 @@ export interface LoginRequest {
 export interface RegisterRequest {
 	email: string;
 	password: string;
-	firstName: string;
-	lastName: string;
-	role?: "PESERTA" | "PELATIH";
+	name: string;
+	role?: "PESERTA" | "PELATIH" | "JURI" | "PANITIA";
 	phone?: string;
 	institution?: string;
 }
@@ -52,14 +61,15 @@ export interface RegisterRequest {
 export interface User {
 	id: string;
 	email: string;
-	firstName: string;
-	lastName: string;
+	name: string;
+	phone?: string;
 	role: "SUPERADMIN" | "PANITIA" | "JURI" | "PESERTA" | "PELATIH";
 	status: "ACTIVE" | "INACTIVE" | "PENDING" | "SUSPENDED";
 	emailVerified: boolean;
 	lastLogin?: string;
 	createdAt: string;
 	profile?: {
+		avatar?: string;
 		bio?: string;
 		institution?: string;
 		address?: string;
@@ -89,8 +99,8 @@ export const authAPI = {
 
 	logout: async (): Promise<void> => {
 		await api.post("/api/auth/logout");
-		localStorage.removeItem("token");
-		localStorage.removeItem("user");
+		localStorage.removeItem(TOKEN_KEY);
+		localStorage.removeItem(USER_KEY);
 	},
 
 	getProfile: async (): Promise<User> => {

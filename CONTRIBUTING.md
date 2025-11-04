@@ -19,6 +19,7 @@ First off, thank you for considering contributing to Simpaskor Platform! It's pe
 This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code.
 
 ### Our Pledge
+
 - Use welcoming and inclusive language
 - Be respectful of differing viewpoints and experiences
 - Gracefully accept constructive criticism
@@ -28,7 +29,8 @@ This project and everyone participating in it is governed by our Code of Conduct
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Node.js** 18+ 
+
+- **Node.js** 18+
 - **Docker** & **Docker Compose**
 - **Git**
 - **PostgreSQL** knowledge (helpful)
@@ -37,6 +39,7 @@ This project and everyone participating in it is governed by our Code of Conduct
 ### Development Setup
 
 1. **Fork the Repository**
+
    ```bash
    # Click "Fork" on GitHub, then clone your fork
    git clone https://github.com/YOUR_USERNAME/simpaskor-platform.git
@@ -44,26 +47,28 @@ This project and everyone participating in it is governed by our Code of Conduct
    ```
 
 2. **Set Up Development Environment**
+
    ```bash
    # Install dependencies
    cd backend && npm install
    cd ../frontend && npm install
-   
+
    # Set up environment variables
    cp backend/.env.example backend/.env
    # Edit backend/.env with your settings
    ```
 
 3. **Start Development Servers**
+
    ```bash
    # Option 1: Using Docker (Recommended)
    docker-compose up -d
-   
+
    # Option 2: Manual setup
    # Terminal 1 - Backend
    cd backend && npm run dev
-   
-   # Terminal 2 - Frontend  
+
+   # Terminal 2 - Frontend
    cd frontend && npm run dev
    ```
 
@@ -75,6 +80,7 @@ This project and everyone participating in it is governed by our Code of Conduct
 ## 🔄 Development Process
 
 ### Branching Strategy
+
 We use **GitFlow** with the following branches:
 
 - **`main`** - Production-ready code
@@ -84,7 +90,9 @@ We use **GitFlow** with the following branches:
 - **`hotfix/critical-fix`** - Critical production fixes
 
 ### Workflow
+
 1. **Create Feature Branch**
+
    ```bash
    git checkout develop
    git pull origin develop
@@ -92,6 +100,7 @@ We use **GitFlow** with the following branches:
    ```
 
 2. **Develop & Test**
+
    ```bash
    # Make your changes
    npm test  # Run tests
@@ -99,6 +108,7 @@ We use **GitFlow** with the following branches:
    ```
 
 3. **Commit Changes**
+
    ```bash
    # Follow conventional commits
    git add .
@@ -114,6 +124,7 @@ We use **GitFlow** with the following branches:
 ## 📝 Pull Request Process
 
 ### Before Submitting
+
 - [ ] Tests pass locally
 - [ ] Code follows style guidelines
 - [ ] Documentation updated
@@ -121,12 +132,15 @@ We use **GitFlow** with the following branches:
 - [ ] Related issues linked
 
 ### PR Requirements
+
 1. **Clear Description**
+
    - What changes were made?
    - Why were they necessary?
    - How were they tested?
 
 2. **Small, Focused Changes**
+
    - One feature per PR
    - Less than 500 lines when possible
    - Single responsibility
@@ -137,12 +151,15 @@ We use **GitFlow** with the following branches:
    - Manual testing description
 
 ### Review Process
+
 1. **Automated Checks**
+
    - GitHub Actions CI/CD
    - Code quality checks
    - Security scans
 
 2. **Human Review**
+
    - Code logic and implementation
    - Architecture decisions
    - Performance impact
@@ -160,24 +177,24 @@ We use **GitFlow** with the following branches:
 ```typescript
 // ✅ Good - Clear interfaces and types
 interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  createdAt: Date;
+	id: string;
+	name: string;
+	email: string;
+	role: UserRole;
+	createdAt: Date;
 }
 
 // ✅ Good - Descriptive function names
 const validateUserCredentials = async (
-  email: string, 
-  password: string
+	email: string,
+	password: string
 ): Promise<ValidationResult> => {
-  // Implementation
+	// Implementation
 };
 
 // ❌ Bad - Unclear types and names
 const doStuff = (data: any): any => {
-  // Implementation
+	// Implementation
 };
 ```
 
@@ -186,26 +203,21 @@ const doStuff = (data: any): any => {
 ```tsx
 // ✅ Good - Clear component structure
 interface DashboardProps {
-  userRole: UserRole;
-  onLogout: () => void;
+	userRole: UserRole;
+	onLogout: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ 
-  userRole, 
-  onLogout 
-}) => {
-  const [isLoading, setIsLoading] = useState(false);
-  
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Component content */}
-    </div>
-  );
+export const Dashboard: React.FC<DashboardProps> = ({ userRole, onLogout }) => {
+	const [isLoading, setIsLoading] = useState(false);
+
+	return (
+		<div className="min-h-screen bg-gray-50">{/* Component content */}</div>
+	);
 };
 
 // ❌ Bad - Unclear props and structure
 export const Dashboard = (props: any) => {
-  // Implementation
+	// Implementation
 };
 ```
 
@@ -254,69 +266,69 @@ CREATE INDEX idx_users_role ON users(role);
 ## 🧪 Testing Guidelines
 
 ### Testing Strategy
+
 - **Unit Tests**: Individual functions and components
 - **Integration Tests**: API endpoints and database operations
 - **E2E Tests**: Complete user workflows
 
 ### Frontend Testing
+
 ```typescript
 // ✅ Good - Comprehensive component test
-describe('UserDashboard', () => {
-  const mockUser = {
-    id: '1',
-    name: 'Test User',
-    role: 'PESERTA' as UserRole
-  };
+describe("UserDashboard", () => {
+	const mockUser = {
+		id: "1",
+		name: "Test User",
+		role: "PESERTA" as UserRole,
+	};
 
-  it('should render user information correctly', () => {
-    render(<UserDashboard user={mockUser} />);
-    
-    expect(screen.getByText('Test User')).toBeInTheDocument();
-    expect(screen.getByText('PESERTA')).toBeInTheDocument();
-  });
+	it("should render user information correctly", () => {
+		render(<UserDashboard user={mockUser} />);
 
-  it('should handle logout when button clicked', async () => {
-    const mockLogout = jest.fn();
-    render(<UserDashboard user={mockUser} onLogout={mockLogout} />);
-    
-    fireEvent.click(screen.getByText('Logout'));
-    expect(mockLogout).toHaveBeenCalled();
-  });
+		expect(screen.getByText("Test User")).toBeInTheDocument();
+		expect(screen.getByText("PESERTA")).toBeInTheDocument();
+	});
+
+	it("should handle logout when button clicked", async () => {
+		const mockLogout = jest.fn();
+		render(<UserDashboard user={mockUser} onLogout={mockLogout} />);
+
+		fireEvent.click(screen.getByText("Logout"));
+		expect(mockLogout).toHaveBeenCalled();
+	});
 });
 ```
 
 ### Backend Testing
+
 ```typescript
 // ✅ Good - API endpoint test
-describe('POST /api/auth/login', () => {
-  it('should return token for valid credentials', async () => {
-    const response = await request(app)
-      .post('/api/auth/login')
-      .send({
-        email: 'test@example.com',
-        password: 'password123'
-      });
+describe("POST /api/auth/login", () => {
+	it("should return token for valid credentials", async () => {
+		const response = await request(app).post("/api/auth/login").send({
+			email: "test@example.com",
+			password: "password123",
+		});
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data.token).toBeDefined();
-  });
+		expect(response.status).toBe(200);
+		expect(response.body.success).toBe(true);
+		expect(response.body.data.token).toBeDefined();
+	});
 
-  it('should return error for invalid credentials', async () => {
-    const response = await request(app)
-      .post('/api/auth/login')
-      .send({
-        email: 'test@example.com',
-        password: 'wrongpassword'
-      });
+	it("should return error for invalid credentials", async () => {
+		const response = await request(app).post("/api/auth/login").send({
+			email: "test@example.com",
+			password: "wrongpassword",
+		});
 
-    expect(response.status).toBe(401);
-    expect(response.body.success).toBe(false);
-  });
+		expect(response.status).toBe(401);
+		expect(response.body.success).toBe(false);
+	});
 });
 ```
 
 ### Running Tests
+
 ```bash
 # Frontend tests
 cd frontend && npm test
@@ -334,16 +346,17 @@ npm run test:e2e
 ## 📚 Documentation
 
 ### Code Documentation
-```typescript
+
+````typescript
 /**
  * Validates user credentials and returns authentication result
- * 
+ *
  * @param email - User's email address
  * @param password - User's password (plain text)
  * @returns Promise resolving to authentication result with token
  * @throws {ValidationError} When email format is invalid
  * @throws {AuthenticationError} When credentials are incorrect
- * 
+ *
  * @example
  * ```typescript
  * const result = await validateCredentials('user@example.com', 'password123');
@@ -353,14 +366,15 @@ npm run test:e2e
  * ```
  */
 export const validateCredentials = async (
-  email: string,
-  password: string
+	email: string,
+	password: string
 ): Promise<AuthResult> => {
-  // Implementation
+	// Implementation
 };
-```
+````
 
 ### API Documentation
+
 Update OpenAPI/Swagger documentation for any API changes:
 
 ```yaml
@@ -385,12 +399,13 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/User'
+                      $ref: "#/components/schemas/User"
 ```
 
 ## 🐛 Issue Reporting
 
 ### Bug Reports
+
 Use our [Bug Report Template](.github/ISSUE_TEMPLATE/bug_report.md) and include:
 
 - **Clear Description**: What went wrong?
@@ -400,6 +415,7 @@ Use our [Bug Report Template](.github/ISSUE_TEMPLATE/bug_report.md) and include:
 - **Screenshots**: Visual evidence if applicable
 
 ### Feature Requests
+
 Use our [Feature Request Template](.github/ISSUE_TEMPLATE/feature_request.md) and include:
 
 - **Problem Statement**: What problem does this solve?
@@ -410,10 +426,13 @@ Use our [Feature Request Template](.github/ISSUE_TEMPLATE/feature_request.md) an
 ## 🌟 Recognition
 
 ### Contributors Wall
+
 Amazing contributors will be featured in our README.md!
 
 ### Contribution Types
+
 We recognize all types of contributions:
+
 - 💻 Code
 - 📖 Documentation
 - 🐛 Bug reports
@@ -425,11 +444,13 @@ We recognize all types of contributions:
 ## 📞 Community
 
 ### Getting Help
+
 - **GitHub Discussions**: General questions and ideas
 - **Discord**: Real-time chat (coming soon)
 - **Email**: support@simpaskor.com for direct support
 
 ### Communication Guidelines
+
 - Be respectful and constructive
 - Search existing issues before creating new ones
 - Use appropriate channels for different types of communication
@@ -438,12 +459,15 @@ We recognize all types of contributions:
 ## 🎯 Development Priorities
 
 ### Current Focus Areas
+
 1. **Performance Optimization**
+
    - Database query optimization
    - Frontend bundle size reduction
    - API response time improvements
 
 2. **User Experience**
+
    - Mobile responsiveness
    - Accessibility improvements
    - Intuitive navigation
@@ -454,6 +478,7 @@ We recognize all types of contributions:
    - Implement E2E testing
 
 ### Future Roadmap
+
 - Real-time notifications
 - Mobile applications
 - Advanced analytics
