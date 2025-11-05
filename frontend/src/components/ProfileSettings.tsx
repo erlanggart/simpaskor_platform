@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
-import { useNavigate } from "react-router-dom";
-import { showConfirm, showDeleteConfirm } from "../utils/sweetalert";
+
+import { showDeleteConfirm } from "../utils/sweetalert";
 
 interface ProfileFormData {
 	name: string;
@@ -24,8 +24,8 @@ interface PasswordFormData {
 }
 
 export const ProfileSettings: React.FC = () => {
-	const { user, logout } = useAuth();
-	const navigate = useNavigate();
+	const { user } = useAuth();
+
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [activeTab, setActiveTab] = useState<"profile" | "password" | "avatar">(
@@ -213,17 +213,6 @@ export const ProfileSettings: React.FC = () => {
 			);
 		} finally {
 			setIsLoading(false);
-		}
-	};
-
-	const handleLogout = async () => {
-		const result = await showConfirm(
-			"Apakah Anda yakin ingin keluar?",
-			"Logout"
-		);
-		if (result.isConfirmed) {
-			logout();
-			navigate("/login");
 		}
 	};
 
