@@ -9,6 +9,9 @@ import {
 	ArrowUpIcon,
 	ArrowDownIcon,
 	XMarkIcon,
+	MagnifyingGlassIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { api } from "../../utils/api";
@@ -52,6 +55,11 @@ const EventManagement: React.FC = () => {
 	const [events, setEvents] = useState<Event[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [filter, setFilter] = useState<"all" | "pinned" | "unpinned">("all");
+	const [searchTerm, setSearchTerm] = useState("");
+
+	// Pagination states
+	const [currentPage, setCurrentPage] = useState(1);
+	const [itemsPerPage, setItemsPerPage] = useState(5);
 
 	useEffect(() => {
 		fetchEvents();
@@ -166,21 +174,32 @@ const EventManagement: React.FC = () => {
 		const statusConfig: {
 			[key: string]: { label: string; className: string };
 		} = {
-			DRAFT: { label: "Draft", className: "bg-gray-100 text-gray-800" },
+			DRAFT: {
+				label: "Draft",
+				className:
+					"bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300",
+			},
 			PUBLISHED: {
 				label: "Published",
-				className: "bg-green-100 text-green-800",
+				className:
+					"bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400",
 			},
-			CANCELLED: { label: "Cancelled", className: "bg-red-100 text-red-800" },
+			CANCELLED: {
+				label: "Cancelled",
+				className:
+					"bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400",
+			},
 			COMPLETED: {
 				label: "Completed",
-				className: "bg-blue-100 text-blue-800",
+				className:
+					"bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400",
 			},
 		};
 
 		const config = statusConfig[status] || {
 			label: status,
-			className: "bg-gray-100 text-gray-800",
+			className:
+				"bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300",
 		};
 
 		return (
@@ -193,9 +212,19 @@ const EventManagement: React.FC = () => {
 	};
 
 	const filteredEvents = events.filter((event) => {
-		if (filter === "pinned") return event.isPinned;
-		if (filter === "unpinned") return !event.isPinned;
-		return true;
+		const matchesFilter =
+			filter === "all" ||
+			(filter === "pinned" && event.isPinned) ||
+			(filter === "unpinned" && !event.isPinned);
+
+		const matchesSearch =
+			searchTerm === "" ||
+			event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			event.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			event.category?.toLowerCase().includes(searchTerm.toLowerCase());
+
+		return matchesFilter && matchesSearch;
 	});
 
 	const pinnedEvents = filteredEvents
@@ -203,73 +232,161 @@ const EventManagement: React.FC = () => {
 		.sort((a, b) => (a.pinnedOrder || 0) - (b.pinnedOrder || 0));
 	const unpinnedEvents = filteredEvents.filter((e) => !e.isPinned);
 
+	// Pagination for unpinned events only
+	const totalUnpinnedPages = Math.ceil(unpinnedEvents.length / itemsPerPage);
+	const startIndex = (currentPage - 1) * itemsPerPage;
+	const endIndex = startIndex + itemsPerPage;
+	const paginatedUnpinnedEvents = unpinnedEvents.slice(startIndex, endIndex);
+
+	// Reset to page 1 when filters change
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [searchTerm, filter]);
+
+	const handlePageChange = (page: number) => {
+		setCurrentPage(page);
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	};
+
+	const handleItemsPerPageChange = (value: number) => {
+		setItemsPerPage(value);
+		setCurrentPage(1);
+	};
+
+	// Generate page numbers to display
+	const getPageNumbers = () => {
+		const pages: (number | string)[] = [];
+		const maxVisiblePages = 5;
+
+		if (totalUnpinnedPages <= maxVisiblePages) {
+			for (let i = 1; i <= totalUnpinnedPages; i++) {
+				pages.push(i);
+			}
+		} else {
+			pages.push(1);
+
+			if (currentPage > 3) {
+				pages.push("...");
+			}
+
+			const start = Math.max(2, currentPage - 1);
+			const end = Math.min(totalUnpinnedPages - 1, currentPage + 1);
+
+			for (let i = start; i <= end; i++) {
+				pages.push(i);
+			}
+
+			if (currentPage < totalUnpinnedPages - 2) {
+				pages.push("...");
+			}
+
+			pages.push(totalUnpinnedPages);
+		}
+
+		return pages;
+	};
+
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 			{/* Header */}
-			<header className="bg-white shadow">
+			<header className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex justify-between items-center py-6">
 						<div>
-							<h1 className="text-3xl font-bold text-gray-900">
+							<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
 								Event Management
 							</h1>
-							<p className="text-gray-600 mt-1">
+							<p className="text-gray-600 dark:text-gray-400 mt-1">
 								Kelola semua event dan atur carousel landing page
 							</p>
 						</div>
-						<Link
-							to="/admin"
-							className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-						>
-							Kembali ke Dashboard
-						</Link>
 					</div>
 				</div>
 			</header>
 
 			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Filters */}
-				<div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-					<div className="flex items-center gap-4">
-						<span className="text-sm font-medium text-gray-700">Filter:</span>
-						<div className="flex gap-2">
-							<button
-								onClick={() => setFilter("all")}
-								className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-									filter === "all"
-										? "bg-indigo-600 text-white"
-										: "bg-gray-100 text-gray-700 hover:bg-gray-200"
-								}`}
-							>
-								Semua Event ({events.length})
-							</button>
-							<button
-								onClick={() => setFilter("pinned")}
-								className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-									filter === "pinned"
-										? "bg-indigo-600 text-white"
-										: "bg-gray-100 text-gray-700 hover:bg-gray-200"
-								}`}
-							>
-								Pinned ({events.filter((e) => e.isPinned).length})
-							</button>
-							<button
-								onClick={() => setFilter("unpinned")}
-								className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-									filter === "unpinned"
-										? "bg-indigo-600 text-white"
-										: "bg-gray-100 text-gray-700 hover:bg-gray-200"
-								}`}
-							>
-								Unpinned ({events.filter((e) => !e.isPinned).length})
-							</button>
+				{/* Search and Filters */}
+				<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+					<div className="space-y-4">
+						{/* Search Bar */}
+						<div className="relative">
+							<MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+							<input
+								type="text"
+								placeholder="Cari event berdasarkan judul, deskripsi, lokasi, atau kategori..."
+								value={searchTerm}
+								onChange={(e) => setSearchTerm(e.target.value)}
+								className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+							/>
+						</div>
+
+						{/* Filter Tabs */}
+						<div className="flex items-center justify-between">
+							<div className="flex items-center gap-4">
+								<span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+									Filter:
+								</span>
+								<div className="flex gap-2">
+									<button
+										onClick={() => setFilter("all")}
+										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+											filter === "all"
+												? "bg-red-600 dark:bg-red-500 text-white"
+												: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+										}`}
+									>
+										Semua Event ({events.length})
+									</button>
+									<button
+										onClick={() => setFilter("pinned")}
+										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+											filter === "pinned"
+												? "bg-red-600 dark:bg-red-500 text-white"
+												: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+										}`}
+									>
+										Pinned ({events.filter((e) => e.isPinned).length})
+									</button>
+									<button
+										onClick={() => setFilter("unpinned")}
+										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+											filter === "unpinned"
+												? "bg-red-600 dark:bg-red-500 text-white"
+												: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+										}`}
+									>
+										Unpinned ({events.filter((e) => !e.isPinned).length})
+									</button>
+								</div>
+							</div>
+
+							{/* Items per page selector */}
+							{unpinnedEvents.length > 0 && (
+								<div className="flex items-center gap-2">
+									<span className="text-sm text-gray-600 dark:text-gray-400">
+										Per halaman:
+									</span>
+									<select
+										value={itemsPerPage}
+										onChange={(e) =>
+											handleItemsPerPageChange(Number(e.target.value))
+										}
+										className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+									>
+										<option value={5}>5</option>
+										<option value={10}>10</option>
+										<option value={25}>25</option>
+										<option value={50}>50</option>
+									</select>
+								</div>
+							)}
 						</div>
 					</div>
 				</div>
 
 				{loading ? (
 					<div className="flex justify-center items-center py-12">
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 dark:border-red-400"></div>
 					</div>
 				) : (
 					<>
@@ -278,12 +395,12 @@ const EventManagement: React.FC = () => {
 							<div className="mb-8">
 								<div className="flex items-center gap-2 mb-4">
 									<StarIconSolid className="w-6 h-6 text-yellow-500" />
-									<h2 className="text-xl font-bold text-gray-900">
+									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
 										Pinned Events (Tampil di Carousel)
 									</h2>
 								</div>
-								<div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-4">
-									<p className="text-sm text-yellow-800">
+								<div className="bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+									<p className="text-sm text-yellow-800 dark:text-yellow-300">
 										Event yang di-pin akan tampil di carousel landing page.
 										Maksimal 10 event dapat di-pin. Gunakan tombol panah untuk
 										mengatur urutan tampilan.
@@ -310,11 +427,11 @@ const EventManagement: React.FC = () => {
 						{/* Unpinned Events Section */}
 						{unpinnedEvents.length > 0 && (
 							<div>
-								<h2 className="text-xl font-bold text-gray-900 mb-4">
+								<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
 									{filter === "unpinned" ? "Unpinned Events" : "Event Lainnya"}
 								</h2>
 								<div className="space-y-4">
-									{unpinnedEvents.map((event) => (
+									{paginatedUnpinnedEvents.map((event) => (
 										<EventCard
 											key={event.id}
 											event={event}
@@ -328,13 +445,88 @@ const EventManagement: React.FC = () => {
 										/>
 									))}
 								</div>
+
+								{/* Pagination for Unpinned Events */}
+								{totalUnpinnedPages > 1 && (
+									<div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+										<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+											{/* Info */}
+											<div className="text-sm text-gray-600 dark:text-gray-400">
+												Menampilkan{" "}
+												<span className="font-medium text-gray-900 dark:text-white">
+													{startIndex + 1}
+												</span>{" "}
+												-{" "}
+												<span className="font-medium text-gray-900 dark:text-white">
+													{Math.min(endIndex, unpinnedEvents.length)}
+												</span>{" "}
+												dari{" "}
+												<span className="font-medium text-gray-900 dark:text-white">
+													{unpinnedEvents.length}
+												</span>{" "}
+												event
+											</div>
+
+											{/* Pagination Controls */}
+											<div className="flex items-center gap-2">
+												{/* Previous Button */}
+												<button
+													onClick={() => handlePageChange(currentPage - 1)}
+													disabled={currentPage === 1}
+													className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+													aria-label="Previous page"
+												>
+													<ChevronLeftIcon className="w-5 h-5" />
+												</button>
+
+												{/* Page Numbers */}
+												<div className="flex items-center gap-1">
+													{getPageNumbers().map((page, index) => (
+														<React.Fragment key={index}>
+															{page === "..." ? (
+																<span className="px-3 py-2 text-gray-400 dark:text-gray-500">
+																	...
+																</span>
+															) : (
+																<button
+																	onClick={() =>
+																		handlePageChange(page as number)
+																	}
+																	className={`min-w-[40px] px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+																		currentPage === page
+																			? "bg-red-600 dark:bg-red-500 text-white"
+																			: "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+																	}`}
+																>
+																	{page}
+																</button>
+															)}
+														</React.Fragment>
+													))}
+												</div>
+
+												{/* Next Button */}
+												<button
+													onClick={() => handlePageChange(currentPage + 1)}
+													disabled={currentPage === totalUnpinnedPages}
+													className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+													aria-label="Next page"
+												>
+													<ChevronRightIcon className="w-5 h-5" />
+												</button>
+											</div>
+										</div>
+									</div>
+								)}
 							</div>
 						)}
 
 						{filteredEvents.length === 0 && (
 							<div className="text-center py-12">
-								<CalendarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-								<p className="text-gray-500 text-lg">Tidak ada event</p>
+								<CalendarIcon className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+								<p className="text-gray-500 dark:text-gray-400 text-lg">
+									Tidak ada event
+								</p>
 							</div>
 						)}
 					</>
@@ -366,10 +558,10 @@ const EventCard: React.FC<EventCardProps> = ({
 	getStatusBadge,
 }) => {
 	return (
-		<div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm dark:shadow-gray-900/50 hover:shadow-md transition-shadow overflow-hidden">
 			<div className="flex">
 				{/* Thumbnail */}
-				<div className="w-48 h-48 flex-shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
+				<div className="w-48 h-48 flex-shrink-0 bg-gradient-to-br from-red-500 to-orange-600 dark:from-red-600 dark:to-orange-700 relative">
 					{event.thumbnail ? (
 						<img
 							src={getImageUrl(event.thumbnail) || ""}
@@ -398,13 +590,13 @@ const EventCard: React.FC<EventCardProps> = ({
 					<div className="flex justify-between items-start mb-3">
 						<div className="flex-1">
 							<div className="flex items-center gap-2 mb-2">
-								<h3 className="text-lg font-bold text-gray-900">
+								<h3 className="text-lg font-bold text-gray-900 dark:text-white">
 									{event.title}
 								</h3>
 								{getStatusBadge(event.status)}
 							</div>
 							{event.category && (
-								<span className="inline-block px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded mb-2">
+								<span className="inline-block px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 text-xs font-medium rounded mb-2">
 									{event.category}
 								</span>
 							)}
@@ -412,20 +604,20 @@ const EventCard: React.FC<EventCardProps> = ({
 					</div>
 
 					{event.description && (
-						<p className="text-gray-600 text-sm mb-3 line-clamp-2">
+						<p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
 							{event.description}
 						</p>
 					)}
 
 					<div className="grid grid-cols-2 gap-3 mb-4">
-						<div className="flex items-center text-sm text-gray-600">
+						<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
 							<CalendarIcon className="w-4 h-4 mr-2 flex-shrink-0" />
 							<span className="line-clamp-1">
 								{formatDate(event.startDate)}
 							</span>
 						</div>
 						{event.location && (
-							<div className="flex items-center text-sm text-gray-600">
+							<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
 								<MapPinIcon className="w-4 h-4 mr-2 flex-shrink-0" />
 								<span className="line-clamp-1">{event.location}</span>
 							</div>
@@ -440,7 +632,7 @@ const EventCard: React.FC<EventCardProps> = ({
 									{event.schoolCategoryLimits.map((limit) => (
 										<div
 											key={limit.id}
-											className="flex items-center text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded"
+											className="flex items-center text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded"
 										>
 											<UsersIcon className="w-3 h-3 mr-1" />
 											<span>
@@ -455,7 +647,7 @@ const EventCard: React.FC<EventCardProps> = ({
 							</div>
 						)}
 
-					<div className="text-xs text-gray-500 mb-4">
+					<div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
 						Dibuat oleh: {event.createdBy.name} ({event.createdBy.email})
 					</div>
 
@@ -466,8 +658,8 @@ const EventCard: React.FC<EventCardProps> = ({
 							onClick={() => onTogglePin(event.id, event.isPinned)}
 							className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
 								event.isPinned
-									? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
+									? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+									: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
 							}`}
 						>
 							{event.isPinned ? (
@@ -491,8 +683,8 @@ const EventCard: React.FC<EventCardProps> = ({
 									disabled={!canMoveUp}
 									className={`p-2 rounded-lg transition-colors ${
 										canMoveUp
-											? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-											: "bg-gray-100 text-gray-400 cursor-not-allowed"
+											? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+											: "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
 									}`}
 									title="Pindah ke atas"
 								>
@@ -503,8 +695,8 @@ const EventCard: React.FC<EventCardProps> = ({
 									disabled={!canMoveDown}
 									className={`p-2 rounded-lg transition-colors ${
 										canMoveDown
-											? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-											: "bg-gray-100 text-gray-400 cursor-not-allowed"
+											? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+											: "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
 									}`}
 									title="Pindah ke bawah"
 								>
@@ -517,7 +709,7 @@ const EventCard: React.FC<EventCardProps> = ({
 						<Link
 							to={`/events/${event.slug || event.id}`}
 							target="_blank"
-							className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+							className="flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
 						>
 							<EyeIcon className="w-4 h-4" />
 							Lihat Event

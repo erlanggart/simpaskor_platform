@@ -230,37 +230,6 @@ export const ProfileSettings: React.FC = () => {
 	return (
 		<div className="min-h-screen bg-gray-50 py-8 px-4">
 			<div className="max-w-4xl mx-auto">
-				{/* Header */}
-				<div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-4">
-							<div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-600">
-								{user?.name
-									?.split(" ")
-									.map((n) => n[0])
-									.join("")
-									.substring(0, 2)
-									.toUpperCase()}
-							</div>
-							<div>
-								<h1 className="text-2xl font-bold text-gray-900">
-									{user?.name}
-								</h1>
-								<p className="text-gray-500">{user?.email}</p>
-								<span className="inline-block mt-1 px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-									{user?.role}
-								</span>
-							</div>
-						</div>
-						<button
-							onClick={handleLogout}
-							className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-						>
-							Logout
-						</button>
-					</div>
-				</div>
-
 				{/* Message Alert */}
 				{message && (
 					<div

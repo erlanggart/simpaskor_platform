@@ -19,14 +19,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 		<div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors">
 			{/* Navbar */}
 			{showNavbar && (
-				<nav className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700 transition-colors">
+				<nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 transition-colors">
 					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 						<div className="flex justify-between items-center h-16">
 							{/* Logo */}
 							<Logo size="sm" showText variant="auto" />
 
 							{/* Navigation Links */}
-							<div className="hidden md:flex items-center space-x-8">
+							{/* <div className="hidden md:flex items-center space-x-8">
 								<Link
 									to="/"
 									className="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium transition-colors"
@@ -51,7 +51,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 								>
 									Kontak
 								</Link>
-							</div>
+							</div> */}
 
 							{/* Auth Buttons & Theme Toggle */}
 							<div className="flex items-center gap-3">
@@ -60,7 +60,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 								{isAuthenticated ? (
 									<Link
 										to={getDashboardPath(user?.role)}
-										className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors font-medium shadow-lg hover:shadow-blue-500/50 dark:hover:shadow-indigo-500/50"
+										className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 transition-colors font-medium shadow-lg hover:shadow-red-500/50 dark:hover:shadow-red-500/50"
 									>
 										Dashboard
 									</Link>
@@ -68,13 +68,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 									<>
 										<Link
 											to="/login"
-											className="px-4 py-2 text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium transition-colors"
+											className="px-4 py-2 text-gray-700 hover:text-red-600 dark:text-gray-300 dark:hover:text-red-400 font-medium transition-colors"
 										>
 											Masuk
 										</Link>
 										<Link
 											to="/register"
-											className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors font-medium shadow-lg hover:shadow-blue-500/50 dark:hover:shadow-indigo-500/50"
+											className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 transition-colors font-medium shadow-lg hover:shadow-red-500/50 dark:hover:shadow-red-500/50"
 										>
 											Daftar
 										</Link>

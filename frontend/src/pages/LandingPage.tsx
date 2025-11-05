@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import {
-	BannerCarousel,
-	SearchBar,
-	EventGrid,
-	LoadingSpinner,
-	ErrorMessage,
-} from "../components/landing";
+import BannerCarousel from "../components/landing/BannerCarousel";
+import Statistics from "../components/landing/Statistics";
+import SearchBar from "../components/landing/SearchBar";
+import EventGrid from "../components/landing/EventGrid";
+import LoadingSpinner from "../components/landing/LoadingSpinner";
+import ErrorMessage from "../components/landing/ErrorMessage";
 import { useLandingData } from "../hooks/useLandingData";
 
 const LandingPage: React.FC = () => {
@@ -36,8 +35,10 @@ const LandingPage: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
 			<BannerCarousel events={pinnedEvents} />
+
+			<Statistics events={events} />
 
 			<SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 

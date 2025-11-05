@@ -171,23 +171,23 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 	};
 
 	return (
-		<section className="relative bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 dark:bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden py-16 md:py-20 transition-colors">
+		<section className="relative  overflow-hidden py-16 md:py-20 transition-colors">
 			{/* Background decoration */}
-			<div className="absolute inset-0 overflow-hidden">
-				<div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-400 dark:bg-blue-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse"></div>
-				<div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-400 dark:bg-indigo-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse delay-1000"></div>
-				<div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-300 dark:bg-purple-950 rounded-full mix-blend-overlay filter blur-3xl opacity-20 dark:opacity-15"></div>
-			</div>
+			{/* <div className="absolute inset-0 overflow-hidden">
+				<div className="absolute -top-40 -right-40 w-96 h-96 bg-red-400 dark:bg-blue-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse"></div>
+				<div className="absolute -bottom-40 -left-40 w-96 h-96 bg-red-400 dark:bg-indigo-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse delay-1000"></div>
+				<div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-300 dark:bg-purple-950 rounded-full mix-blend-overlay filter blur-3xl opacity-20 dark:opacity-15"></div>
+			</div> */}
 
 			<div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div className="text-center mb-8">
-					<h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
+					<h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-red-500">
 						SIMPASKOR
 					</h2>
 					<p className="text-gray-600 dark:text-gray-400 mb-2">
 						Sistem Paskibra Skor
 					</p>
-					<h2 className="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+					<h2 className="text-3xl md:text-4xl font-bold text-red-600 dark:text-white mb-2">
 						Semakin Maju Dunia Baris Kita !
 					</h2>
 				</div>

@@ -43,6 +43,14 @@ interface EventCardProps {
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event }) => {
+	const isRegistrationOpen = () => {
+		const now = new Date();
+		const deadline = event.registrationDeadline
+			? new Date(event.registrationDeadline)
+			: new Date(event.startDate);
+		return deadline > now && event.status === "PUBLISHED" && !isEventFull();
+	};
+
 	const formatDate = (dateString: string) => {
 		const date = new Date(dateString);
 		return date.toLocaleDateString("id-ID", {
@@ -82,7 +90,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 	};
 
 	return (
-		<div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden">
+		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden">
 			{/* Event Thumbnail - 4:5 Aspect Ratio */}
 			<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-indigo-500 to-purple-600">
 				{event.thumbnail ? (
@@ -100,13 +108,18 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 					</div>
 				)}
 				{event.featured && (
-					<div className="absolute top-4 right-4 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+					<div className="absolute top-4 right-4 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
 						Featured
 					</div>
 				)}
 				{isEventFull() && (
-					<div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+					<div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
 						Penuh
+					</div>
+				)}
+				{isRegistrationOpen() && (
+					<div className="absolute bottom-4 right-4 bg-green-500 dark:bg-green-600 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
+						Pendaftaran Dibuka
 					</div>
 				)}
 			</div>
@@ -115,30 +128,30 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 			<div className="p-6">
 				{/* Category Badge */}
 				{event.category && (
-					<span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-800 text-sm font-medium rounded-full mb-3">
+					<span className="inline-block px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200 text-sm font-medium rounded-full mb-3">
 						{event.category}
 					</span>
 				)}
 
-				<h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
+				<h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 line-clamp-2">
 					{event.title}
 				</h3>
 
 				{event.description && (
-					<p className="text-gray-600 text-sm mb-4 line-clamp-2">
+					<p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2">
 						{event.description}
 					</p>
 				)}
 
 				{/* Event Info */}
 				<div className="space-y-2 mb-4">
-					<div className="flex items-center text-sm text-gray-600">
+					<div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
 						<CalendarIcon className="w-4 h-4 mr-2 flex-shrink-0" />
 						<span className="line-clamp-1">{formatDate(event.startDate)}</span>
 					</div>
 
 					{event.location && (
-						<div className="flex items-center text-sm text-gray-600">
+						<div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
 							<MapPinIcon className="w-4 h-4 mr-2 flex-shrink-0" />
 							<span className="line-clamp-1">
 								{event.venue ? `${event.venue}, ` : ""}
@@ -154,7 +167,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 							{event.schoolCategoryLimits.map((limit) => (
 								<div
 									key={limit.id}
-									className="flex items-start text-sm text-gray-600"
+									className="flex items-start text-sm text-gray-600 dark:text-gray-300"
 								>
 									<UsersIcon className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
 									<span className="line-clamp-1">
@@ -167,13 +180,13 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 							))}
 						</div>
 					) : (
-						<div className="flex items-center text-sm text-gray-600">
+						<div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
 							<UsersIcon className="w-4 h-4 mr-2 flex-shrink-0" />
 							<span>
 								{event.currentParticipants} / {event.maxParticipants || "∞"}{" "}
 								peserta
 								{event.maxParticipants && (
-									<span className="ml-2 text-gray-500">
+									<span className="ml-2 text-gray-500 dark:text-gray-400">
 										({getAvailableSpots()} slot tersisa)
 									</span>
 								)}
@@ -182,7 +195,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 					)}
 
 					{event.registrationDeadline && (
-						<div className="flex items-center text-sm text-gray-600">
+						<div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
 							<ClockIcon className="w-4 h-4 mr-2 flex-shrink-0" />
 							<span className="line-clamp-1">
 								Daftar hingga: {formatDate(event.registrationDeadline)}
@@ -192,10 +205,12 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 				</div>
 
 				{/* Price and Action */}
-				<div className="flex justify-between items-center pt-4 border-t border-gray-200">
+				<div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
 					<div>
-						<p className="text-sm text-gray-500">Biaya Pendaftaran</p>
-						<p className="text-lg font-bold text-indigo-600">
+						<p className="text-sm text-gray-500 dark:text-gray-400">
+							Biaya Pendaftaran
+						</p>
+						<p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
 							{formatCurrency(event.registrationFee)}
 						</p>
 					</div>
@@ -203,8 +218,8 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 						to={`/events/${event.slug || event.id}`}
 						className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
 							isEventFull()
-								? "bg-gray-300 text-gray-500 cursor-not-allowed"
-								: "bg-indigo-600 hover:bg-indigo-700 text-white"
+								? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+								: "bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white"
 						}`}
 					>
 						{isEventFull() ? "Penuh" : "Detail"}

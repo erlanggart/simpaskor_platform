@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { AuthUtils } from "../utils/auth";
 import { UserRole, UserStatus } from "@prisma/client";
 import { z } from "zod";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -22,6 +23,15 @@ const registerSchema = z.object({
 const loginSchema = z.object({
 	email: z.string().email("Invalid email format"),
 	password: z.string().min(1, "Password is required"),
+});
+
+const forgotPasswordSchema = z.object({
+	email: z.string().email("Invalid email format"),
+});
+
+const resetPasswordSchema = z.object({
+	token: z.string().min(1, "Token is required"),
+	newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
 
 // Register endpoint
@@ -186,6 +196,137 @@ router.post(
 		res.json({
 			message: "Logout successful",
 		});
+	}
+);
+
+// Forgot Password - Request reset token
+router.post(
+	"/forgot-password",
+	async (req: Request, res: Response): Promise<void | Response> => {
+		try {
+			const validatedData = forgotPasswordSchema.parse(req.body);
+
+			// Find user by email
+			const user = await prisma.user.findUnique({
+				where: { email: validatedData.email },
+			});
+
+			// Always return success to prevent email enumeration
+			if (!user) {
+				return res.json({
+					message: "If the email exists, a reset link has been sent",
+				});
+			}
+
+			// Generate reset token
+			const resetToken = crypto.randomBytes(32).toString("hex");
+			const resetTokenHash = crypto
+				.createHash("sha256")
+				.update(resetToken)
+				.digest("hex");
+			const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+			// Save token to user
+			await prisma.user.update({
+				where: { id: user.id },
+				data: {
+					resetToken: resetTokenHash,
+					resetTokenExpiry: resetTokenExpiry,
+				},
+			});
+
+			// In production, send email here
+			// For now, we'll return the token in response (ONLY FOR DEVELOPMENT)
+			console.log("Reset token for", user.email, ":", resetToken);
+			console.log(
+				"Reset link: http://localhost:5173/reset-password?token=" + resetToken
+			);
+
+			res.json({
+				message: "If the email exists, a reset link has been sent",
+				// Remove this in production:
+				devToken: resetToken,
+				devLink: `http://localhost:5173/reset-password?token=${resetToken}`,
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+
+			console.error("Forgot password error:", error);
+			res.status(500).json({
+				error: "Request failed",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Reset Password - Verify token and update password
+router.post(
+	"/reset-password",
+	async (req: Request, res: Response): Promise<void | Response> => {
+		try {
+			const validatedData = resetPasswordSchema.parse(req.body);
+
+			// Hash the provided token to compare with stored hash
+			const resetTokenHash = crypto
+				.createHash("sha256")
+				.update(validatedData.token)
+				.digest("hex");
+
+			// Find user with valid token
+			const user = await prisma.user.findFirst({
+				where: {
+					resetToken: resetTokenHash,
+					resetTokenExpiry: {
+						gte: new Date(), // Token not expired
+					},
+				},
+			});
+
+			if (!user) {
+				return res.status(400).json({
+					error: "Invalid or expired reset token",
+					message: "Please request a new password reset link",
+				});
+			}
+
+			// Hash new password
+			const passwordHash = await AuthUtils.hashPassword(
+				validatedData.newPassword
+			);
+
+			// Update password and clear reset token
+			await prisma.user.update({
+				where: { id: user.id },
+				data: {
+					passwordHash: passwordHash,
+					resetToken: null,
+					resetTokenExpiry: null,
+				},
+			});
+
+			res.json({
+				message: "Password successfully reset",
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+
+			console.error("Reset password error:", error);
+			res.status(500).json({
+				error: "Reset failed",
+				message: "Internal server error",
+			});
+		}
 	}
 );
 

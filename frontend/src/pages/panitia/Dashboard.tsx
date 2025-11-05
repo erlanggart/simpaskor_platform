@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
 	PlusIcon,
 	CalendarIcon,
@@ -50,16 +50,35 @@ interface Coupon {
 }
 
 const PanitiaDashboard: React.FC = () => {
+	const navigate = useNavigate();
 	const [events, setEvents] = useState<Event[]>([]);
 	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState<"events" | "coupons">("events");
 	const [user, setUser] = useState<any>(null);
+	const [checkingAssignment, setCheckingAssignment] = useState(true);
 
 	useEffect(() => {
 		fetchData();
 		loadUser();
+		checkActiveAssignment();
 	}, []);
+
+	const checkActiveAssignment = async () => {
+		try {
+			const response = await api.get("/api/panitia-assignment/current");
+			if (response.data && response.data.event) {
+				// Redirect to manage event if there's active assignment
+				navigate(`/panitia/events/${response.data.event.id}/manage`, {
+					replace: true,
+				});
+			}
+		} catch (error) {
+			// No active assignment, stay on dashboard
+		} finally {
+			setCheckingAssignment(false);
+		}
+	};
 
 	const loadUser = () => {
 		const userData = localStorage.getItem("user");
@@ -129,7 +148,8 @@ const PanitiaDashboard: React.FC = () => {
 			</span>
 		);
 	};
-	if (loading) {
+
+	if (loading || checkingAssignment) {
 		return (
 			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
 				<div className="text-center">

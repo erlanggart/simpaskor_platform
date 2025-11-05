@@ -11,6 +11,7 @@ import userRoutes from "./routes/users";
 import eventRoutes from "./routes/events";
 import couponRoutes from "./routes/coupons";
 import assessmentCategoryRoutes from "./routes/assessmentCategories";
+import panitiaAssignmentRoutes from "./routes/panitiaAssignment";
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.get("/", (req, res) => {
 			events: "/api/events",
 			coupons: "/api/coupons",
 			assessmentCategories: "/api/assessment-categories",
+			panitiaAssignment: "/api/panitia-assignment",
 			health: "/api/health",
 		},
 	});
@@ -77,6 +79,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/assessment-categories", assessmentCategoryRoutes);
+app.use("/api/panitia-assignment", panitiaAssignmentRoutes);
 
 // Error handling middleware
 app.use(

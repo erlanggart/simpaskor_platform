@@ -7,12 +7,15 @@ import { MainLayout, AuthLayout, DashboardLayout } from "./layouts";
 
 // Public Pages
 import LandingPage from "./pages/LandingPage";
+import EventDetail from "./pages/EventDetail";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 
 // Auth Pages
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 // Dashboard Pages
 import Dashboard from "./pages/Dashboard";
@@ -27,6 +30,7 @@ import EventManagement from "./pages/admin/EventManagement";
 import PanitiaDashboard from "./pages/panitia/Dashboard";
 import CreateEventForm from "./pages/panitia/CreateEvent";
 import EditEventForm from "./pages/panitia/EditEvent";
+import ManageEvent from "./pages/panitia/ManageEvent";
 import PesertaDashboard from "./pages/peserta/Dashboard";
 import JuriDashboard from "./pages/juri/Dashboard";
 import PelatihDashboard from "./pages/pelatih/Dashboard";
@@ -41,15 +45,16 @@ function App() {
 					{/* Public Routes - Main Layout */}
 					<Route element={<MainLayout />}>
 						<Route index element={<LandingPage />} />
+						<Route path="events/:id" element={<EventDetail />} />
 						<Route path="unauthorized" element={<Unauthorized />} />
 					</Route>
-
 					{/* Auth Routes - Auth Layout */}
 					<Route element={<AuthLayout />}>
 						<Route path="login" element={<Login />} />
 						<Route path="register" element={<Register />} />
-					</Route>
-
+						<Route path="forgot-password" element={<ForgotPassword />} />
+						<Route path="reset-password" element={<ResetPassword />} />
+					</Route>{" "}
 					{/* SuperAdmin Routes - Dashboard Layout */}
 					<Route
 						element={
@@ -70,9 +75,9 @@ function App() {
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
-
-					{/* Panitia Routes - Standalone Dashboard (No Layout) */}
+					{/* Panitia Routes - Mixed Layout */}
 					<Route path="panitia">
+						{/* Standalone pages without layout */}
 						<Route
 							path="dashboard"
 							element={
@@ -97,7 +102,8 @@ function App() {
 								</ProtectedRoute>
 							}
 						/>
-						{/* Profile with Dashboard Layout */}
+
+						{/* Pages with Dashboard Layout */}
 						<Route
 							element={
 								<ProtectedRoute allowedRoles={["PANITIA"]}>
@@ -105,10 +111,10 @@ function App() {
 								</ProtectedRoute>
 							}
 						>
+							<Route path="events/:id/manage" element={<ManageEvent />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
-
 					{/* Peserta Routes - Dashboard Layout */}
 					<Route
 						element={
@@ -122,7 +128,6 @@ function App() {
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
-
 					{/* Juri Routes - Dashboard Layout */}
 					<Route
 						element={
@@ -136,7 +141,6 @@ function App() {
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
-
 					{/* Pelatih Routes - Dashboard Layout */}
 					<Route
 						element={
@@ -150,7 +154,6 @@ function App() {
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
-
 					{/* Legacy Dashboard Route - Redirect based on role */}
 					<Route
 						path="/dashboard"
@@ -160,7 +163,6 @@ function App() {
 							</ProtectedRoute>
 						}
 					/>
-
 					{/* Global Profile Route (fallback for legacy) */}
 					<Route
 						path="/profile"
@@ -172,7 +174,6 @@ function App() {
 					>
 						<Route index element={<Profile />} />
 					</Route>
-
 					{/* Catch-all Not Found */}
 					<Route path="*" element={<NotFound />} />
 				</Routes>
