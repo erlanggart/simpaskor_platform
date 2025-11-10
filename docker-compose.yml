@@ -26,12 +26,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: simpaskor_backend
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: postgresql://simpaskor_user:simpaskor_password@database:5432/simpaskor_db
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
       NODE_ENV: development
-      PORT: 3001
-      FRONTEND_URL: http://localhost:5173
     ports:
       - "3001:3001"
     volumes:
@@ -52,8 +51,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: simpaskor_frontend
-    environment:
-      VITE_API_URL: http://localhost:3001
+    env_file:
+      - ./frontend/.env
     ports:
       - "5173:5173"
     volumes:

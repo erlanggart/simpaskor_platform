@@ -43,11 +43,6 @@ export const DashboardLayout: React.FC = () => {
 	const [showUserMenu, setShowUserMenu] = useState(false);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
 	const userButtonRef = useRef<HTMLButtonElement>(null);
-	const [dropdownPosition, setDropdownPosition] = useState({
-		bottom: 0,
-		left: 0,
-		width: 0,
-	});
 
 	// Check for active event assignment (for PANITIA role)
 	useEffect(() => {
@@ -55,18 +50,6 @@ export const DashboardLayout: React.FC = () => {
 			checkActiveEvent();
 		}
 	}, [user]);
-
-	// Update dropdown position when menu opens
-	useEffect(() => {
-		if (showUserMenu && userButtonRef.current) {
-			const rect = userButtonRef.current.getBoundingClientRect();
-			setDropdownPosition({
-				bottom: window.innerHeight - rect.top + 8, // 8px margin
-				left: rect.left,
-				width: sidebarCollapsed ? 240 : rect.width,
-			});
-		}
-	}, [showUserMenu, sidebarCollapsed]);
 
 	// Redirect to manage event if panitia is assigned
 	useEffect(() => {
@@ -81,7 +64,7 @@ export const DashboardLayout: React.FC = () => {
 
 	const checkActiveEvent = async () => {
 		try {
-			const response = await api.get("/api/panitia-assignment/current");
+			const response = await api.get("/panitia-assignment/current");
 			if (response.data && response.data.event) {
 				setActiveEvent(response.data);
 			}
@@ -105,7 +88,7 @@ export const DashboardLayout: React.FC = () => {
 
 		if (result.isConfirmed) {
 			try {
-				await api.post("/api/panitia-assignment/leave");
+				await api.post("/panitia-assignment/leave");
 				setActiveEvent(null);
 
 				await Swal.fire({
@@ -162,7 +145,7 @@ export const DashboardLayout: React.FC = () => {
 						{
 							name: "Peserta",
 							icon: UsersIcon,
-							path: `/panitia/events/${activeEvent.event.id}/participants`,
+							path: `/panitia/events/${activeEvent.event.id}/peserta`,
 						},
 						{
 							name: "Juri",
@@ -360,20 +343,17 @@ export const DashboardLayout: React.FC = () => {
 								)}
 							</button>
 
-							{/* User Dropdown */}
+							{/* Desktop User Dropdown */}
 							{showUserMenu && (
 								<>
 									<div
-										className="fixed inset-0 z-40"
+										className="fixed inset-0 z-40 hidden md:block"
 										onClick={() => setShowUserMenu(false)}
 									/>
 									<div
-										className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50"
+										className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50 hidden md:block"
 										style={{
-											bottom: `${dropdownPosition.bottom}px`,
-											left: `${dropdownPosition.left}px`,
-											width: `${dropdownPosition.width}px`,
-											minWidth: "240px",
+											minWidth: sidebarCollapsed ? "240px" : "auto",
 										}}
 									>
 										<Link
@@ -578,17 +558,101 @@ export const DashboardLayout: React.FC = () => {
 					</button>
 					<div className="flex-1 px-4 flex items-center justify-between">
 						<Logo size="sm" />
-						<button
-							onClick={() => setShowUserMenu(!showUserMenu)}
-							className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-xs"
-						>
-							{user?.name
-								?.split(" ")
-								.map((n) => n[0])
-								.join("")
-								.substring(0, 2)
-								.toUpperCase()}
-						</button>
+						<div className="relative">
+							<button
+								ref={userButtonRef}
+								onClick={() => setShowUserMenu(!showUserMenu)}
+								className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-xs"
+							>
+								{user?.name
+									?.split(" ")
+									.map((n) => n[0])
+									.join("")
+									.substring(0, 2)
+									.toUpperCase()}
+							</button>
+
+							{/* Mobile User Dropdown */}
+							{showUserMenu && (
+								<>
+									<div
+										className="fixed inset-0 z-40 md:hidden"
+										onClick={() => setShowUserMenu(false)}
+									/>
+									<div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50 md:hidden">
+										<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+											<div className="text-sm font-medium text-gray-900 dark:text-white">
+												{user?.name}
+											</div>
+											<div className="text-xs text-gray-500 dark:text-gray-400">
+												{user?.role}
+											</div>
+										</div>
+										<Link
+											to="/profile"
+											className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+											onClick={() => setShowUserMenu(false)}
+										>
+											<UserCircleIcon className="w-5 h-5" />
+											Profil Saya
+										</Link>
+										<button
+											onClick={() => {
+												toggleTheme();
+												setShowUserMenu(false);
+											}}
+											className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+										>
+											{theme === "dark" ? (
+												<>
+													<SunIcon className="w-5 h-5" />
+													Mode Terang
+												</>
+											) : (
+												<>
+													<MoonIcon className="w-5 h-5" />
+													Mode Gelap
+												</>
+											)}
+										</button>
+										{activeEvent && (
+											<>
+												<hr className="my-1 border-gray-200 dark:border-gray-700" />
+												<div className="px-4 py-2">
+													<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+														Mengelola Event:
+													</div>
+													<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+														{activeEvent.event.title}
+													</div>
+													<button
+														onClick={() => {
+															setShowUserMenu(false);
+															handleLeaveEvent();
+														}}
+														className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
+													>
+														<ArrowRightOnRectangleIcon className="w-4 h-4" />
+														Keluar Event
+													</button>
+												</div>
+											</>
+										)}
+										<hr className="my-1 border-gray-200 dark:border-gray-700" />
+										<button
+											onClick={() => {
+												setShowUserMenu(false);
+												handleLogout();
+											}}
+											className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+										>
+											<ArrowRightOnRectangleIcon className="w-5 h-5" />
+											Keluar
+										</button>
+									</div>
+								</>
+							)}
+						</div>
 					</div>
 				</div>
 

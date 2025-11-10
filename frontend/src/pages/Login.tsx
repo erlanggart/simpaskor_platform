@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 const loginSchema = z.object({
 	email: z.string().email("Format email tidak valid"),
@@ -16,6 +17,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 const Login = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [showPassword, setShowPassword] = useState(false);
 	const { login } = useAuth();
 	const navigate = useNavigate();
 
@@ -41,7 +43,7 @@ const Login = () => {
 			// If user is PANITIA, check for active assignment
 			if (user && user.role === "PANITIA") {
 				try {
-					const response = await api.get("/api/panitia-assignment/current");
+					const response = await api.get("/panitia-assignment/current");
 
 					if (response.data && response.data.event) {
 						// Redirect to event management
@@ -116,17 +118,31 @@ const Login = () => {
 						>
 							Password
 						</label>
-						<input
-							{...register("password")}
-							type="password"
-							id="password"
-							className={`block w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border ${
-								errors.password
-									? "border-red-300 dark:border-red-800"
-									: "border-gray-300 dark:border-gray-600"
-							} text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 focus:border-transparent transition-colors sm:text-sm`}
-							placeholder="••••••••"
-						/>
+						<div className="relative">
+							<input
+								{...register("password")}
+								type={showPassword ? "text" : "password"}
+								id="password"
+								className={`block w-full px-4 py-2.5 pr-12 bg-gray-50 dark:bg-gray-900/50 border ${
+									errors.password
+										? "border-red-300 dark:border-red-800"
+										: "border-gray-300 dark:border-gray-600"
+								} text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 focus:border-transparent transition-colors sm:text-sm`}
+								placeholder="••••••••"
+							/>
+							<button
+								type="button"
+								onClick={() => setShowPassword(!showPassword)}
+								className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+								tabIndex={-1}
+							>
+								{showPassword ? (
+									<EyeSlashIcon className="h-5 w-5" />
+								) : (
+									<EyeIcon className="h-5 w-5" />
+								)}
+							</button>
+						</div>
 						{errors.password && (
 							<p className="mt-1.5 text-sm text-red-600 dark:text-red-400">
 								{errors.password.message}

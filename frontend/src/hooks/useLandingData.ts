@@ -33,8 +33,8 @@ export const useLandingData = (): UseLandingDataReturn => {
 		try {
 			setLoading(true);
 			const [pinnedRes, eventsRes] = await Promise.all([
-				api.get("api/events/pinned/carousel"),
-				api.get("api/events?limit=12"),
+				api.get("/events/pinned/carousel"),
+				api.get("/events?limit=12"),
 			]);
 
 			setPinnedEvents(pinnedRes.data);

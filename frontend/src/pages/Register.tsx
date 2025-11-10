@@ -4,6 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 const registerSchema = z.object({
 	email: z.string().email("Format email tidak valid"),
@@ -19,8 +21,10 @@ type RegisterForm = z.infer<typeof registerSchema>;
 const Register = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [showPassword, setShowPassword] = useState(false);
 	const { register: registerUser } = useAuth();
 	const navigate = useNavigate();
+	const { executeRecaptcha } = useGoogleReCaptcha();
 
 	const {
 		register,
@@ -38,12 +42,41 @@ const Register = () => {
 			setIsLoading(true);
 			setError(null);
 
-			await registerUser(data);
+			// Check if reCAPTCHA is available
+			if (!executeRecaptcha) {
+				setError("reCAPTCHA tidak tersedia. Silakan refresh halaman.");
+				setIsLoading(false);
+				return;
+			}
+
+			// Execute reCAPTCHA and get token
+			const recaptchaToken = await executeRecaptcha("register");
+
+			// Add reCAPTCHA token to registration data
+			const registrationData = {
+				...data,
+				recaptchaToken,
+			};
+
+			await registerUser(registrationData);
 			navigate("/dashboard");
 		} catch (err: any) {
-			setError(
-				err.response?.data?.message || "Registrasi gagal. Silakan coba lagi."
-			);
+			const errorMessage = err.response?.data?.message;
+
+			// Handle specific error cases
+			if (err.response?.status === 429) {
+				setError(
+					errorMessage ||
+						"Terlalu banyak percobaan registrasi. Silakan coba lagi setelah 1 jam."
+				);
+			} else if (errorMessage?.includes("reCAPTCHA")) {
+				setError(
+					errorMessage ||
+						"Verifikasi keamanan gagal. Silakan refresh halaman dan coba lagi."
+				);
+			} else {
+				setError(errorMessage || "Registrasi gagal. Silakan coba lagi.");
+			}
 		} finally {
 			setIsLoading(false);
 		}
@@ -129,17 +162,31 @@ const Register = () => {
 							>
 								Password
 							</label>
-							<input
-								{...register("password")}
-								type="password"
-								id="password"
-								className={`block w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border ${
-									errors.password
-										? "border-red-300 dark:border-red-800"
-										: "border-gray-300 dark:border-gray-600"
-								} text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 focus:border-transparent transition-colors sm:text-sm`}
-								placeholder="Minimal 8 karakter"
-							/>
+							<div className="relative">
+								<input
+									{...register("password")}
+									type={showPassword ? "text" : "password"}
+									id="password"
+									className={`block w-full px-4 py-2.5 pr-12 bg-gray-50 dark:bg-gray-900/50 border ${
+										errors.password
+											? "border-red-300 dark:border-red-800"
+											: "border-gray-300 dark:border-gray-600"
+									} text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-600 focus:border-transparent transition-colors sm:text-sm`}
+									placeholder="Minimal 8 karakter"
+								/>
+								<button
+									type="button"
+									onClick={() => setShowPassword(!showPassword)}
+									className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+									tabIndex={-1}
+								>
+									{showPassword ? (
+										<EyeSlashIcon className="h-5 w-5" />
+									) : (
+										<EyeIcon className="h-5 w-5" />
+									)}
+								</button>
+							</div>
 							{errors.password && (
 								<p className="mt-1.5 text-sm text-red-600 dark:text-red-400">
 									{errors.password.message}
@@ -251,6 +298,29 @@ const Register = () => {
 							"Daftar"
 						)}
 					</button>
+				</div>
+
+				{/* reCAPTCHA Badge */}
+				<div className="text-center text-xs text-gray-500 dark:text-gray-400 pt-2">
+					This site is protected by reCAPTCHA and the Google{" "}
+					<a
+						href="https://policies.google.com/privacy"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-red-600 dark:text-red-400 hover:underline"
+					>
+						Privacy Policy
+					</a>{" "}
+					and{" "}
+					<a
+						href="https://policies.google.com/terms"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-red-600 dark:text-red-400 hover:underline"
+					>
+						Terms of Service
+					</a>{" "}
+					apply.
 				</div>
 
 				<div className="text-center pt-1">

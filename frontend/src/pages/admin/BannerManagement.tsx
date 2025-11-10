@@ -73,7 +73,7 @@ const BannerManagement: React.FC = () => {
 	const fetchBanners = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get("api/banners/all");
+			const response = await api.get("/banners/all");
 			setBanners(response.data);
 		} catch (error) {
 			console.error("Error fetching banners:", error);
@@ -120,7 +120,7 @@ const BannerManagement: React.FC = () => {
 		formData.append("image", file);
 
 		try {
-			const response = await api.post("api/banners/upload", formData, {
+			const response = await api.post("/banners/upload", formData, {
 				headers: {
 					"Content-Type": "multipart/form-data",
 				},
@@ -232,7 +232,7 @@ const BannerManagement: React.FC = () => {
 				await api.patch(`api/banners/${editingBanner.id}`, submitData);
 				showSuccess("Banner berhasil diperbarui!");
 			} else {
-				await api.post("api/banners", submitData);
+				await api.post("/banners", submitData);
 				showSuccess("Banner berhasil dibuat!");
 			}
 

@@ -59,7 +59,7 @@ const UserManagement: React.FC = () => {
 	const fetchUsers = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get("api/users?limit=1000");
+			const response = await api.get("/users?limit=1000");
 			// Backend returns { users: [], pagination: {} }
 			setUsers(response.data.users || response.data);
 		} catch (error: any) {
@@ -80,7 +80,7 @@ const UserManagement: React.FC = () => {
 	};
 	const fetchAvailableCoupons = async () => {
 		try {
-			const response = await api.get("api/coupons?status=unused");
+			const response = await api.get("/coupons?status=unused");
 			// Filter coupons that are not assigned to anyone
 			const availableCoupons = response.data.data.filter(
 				(c: Coupon) => !c.isUsed && !c.assignedToEmail

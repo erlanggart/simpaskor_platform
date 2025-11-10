@@ -87,7 +87,7 @@ const ProfilePage: React.FC = () => {
 		setIsLoading(true);
 
 		try {
-			await api.put("/api/users/profile", profileData);
+			await api.put("/users/profile", profileData);
 			showMessage("success", "Profil berhasil diperbarui!");
 
 			// Update localStorage
@@ -120,7 +120,7 @@ const ProfilePage: React.FC = () => {
 		setIsLoading(true);
 
 		try {
-			await api.put("/api/users/password", {
+			await api.put("/users/password", {
 				currentPassword: passwordData.currentPassword,
 				newPassword: passwordData.newPassword,
 			});
@@ -175,7 +175,7 @@ const ProfilePage: React.FC = () => {
 			const formData = new FormData();
 			formData.append("avatar", file);
 
-			await api.post("/api/users/avatar", formData, {
+			await api.post("/users/avatar", formData, {
 				headers: {
 					"Content-Type": "multipart/form-data",
 				},
@@ -200,7 +200,7 @@ const ProfilePage: React.FC = () => {
 		setIsLoading(true);
 
 		try {
-			await api.delete("/api/users/avatar");
+			await api.delete("/users/avatar");
 			setAvatarPreview(null);
 			showMessage("success", "Foto profil berhasil dihapus!");
 			window.location.reload();

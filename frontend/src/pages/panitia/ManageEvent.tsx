@@ -82,7 +82,7 @@ const ManageEvent: React.FC = () => {
 		try {
 			setLoading(true);
 			// Get current active assignment
-			const response = await api.get("/api/panitia-assignment/current");
+			const response = await api.get("/panitia-assignment/current");
 
 			console.log("Current assignment response:", response.data);
 			console.log("Target event ID:", id);
@@ -116,7 +116,7 @@ const ManageEvent: React.FC = () => {
 					);
 					console.log("Assignment created:", assignResponse.data);
 					// Reload assignment data after successful assignment
-					const newResponse = await api.get("/api/panitia-assignment/current");
+					const newResponse = await api.get("/panitia-assignment/current");
 					if (newResponse.data) {
 						setAssignment(newResponse.data);
 					}
@@ -133,7 +133,7 @@ const ManageEvent: React.FC = () => {
 				try {
 					console.log("Creating new assignment after error");
 					await api.post(`/api/panitia-assignment/assign/${id}`);
-					const newResponse = await api.get("/api/panitia-assignment/current");
+					const newResponse = await api.get("/panitia-assignment/current");
 					if (newResponse.data) {
 						setAssignment(newResponse.data);
 					}

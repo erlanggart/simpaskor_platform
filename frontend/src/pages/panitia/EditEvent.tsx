@@ -192,7 +192,7 @@ const EditEventForm: React.FC = () => {
 
 	const fetchCoupons = async () => {
 		try {
-			await api.get("/api/coupons/my");
+			await api.get("/coupons/my");
 			// Coupons are available but not actively displayed in this view
 		} catch (error) {
 			console.error("Failed to fetch coupons:", error);
@@ -201,7 +201,7 @@ const EditEventForm: React.FC = () => {
 
 	const fetchAssessmentCategories = async () => {
 		try {
-			const response = await api.get("/api/assessment-categories");
+			const response = await api.get("/assessment-categories");
 			setAssessmentCategories(response.data);
 		} catch (error) {
 			console.error("Failed to fetch assessment categories:", error);
@@ -210,7 +210,7 @@ const EditEventForm: React.FC = () => {
 
 	const fetchSchoolCategories = async () => {
 		try {
-			const response = await api.get("/api/school-categories");
+			const response = await api.get("/school-categories");
 			setSchoolCategories(response.data);
 		} catch (error) {
 			console.error("Failed to fetch school categories:", error);

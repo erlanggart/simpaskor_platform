@@ -13,13 +13,13 @@ export const AuthLayout: React.FC = () => {
 			{/* Modern Navbar */}
 			<nav className="sticky top-0 z-50 backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex items-center justify-between h-16">
-						{/* Logo */}
-						<Link to="/" className="flex items-center gap-3 group">
-							<Logo variant="auto" size="sm" showText />
-						</Link>
+				<div className="flex items-center justify-between h-16">
+					{/* Logo */}
+					<Link to="/" className="flex items-center gap-3 group">
+						<Logo variant="auto" size="sm" showText clickable={false} />
+					</Link>
 
-						{/* Right Section */}
+					{/* Right Section */}
 						<div className="flex items-center gap-4">
 							{/* Auth Links */}
 							<div className="hidden sm:flex items-center gap-2">

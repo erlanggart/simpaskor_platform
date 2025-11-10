@@ -4,6 +4,8 @@ import { AuthUtils } from "../utils/auth";
 import { UserRole, UserStatus } from "@prisma/client";
 import { z } from "zod";
 import crypto from "crypto";
+import { registrationLimiter } from "../middleware/rateLimiter";
+import { verifyRecaptcha } from "../middleware/recaptcha";
 
 const router = Router();
 
@@ -35,8 +37,11 @@ const resetPasswordSchema = z.object({
 });
 
 // Register endpoint
+// Protected by rate limiting (3 attempts per hour per IP) and reCAPTCHA v3
 router.post(
 	"/register",
+	registrationLimiter, // Apply rate limiting
+	verifyRecaptcha, // Verify reCAPTCHA token
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = registerSchema.parse(req.body);

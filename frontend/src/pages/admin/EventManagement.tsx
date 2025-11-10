@@ -68,7 +68,7 @@ const EventManagement: React.FC = () => {
 	const fetchEvents = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get("/api/events");
+			const response = await api.get("/events");
 			setEvents(response.data.data || response.data);
 		} catch (error) {
 			console.error("Error fetching events:", error);

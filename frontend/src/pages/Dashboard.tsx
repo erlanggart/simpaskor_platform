@@ -18,7 +18,7 @@ const Dashboard = () => {
 	const checkActiveEvent = async () => {
 		setCheckingAssignment(true);
 		try {
-			const response = await api.get("/api/panitia-assignment/current");
+			const response = await api.get("/panitia-assignment/current");
 			if (response.data && response.data.event) {
 				setActiveEvent(response.data);
 			}

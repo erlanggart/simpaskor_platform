@@ -52,6 +52,11 @@ router.get("/", async (req: Request, res: Response) => {
 						assessmentCategory: true,
 					},
 				},
+				schoolCategoryLimits: {
+					include: {
+						schoolCategory: true,
+					},
+				},
 			},
 			orderBy: [{ featured: "desc" }, { startDate: "asc" }],
 			take: limit ? parseInt(limit as string) : undefined,
@@ -825,6 +830,64 @@ router.patch(
 				message: "Failed to update pin status",
 				error: error.message,
 			});
+		}
+	}
+);
+
+// GET /api/events/:id/registrations - Get all registrations for an event
+router.get(
+	"/:id/registrations",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { id } = req.params;
+
+			// Check if event exists
+			const event = await prisma.event.findUnique({
+				where: { id },
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found" });
+			}
+
+			// Get all registrations for this event
+			const registrations = await prisma.eventParticipation.findMany({
+				where: {
+					eventId: id,
+				},
+				include: {
+					user: {
+						select: {
+							id: true,
+							name: true,
+							email: true,
+						},
+					},
+					schoolCategory: {
+						select: {
+							id: true,
+							name: true,
+						},
+					},
+					groups: {
+						where: {
+							status: "ACTIVE",
+						},
+						orderBy: {
+							createdAt: "asc",
+						},
+					},
+				},
+				orderBy: {
+					createdAt: "desc",
+				},
+			});
+
+			res.json(registrations);
+		} catch (error) {
+			console.error("Error fetching event registrations:", error);
+			res.status(500).json({ error: "Failed to fetch registrations" });
 		}
 	}
 );

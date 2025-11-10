@@ -66,7 +66,7 @@ const PanitiaDashboard: React.FC = () => {
 
 	const checkActiveAssignment = async () => {
 		try {
-			const response = await api.get("/api/panitia-assignment/current");
+			const response = await api.get("/panitia-assignment/current");
 			if (response.data && response.data.event) {
 				// Redirect to manage event if there's active assignment
 				navigate(`/panitia/events/${response.data.event.id}/manage`, {
@@ -91,8 +91,8 @@ const PanitiaDashboard: React.FC = () => {
 		try {
 			setLoading(true);
 			const [eventsRes, couponsRes] = await Promise.all([
-				api.get("api/events/my"), // Get only events created by this Panitia
-				api.get("api/coupons/my"),
+				api.get("/events/my"), // Get only events created by this Panitia
+				api.get("/coupons/my"),
 			]);
 
 			const myEvents = eventsRes.data || [];

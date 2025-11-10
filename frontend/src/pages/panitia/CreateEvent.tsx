@@ -127,7 +127,7 @@ const CreateEventForm: React.FC = () => {
 
 	const fetchAvailableCoupons = async () => {
 		try {
-			const response = await api.get("api/coupons/my");
+			const response = await api.get("/coupons/my");
 			const available = response.data.filter((c: Coupon) => !c.isUsed);
 			setAvailableCoupons(available);
 			if (available.length === 1) {
@@ -140,7 +140,7 @@ const CreateEventForm: React.FC = () => {
 
 	const fetchAssessmentCategories = async () => {
 		try {
-			const response = await api.get("api/events/meta/assessment-categories");
+			const response = await api.get("/events/meta/assessment-categories");
 			setAssessmentCategories(response.data);
 		} catch (error) {
 			console.error("Error fetching assessment categories:", error);
@@ -149,7 +149,7 @@ const CreateEventForm: React.FC = () => {
 
 	const fetchSchoolCategories = async () => {
 		try {
-			const response = await api.get("api/events/meta/school-categories");
+			const response = await api.get("/events/meta/school-categories");
 			setSchoolCategories(response.data);
 		} catch (error) {
 			console.error("Error fetching school categories:", error);
@@ -327,7 +327,7 @@ const CreateEventForm: React.FC = () => {
 				couponId: selectedCoupon,
 			};
 
-			await api.post("api/events", submitData);
+			await api.post("/events", submitData);
 			showSuccess("Event Paskibra berhasil dibuat!");
 			navigate("/panitia/dashboard");
 		} catch (error: any) {
@@ -845,9 +845,6 @@ const CreateEventForm: React.FC = () => {
 														placeholder="Min. 20"
 														className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
 													/>
-													<p className="text-xs text-gray-500 mt-1">
-														Jumlah maksimal untuk kategori ini
-													</p>
 												</div>
 											)}
 										</div>

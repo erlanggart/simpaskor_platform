@@ -31,7 +31,9 @@ import PanitiaDashboard from "./pages/panitia/Dashboard";
 import CreateEventForm from "./pages/panitia/CreateEvent";
 import EditEventForm from "./pages/panitia/EditEvent";
 import ManageEvent from "./pages/panitia/ManageEvent";
+import EventParticipantManagement from "./pages/panitia/EventParticipantManagement";
 import PesertaDashboard from "./pages/peserta/Dashboard";
+import PesertaRegistrations from "./pages/peserta/Registrations";
 import JuriDashboard from "./pages/juri/Dashboard";
 import PelatihDashboard from "./pages/pelatih/Dashboard";
 
@@ -112,6 +114,7 @@ function App() {
 							}
 						>
 							<Route path="events/:id/manage" element={<ManageEvent />} />
+							<Route path="events/:id/peserta" element={<EventParticipantManagement />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
@@ -125,6 +128,7 @@ function App() {
 					>
 						<Route path="peserta">
 							<Route path="dashboard" element={<PesertaDashboard />} />
+							<Route path="registrations" element={<PesertaRegistrations />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>

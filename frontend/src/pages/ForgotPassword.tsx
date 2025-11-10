@@ -28,7 +28,7 @@ const ForgotPassword = () => {
 		try {
 			setIsLoading(true);
 
-			const response = await api.post("/api/auth/forgot-password", data);
+			const response = await api.post("/auth/forgot-password", data);
 
 			setIsSuccess(true);
 

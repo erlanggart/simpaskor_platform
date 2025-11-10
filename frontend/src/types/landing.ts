@@ -17,6 +17,14 @@ export interface SchoolCategoryLimit {
 	};
 }
 
+export interface SchoolCategory {
+	id: string;
+	name: string;
+	description: string | null;
+	order: number;
+	isActive: boolean;
+}
+
 export interface Event {
 	id: string;
 	title: string;
@@ -37,4 +45,32 @@ export interface Event {
 	status: string;
 	featured: boolean;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
+}
+
+export interface ParticipationGroup {
+	id: string;
+	groupName: string;
+	teamMembers: number;
+	status: string;
+	notes: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface EventRegistration {
+	id: string;
+	eventId: string;
+	userId: string;
+	schoolCategoryId: string;
+	teamName: string | null;
+	schoolName: string | null;
+	status: string;
+	totalScore: number | null;
+	rank: number | null;
+	notes: string | null;
+	createdAt: string;
+	updatedAt: string;
+	event?: Event;
+	schoolCategory?: SchoolCategory;
+	groups: ParticipationGroup[];
 }

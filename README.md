@@ -75,15 +75,39 @@ cd simpaskor-platform
 
 ### 2️⃣ Environment Setup
 
-```bash
-# Copy environment template
-cp backend/.env.example backend/.env
+#### For Docker (Recommended)
 
-# Edit backend/.env with your configuration
+Docker uses test reCAPTCHA keys by default (configured in `docker-compose.yml`). For production, you need to configure real keys in backend and frontend `.env` files.
+
+**Optional - Setup backend/.env:**
+
+```bash
+cp backend/.env.example backend/.env
+nano backend/.env  # Add your RECAPTCHA_SECRET_KEY
+```
+
+**Optional - Setup frontend/.env:**
+
+```bash
+cp frontend/.env.example frontend/.env
+nano frontend/.env  # Add your VITE_RECAPTCHA_SITE_KEY
+```
+
+#### For Manual Setup (Required)
+
+```bash
+# Backend environment
+cp backend/.env.example backend/.env
 nano backend/.env
+
+# Frontend environment
+cp frontend/.env.example frontend/.env
+nano frontend/.env
 ```
 
 **Required Environment Variables:**
+
+**Backend (`backend/.env`):**
 
 ```env
 DATABASE_URL="postgresql://simpaskor_user:simpaskor_password@localhost:5432/simpaskor_db"
@@ -91,13 +115,26 @@ JWT_SECRET="your-super-secret-jwt-key-min-32-characters"
 NODE_ENV="development"
 PORT=3001
 FRONTEND_URL="http://localhost:5173"
+RECAPTCHA_SECRET_KEY="your-recaptcha-secret-key"  # For bot protection
 ```
+
+**Frontend (`frontend/.env`):**
+
+```env
+VITE_API_URL=http://localhost:3001/api
+VITE_BACKEND_URL=http://localhost:3001
+VITE_RECAPTCHA_SITE_KEY="your-recaptcha-site-key"  # For bot protection
+```
+
+**🔒 Security Note:** Docker uses Google's test reCAPTCHA keys by default. See [docs/RECAPTCHA_SETUP.md](./docs/RECAPTCHA_SETUP.md) for production setup.
 
 ### 3️⃣ Development with Docker (Recommended)
 
+#### First Time Setup
+
 ```bash
-# Start all services
-docker-compose up -d
+# Start all services (this will install dependencies)
+docker-compose up --build -d
 
 # View logs
 docker-compose logs -f
@@ -105,6 +142,26 @@ docker-compose logs -f
 # Stop services
 docker-compose down
 ```
+
+#### After Adding New Dependencies (e.g., reCAPTCHA)
+
+When new npm packages are added (like `axios`, `react-google-recaptcha-v3`), you need to rebuild:
+
+```bash
+# Use the rebuild script (easiest)
+./docker-rebuild.sh
+
+# Or manually rebuild
+docker-compose down
+docker-compose up --build -d
+```
+
+**🔧 Docker Services:**
+
+- **Backend**: Node.js + Express + Prisma (auto-installs dependencies)
+- **Frontend**: React + Vite (auto-installs dependencies)
+- **Database**: PostgreSQL 15
+- **pgAdmin**: Database management UI
 
 **🌐 Access Points:**
 
@@ -349,6 +406,19 @@ docker-compose -f docker-compose.prod.yml up -d
 # Health check
 curl https://your-domain.com/api/health
 ```
+
+## 📚 Documentation
+
+| Document                                                               | Description                        |
+| ---------------------------------------------------------------------- | ---------------------------------- |
+| [docs/RECAPTCHA_SETUP.md](./docs/RECAPTCHA_SETUP.md)                   | Quick setup guide for reCAPTCHA v3 |
+| [docs/REGISTRATION_SECURITY.md](./docs/REGISTRATION_SECURITY.md)       | Complete security documentation    |
+| [docs/DOCKER_INSTALL_RECAPTCHA.md](./docs/DOCKER_INSTALL_RECAPTCHA.md) | Docker setup with reCAPTCHA        |
+| [docs/DOCKER_RECAPTCHA_SETUP.md](./docs/DOCKER_RECAPTCHA_SETUP.md)     | Docker troubleshooting guide       |
+| [CONTRIBUTING.md](./CONTRIBUTING.md)                                   | Contribution guidelines            |
+| [docs/BANNER_MANAGEMENT.md](./docs/BANNER_MANAGEMENT.md)               | Banner management guide            |
+| [docs/LAYOUTS.md](./docs/LAYOUTS.md)                                   | Layout architecture                |
+| [docs/PROFILE_SETTINGS.md](./docs/PROFILE_SETTINGS.md)                 | Profile management                 |
 
 ## 🤝 Contributing
 

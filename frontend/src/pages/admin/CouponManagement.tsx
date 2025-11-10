@@ -56,7 +56,7 @@ const CouponManagement: React.FC = () => {
 	const fetchCoupons = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get("api/coupons");
+			const response = await api.get("/coupons");
 			setCoupons(response.data.data || response.data);
 		} catch (error) {
 			console.error("Error fetching coupons:", error);
@@ -75,7 +75,7 @@ const CouponManagement: React.FC = () => {
 
 		setSubmitLoading(true);
 		try {
-			await api.post("api/coupons", {
+			await api.post("/coupons", {
 				code: formData.code,
 				description: formData.description || null,
 			});

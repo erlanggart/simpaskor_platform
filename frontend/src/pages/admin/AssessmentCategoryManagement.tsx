@@ -55,7 +55,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 
 	const fetchCategories = async () => {
 		try {
-			const response = await api.get("/api/assessment-categories");
+			const response = await api.get("/assessment-categories");
 			// Sort by order ascending (smallest first)
 			const sortedCategories = (response.data || []).sort(
 				(a: AssessmentCategory, b: AssessmentCategory) => a.order - b.order
@@ -117,7 +117,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 				await api.put(`/api/assessment-categories/${editingId}`, formData);
 				showSuccess("Kategori penilaian berhasil diupdate");
 			} else {
-				await api.post("/api/assessment-categories", formData);
+				await api.post("/assessment-categories", formData);
 				showSuccess("Kategori penilaian berhasil ditambahkan");
 			}
 

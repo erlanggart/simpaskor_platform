@@ -12,6 +12,7 @@ import eventRoutes from "./routes/events";
 import couponRoutes from "./routes/coupons";
 import assessmentCategoryRoutes from "./routes/assessmentCategories";
 import panitiaAssignmentRoutes from "./routes/panitiaAssignment";
+import registrationRoutes from "./routes/registrations";
 
 dotenv.config();
 
@@ -30,13 +31,30 @@ app.use(
 	cors({
 		origin: ["http://localhost:5173", "http://localhost:5174"],
 		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
+		exposedHeaders: ["Content-Range", "X-Content-Range"],
+		maxAge: 600, // 10 minutes
 	})
 );
 
-// Rate limiting
+// Rate limiting - Lebih longgar untuk development
+const RATE_LIMIT_WINDOW_MS = 1 * 60 * 1000; // 1 minute
 const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // limit each IP to 100 requests per windowMs
+	windowMs: RATE_LIMIT_WINDOW_MS,
+	max: 200, // limit each IP to 200 requests per minute (lebih dari cukup untuk development)
+	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+	// Skip rate limiting jika NODE_ENV === 'development'
+	skip: (req) => process.env.NODE_ENV === 'development',
+	// Custom handler untuk rate limit exceeded dengan message yang lebih informatif
+	handler: (req, res) => {
+		res.status(429).json({
+			error: "Too many requests",
+			message: "Terlalu banyak permintaan. Silakan tunggu sebentar dan coba lagi.",
+			retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000), // in seconds
+		});
+	},
 });
 app.use(limiter);
 
@@ -59,6 +77,7 @@ app.get("/", (req, res) => {
 			coupons: "/api/coupons",
 			assessmentCategories: "/api/assessment-categories",
 			panitiaAssignment: "/api/panitia-assignment",
+			registrations: "/api/registrations",
 			health: "/api/health",
 		},
 	});
@@ -80,6 +99,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/assessment-categories", assessmentCategoryRoutes);
 app.use("/api/panitia-assignment", panitiaAssignmentRoutes);
+app.use("/api/registrations", registrationRoutes);
 
 // Error handling middleware
 app.use(
