@@ -11,8 +11,12 @@ import userRoutes from "./routes/users";
 import eventRoutes from "./routes/events";
 import couponRoutes from "./routes/coupons";
 import assessmentCategoryRoutes from "./routes/assessmentCategories";
+import schoolCategoryRoutes from "./routes/schoolCategories";
 import panitiaAssignmentRoutes from "./routes/panitiaAssignment";
 import registrationRoutes from "./routes/registrations";
+import uploadRoutes from "./routes/upload";
+import juryRoutes from "./routes/juries";
+import evaluationRoutes from "./routes/evaluations";
 
 dotenv.config();
 
@@ -23,6 +27,8 @@ const PORT = process.env.PORT || 3001;
 app.use(
 	helmet({
 		crossOriginResourcePolicy: { policy: "cross-origin" },
+		// Disable X-Frame-Options to allow PDF embedding in iframe
+		frameguard: false,
 	})
 );
 
@@ -58,11 +64,18 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body size limit for base64 image uploads
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve static files for uploads
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Serve static files for uploads with proper headers for iframe embedding
+app.use("/uploads", (req, res, next) => {
+	// Remove X-Frame-Options to allow embedding (CSP takes precedence)
+	res.removeHeader("X-Frame-Options");
+	// Allow embedding in iframe from frontend origins
+	res.setHeader("Content-Security-Policy", "frame-ancestors 'self' http://localhost:5173 http://localhost:5174 http://localhost:3001");
+	next();
+}, express.static(path.join(__dirname, "../uploads")));
 
 // Routes
 app.get("/", (req, res) => {
@@ -76,8 +89,10 @@ app.get("/", (req, res) => {
 			events: "/api/events",
 			coupons: "/api/coupons",
 			assessmentCategories: "/api/assessment-categories",
+			schoolCategories: "/api/school-categories",
 			panitiaAssignment: "/api/panitia-assignment",
 			registrations: "/api/registrations",
+			juries: "/api/juries",
 			health: "/api/health",
 		},
 	});
@@ -98,8 +113,12 @@ app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/assessment-categories", assessmentCategoryRoutes);
+app.use("/api/school-categories", schoolCategoryRoutes);
 app.use("/api/panitia-assignment", panitiaAssignmentRoutes);
 app.use("/api/registrations", registrationRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/juries", juryRoutes);
+app.use("/api/evaluations", evaluationRoutes);
 
 // Error handling middleware
 app.use(

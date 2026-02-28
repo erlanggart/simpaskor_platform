@@ -42,35 +42,77 @@ export const DashboardLayout: React.FC = () => {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [showUserMenu, setShowUserMenu] = useState(false);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
+	const [activeJuryEvent, setActiveJuryEvent] = useState<any>(null);
 	const userButtonRef = useRef<HTMLButtonElement>(null);
 
+	// Extract eventSlug from URL for Juri
+	const juryEventSlugMatch = location.pathname.match(/\/juri\/events\/([^/]+)/);
+	const juryEventSlug = juryEventSlugMatch ? juryEventSlugMatch[1] : null;
+
+	// Extract eventSlug from URL for Panitia
+	const panitiaEventSlugMatch = location.pathname.match(/\/panitia\/events\/([^/]+)/);
+	const panitiaEventSlug = panitiaEventSlugMatch ? panitiaEventSlugMatch[1] : null;
+
 	// Check for active event assignment (for PANITIA role)
+	// Re-check when navigating to event routes to ensure sidebar updates
+	useEffect(() => {
+		if (user?.role === "PANITIA") {
+			// If we're on an event route but don't have activeEvent loaded, fetch it
+			if (panitiaEventSlug && !activeEvent) {
+				checkActiveEvent();
+			} else if (!panitiaEventSlug && !activeEvent) {
+				checkActiveEvent();
+			}
+		}
+	}, [user, panitiaEventSlug]);
+
+	// Also check on initial mount
 	useEffect(() => {
 		if (user?.role === "PANITIA") {
 			checkActiveEvent();
 		}
 	}, [user]);
 
-	// Redirect to manage event if panitia is assigned
+	// Check for juri event (for JURI role)
 	useEffect(() => {
-		if (
-			user?.role === "PANITIA" &&
-			activeEvent &&
-			location.pathname === "/panitia/dashboard"
-		) {
-			navigate(`/panitia/events/${activeEvent.event.id}/manage`);
+		if (user?.role === "JURI" && juryEventSlug) {
+			fetchJuryEvent(juryEventSlug);
+		} else if (user?.role === "JURI" && !juryEventSlug) {
+			setActiveJuryEvent(null);
 		}
-	}, [user, activeEvent, location.pathname]);
+	}, [user, juryEventSlug]);
+
+	// Note: Removed auto-redirect to event - now handled explicitly via "Kelola" button in Dashboard
 
 	const checkActiveEvent = async () => {
 		try {
 			const response = await api.get("/panitia-assignment/current");
 			if (response.data && response.data.event) {
 				setActiveEvent(response.data);
+			} else {
+				setActiveEvent(null);
 			}
 		} catch (error) {
 			// No active event
+			setActiveEvent(null);
 		}
+	};
+
+	const fetchJuryEvent = async (eventId: string) => {
+		try {
+			const response = await api.get(`/juries/events/${eventId}`);
+			if (response.data && response.data.event) {
+				setActiveJuryEvent(response.data);
+			}
+		} catch (error) {
+			// Not assigned to this event
+			setActiveJuryEvent(null);
+		}
+	};
+
+	const handleLeaveJuryEvent = () => {
+		setActiveJuryEvent(null);
+		navigate("/juri/events");
 	};
 
 	const handleLeaveEvent = async () => {
@@ -113,9 +155,10 @@ export const DashboardLayout: React.FC = () => {
 
 	// Menu items berdasarkan role
 	const getMenuItems = (): MenuItem[] => {
+		const isInEventMode = (activeEvent && user?.role === "PANITIA") || (activeJuryEvent && user?.role === "JURI");
 		const baseItems: MenuItem[] = [
 			{
-				name: activeEvent && user?.role === "PANITIA" ? "Event" : "Dashboard",
+				name: isInEventMode ? "Event" : "Dashboard",
 				icon: HomeIcon,
 				path: getDashboardPath(),
 			},
@@ -145,22 +188,22 @@ export const DashboardLayout: React.FC = () => {
 						{
 							name: "Peserta",
 							icon: UsersIcon,
-							path: `/panitia/events/${activeEvent.event.id}/peserta`,
+							path: `/panitia/events/${activeEvent.event.slug}/peserta`,
 						},
 						{
 							name: "Juri",
 							icon: ScaleIcon,
-							path: `/panitia/events/${activeEvent.event.id}/juri`,
+							path: `/panitia/events/${activeEvent.event.slug}/juri`,
 						},
 						{
 							name: "Materi",
 							icon: AcademicCapIcon,
-							path: `/panitia/events/${activeEvent.event.id}/materi`,
+							path: `/panitia/events/${activeEvent.event.slug}/materi`,
 						},
 						{
 							name: "Rekap Nilai",
 							icon: DocumentChartBarIcon,
-							path: `/panitia/events/${activeEvent.event.id}/rekap`,
+							path: `/panitia/events/${activeEvent.event.slug}/rekap`,
 						}
 					);
 				} else {
@@ -187,15 +230,41 @@ export const DashboardLayout: React.FC = () => {
 				);
 				break;
 			case "JURI":
-				roleSpecificItems.push(
-					{
-						name: "Event Saya",
-						icon: CalendarIcon,
-						path: "/juri/events",
-					},
-					{ name: "Penilaian", icon: TrophyIcon, path: "/juri/evaluations" },
-					{ name: "Jadwal", icon: ChartBarIcon, path: "/juri/schedule" }
-				);
+				// Jika juri sedang mengelola event, tampilkan menu pengelolaan event
+				if (activeJuryEvent && activeJuryEvent.event) {
+					roleSpecificItems.push(
+						{
+							name: "Materi",
+							icon: AcademicCapIcon,
+							path: `/juri/events/${activeJuryEvent.event.slug}/materi`,
+						},
+						{
+							name: "Peserta",
+							icon: UsersIcon,
+							path: `/juri/events/${activeJuryEvent.event.slug}/peserta`,
+						},
+						{
+							name: "Penilaian",
+							icon: TrophyIcon,
+							path: `/juri/events/${activeJuryEvent.event.slug}/penilaian`,
+						}
+					);
+				} else {
+					roleSpecificItems.push(
+						{
+							name: "Event Saya",
+							icon: CalendarIcon,
+							path: "/juri/events",
+						},
+						{
+							name: "Undangan",
+							icon: TicketIcon,
+							path: "/juri/invitations",
+						},
+						{ name: "Penilaian", icon: TrophyIcon, path: "/juri/evaluations" },
+						{ name: "Jadwal", icon: ChartBarIcon, path: "/juri/schedule" }
+					);
+				}
 				break;
 			case "PELATIH":
 				roleSpecificItems.push(
@@ -220,12 +289,16 @@ export const DashboardLayout: React.FC = () => {
 			case "PANITIA":
 				// If panitia has active event assignment, go to manage event page
 				if (activeEvent && activeEvent.event) {
-					return `/panitia/events/${activeEvent.event.id}/manage`;
+					return `/panitia/events/${activeEvent.event.slug}/manage`;
 				}
 				return "/panitia/dashboard";
 			case "PESERTA":
 				return "/peserta/dashboard";
 			case "JURI":
+				// If juri is viewing an event, go to event info page
+				if (activeJuryEvent && activeJuryEvent.event) {
+					return `/juri/events/${activeJuryEvent.event.slug}/info`;
+				}
 				return "/juri/dashboard";
 			case "PELATIH":
 				return "/pelatih/dashboard";
@@ -403,6 +476,29 @@ export const DashboardLayout: React.FC = () => {
 												</div>
 											</>
 										)}
+										{activeJuryEvent && (
+											<>
+												<hr className="my-1 border-gray-200 dark:border-gray-700" />
+												<div className="px-4 py-2">
+													<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+														Menilai Event:
+													</div>
+													<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+														{activeJuryEvent.event.title}
+													</div>
+													<button
+														onClick={() => {
+															setShowUserMenu(false);
+															handleLeaveJuryEvent();
+														}}
+														className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
+													>
+														<ArrowRightOnRectangleIcon className="w-4 h-4" />
+														Keluar Event
+													</button>
+												</div>
+											</>
+										)}
 										<hr className="my-1 border-gray-200 dark:border-gray-700" />
 										<button
 											onClick={handleLogout}
@@ -519,6 +615,29 @@ export const DashboardLayout: React.FC = () => {
 												onClick={() => {
 													setSidebarOpen(false);
 													handleLeaveEvent();
+												}}
+												className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
+											>
+												<ArrowRightOnRectangleIcon className="w-4 h-4" />
+												Keluar Event
+											</button>
+										</div>
+									</>
+								)}
+								{activeJuryEvent && (
+									<>
+										<hr className="my-2 border-gray-200 dark:border-gray-700" />
+										<div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+											<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+												Menilai Event:
+											</div>
+											<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+												{activeJuryEvent.event.title}
+											</div>
+											<button
+												onClick={() => {
+													setSidebarOpen(false);
+													handleLeaveJuryEvent();
 												}}
 												className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
 											>

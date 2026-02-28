@@ -49,6 +49,7 @@ model User {
   createdCoupons     EventCoupon[]            @relation("CouponCreator")
   usedCoupons        EventCoupon[]            @relation("CouponUser")
   panitiaAssignments PanitiaEventAssignment[]
+  juryAssignments    JuryEventAssignment[]
 
   @@map("users")
 }
@@ -97,6 +98,7 @@ model SchoolCategory {
   // Relations
   participations EventParticipation[]
   eventLimits    EventSchoolCategoryLimit[]
+  groups         ParticipationGroup[]
 
   @@map("school_categories")
 }
@@ -112,8 +114,9 @@ model AssessmentCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  eventCategories EventAssessmentCategory[]
-  evaluations     Evaluation[]
+  eventCategories       EventAssessmentCategory[]
+  evaluations           Evaluation[]
+  juryAssignedCategories JuryAssignedCategory[]
 
   @@map("assessment_categories")
 }
@@ -156,6 +159,7 @@ model Event {
   slug                 String?      @unique
   description          String? // Event description
   thumbnail            String? // URL/path to event thumbnail image
+  juknisUrl            String?      @map("juknis_url") // URL/path to event technical guideline document
   startDate            DateTime     @map("start_date")
   endDate              DateTime     @map("end_date")
   registrationDeadline DateTime?    @map("registration_deadline")
@@ -168,6 +172,8 @@ model Event {
   contactEmail         String?      @map("contact_email")
   contactPhone         String?      @map("contact_phone")
   status               String       @default("DRAFT") // DRAFT, PUBLISHED, ONGOING, COMPLETED, CANCELLED
+  wizardStep           Int          @default(1) @map("wizard_step") // Current wizard step (1-3), 0 = completed
+  wizardCompleted      Boolean      @default(false) @map("wizard_completed") // Whether wizard is completed
   featured             Boolean      @default(false) // Featured events appear on landing page
   isPinned             Boolean      @default(false) @map("is_pinned") // Pinned events appear in carousel
   pinnedOrder          Int?         @map("pinned_order") // Display order in carousel (lower = first)
@@ -184,6 +190,7 @@ model Event {
   assessmentCategories EventAssessmentCategory[]
   schoolCategoryLimits EventSchoolCategoryLimit[]
   panitiaAssignments   PanitiaEventAssignment[]
+  juryAssignments      JuryEventAssignment[]
 
   @@map("events")
 }
@@ -204,6 +211,42 @@ model PanitiaEventAssignment {
   @@unique([panitiaId, eventId])
   @@index([panitiaId, isActive])
   @@map("panitia_event_assignments")
+}
+
+// Jury Event Assignment - Tracks which jury is assigned to which event
+model JuryEventAssignment {
+  id                    String                           @id @default(uuid())
+  juryId                String                           @map("jury_id")
+  jury                  User                             @relation(fields: [juryId], references: [id], onDelete: Cascade)
+  eventId               String                           @map("event_id")
+  event                 Event                            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  status                String                           @default("PENDING") // PENDING, CONFIRMED, REJECTED
+  invitedAt             DateTime                         @default(now()) @map("invited_at")
+  respondedAt           DateTime?                        @map("responded_at")
+  rejectionReason       String?                          @map("rejection_reason")
+  notes                 String? // Notes from panitia to jury
+  createdAt             DateTime                         @default(now()) @map("created_at")
+  updatedAt             DateTime                         @updatedAt @map("updated_at")
+
+  // Relations
+  assignedCategories    JuryAssignedCategory[]
+
+  @@unique([juryId, eventId])
+  @@index([juryId, status])
+  @@map("jury_event_assignments")
+}
+
+// Junction table for Jury assigned assessment categories
+model JuryAssignedCategory {
+  id                   String                @id @default(uuid())
+  assignmentId         String                @map("assignment_id")
+  assignment           JuryEventAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assessmentCategoryId String                @map("assessment_category_id")
+  assessmentCategory   AssessmentCategory    @relation(fields: [assessmentCategoryId], references: [id], onDelete: Cascade)
+  createdAt            DateTime              @default(now()) @map("created_at")
+
+  @@unique([assignmentId, assessmentCategoryId])
+  @@map("jury_assigned_categories")
 }
 
 model EventCoupon {
@@ -227,21 +270,22 @@ model EventCoupon {
 }
 
 model EventParticipation {
-  id               String         @id @default(uuid())
-  eventId          String         @map("event_id")
-  event            Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  userId           String         @map("user_id")
-  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  schoolCategoryId String         @map("school_category_id")
-  schoolCategory   SchoolCategory @relation(fields: [schoolCategoryId], references: [id])
-  teamName         String?        @map("team_name") // Name of the Paskibra team
-  schoolName       String?        @map("school_name") // Name of the school
-  status           String         @default("REGISTERED") // REGISTERED, CONFIRMED, ATTENDED, CANCELLED
-  totalScore       Float?         @map("total_score") // Calculated from all evaluations
+  id               String          @id @default(uuid())
+  eventId          String          @map("event_id")
+  event            Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId           String          @map("user_id")
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolCategoryId String?         @map("school_category_id") // Optional - for backward compatibility
+  schoolCategory   SchoolCategory? @relation(fields: [schoolCategoryId], references: [id])
+  teamName         String?         @map("team_name") // Name of the Paskibra team
+  schoolName       String?         @map("school_name") // Name of the school
+  supportingDoc    String?         @map("supporting_doc") // URL to supporting document
+  status           String          @default("REGISTERED") // REGISTERED, CONFIRMED, ATTENDED, CANCELLED
+  totalScore       Float?          @map("total_score") // Calculated from all evaluations
   rank             Int?
   notes            String?
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
   // Relations
   groups ParticipationGroup[]
@@ -252,15 +296,19 @@ model EventParticipation {
 
 // Participation Group - Each group represents one team registration
 model ParticipationGroup {
-  id              String             @id @default(uuid())
-  participationId String             @map("participation_id")
-  participation   EventParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
-  groupName       String             @map("group_name") // e.g., "Tim A", "Tim B"
-  teamMembers     Int                @default(1) @map("team_members") // Number of members in this group
-  status          String             @default("ACTIVE") // ACTIVE, CANCELLED
-  notes           String?
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  id               String             @id @default(uuid())
+  participationId  String             @map("participation_id")
+  participation    EventParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  schoolCategoryId String             @map("school_category_id")
+  schoolCategory   SchoolCategory     @relation(fields: [schoolCategoryId], references: [id])
+  groupName        String             @map("group_name") // e.g., "Tim A", "Tim B"
+  teamMembers      Int                @default(1) @map("team_members") // Number of members in this group
+  memberNames      String?            @map("member_names") // JSON array of member names
+  memberData       String?            @map("member_data") // JSON array of member details with photos
+  status           String             @default("ACTIVE") // ACTIVE, CANCELLED
+  notes            String?
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
 
   @@map("participation_groups")
 }

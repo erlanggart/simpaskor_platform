@@ -73,6 +73,54 @@ router.post("/", authenticate, authorize("SUPERADMIN"), async (req, res) => {
 	}
 });
 
+// Create custom assessment category (PANITIA can create during event creation)
+router.post("/custom", authenticate, async (req, res) => {
+	try {
+		const { name } = req.body;
+
+		if (!name || !name.trim()) {
+			return res.status(400).json({ error: "Nama kategori harus diisi" });
+		}
+
+		const trimmedName = name.trim();
+
+		// Check if name already exists (case-insensitive)
+		const existing = await prisma.assessmentCategory.findFirst({
+			where: { 
+				name: { equals: trimmedName, mode: "insensitive" }
+			},
+		});
+
+		if (existing) {
+			// Return existing category instead of error
+			return res.json({ 
+				...existing, 
+				existed: true,
+				message: "Kategori sudah ada, menggunakan yang sudah tersedia" 
+			});
+		}
+
+		// Get max order
+		const maxOrder = await prisma.assessmentCategory.aggregate({
+			_max: { order: true }
+		});
+
+		const category = await prisma.assessmentCategory.create({
+			data: {
+				name: trimmedName,
+				description: null,
+				order: (maxOrder._max.order || 0) + 1,
+				isActive: true,
+			},
+		});
+
+		res.status(201).json(category);
+	} catch (error) {
+		console.error("Error creating custom assessment category:", error);
+		res.status(500).json({ error: "Gagal membuat kategori penilaian" });
+	}
+});
+
 // Update assessment category (SuperAdmin only)
 router.put("/:id", authenticate, authorize("SUPERADMIN"), async (req, res) => {
 	try {

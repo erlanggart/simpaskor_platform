@@ -10,7 +10,10 @@
 		"test": "jest",
 		"migrate": "npx prisma migrate dev",
 		"generate": "npx prisma generate",
-		"seed": "ts-node src/database/seed.ts"
+		"seed": "ts-node prisma/seed.ts"
+	},
+	"prisma": {
+		"seed": "ts-node prisma/seed.ts"
 	},
 	"dependencies": {
 		"@prisma/client": "^6.2.0",

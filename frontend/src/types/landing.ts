@@ -47,12 +47,22 @@ export interface Event {
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 }
 
+export interface PersonMember {
+	id?: string;
+	name: string;
+	photo?: string; // URL to uploaded photo
+	role: 'PASUKAN' | 'DANTON' | 'CADANGAN';
+}
+
 export interface ParticipationGroup {
 	id: string;
 	groupName: string;
 	teamMembers: number;
 	status: string;
 	notes: string | null;
+	memberData: string | null; // JSON string containing PersonMember[]
+	schoolCategoryId?: string;
+	schoolCategory?: SchoolCategory;
 	createdAt: string;
 	updatedAt: string;
 }

@@ -52,28 +52,35 @@ router.get(
 	}
 );
 
-// Assign panitia to an event
+// Assign panitia to an event (supports both UUID and slug)
 router.post(
-	"/assign/:eventId",
+	"/assign/:eventIdOrSlug",
 	authenticate,
 	requirePanitia,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const userId = req.user!.userId;
-			const eventId = req.params.eventId;
+			const eventIdOrSlug = req.params.eventIdOrSlug;
 
-			if (!eventId) {
-				return res.status(400).json({ message: "Event ID diperlukan" });
+			if (!eventIdOrSlug) {
+				return res.status(400).json({ message: "Event ID atau slug diperlukan" });
 			}
 
-			// Check if event exists
-			const event = await prisma.event.findUnique({
-				where: { id: eventId },
+			// Check if it's a UUID or slug
+			const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventIdOrSlug);
+
+			// Check if event exists (by id or slug)
+			const event = await prisma.event.findFirst({
+				where: isUUID 
+					? { id: eventIdOrSlug }
+					: { slug: eventIdOrSlug },
 			});
 
 			if (!event) {
 				return res.status(404).json({ message: "Event tidak ditemukan" });
 			}
+
+			const eventId = event.id;
 
 			// Check if event was created by this panitia
 			if (event.createdById !== userId) {

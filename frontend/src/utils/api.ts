@@ -60,18 +60,30 @@ api.interceptors.response.use(
 		
 		// Handle 401 Unauthorized
 		if (error.response?.status === 401) {
-			localStorage.removeItem(TOKEN_KEY);
-			localStorage.removeItem(USER_KEY);
+			// Dapatkan URL request yang error
+			const requestUrl = error.config?.url || '';
 			
-			Swal.fire({
-				icon: "error",
-				title: "Sesi Berakhir",
-				text: "Sesi Anda telah berakhir. Silakan login kembali.",
-				confirmButtonText: "Login",
-				allowOutsideClick: false,
-			}).then(() => {
-				window.location.href = "/login";
-			});
+			// Jangan handle otomatis untuk endpoint autentikasi (login/register/google)
+			// Biarkan component menangani error ini dengan pesan yang sesuai
+			const isAuthEndpoint = requestUrl.includes('/auth/login') || 
+			                      requestUrl.includes('/auth/register') || 
+			                      requestUrl.includes('/auth/google');
+			
+			if (!isAuthEndpoint) {
+				// Ini adalah session expired untuk authenticated route
+				localStorage.removeItem(TOKEN_KEY);
+				localStorage.removeItem(USER_KEY);
+				
+				Swal.fire({
+					icon: "error",
+					title: "Sesi Berakhir",
+					text: "Sesi Anda telah berakhir. Silakan login kembali.",
+					confirmButtonText: "Login",
+					allowOutsideClick: false,
+				}).then(() => {
+					window.location.href = "/login";
+				});
+			}
 			
 			return Promise.reject(error);
 		}

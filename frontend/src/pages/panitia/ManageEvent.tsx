@@ -69,14 +69,14 @@ interface Assignment {
 }
 
 const ManageEvent: React.FC = () => {
-	const { id } = useParams<{ id: string }>();
+	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const navigate = useNavigate();
 	const [assignment, setAssignment] = useState<Assignment | null>(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		checkAssignment();
-	}, [id]);
+	}, [eventSlug]);
 
 	const checkAssignment = async () => {
 		try {
@@ -84,83 +84,25 @@ const ManageEvent: React.FC = () => {
 			// Get current active assignment
 			const response = await api.get("/panitia-assignment/current");
 
-			console.log("Current assignment response:", response.data);
-			console.log("Target event ID:", id);
+			if (!response.data || !response.data.event) {
+				// No active assignment - redirect to dashboard to select an event
+				navigate("/panitia/dashboard", { replace: true });
+				return;
+			}
 
-			if (
-				response.data &&
-				response.data.event &&
-				response.data.event.id === id
-			) {
-				// Already assigned to this event
-				console.log("Already assigned to this event");
+			// Check if assigned to this event (comparing by slug)
+			if (response.data.event.slug === eventSlug) {
 				setAssignment(response.data);
-			} else if (
-				response.data &&
-				response.data.event &&
-				response.data.event.id !== id
-			) {
-				// Already managing different event
-				console.log(
-					"Already managing different event:",
-					response.data.event.id
-				);
-				alert("Anda sedang mengelola event lain. Keluar terlebih dahulu.");
-				navigate("/panitia/dashboard");
 			} else {
-				// No active assignment, try to assign to this event
-				console.log("No active assignment, creating new assignment");
-				try {
-					const assignResponse = await api.post(
-						`/api/panitia-assignment/assign/${id}`
-					);
-					console.log("Assignment created:", assignResponse.data);
-					// Reload assignment data after successful assignment
-					const newResponse = await api.get("/panitia-assignment/current");
-					if (newResponse.data) {
-						setAssignment(newResponse.data);
-					}
-				} catch (assignError: any) {
-					console.error("Error auto-assigning to event:", assignError);
-					alert(assignError.response?.data?.message || "Gagal assign ke event");
-					navigate("/panitia/dashboard");
-				}
+				// Assigned to different event - redirect to that event
+				navigate(`/panitia/events/${response.data.event.slug}/manage`, { replace: true });
 			}
 		} catch (error: any) {
 			console.error("Error checking assignment:", error);
-			// If 404 or no assignment, try to create new assignment
-			if (error.response?.status === 404 || !error.response) {
-				try {
-					console.log("Creating new assignment after error");
-					await api.post(`/api/panitia-assignment/assign/${id}`);
-					const newResponse = await api.get("/panitia-assignment/current");
-					if (newResponse.data) {
-						setAssignment(newResponse.data);
-					}
-				} catch (assignError: any) {
-					console.error("Error creating assignment:", assignError);
-					alert(assignError.response?.data?.message || "Gagal mengakses event");
-					navigate("/panitia/dashboard");
-				}
-			} else {
-				alert("Gagal mengakses event");
-				navigate("/panitia/dashboard");
-			}
+			// No assignment found - redirect to dashboard
+			navigate("/panitia/dashboard", { replace: true });
 		} finally {
 			setLoading(false);
-		}
-	};
-
-	const handleAssignToEvent = async () => {
-		if (!id) return;
-
-		try {
-			await api.post(`/api/panitia-assignment/assign/${id}`);
-			// Reload assignment data
-			await checkAssignment();
-		} catch (error: any) {
-			console.error("Error assigning to event:", error);
-			alert(error.response?.data?.message || "Gagal assign ke event");
 		}
 	};
 
@@ -191,34 +133,10 @@ const ManageEvent: React.FC = () => {
 	}
 
 	if (!assignment) {
-		// Show assignment prompt
+		// No assignment - this should not happen as we redirect, but show loading just in case
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-				<div className="max-w-2xl mx-auto">
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
-						<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-							Kelola Event Ini?
-						</h2>
-						<p className="text-gray-600 dark:text-gray-400 mb-6">
-							Anda akan masuk ke mode pengelolaan event. Selama dalam mode ini,
-							Anda dapat mengelola peserta, evaluasi, dan pengaturan event.
-						</p>
-						<div className="flex gap-4 justify-center">
-							<button
-								onClick={() => navigate("/panitia/dashboard")}
-								className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-							>
-								Batal
-							</button>
-							<button
-								onClick={handleAssignToEvent}
-								className="px-6 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
-							>
-								Ya, Kelola Event
-							</button>
-						</div>
-					</div>
-				</div>
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
 			</div>
 		);
 	}
@@ -237,6 +155,7 @@ const ManageEvent: React.FC = () => {
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				
 				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 					{/* Main Content */}
 					<div className="lg:col-span-2">

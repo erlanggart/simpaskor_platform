@@ -28,14 +28,23 @@ import CouponManagement from "./pages/admin/CouponManagement";
 import AssessmentCategoryManagement from "./pages/admin/AssessmentCategoryManagement";
 import EventManagement from "./pages/admin/EventManagement";
 import PanitiaDashboard from "./pages/panitia/Dashboard";
-import CreateEventForm from "./pages/panitia/CreateEvent";
+import CreateEventWizard from "./pages/panitia/CreateEventWizard";
 import EditEventForm from "./pages/panitia/EditEvent";
 import ManageEvent from "./pages/panitia/ManageEvent";
 import EventParticipantManagement from "./pages/panitia/EventParticipantManagement";
 import PesertaDashboard from "./pages/peserta/Dashboard";
 import PesertaRegistrations from "./pages/peserta/Registrations";
+import PesertaEventRegister from "./pages/peserta/EventRegister";
 import JuriDashboard from "./pages/juri/Dashboard";
+import JuriInvitations from "./pages/juri/Invitations";
+import JuriMyEvents from "./pages/juri/MyEvents";
+import JuriEventInfo from "./pages/juri/EventInfo";
+import JuriEventMateri from "./pages/juri/EventMateri";
+import JuriEventPeserta from "./pages/juri/EventPeserta";
+import JuriEventPenilaian from "./pages/juri/EventPenilaian";
+import JuriPenilaianDetail from "./pages/juri/PenilaianDetail";
 import PelatihDashboard from "./pages/pelatih/Dashboard";
+import ManageJury from "./pages/panitia/ManageJury";
 
 import "./App.css";
 
@@ -81,18 +90,18 @@ function App() {
 					<Route path="panitia">
 						{/* Standalone pages without layout */}
 						<Route
-							path="dashboard"
+							path="events/create"
 							element={
 								<ProtectedRoute allowedRoles={["PANITIA"]}>
-									<PanitiaDashboard />
+									<CreateEventWizard />
 								</ProtectedRoute>
 							}
 						/>
 						<Route
-							path="events/create"
+							path="events/create/:draftId"
 							element={
 								<ProtectedRoute allowedRoles={["PANITIA"]}>
-									<CreateEventForm />
+									<CreateEventWizard />
 								</ProtectedRoute>
 							}
 						/>
@@ -113,8 +122,10 @@ function App() {
 								</ProtectedRoute>
 							}
 						>
-							<Route path="events/:id/manage" element={<ManageEvent />} />
-							<Route path="events/:id/peserta" element={<EventParticipantManagement />} />
+							<Route path="dashboard" element={<PanitiaDashboard />} />
+							<Route path="events/:eventSlug/manage" element={<ManageEvent />} />
+							<Route path="events/:eventSlug/peserta" element={<EventParticipantManagement />} />
+							<Route path="events/:eventSlug/juri" element={<ManageJury />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
@@ -132,6 +143,17 @@ function App() {
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
+					{/* Peserta Event Registration - Main Layout */}
+					<Route element={<MainLayout />}>
+						<Route
+							path="peserta/events/:eventId/register"
+							element={
+								<ProtectedRoute allowedRoles={["PESERTA"]}>
+									<PesertaEventRegister />
+								</ProtectedRoute>
+							}
+						/>
+					</Route>
 					{/* Juri Routes - Dashboard Layout */}
 					<Route
 						element={
@@ -142,6 +164,13 @@ function App() {
 					>
 						<Route path="juri">
 							<Route path="dashboard" element={<JuriDashboard />} />
+							<Route path="invitations" element={<JuriInvitations />} />
+							<Route path="events" element={<JuriMyEvents />} />
+							<Route path="events/:eventSlug/info" element={<JuriEventInfo />} />
+							<Route path="events/:eventSlug/materi" element={<JuriEventMateri />} />
+							<Route path="events/:eventSlug/peserta" element={<JuriEventPeserta />} />
+							<Route path="events/:eventSlug/penilaian" element={<JuriEventPenilaian />} />
+							<Route path="events/:eventSlug/penilaian/:participantId" element={<JuriPenilaianDetail />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>

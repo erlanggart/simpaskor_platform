@@ -7,7 +7,11 @@ async function main() {
   // Get all events
   const events = await prisma.event.findMany({
     include: {
-      schoolCategoryLimits: true,
+      schoolCategoryLimits: {
+        include: {
+          schoolCategory: true
+        }
+      },
       participations: {
         where: {
           status: 'CONFIRMED'
@@ -16,6 +20,10 @@ async function main() {
           groups: {
             where: {
               status: 'ACTIVE'
+            },
+            select: {
+              id: true,
+              schoolCategoryId: true
             }
           }
         }
@@ -26,16 +34,20 @@ async function main() {
   for (const event of events) {
     console.log(`\nProcessing event: ${event.title}`);
     
-    // Calculate total confirmed participants
+    // Calculate total confirmed participants based on groups
     let totalConfirmed = 0;
     const categoryCount = {};
     
     for (const participation of event.participations) {
-      const groupCount = participation.groups.length;
-      totalConfirmed += groupCount;
-      
-      const categoryId = participation.schoolCategoryId;
-      categoryCount[categoryId] = (categoryCount[categoryId] || 0) + groupCount;
+      for (const group of participation.groups) {
+        totalConfirmed += 1;
+        
+        // Count by the group's school category, not the participation's
+        const categoryId = group.schoolCategoryId;
+        if (categoryId) {
+          categoryCount[categoryId] = (categoryCount[categoryId] || 0) + 1;
+        }
+      }
     }
     
     console.log(`  Total confirmed participants: ${totalConfirmed}`);
@@ -52,9 +64,9 @@ async function main() {
     // Update each school category limit
     for (const limit of event.schoolCategoryLimits) {
       const count = categoryCount[limit.schoolCategoryId] || 0;
-      const categoryName = limit.schoolCategoryId; // We'll show ID for now
+      const categoryName = limit.schoolCategory?.name || limit.schoolCategoryId;
       
-      console.log(`  Category ${categoryName}: ${count} confirmed`);
+      console.log(`  Category ${categoryName}: ${count} confirmed (was: ${limit.currentParticipants})`);
       
       await prisma.eventSchoolCategoryLimit.update({
         where: { id: limit.id },

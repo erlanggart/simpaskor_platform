@@ -8,7 +8,10 @@ import { api } from "../utils/api";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 const loginSchema = z.object({
-	email: z.string().email("Format email tidak valid"),
+	email: z
+		.string()
+		.min(1, "Email harus diisi")
+		.email("Format email tidak valid. Contoh: nama@email.com"),
 	password: z.string().min(1, "Password harus diisi"),
 });
 
@@ -47,7 +50,7 @@ const Login = () => {
 
 					if (response.data && response.data.event) {
 						// Redirect to event management
-						navigate(`/panitia/events/${response.data.event.id}/manage`);
+						navigate(`/panitia/events/${response.data.event.slug}/manage`);
 						return;
 					}
 				} catch (error) {

@@ -278,7 +278,7 @@ const CreateEventForm: React.FC = () => {
 			uploadFormData.append("thumbnail", file);
 
 			const response = await api.post(
-				"api/events/upload-thumbnail",
+				"/events/upload-thumbnail",
 				uploadFormData,
 				{
 					headers: {

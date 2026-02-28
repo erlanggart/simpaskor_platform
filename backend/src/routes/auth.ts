@@ -6,6 +6,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { registrationLimiter } from "../middleware/rateLimiter";
 import { verifyRecaptcha } from "../middleware/recaptcha";
+import { GoogleAuthUtils } from "../utils/googleAuth";
 
 const router = Router();
 
@@ -106,6 +107,44 @@ router.post(
 			res.status(500).json({
 				error: "Registration failed",
 				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Google OAuth endpoint
+// Verify Google ID token and create/login user
+router.post(
+	"/google",
+	async (req: Request, res: Response): Promise<void | Response> => {
+		try {
+			const { credential } = req.body;
+
+			if (!credential) {
+				return res.status(400).json({
+					error: "Google authentication failed",
+					message: "No credential provided",
+				});
+			}
+
+			// Verify Google token and get user info
+			const googleUser = await GoogleAuthUtils.verifyGoogleToken(credential);
+
+			// Find or create user
+			const { user, token } = await GoogleAuthUtils.findOrCreateGoogleUser(
+				googleUser
+			);
+
+			res.json({
+				message: "Google authentication successful",
+				user,
+				token,
+			});
+		} catch (error: any) {
+			console.error("Google authentication error:", error);
+			res.status(500).json({
+				error: "Google authentication failed",
+				message: error.message || "Internal server error",
 			});
 		}
 	}

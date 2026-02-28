@@ -281,7 +281,7 @@ const EditEventForm: React.FC = () => {
 
 			// Upload to backend
 			const response = await api.post(
-				"/api/events/upload-thumbnail",
+				"/events/upload-thumbnail",
 				formData,
 				{
 					headers: {

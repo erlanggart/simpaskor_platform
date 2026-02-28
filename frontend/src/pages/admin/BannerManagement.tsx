@@ -229,15 +229,14 @@ const BannerManagement: React.FC = () => {
 			};
 
 			if (editingBanner) {
-				await api.patch(`api/banners/${editingBanner.id}`, submitData);
-				showSuccess("Banner berhasil diperbarui!");
+				await api.patch(`/banners/${editingBanner.id}`, submitData);
+				showSuccess("Banner berhasil diperbarui");
 			} else {
 				await api.post("/banners", submitData);
-				showSuccess("Banner berhasil dibuat!");
+				showSuccess("Banner berhasil dibuat");
 			}
-
-			handleCloseModal();
 			fetchBanners();
+			handleCloseModal();
 		} catch (error: any) {
 			console.error("Error saving banner:", error);
 			showError(error.response?.data?.message || "Gagal menyimpan banner");
@@ -253,7 +252,7 @@ const BannerManagement: React.FC = () => {
 		}
 
 		try {
-			await api.delete(`api/banners/${id}`);
+			await api.delete(`/banners/${id}`);
 			showSuccess("Banner berhasil dihapus");
 			fetchBanners();
 		} catch (error: any) {
@@ -264,7 +263,7 @@ const BannerManagement: React.FC = () => {
 
 	const handleToggleActive = async (banner: Banner) => {
 		try {
-			await api.patch(`api/banners/${banner.id}`, {
+			await api.patch(`/banners/${banner.id}`, {
 				isActive: !banner.isActive,
 			});
 			showSuccess(

@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth";
-import { uploadEventThumbnail } from "../middleware/upload";
+import { uploadEventThumbnail, uploadJuknis } from "../middleware/upload";
 
 const router = express.Router();
 
@@ -183,10 +183,11 @@ router.get(
 				return res.status(401).json({ message: "Unauthorized" });
 			}
 
-			// Get all events created by this user (including DRAFT)
+			// Get all events created by this user that have completed the wizard
 			const events = await prisma.event.findMany({
 				where: {
 					createdById: user.userId,
+					wizardCompleted: true, // Only completed events
 				},
 				include: {
 					createdBy: {
@@ -225,70 +226,6 @@ router.get(
 		}
 	}
 );
-
-// GET /api/events/:slug - Get event by slug
-router.get("/:slug", async (req: Request, res: Response) => {
-	try {
-		const { slug } = req.params;
-
-		const event = await prisma.event.findFirst({
-			where: {
-				OR: [{ slug }, { id: slug }],
-			},
-			include: {
-				createdBy: {
-					select: {
-						id: true,
-						name: true,
-						email: true,
-					},
-				},
-				assessmentCategories: {
-					include: {
-						assessmentCategory: true,
-					},
-				},
-				schoolCategoryLimits: {
-					include: {
-						schoolCategory: true,
-					},
-				},
-				coupon: true,
-				participations: {
-					select: {
-						id: true,
-						status: true,
-						teamName: true,
-						schoolName: true,
-						totalScore: true,
-						user: {
-							select: {
-								id: true,
-								name: true,
-							},
-						},
-						schoolCategory: {
-							select: {
-								id: true,
-								name: true,
-								description: true,
-							},
-						},
-					},
-				},
-			},
-		});
-
-		if (!event) {
-			return res.status(404).json({ message: "Event not found" });
-		}
-
-		res.json(event);
-	} catch (error) {
-		console.error("Error fetching event:", error);
-		res.status(500).json({ message: "Failed to fetch event" });
-	}
-});
 
 // GET /api/events/meta/assessment-categories - Get all active assessment categories
 router.get(
@@ -834,7 +771,83 @@ router.patch(
 	}
 );
 
-// GET /api/events/:id/registrations - Get all registrations for an event
+// GET /api/events/:id/participants-summary - Get public summary of registered schools/teams
+router.get(
+	"/:id/participants-summary",
+	async (req: Request, res: Response) => {
+		try {
+			const { id } = req.params;
+
+			if (!id) {
+				return res.status(400).json({ error: "Event ID or slug is required" });
+			}
+
+			// Check if it's a UUID or slug
+			const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+			// Check if event exists (by id or slug)
+			const event = await prisma.event.findFirst({
+				where: isUUID 
+					? { id }
+					: { slug: id },
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found" });
+			}
+
+			// Get confirmed registrations with limited public info
+			const registrations = await prisma.eventParticipation.findMany({
+				where: {
+					eventId: event.id,
+					status: "CONFIRMED",
+				},
+				select: {
+					id: true,
+					schoolName: true,
+					groups: {
+						where: {
+							status: "ACTIVE",
+						},
+						select: {
+							id: true,
+							groupName: true,
+							schoolCategory: {
+								select: {
+									id: true,
+									name: true,
+								},
+							},
+						},
+						orderBy: {
+							createdAt: "asc",
+						},
+					},
+				},
+				orderBy: {
+					createdAt: "asc",
+				},
+			});
+
+			// Transform to simplified format
+			const summary = registrations.map(reg => ({
+				schoolName: reg.schoolName || "Tidak diketahui",
+				teamCount: reg.groups.length,
+				teams: reg.groups.map(g => ({
+					name: g.groupName,
+					category: g.schoolCategory?.name || null,
+				})),
+			}));
+
+			res.json(summary);
+		} catch (error) {
+			console.error("Error fetching participants summary:", error);
+			res.status(500).json({ error: "Failed to fetch participants summary" });
+		}
+	}
+);
+
+// GET /api/events/:id/registrations - Get all registrations for an event (supports both UUID and slug)
 router.get(
 	"/:id/registrations",
 	authenticate,
@@ -842,19 +855,28 @@ router.get(
 		try {
 			const { id } = req.params;
 
-			// Check if event exists
-			const event = await prisma.event.findUnique({
-				where: { id },
+			if (!id) {
+				return res.status(400).json({ error: "Event ID or slug is required" });
+			}
+
+			// Check if it's a UUID or slug
+			const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+			// Check if event exists (by id or slug)
+			const event = await prisma.event.findFirst({
+				where: isUUID 
+					? { id }
+					: { slug: id },
 			});
 
 			if (!event) {
 				return res.status(404).json({ error: "Event not found" });
 			}
 
-			// Get all registrations for this event
+			// Get all registrations for this event using the actual event ID
 			const registrations = await prisma.eventParticipation.findMany({
 				where: {
-					eventId: id,
+					eventId: event.id,
 				},
 				include: {
 					user: {
@@ -891,5 +913,639 @@ router.get(
 		}
 	}
 );
+
+// ============================================================================
+// DRAFT EVENT WIZARD ENDPOINTS
+// ============================================================================
+
+// GET /api/events/drafts - Get all draft events for current user (incomplete wizard)
+router.get(
+	"/drafts",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+
+			if (!user) {
+				return res.status(401).json({ message: "Unauthorized" });
+			}
+
+			const drafts = await prisma.event.findMany({
+				where: {
+					createdById: user.userId,
+					wizardCompleted: false,
+				},
+				include: {
+					assessmentCategories: {
+						include: {
+							assessmentCategory: true,
+						},
+					},
+					schoolCategoryLimits: {
+						include: {
+							schoolCategory: true,
+						},
+					},
+					coupon: {
+						select: {
+							id: true,
+							code: true,
+						},
+					},
+				},
+				orderBy: {
+					updatedAt: "desc",
+				},
+			});
+
+			res.json({ data: drafts });
+		} catch (error) {
+			console.error("Error fetching draft events:", error);
+			res.status(500).json({ message: "Failed to fetch draft events" });
+		}
+	}
+);
+
+// GET /api/events/drafts/:id - Get single draft event
+router.get(
+	"/drafts/:id",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { id } = req.params;
+
+			if (!user) {
+				return res.status(401).json({ message: "Unauthorized" });
+			}
+
+			const draft = await prisma.event.findFirst({
+				where: {
+					id,
+					createdById: user.userId,
+				},
+				include: {
+					assessmentCategories: {
+						include: {
+							assessmentCategory: true,
+						},
+					},
+					schoolCategoryLimits: {
+						include: {
+							schoolCategory: true,
+						},
+					},
+					coupon: {
+						select: {
+							id: true,
+							code: true,
+						},
+					},
+				},
+			});
+
+			if (!draft) {
+				return res.status(404).json({ message: "Draft not found" });
+			}
+
+			res.json(draft);
+		} catch (error) {
+			console.error("Error fetching draft event:", error);
+			res.status(500).json({ message: "Failed to fetch draft event" });
+		}
+	}
+);
+
+// POST /api/events/drafts - Create new draft event (Step 1)
+router.post(
+	"/drafts",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+
+			if (!user || user.role !== "PANITIA") {
+				return res.status(403).json({
+					message: "Only Panitia can create events",
+				});
+			}
+
+			const {
+				couponId,
+				title,
+				description,
+				startDate,
+				endDate,
+				registrationDeadline,
+				location,
+				venue,
+			} = req.body;
+
+			// Validate coupon
+			if (!couponId) {
+				return res.status(400).json({
+					message: "Coupon is required to create an event",
+				});
+			}
+
+			const coupon = await prisma.eventCoupon.findUnique({
+				where: { id: couponId },
+			});
+
+			if (!coupon) {
+				return res.status(404).json({ message: "Coupon not found" });
+			}
+
+			if (coupon.isUsed) {
+				return res.status(400).json({ message: "Coupon has already been used" });
+			}
+
+			if (coupon.assignedToEmail !== user.email) {
+				return res.status(403).json({
+					message: "This coupon is not assigned to you",
+				});
+			}
+
+			// Validate required fields for step 1
+			if (!title || !startDate || !endDate || !location) {
+				return res.status(400).json({
+					message: "Missing required fields: title, startDate, endDate, location",
+				});
+			}
+
+			// Generate slug from title
+			const baseSlug = title
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, "-")
+				.replace(/^-|-$/g, "");
+			const uniqueSlug = `${baseSlug}-${Date.now().toString(36)}`;
+
+			// Create draft event - Mark coupon as used
+			const [draft] = await prisma.$transaction([
+				prisma.event.create({
+					data: {
+						title,
+						slug: uniqueSlug,
+						description: description || null,
+						startDate: new Date(startDate),
+						endDate: new Date(endDate),
+						registrationDeadline: registrationDeadline
+							? new Date(registrationDeadline)
+							: null,
+						location,
+						venue: venue || null,
+						status: "DRAFT",
+						wizardStep: 2, // Move to step 2
+						wizardCompleted: false,
+						couponId,
+						createdById: user.userId,
+					},
+					include: {
+						coupon: {
+							select: {
+								id: true,
+								code: true,
+							},
+						},
+					},
+				}),
+				prisma.eventCoupon.update({
+					where: { id: couponId },
+					data: {
+						isUsed: true,
+						usedById: user.userId,
+						usedAt: new Date(),
+					},
+				}),
+			]);
+
+			res.status(201).json({
+				message: "Draft created successfully",
+				event: draft,
+			});
+		} catch (error) {
+			console.error("Error creating draft event:", error);
+			res.status(500).json({ message: "Failed to create draft event" });
+		}
+	}
+);
+
+// PATCH /api/events/drafts/:id/step2 - Update draft with Step 2 data (Categories)
+router.patch(
+	"/drafts/:id/step2",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const id = req.params.id;
+
+			if (!user) {
+				return res.status(401).json({ message: "Unauthorized" });
+			}
+
+			if (!id) {
+				return res.status(400).json({ message: "Event ID is required" });
+			}
+
+			const { assessmentCategoryIds, schoolCategoryLimits } = req.body;
+
+			// Verify ownership
+			const existingDraft = await prisma.event.findFirst({
+				where: {
+					id,
+					createdById: user.userId,
+				},
+			});
+
+			if (!existingDraft) {
+				return res.status(404).json({ message: "Draft not found" });
+			}
+
+			// Validate assessment categories
+			if (
+				!assessmentCategoryIds ||
+				!Array.isArray(assessmentCategoryIds) ||
+				assessmentCategoryIds.length === 0
+			) {
+				return res.status(400).json({
+					message: "At least one assessment category is required",
+				});
+			}
+
+			// Validate school category limits
+			if (
+				!schoolCategoryLimits ||
+				!Array.isArray(schoolCategoryLimits) ||
+				schoolCategoryLimits.length === 0
+			) {
+				return res.status(400).json({
+					message: "At least one school category limit is required",
+				});
+			}
+
+			// Update in transaction
+			await prisma.$transaction(async (tx) => {
+				// Delete existing assessment categories
+				await tx.eventAssessmentCategory.deleteMany({
+					where: { eventId: id },
+				});
+
+				// Create new assessment category associations
+				await tx.eventAssessmentCategory.createMany({
+					data: assessmentCategoryIds.map((catId: string) => ({
+						eventId: id,
+						assessmentCategoryId: catId,
+					})),
+				});
+
+				// Delete existing school category limits
+				await tx.eventSchoolCategoryLimit.deleteMany({
+					where: { eventId: id },
+				});
+
+				// Create new school category limits
+				const validLimits = schoolCategoryLimits.filter(
+					(l: any) => l.categoryId && l.maxParticipants >= 1
+				);
+
+				if (validLimits.length > 0) {
+					await tx.eventSchoolCategoryLimit.createMany({
+						data: validLimits.map((limit: any) => ({
+							eventId: id,
+							schoolCategoryId: limit.categoryId,
+							maxParticipants: limit.maxParticipants,
+						})),
+					});
+				}
+
+				// Update wizard step (only for incomplete drafts)
+				if (!existingDraft.wizardCompleted) {
+					await tx.event.update({
+						where: { id },
+						data: {
+							wizardStep: 3,
+						},
+					});
+				}
+			});
+
+			// Fetch updated draft
+			const updatedDraft = await prisma.event.findUnique({
+				where: { id },
+				include: {
+					assessmentCategories: {
+						include: {
+							assessmentCategory: true,
+						},
+					},
+					schoolCategoryLimits: {
+						include: {
+							schoolCategory: true,
+						},
+					},
+				},
+			});
+
+			res.json({
+				message: "Step 2 saved successfully",
+				event: updatedDraft,
+			});
+		} catch (error) {
+			console.error("Error updating draft step 2:", error);
+			res.status(500).json({ message: "Failed to update draft" });
+		}
+	}
+);
+
+// PATCH /api/events/drafts/:id/step3 - Update draft with Step 3 data (Poster, Fee, Documents)
+router.patch(
+	"/drafts/:id/step3",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { id } = req.params;
+
+			if (!user) {
+				return res.status(401).json({ message: "Unauthorized" });
+			}
+
+			const {
+				thumbnail,
+				juknisUrl,
+				registrationFee,
+				organizer,
+				contactEmail,
+				contactPhone,
+				status,
+			} = req.body;
+
+			// Verify ownership
+			const existingDraft = await prisma.event.findFirst({
+				where: {
+					id,
+					createdById: user.userId,
+				},
+			});
+
+			if (!existingDraft) {
+				return res.status(404).json({ message: "Draft not found" });
+			}
+
+			// Update draft with step 3 data and mark as complete
+			const updatedEvent = await prisma.event.update({
+				where: { id },
+				data: {
+					thumbnail: thumbnail || null,
+					juknisUrl: juknisUrl || null,
+					registrationFee: registrationFee ? registrationFee : null,
+					organizer: organizer || null,
+					contactEmail: contactEmail || null,
+					contactPhone: contactPhone || null,
+					status: status || "DRAFT",
+					wizardStep: 0, // 0 means completed
+					wizardCompleted: true,
+				},
+				include: {
+					assessmentCategories: {
+						include: {
+							assessmentCategory: true,
+						},
+					},
+					schoolCategoryLimits: {
+						include: {
+							schoolCategory: true,
+						},
+					},
+					coupon: {
+						select: {
+							id: true,
+							code: true,
+						},
+					},
+				},
+			});
+
+			res.json({
+				message: "Event created successfully",
+				event: updatedEvent,
+			});
+		} catch (error) {
+			console.error("Error completing draft:", error);
+			res.status(500).json({ message: "Failed to complete event creation" });
+		}
+	}
+);
+
+// PATCH /api/events/drafts/:id/step1 - Update Step 1 data (for going back)
+router.patch(
+	"/drafts/:id/step1",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { id } = req.params;
+
+			if (!user) {
+				return res.status(401).json({ message: "Unauthorized" });
+			}
+
+			const {
+				title,
+				description,
+				startDate,
+				endDate,
+				registrationDeadline,
+				location,
+				venue,
+			} = req.body;
+
+			// Verify ownership
+			const existingDraft = await prisma.event.findFirst({
+				where: {
+					id,
+					createdById: user.userId,
+				},
+			});
+
+			if (!existingDraft) {
+				return res.status(404).json({ message: "Draft not found" });
+			}
+
+			// Update step 1 data
+			// Don't change wizardStep for completed events (edit mode)
+			const updatedDraft = await prisma.event.update({
+				where: { id },
+				data: {
+					title: title || existingDraft.title,
+					description: description !== undefined ? description : existingDraft.description,
+					startDate: startDate ? new Date(startDate) : existingDraft.startDate,
+					endDate: endDate ? new Date(endDate) : existingDraft.endDate,
+					registrationDeadline: registrationDeadline
+						? new Date(registrationDeadline)
+						: existingDraft.registrationDeadline,
+					location: location || existingDraft.location,
+					venue: venue !== undefined ? venue : existingDraft.venue,
+					// Only update wizardStep for incomplete drafts
+					...(existingDraft.wizardCompleted ? {} : { wizardStep: 2 }),
+				},
+			});
+
+			res.json({
+				message: "Step 1 updated successfully",
+				event: updatedDraft,
+			});
+		} catch (error) {
+			console.error("Error updating draft step 1:", error);
+			res.status(500).json({ message: "Failed to update draft" });
+		}
+	}
+);
+
+// DELETE /api/events/drafts/:id - Delete draft event
+router.delete(
+	"/drafts/:id",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { id } = req.params;
+
+			if (!user) {
+				return res.status(401).json({ message: "Unauthorized" });
+			}
+
+			// Verify ownership
+			const existingDraft = await prisma.event.findFirst({
+				where: {
+					id,
+					createdById: user.userId,
+					wizardCompleted: false,
+				},
+			});
+
+			if (!existingDraft) {
+				return res.status(404).json({ message: "Draft not found" });
+			}
+
+			// Delete draft and restore coupon
+			await prisma.$transaction([
+				prisma.event.delete({
+					where: { id },
+				}),
+				// Restore coupon if exists
+				...(existingDraft.couponId
+					? [
+							prisma.eventCoupon.update({
+								where: { id: existingDraft.couponId },
+								data: {
+									isUsed: false,
+									usedById: null,
+									usedAt: null,
+								},
+							}),
+					  ]
+					: []),
+			]);
+
+			res.json({ message: "Draft deleted successfully" });
+		} catch (error) {
+			console.error("Error deleting draft:", error);
+			res.status(500).json({ message: "Failed to delete draft" });
+		}
+	}
+);
+
+// POST /api/events/upload-juknis - Upload juknis document
+router.post(
+	"/upload-juknis",
+	authenticate,
+	uploadJuknis.single("juknis"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			if (!req.file) {
+				return res.status(400).json({ message: "No file uploaded" });
+			}
+
+			// Return relative path for database storage
+			const juknisPath = `/uploads/events/${req.file.filename}`;
+
+			res.json({
+				message: "Juknis uploaded successfully",
+				juknisUrl: juknisPath,
+			});
+		} catch (error: any) {
+			console.error("Error uploading juknis:", error);
+			res.status(500).json({
+				message: "Failed to upload juknis",
+				error: error.message,
+			});
+		}
+	}
+);
+
+// GET /api/events/:slug - Get event by slug (MUST BE LAST - catches all unmatched routes)
+router.get("/:slug", async (req: Request, res: Response) => {
+	try {
+		const { slug } = req.params;
+
+		const event = await prisma.event.findFirst({
+			where: {
+				OR: [{ slug }, { id: slug }],
+			},
+			include: {
+				createdBy: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				},
+				assessmentCategories: {
+					include: {
+						assessmentCategory: true,
+					},
+				},
+				schoolCategoryLimits: {
+					include: {
+						schoolCategory: true,
+					},
+				},
+				coupon: true,
+				participations: {
+					select: {
+						id: true,
+						status: true,
+						teamName: true,
+						schoolName: true,
+						totalScore: true,
+						user: {
+							select: {
+								id: true,
+								name: true,
+							},
+						},
+						schoolCategory: {
+							select: {
+								id: true,
+								name: true,
+								description: true,
+							},
+						},
+					},
+				},
+			},
+		});
+
+		if (!event) {
+			return res.status(404).json({ message: "Event not found" });
+		}
+
+		res.json(event);
+	} catch (error) {
+		console.error("Error fetching event:", error);
+		res.status(500).json({ message: "Failed to fetch event" });
+	}
+});
 
 export default router;

@@ -89,7 +89,7 @@ const EventManagement: React.FC = () => {
 		if (!confirmed) return;
 
 		try {
-			await api.patch(`/api/events/${eventId}/pin`, {
+			await api.patch(`/events/${eventId}/pin`, {
 				isPinned: !currentPinned,
 				pinnedOrder: !currentPinned ? getNextPinnedOrder() : null,
 			});
@@ -127,11 +127,11 @@ const EventManagement: React.FC = () => {
 		try {
 			// Swap the orders
 			await Promise.all([
-				api.patch(`/api/events/${event.id}/pin`, {
+				api.patch(`/events/${event.id}/pin`, {
 					isPinned: true,
 					pinnedOrder: targetEvent.pinnedOrder,
 				}),
-				api.patch(`/api/events/${targetEvent.id}/pin`, {
+				api.patch(`/events/${targetEvent.id}/pin`, {
 					isPinned: true,
 					pinnedOrder: event.pinnedOrder,
 				}),

@@ -1,709 +1,640 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { api } from "../../utils/api";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
 	UserGroupIcon,
 	CheckCircleIcon,
 	XCircleIcon,
-	ArrowLeftIcon,
-	AcademicCapIcon,
+	ClockIcon,
+	ChevronDownIcon,
+	ChevronUpIcon,
 	UserIcon,
-	CalendarIcon,
+	ArrowLeftIcon,
+	MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
+import {
+	CheckCircleIcon as CheckCircleIconSolid,
+	XCircleIcon as XCircleIconSolid,
+	ClockIcon as ClockIconSolid,
+} from "@heroicons/react/24/solid";
+import { api } from "../../utils/api";
 import Swal from "sweetalert2";
-
-interface ParticipationGroup {
-	id: string;
-	groupName: string;
-	teamMembers: number;
-	status: string;
-	notes: string | null;
-}
 
 interface SchoolCategory {
 	id: string;
 	name: string;
 }
 
+interface ParticipationGroup {
+	id: string;
+	groupName: string;
+	teamMembers: number;
+	memberData: string | null;
+	status: string;
+	notes: string | null;
+	schoolCategory: SchoolCategory;
+}
+
+interface UserProfile {
+	institution: string | null;
+	city: string | null;
+	province: string | null;
+}
+
 interface User {
 	id: string;
 	name: string;
 	email: string;
+	phone: string | null;
+	profile: UserProfile | null;
 }
 
-interface EventParticipation {
+interface Registration {
 	id: string;
 	eventId: string;
 	userId: string;
-	schoolCategoryId: string;
-	schoolName: string;
+	teamName: string | null;
+	schoolName: string | null;
+	supportingDoc: string | null;
 	status: string;
+	notes: string | null;
 	createdAt: string;
 	user: User;
-	schoolCategory: SchoolCategory;
+	schoolCategory: SchoolCategory | null;
 	groups: ParticipationGroup[];
+}
+
+interface PersonMember {
+	id: string;
+	name: string;
+	role: string;
+	photo: string | null;
 }
 
 interface Event {
 	id: string;
 	title: string;
 	slug: string;
-	schoolCategoryLimits: Array<{
-		id: string;
-		maxParticipants: number;
-		currentParticipants: number;
-		schoolCategory: SchoolCategory;
-	}>;
 }
 
-type TabType = "registrations" | "participants";
+// Helper to get image URL
+const getImageUrl = (url: string | undefined | null): string | null => {
+	if (!url) return null;
+	if (url.startsWith("http://") || url.startsWith("https://")) {
+		return url;
+	}
+	const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+	return `${backendUrl}${url}`;
+};
+
+// Helper to parse memberData JSON
+const parseMemberData = (memberDataStr: string | null): PersonMember[] => {
+	if (!memberDataStr) return [];
+	try {
+		return JSON.parse(memberDataStr);
+	} catch {
+		return [];
+	}
+};
 
 const EventParticipantManagement: React.FC = () => {
-	const { id } = useParams<{ id: string }>();
+	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const navigate = useNavigate();
-	const [activeTab, setActiveTab] = useState<TabType>("registrations");
 	const [event, setEvent] = useState<Event | null>(null);
-	const [registrations, setRegistrations] = useState<EventParticipation[]>([]);
+	const [registrations, setRegistrations] = useState<Registration[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [selectedCategory, setSelectedCategory] = useState<string>("all");
-	const [statusFilter, setStatusFilter] = useState<string>("REGISTERED");
+	const [expandedId, setExpandedId] = useState<string | null>(null);
+	const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [searchQuery, setSearchQuery] = useState("");
+	const [processingId, setProcessingId] = useState<string | null>(null);
 
 	useEffect(() => {
-		fetchEventDetails();
-		fetchRegistrations();
-	}, [id]);
+		fetchEventAndRegistrations();
+	}, [eventSlug]);
 
-	const fetchEventDetails = async () => {
-		try {
-			const response = await api.get(`/events/${id}`);
-			setEvent(response.data);
-		} catch (error) {
-			console.error("Error fetching event details:", error);
-		}
-	};
-
-	const fetchRegistrations = async () => {
+	const fetchEventAndRegistrations = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get(`/events/${id}/registrations`);
-			setRegistrations(response.data);
+
+			// First get current assignment to get event ID
+			const assignmentResponse = await api.get("/panitia-assignment/current");
+			if (!assignmentResponse.data || assignmentResponse.data.event.slug !== eventSlug) {
+				navigate("/panitia/dashboard");
+				return;
+			}
+
+			const eventData = assignmentResponse.data.event;
+			setEvent(eventData);
+
+			// Fetch registrations
+			const registrationsResponse = await api.get(`/registrations/event/${eventData.id}`);
+			setRegistrations(registrationsResponse.data);
 		} catch (error) {
-			console.error("Error fetching registrations:", error);
+			console.error("Error fetching data:", error);
 			Swal.fire({
 				icon: "error",
-				title: "Gagal Memuat Data",
-				text: "Tidak dapat memuat daftar pendaftaran",
+				title: "Error",
+				text: "Gagal memuat data peserta",
 			});
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	const handleConfirmRegistration = async (participationId: string) => {
+	const handleUpdateStatus = async (registrationId: string, newStatus: string) => {
+		const statusLabel = newStatus === "CONFIRMED" ? "konfirmasi" : newStatus === "CANCELLED" ? "batalkan" : "ubah status";
+
 		const result = await Swal.fire({
-			title: "Konfirmasi Pendaftaran",
-			text: "Apakah Anda yakin ingin menerima pendaftaran ini?",
-			icon: "question",
+			title: `${newStatus === "CONFIRMED" ? "Konfirmasi" : "Batalkan"} Pendaftaran?`,
+			text: `Yakin ingin ${statusLabel} pendaftaran ini?`,
+			icon: newStatus === "CONFIRMED" ? "question" : "warning",
 			showCancelButton: true,
-			confirmButtonColor: "#10b981",
-			cancelButtonColor: "#6b7280",
-			confirmButtonText: "Ya, Terima",
+			confirmButtonColor: newStatus === "CONFIRMED" ? "#10B981" : "#EF4444",
+			cancelButtonColor: "#6B7280",
+			confirmButtonText: `Ya, ${newStatus === "CONFIRMED" ? "Konfirmasi" : "Batalkan"}`,
 			cancelButtonText: "Batal",
 		});
 
 		if (result.isConfirmed) {
 			try {
-				await api.patch(`/registrations/${participationId}/status`, {
-					status: "CONFIRMED",
-				});
+				setProcessingId(registrationId);
+				await api.patch(`/registrations/${registrationId}/status`, { status: newStatus });
 
-				Swal.fire({
+				await Swal.fire({
 					icon: "success",
 					title: "Berhasil",
-					text: "Pendaftaran telah diterima",
-					timer: 2000,
-					showConfirmButton: false,
+					text: `Pendaftaran berhasil di${statusLabel}`,
+					timer: 1500,
 				});
 
-				fetchRegistrations();
-				fetchEventDetails();
+				fetchEventAndRegistrations();
 			} catch (error: any) {
 				Swal.fire({
 					icon: "error",
 					title: "Gagal",
-					text: error.response?.data?.message || "Gagal menerima pendaftaran",
+					text: error.response?.data?.error || `Gagal ${statusLabel} pendaftaran`,
 				});
+			} finally {
+				setProcessingId(null);
 			}
 		}
-	};
-
-	const handleRejectRegistration = async (participationId: string) => {
-		const result = await Swal.fire({
-			title: "Tolak Pendaftaran",
-			text: "Apakah Anda yakin ingin menolak pendaftaran ini?",
-			icon: "warning",
-			showCancelButton: true,
-			confirmButtonColor: "#ef4444",
-			cancelButtonColor: "#6b7280",
-			confirmButtonText: "Ya, Tolak",
-			cancelButtonText: "Batal",
-		});
-
-		if (result.isConfirmed) {
-			try {
-				await api.patch(`/registrations/${participationId}/status`, {
-					status: "CANCELLED",
-				});
-
-				Swal.fire({
-					icon: "success",
-					title: "Berhasil",
-					text: "Pendaftaran telah ditolak",
-					timer: 2000,
-					showConfirmButton: false,
-				});
-
-				fetchRegistrations();
-				fetchEventDetails();
-			} catch (error: any) {
-				Swal.fire({
-					icon: "error",
-					title: "Gagal",
-					text: error.response?.data?.message || "Gagal menolak pendaftaran",
-				});
-			}
-		}
-	};
-
-	// Filter for registrations tab
-	const filteredRegistrations = registrations.filter((reg) => {
-		const statusMatch =
-			statusFilter === "all" ? true : reg.status === statusFilter;
-		const categoryMatch =
-			selectedCategory === "all"
-				? true
-				: reg.schoolCategoryId === selectedCategory;
-		return statusMatch && categoryMatch;
-	});
-
-	// Filter for participants tab (only CONFIRMED)
-	const confirmedParticipants = registrations.filter(
-		(reg) => reg.status === "CONFIRMED"
-	);
-
-	// Group participants by category
-	const participantsByCategory = confirmedParticipants.reduce((acc, participant) => {
-		const categoryId = participant.schoolCategoryId;
-		if (!acc[categoryId]) {
-			acc[categoryId] = [];
-		}
-		acc[categoryId].push(participant);
-		return acc;
-	}, {} as Record<string, EventParticipation[]>);
-
-	// Sort participants by registration date
-	Object.keys(participantsByCategory).forEach((categoryId) => {
-		const categoryParticipants = participantsByCategory[categoryId];
-		if (categoryParticipants) {
-			categoryParticipants.sort(
-				(a, b) =>
-					new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-			);
-		}
-	});
-
-	const filteredCategories =
-		selectedCategory === "all"
-			? Object.entries(participantsByCategory)
-			: Object.entries(participantsByCategory).filter(
-					([catId]) => catId === selectedCategory
-			  );
-
-	// Statistics
-	const stats = {
-		total: registrations.length,
-		pending: registrations.filter((r) => r.status === "REGISTERED").length,
-		confirmed: registrations.filter((r) => r.status === "CONFIRMED").length,
-		cancelled: registrations.filter((r) => r.status === "CANCELLED").length,
 	};
 
 	const getStatusBadge = (status: string) => {
-		switch (status) {
-			case "REGISTERED":
-				return (
-					<span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-						Menunggu
-					</span>
-				);
-			case "CONFIRMED":
-				return (
-					<span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-						Diterima
-					</span>
-				);
-			case "CANCELLED":
-				return (
-					<span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-						Ditolak
-					</span>
-				);
-			default:
-				return null;
+		const statusConfig = {
+			REGISTERED: {
+				bg: "bg-yellow-100 dark:bg-yellow-900/30",
+				text: "text-yellow-800 dark:text-yellow-200",
+				icon: <ClockIconSolid className="h-4 w-4" />,
+				label: "Menunggu Konfirmasi",
+			},
+			CONFIRMED: {
+				bg: "bg-green-100 dark:bg-green-900/30",
+				text: "text-green-800 dark:text-green-200",
+				icon: <CheckCircleIconSolid className="h-4 w-4" />,
+				label: "Dikonfirmasi",
+			},
+			CANCELLED: {
+				bg: "bg-red-100 dark:bg-red-900/30",
+				text: "text-red-800 dark:text-red-200",
+				icon: <XCircleIconSolid className="h-4 w-4" />,
+				label: "Dibatalkan",
+			},
+		} as const;
+
+		type StatusKey = keyof typeof statusConfig;
+		const config = statusConfig[status as StatusKey] || statusConfig.REGISTERED;
+
+		return (
+			<span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}>
+				{config.icon}
+				{config.label}
+			</span>
+		);
+	};
+
+	const formatDate = (dateString: string) => {
+		return new Date(dateString).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	};
+
+	// Filter registrations
+	const filteredRegistrations = registrations.filter((reg) => {
+		// Status filter
+		if (statusFilter !== "all" && reg.status !== statusFilter) return false;
+
+		// Search filter
+		if (searchQuery) {
+			const query = searchQuery.toLowerCase();
+			const matchesUser = reg.user.name.toLowerCase().includes(query) || reg.user.email.toLowerCase().includes(query);
+			const matchesSchool = reg.schoolName?.toLowerCase().includes(query);
+			const matchesTeam = reg.groups.some((g) => g.groupName.toLowerCase().includes(query));
+			return matchesUser || matchesSchool || matchesTeam;
 		}
+
+		return true;
+	});
+
+	// Count by status
+	const statusCounts = {
+		all: registrations.length,
+		REGISTERED: registrations.filter((r) => r.status === "REGISTERED").length,
+		CONFIRMED: registrations.filter((r) => r.status === "CONFIRMED").length,
+		CANCELLED: registrations.filter((r) => r.status === "CANCELLED").length,
 	};
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-screen">
+			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
 				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="py-6 px-4 sm:px-6 lg:px-8">
-			{/* Header */}
-			<div className="mb-8">
-				<button
-					onClick={() => navigate(-1)}
-					className="mb-4 inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-				>
-					<ArrowLeftIcon className="h-5 w-5 mr-2" />
-					Kembali
-				</button>
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				{/* Header */}
+				<div className="mb-8">
+					<Link
+						to={`/panitia/events/${eventSlug}/manage`}
+						className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4"
+					>
+						<ArrowLeftIcon className="h-4 w-4 mr-1" />
+						Kembali ke Event
+					</Link>
+					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+						Manajemen Peserta
+					</h1>
+					<p className="mt-2 text-gray-600 dark:text-gray-400">
+						{event?.title}
+					</p>
+				</div>
 
-				<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-					Kelola Peserta Event
-				</h1>
-				{event && (
-					<p className="mt-2 text-gray-600 dark:text-gray-400">{event.title}</p>
-				)}
-			</div>
-
-			{/* Tabs */}
-			<div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-				<nav className="-mb-px flex space-x-8">
-					<button
-						onClick={() => setActiveTab("registrations")}
-						className={`py-4 px-1 border-b-2 font-medium text-sm ${
-							activeTab === "registrations"
-								? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-								: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+				{/* Stats */}
+				<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+					<div
+						onClick={() => setStatusFilter("all")}
+						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
+							statusFilter === "all"
+								? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-300"
 						}`}
 					>
-						<div className="flex items-center gap-2">
-							<CheckCircleIcon className="h-5 w-5" />
-							<span>Kelola Pendaftaran</span>
-							{stats.pending > 0 && (
-								<span className="bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-									{stats.pending}
-								</span>
-							)}
-						</div>
-					</button>
-					<button
-						onClick={() => setActiveTab("participants")}
-						className={`py-4 px-1 border-b-2 font-medium text-sm ${
-							activeTab === "participants"
-								? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-								: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+						<p className="text-sm text-gray-600 dark:text-gray-400">Semua</p>
+						<p className="text-2xl font-bold text-gray-900 dark:text-white">{statusCounts.all}</p>
+					</div>
+					<div
+						onClick={() => setStatusFilter("REGISTERED")}
+						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
+							statusFilter === "REGISTERED"
+								? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
+								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-yellow-300"
 						}`}
 					>
-						<div className="flex items-center gap-2">
-							<UserGroupIcon className="h-5 w-5" />
-							<span>Daftar Peserta</span>
-							<span className="bg-indigo-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-								{stats.confirmed}
-							</span>
-						</div>
-					</button>
-				</nav>
-			</div>
-
-			{/* Tab Content */}
-			{activeTab === "registrations" ? (
-				<>
-					{/* Statistics */}
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-										Total
-									</p>
-									<p className="text-2xl font-bold text-gray-900 dark:text-white">
-										{stats.total}
-									</p>
-								</div>
-								<UserGroupIcon className="h-10 w-10 text-indigo-600" />
-							</div>
-						</div>
-
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-										Menunggu
-									</p>
-									<p className="text-2xl font-bold text-yellow-600">
-										{stats.pending}
-									</p>
-								</div>
-								<CalendarIcon className="h-10 w-10 text-yellow-400" />
-							</div>
-						</div>
-
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-										Diterima
-									</p>
-									<p className="text-2xl font-bold text-green-600">
-										{stats.confirmed}
-									</p>
-								</div>
-								<CheckCircleIcon className="h-10 w-10 text-green-400" />
-							</div>
-						</div>
-
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-										Ditolak
-									</p>
-									<p className="text-2xl font-bold text-red-600">
-										{stats.cancelled}
-									</p>
-								</div>
-								<XCircleIcon className="h-10 w-10 text-red-400" />
-							</div>
-						</div>
+						<p className="text-sm text-yellow-600 dark:text-yellow-400">Menunggu</p>
+						<p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{statusCounts.REGISTERED}</p>
 					</div>
-
-					{/* Filters */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-									Status
-								</label>
-								<select
-									value={statusFilter}
-									onChange={(e) => setStatusFilter(e.target.value)}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-								>
-									<option value="REGISTERED">Menunggu</option>
-									<option value="CONFIRMED">Diterima</option>
-									<option value="CANCELLED">Ditolak</option>
-									<option value="all">Semua Status</option>
-								</select>
-							</div>
-
-							<div>
-								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-									Kategori
-								</label>
-								<select
-									value={selectedCategory}
-									onChange={(e) => setSelectedCategory(e.target.value)}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-								>
-									<option value="all">Semua Kategori</option>
-									{event?.schoolCategoryLimits.map((limit) => (
-										<option key={limit.id} value={limit.schoolCategory.id}>
-											{limit.schoolCategory.name}
-										</option>
-									))}
-								</select>
-							</div>
-						</div>
+					<div
+						onClick={() => setStatusFilter("CONFIRMED")}
+						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
+							statusFilter === "CONFIRMED"
+								? "border-green-500 bg-green-50 dark:bg-green-900/20"
+								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-green-300"
+						}`}
+					>
+						<p className="text-sm text-green-600 dark:text-green-400">Dikonfirmasi</p>
+						<p className="text-2xl font-bold text-green-600 dark:text-green-400">{statusCounts.CONFIRMED}</p>
 					</div>
+					<div
+						onClick={() => setStatusFilter("CANCELLED")}
+						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
+							statusFilter === "CANCELLED"
+								? "border-red-500 bg-red-50 dark:bg-red-900/20"
+								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-red-300"
+						}`}
+					>
+						<p className="text-sm text-red-600 dark:text-red-400">Dibatalkan</p>
+						<p className="text-2xl font-bold text-red-600 dark:text-red-400">{statusCounts.CANCELLED}</p>
+					</div>
+				</div>
 
-					{/* Registrations List */}
+				{/* Search */}
+				<div className="mb-6">
+					<div className="relative">
+						<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+						<input
+							type="text"
+							placeholder="Cari nama peserta, email, sekolah, atau tim..."
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+						/>
+					</div>
+				</div>
+
+				{/* Registrations List */}
+				{filteredRegistrations.length === 0 ? (
+					<div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+						<UserGroupIcon className="mx-auto h-16 w-16 text-gray-400" />
+						<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+							{registrations.length === 0 ? "Belum Ada Pendaftaran" : "Tidak Ada Hasil"}
+						</h3>
+						<p className="mt-2 text-gray-600 dark:text-gray-400">
+							{registrations.length === 0 ? "Belum ada peserta yang mendaftar ke event ini" : "Coba ubah filter atau kata kunci pencarian"}
+						</p>
+					</div>
+				) : (
 					<div className="space-y-4">
-						{filteredRegistrations.length === 0 ? (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-								<UserGroupIcon className="mx-auto h-16 w-16 text-gray-400" />
-								<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-									Tidak Ada Data
-								</h3>
-								<p className="mt-2 text-gray-600 dark:text-gray-400">
-									Tidak ada pendaftaran yang sesuai dengan filter
-								</p>
-							</div>
-						) : (
-							filteredRegistrations.map((registration) => (
+						{filteredRegistrations.map((registration) => {
+							const isExpanded = expandedId === registration.id;
+							const activeGroups = registration.groups.filter((g) => g.status === "ACTIVE");
+							const isProcessing = processingId === registration.id;
+
+							return (
 								<div
 									key={registration.id}
-									className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
+									className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
 								>
-									<div className="flex items-start justify-between mb-4">
-										<div className="flex-1">
-											<div className="flex items-center gap-3 mb-2">
-												<UserIcon className="h-6 w-6 text-indigo-600" />
-												<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-													{registration.schoolName}
-												</h3>
-												{getStatusBadge(registration.status)}
+									{/* Registration Header */}
+									<div className="p-6">
+										<div className="flex items-start justify-between">
+											<div className="flex-1">
+												<div className="flex items-center gap-3 mb-2">
+													<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+														{registration.user.name}
+													</h3>
+													{getStatusBadge(registration.status)}
+												</div>
+												<div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+													<p>{registration.user.email}</p>
+													{registration.user.phone && <p>{registration.user.phone}</p>}
+													{registration.schoolName && (
+														<p className="font-medium text-gray-900 dark:text-white">
+															{registration.schoolName}
+														</p>
+													)}
+													<p className="text-xs">
+														Didaftarkan: {formatDate(registration.createdAt)}
+													</p>
+												</div>
 											</div>
-											<p className="text-sm text-gray-600 dark:text-gray-400">
-												Penanggung Jawab: {registration.user.name} (
-												{registration.user.email})
-											</p>
-											<p className="text-sm text-gray-600 dark:text-gray-400">
-												Kategori: {registration.schoolCategory.name}
-											</p>
-											<p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-												Didaftarkan:{" "}
-												{new Date(registration.createdAt).toLocaleDateString("id-ID", {
-													year: "numeric",
-													month: "long",
-													day: "numeric",
-													hour: "2-digit",
-													minute: "2-digit",
-												})}
-											</p>
-										</div>
 
-										{registration.status === "REGISTERED" && (
-											<div className="flex gap-2">
-												<button
-													onClick={() => handleConfirmRegistration(registration.id)}
-													className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-												>
-													<CheckCircleIcon className="h-5 w-5 mr-2" />
-													Terima
-												</button>
-												<button
-													onClick={() => handleRejectRegistration(registration.id)}
-													className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-												>
-													<XCircleIcon className="h-5 w-5 mr-2" />
-													Tolak
-												</button>
-											</div>
-										)}
-									</div>
-
-									{/* Groups */}
-									<div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-										<h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-											Daftar Grup/Tim ({registration.groups.length})
-										</h4>
-										<div className="space-y-2">
-											{registration.groups.map((group) => (
-												<div
-													key={group.id}
-													className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-												>
-													<div className="flex items-center gap-3">
-														<UserGroupIcon className="h-5 w-5 text-indigo-600" />
-														<div>
-															<p className="font-medium text-gray-900 dark:text-white">
-																{group.groupName}
-															</p>
-															<p className="text-sm text-gray-600 dark:text-gray-400">
-																{group.teamMembers} anggota
-															</p>
-															{group.notes && (
-																<p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-																	{group.notes}
-																</p>
-															)}
-														</div>
-													</div>
-													<span
-														className={`px-3 py-1 rounded-full text-xs font-medium ${
-															group.status === "ACTIVE"
-																? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-																: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
-														}`}
+											{/* Action Buttons */}
+											<div className="flex flex-col gap-2">
+												{registration.status === "REGISTERED" && (
+													<>
+														<button
+															onClick={() => handleUpdateStatus(registration.id, "CONFIRMED")}
+															disabled={isProcessing}
+															className="inline-flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+														>
+															<CheckCircleIcon className="h-4 w-4" />
+															Konfirmasi
+														</button>
+														<button
+															onClick={() => handleUpdateStatus(registration.id, "CANCELLED")}
+															disabled={isProcessing}
+															className="inline-flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+														>
+															<XCircleIcon className="h-4 w-4" />
+															Tolak
+														</button>
+													</>
+												)}
+												{registration.status === "CONFIRMED" && (
+													<button
+														onClick={() => handleUpdateStatus(registration.id, "CANCELLED")}
+														disabled={isProcessing}
+														className="inline-flex items-center gap-1 px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
 													>
-														{group.status === "ACTIVE" ? "Aktif" : "Tidak Aktif"}
-													</span>
-												</div>
-											))}
+														<XCircleIcon className="h-4 w-4" />
+														Batalkan
+													</button>
+												)}
+												{registration.status === "CANCELLED" && (
+													<button
+														onClick={() => handleUpdateStatus(registration.id, "REGISTERED")}
+														disabled={isProcessing}
+														className="inline-flex items-center gap-1 px-4 py-2 border border-yellow-600 text-yellow-600 rounded-lg hover:bg-yellow-50 dark:hover:bg-yellow-900/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+													>
+														<ClockIcon className="h-4 w-4" />
+														Pulihkan
+													</button>
+												)}
+											</div>
 										</div>
-									</div>
-								</div>
-							))
-						)}
-					</div>
-				</>
-			) : (
-				<>
-					{/* Category Stats */}
-					{event && (
-						<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-							{event.schoolCategoryLimits.map((limit) => {
-								const categoryParticipants =
-									participantsByCategory[limit.schoolCategory.id] || [];
-								const totalGroups = categoryParticipants.reduce(
-									(sum, p) => sum + p.groups.filter((g) => g.status === "ACTIVE").length,
-									0
-								);
 
-								return (
-									<div
-										key={limit.id}
-										className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
-									>
-										<div className="flex items-center justify-between mb-2">
-											<AcademicCapIcon className="h-8 w-8 text-indigo-600" />
-											<button
-												onClick={() => setSelectedCategory(limit.schoolCategory.id)}
-												className="text-sm text-indigo-600 hover:underline"
-											>
-												Filter
-											</button>
-										</div>
-										<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-											{limit.schoolCategory.name}
-										</h3>
-										<p className="text-2xl font-bold text-indigo-600">
-											{totalGroups} / {limit.maxParticipants}
-										</p>
-										<p className="text-xs text-gray-500">
-											{categoryParticipants.length} sekolah
-										</p>
-									</div>
-								);
-							})}
-						</div>
-					)}
-
-					{/* Category Filter */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-						<select
-							value={selectedCategory}
-							onChange={(e) => setSelectedCategory(e.target.value)}
-							className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-						>
-							<option value="all">Semua Kategori</option>
-							{event?.schoolCategoryLimits.map((limit) => (
-								<option key={limit.id} value={limit.schoolCategory.id}>
-									{limit.schoolCategory.name}
-								</option>
-							))}
-						</select>
-					</div>
-
-					{/* Participants by Category */}
-					{filteredCategories.length === 0 ? (
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-							<UserGroupIcon className="mx-auto h-16 w-16 text-gray-400" />
-							<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-								Belum Ada Peserta
-							</h3>
-							<p className="mt-2 text-gray-600 dark:text-gray-400">
-								Belum ada peserta yang dikonfirmasi untuk kategori ini
-							</p>
-						</div>
-					) : (
-						<div className="space-y-8">
-							{filteredCategories.map(([categoryId, categoryParticipants]) => {
-								const category =
-									event?.schoolCategoryLimits.find(
-										(l) => l.schoolCategory.id === categoryId
-									)?.schoolCategory;
-
-								let currentNumber = 1;
-
-								return (
-									<div
-										key={categoryId}
-										className="bg-white dark:bg-gray-800 rounded-lg shadow"
-									>
-										<div className="p-6 border-b border-gray-200 dark:border-gray-700">
-											<div className="flex items-center justify-between">
-												<div className="flex items-center gap-3">
-													<AcademicCapIcon className="h-6 w-6 text-indigo-600" />
-													<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-														Kategori {category?.name}
-													</h2>
-												</div>
-												<span className="text-sm text-gray-500">
-													{categoryParticipants.length} sekolah terdaftar
+										{/* Groups Summary */}
+										<div className="mt-4 flex items-center justify-between">
+											<div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+												<UserGroupIcon className="h-5 w-5" />
+												<span>
+													{activeGroups.length} Tim Terdaftar
 												</span>
 											</div>
+											<button
+												onClick={() => setExpandedId(isExpanded ? null : registration.id)}
+												className="inline-flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+											>
+												{isExpanded ? (
+													<>
+														<ChevronUpIcon className="h-4 w-4" />
+														Sembunyikan Detail
+													</>
+												) : (
+													<>
+														<ChevronDownIcon className="h-4 w-4" />
+														Lihat Detail Tim
+													</>
+												)}
+											</button>
 										</div>
+									</div>
 
-										<div className="p-6">
+									{/* Expanded Groups */}
+									{isExpanded && (
+										<div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50">
+											<h4 className="font-semibold text-gray-900 dark:text-white mb-4">
+												Detail Tim
+											</h4>
 											<div className="space-y-4">
-												{categoryParticipants.map((participant) => {
-													const activeGroups = participant.groups.filter(
-														(g) => g.status === "ACTIVE"
-													);
+												{registration.groups.map((group) => {
+													const members = parseMemberData(group.memberData);
+													const isGroupExpanded = expandedGroupId === group.id;
+													const pasukan = members.filter((m) => m.role === "PASUKAN");
+													const danton = members.find((m) => m.role === "DANTON");
+													const cadangan = members.filter((m) => m.role === "CADANGAN");
 
 													return (
 														<div
-															key={participant.id}
-															className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+															key={group.id}
+															className={`bg-white dark:bg-gray-900 border rounded-lg overflow-hidden ${
+																group.status === "CANCELLED"
+																	? "border-red-200 dark:border-red-800 opacity-60"
+																	: "border-gray-200 dark:border-gray-600"
+															}`}
 														>
-															<div className="flex items-start justify-between mb-3">
-																<div className="flex-1">
-																	<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-																		{participant.schoolName}
-																	</h3>
-																	<p className="text-sm text-gray-600 dark:text-gray-400">
-																		{participant.user.name} ({participant.user.email})
-																	</p>
+															{/* Group Header */}
+															<div className="p-4">
+																<div className="flex items-center justify-between">
+																	<div className="flex items-center gap-2">
+																		<UserGroupIcon className="h-5 w-5 text-indigo-600" />
+																		<span className={`font-semibold ${group.status === "CANCELLED" ? "line-through text-gray-400" : "text-gray-900 dark:text-white"}`}>
+																			{group.groupName}
+																		</span>
+																		<span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
+																			{group.schoolCategory.name}
+																		</span>
+																		{group.status === "CANCELLED" && (
+																			<span className="text-xs bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-0.5 rounded">
+																				DIBATALKAN
+																			</span>
+																		)}
+																	</div>
+																	{members.length > 0 && group.status !== "CANCELLED" && (
+																		<button
+																			onClick={() => setExpandedGroupId(isGroupExpanded ? null : group.id)}
+																			className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+																		>
+																			{isGroupExpanded ? (
+																				<>
+																					<ChevronUpIcon className="h-4 w-4" />
+																					Tutup
+																				</>
+																			) : (
+																				<>
+																					<ChevronDownIcon className="h-4 w-4" />
+																					Lihat {members.length} Personil
+																				</>
+																			)}
+																		</button>
+																	)}
 																</div>
+																<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+																	{members.length > 0 ? `${members.length} personil` : `${group.teamMembers} anggota`}
+																</p>
+																{group.notes && (
+																	<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+																		<span className="font-medium">Catatan:</span> {group.notes}
+																	</p>
+																)}
 															</div>
 
-															<div className="space-y-2">
-																{activeGroups.map((group) => {
-																	const groupNumber = currentNumber++;
-																	return (
-																		<div
-																			key={group.id}
-																			className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-																		>
-																			<div className="flex items-center justify-center w-12 h-12 bg-indigo-600 text-white rounded-full font-bold text-lg">
-																				{groupNumber}
-																			</div>
-																			<div className="flex-1">
-																				<div className="flex items-center gap-2">
-																					<UserGroupIcon className="h-5 w-5 text-indigo-600" />
-																					<span className="font-medium text-gray-900 dark:text-white">
-																						{group.groupName}
-																					</span>
-																					<span className="text-sm text-gray-600 dark:text-gray-400">
-																						({group.teamMembers} anggota)
-																					</span>
-																				</div>
-																				{group.notes && (
-																					<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-																						{group.notes}
-																					</p>
+															{/* Personnel Details */}
+															{isGroupExpanded && members.length > 0 && (
+																<div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-800/50">
+																	{/* Komandan / Danton */}
+																	{danton && (
+																		<div className="mb-4">
+																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+																				<span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+																				Komandan (Danton)
+																			</h5>
+																			<div className="flex items-center gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+																				{danton.photo ? (
+																					<img
+																						src={getImageUrl(danton.photo) || ""}
+																						alt={danton.name}
+																						className="w-12 h-12 rounded-full object-cover border-2 border-yellow-400"
+																						onError={(e) => {
+																							e.currentTarget.style.display = "none";
+																						}}
+																					/>
+																				) : (
+																					<div className="w-12 h-12 rounded-full bg-yellow-200 dark:bg-yellow-800 flex items-center justify-center">
+																						<UserIcon className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+																					</div>
 																				)}
-																			</div>
-																			<div className="text-right">
-																				<div className="text-xs text-gray-500 dark:text-gray-400">
-																					Nomor Urut
-																				</div>
-																				<div className="text-2xl font-bold text-indigo-600">
-																					{groupNumber}
+																				<div>
+																					<p className="font-medium text-gray-900 dark:text-white">{danton.name}</p>
+																					<p className="text-xs text-yellow-600 dark:text-yellow-400">Komandan</p>
 																				</div>
 																			</div>
 																		</div>
-																	);
-																})}
-															</div>
+																	)}
+
+																	{/* Pasukan */}
+																	{pasukan.length > 0 && (
+																		<div className="mb-4">
+																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+																				<span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
+																				Pasukan ({pasukan.length} orang)
+																			</h5>
+																			<div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+																				{pasukan.map((member, idx) => (
+																					<div key={member.id || idx} className="flex flex-col items-center p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg">
+																						{member.photo ? (
+																							<img
+																								src={getImageUrl(member.photo) || ""}
+																								alt={member.name}
+																								className="w-12 h-12 rounded-full object-cover border-2 border-indigo-400 mb-1"
+																								onError={(e) => {
+																									e.currentTarget.style.display = "none";
+																								}}
+																							/>
+																						) : (
+																							<div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center mb-1">
+																								<UserIcon className="w-6 h-6 text-indigo-500" />
+																							</div>
+																						)}
+																						<p className="text-xs font-medium text-gray-900 dark:text-white text-center line-clamp-1">{member.name}</p>
+																						<p className="text-xs text-gray-500">#{idx + 1}</p>
+																					</div>
+																				))}
+																			</div>
+																		</div>
+																	)}
+
+																	{/* Cadangan */}
+																	{cadangan.length > 0 && (
+																		<div>
+																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+																				<span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+																				Cadangan ({cadangan.length} orang)
+																			</h5>
+																			<div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+																				{cadangan.map((member, idx) => (
+																					<div key={member.id || idx} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg">
+																						{member.photo ? (
+																							<img
+																								src={getImageUrl(member.photo) || ""}
+																								alt={member.name}
+																								className="w-8 h-8 rounded-full object-cover border border-gray-300"
+																								onError={(e) => {
+																									e.currentTarget.style.display = "none";
+																								}}
+																							/>
+																						) : (
+																							<div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+																								<UserIcon className="w-4 h-4 text-gray-500" />
+																							</div>
+																						)}
+																						<p className="text-xs font-medium text-gray-900 dark:text-white line-clamp-1">{member.name}</p>
+																					</div>
+																				))}
+																			</div>
+																		</div>
+																	)}
+																</div>
+															)}
 														</div>
 													);
 												})}
 											</div>
 										</div>
-									</div>
-								);
-							})}
-						</div>
-					)}
-				</>
-			)}
+									)}
+								</div>
+							);
+						})}
+					</div>
+				)}
+			</div>
 		</div>
 	);
 };

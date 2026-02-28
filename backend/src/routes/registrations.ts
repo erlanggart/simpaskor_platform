@@ -1,5 +1,5 @@
 import express from "express";
-import { authenticate, AuthenticatedRequest } from "../middleware/auth";
+import { authenticate, AuthenticatedRequest, requirePanitia } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { z } from "zod";
 
@@ -8,17 +8,100 @@ const router = express.Router();
 // Validation schema for group
 const groupSchema = z.object({
 	groupName: z.string().min(1, "Group name is required"),
+	schoolCategoryId: z.string().uuid("School category is required"),
 	teamMembers: z.number().min(1, "Team members must be at least 1"),
+	memberNames: z.string().optional(), // JSON stringified array of member names
+	memberData: z.string().optional(), // JSON stringified array of member details with photos
 	notes: z.string().optional(),
 });
 
 // Validation schema for registration
 const registrationSchema = z.object({
 	eventId: z.string().uuid(),
-	schoolCategoryId: z.string().uuid(),
 	schoolName: z.string().min(1, "School name is required"),
+	supportingDoc: z.string().optional(), // URL to supporting document
 	groups: z.array(groupSchema).min(1, "At least one group is required"),
 });
+
+// GET /api/registrations/event/:eventId - Get all registrations for an event (for panitia)
+router.get(
+	"/event/:eventId",
+	authenticate,
+	requirePanitia,
+	async (req: AuthenticatedRequest, res) => {
+		try {
+			const userId = req.user!.userId;
+			const { eventId } = req.params;
+			const { status } = req.query;
+
+			// Check if event exists and user has access (created by this panitia or is assigned)
+			const event = await prisma.event.findFirst({
+				where: {
+					id: eventId,
+					OR: [
+						{ createdById: userId },
+						{
+							panitiaAssignments: {
+								some: {
+									panitiaId: userId,
+									isActive: true,
+								},
+							},
+						},
+					],
+				},
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found or no access" });
+			}
+
+			// Build where clause based on status filter
+			const whereClause: any = { eventId };
+			if (status && typeof status === "string") {
+				whereClause.status = status;
+			}
+
+			const registrations = await prisma.eventParticipation.findMany({
+				where: whereClause,
+				include: {
+					user: {
+						select: {
+							id: true,
+							name: true,
+							email: true,
+							phone: true,
+							profile: {
+								select: {
+									institution: true,
+									city: true,
+									province: true,
+								},
+							},
+						},
+					},
+					schoolCategory: true,
+					groups: {
+						include: {
+							schoolCategory: true,
+						},
+						orderBy: {
+							createdAt: "asc",
+						},
+					},
+				},
+				orderBy: {
+					createdAt: "desc",
+				},
+			});
+
+			res.json(registrations);
+		} catch (error) {
+			console.error("Error fetching event registrations:", error);
+			res.status(500).json({ error: "Failed to fetch event registrations" });
+		}
+	}
+);
 
 // GET /api/registrations/my - Get user's registrations
 router.get("/my", authenticate, async (req: AuthenticatedRequest, res) => {
@@ -39,11 +122,12 @@ router.get("/my", authenticate, async (req: AuthenticatedRequest, res) => {
 				},
 				schoolCategory: true,
 				groups: {
-					where: {
-						status: "ACTIVE",
-					},
+					// Include all groups (active and cancelled) so users can see their history
 					orderBy: {
 						createdAt: "asc",
+					},
+					include: {
+						schoolCategory: true,
 					},
 				},
 			},
@@ -88,6 +172,9 @@ router.get("/:id", authenticate, async (req: AuthenticatedRequest, res) => {
 					orderBy: {
 						createdAt: "asc",
 					},
+					include: {
+						schoolCategory: true,
+					},
 				},
 			},
 		});
@@ -114,8 +201,8 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			where: { id: validatedData.eventId },
 			include: {
 				schoolCategoryLimits: {
-					where: {
-						schoolCategoryId: validatedData.schoolCategoryId,
+					include: {
+						schoolCategory: true,
 					},
 				},
 			},
@@ -138,12 +225,13 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 				.json({ error: "Registration deadline has passed" });
 		}
 
-		// Check if user already registered for this event
-		const existingRegistration = await prisma.eventParticipation.findUnique({
+		// Check if user already registered for this event (exclude cancelled registrations)
+		const existingRegistration = await prisma.eventParticipation.findFirst({
 			where: {
-				eventId_userId: {
-					eventId: validatedData.eventId,
-					userId,
+				eventId: validatedData.eventId,
+				userId,
+				status: {
+					not: "CANCELLED",
 				},
 			},
 			include: {
@@ -162,28 +250,33 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			});
 		}
 
-		// Check school category limit
-		const limit = event.schoolCategoryLimits[0];
-		if (limit) {
-			const currentCount = await prisma.participationGroup.count({
-				where: {
-					participation: {
-						eventId: validatedData.eventId,
-						schoolCategoryId: validatedData.schoolCategoryId,
-						status: "CONFIRMED", // Only count confirmed registrations
+		// Check school category limits for each category used
+		const categoryUsage: Record<string, number> = {};
+		for (const group of validatedData.groups) {
+			categoryUsage[group.schoolCategoryId] = (categoryUsage[group.schoolCategoryId] || 0) + 1;
+		}
+
+		for (const [categoryId, count] of Object.entries(categoryUsage)) {
+			const limit = event.schoolCategoryLimits.find(l => l.schoolCategoryId === categoryId);
+			if (limit) {
+				const currentCount = await prisma.participationGroup.count({
+					where: {
+						schoolCategoryId: categoryId,
+						participation: {
+							eventId: validatedData.eventId,
+							status: "CONFIRMED", // Only count confirmed registrations
+						},
+						status: "ACTIVE",
 					},
-					status: "ACTIVE",
-				},
-			});
-
-			const totalGroupsToAdd = validatedData.groups.length;
-
-			if (currentCount + totalGroupsToAdd > limit.maxParticipants) {
-				return res.status(400).json({
-					error: `Registration limit exceeded for this category. Available slots: ${
-						limit.maxParticipants - currentCount
-					}`,
 				});
+
+				if (currentCount + count > limit.maxParticipants) {
+					return res.status(400).json({
+						error: `Registration limit exceeded for category ${limit.schoolCategory.name}. Available slots: ${
+							limit.maxParticipants - currentCount
+						}`,
+					});
+				}
 			}
 		}
 
@@ -192,22 +285,26 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			data: {
 				eventId: validatedData.eventId,
 				userId,
-				schoolCategoryId: validatedData.schoolCategoryId,
 				schoolName: validatedData.schoolName,
+				supportingDoc: validatedData.supportingDoc,
 				status: "REGISTERED",
 				groups: {
 					create: validatedData.groups.map((group) => ({
 						groupName: group.groupName,
+						schoolCategoryId: group.schoolCategoryId,
 						teamMembers: group.teamMembers,
-						notes: group.notes,
+						memberNames: group.memberNames,					memberData: group.memberData,						notes: group.notes,
 						status: "ACTIVE",
 					})),
 				},
 			},
 			include: {
 				event: true,
-				schoolCategory: true,
-				groups: true,
+				groups: {
+					include: {
+						schoolCategory: true,
+					},
+				},
 			},
 		});
 
@@ -250,8 +347,8 @@ router.post(
 					event: {
 						include: {
 							schoolCategoryLimits: {
-								where: {
-									schoolCategoryId: { not: undefined },
+								include: {
+									schoolCategory: true,
 								},
 							},
 						},
@@ -278,29 +375,33 @@ router.post(
 					.json({ error: "Registration deadline has passed" });
 			}
 
-			// Check school category limit
-			const limit = registration.event.schoolCategoryLimits.find(
-				(l) => l.schoolCategoryId === registration.schoolCategoryId
-			);
+			// Check school category limits for each category used
+			const categoryUsage: Record<string, number> = {};
+			for (const group of groups) {
+				categoryUsage[group.schoolCategoryId] = (categoryUsage[group.schoolCategoryId] || 0) + 1;
+			}
 
-			if (limit) {
-				const currentCount = await prisma.participationGroup.count({
-					where: {
-						participation: {
-							eventId: registration.eventId,
-							schoolCategoryId: registration.schoolCategoryId,
-							status: "CONFIRMED", // Only count confirmed registrations
+			for (const [categoryId, count] of Object.entries(categoryUsage)) {
+				const limit = registration.event.schoolCategoryLimits.find(l => l.schoolCategoryId === categoryId);
+				if (limit) {
+					const currentCount = await prisma.participationGroup.count({
+						where: {
+							schoolCategoryId: categoryId,
+							participation: {
+								eventId: registration.eventId,
+								status: "CONFIRMED", // Only count confirmed registrations
+							},
+							status: "ACTIVE",
 						},
-						status: "ACTIVE",
-					},
-				});
-
-				if (currentCount + groups.length > limit.maxParticipants) {
-					return res.status(400).json({
-						error: `Registration limit exceeded. Available slots: ${
-							limit.maxParticipants - currentCount
-						}`,
 					});
+
+					if (currentCount + count > limit.maxParticipants) {
+						return res.status(400).json({
+							error: `Registration limit exceeded for category ${limit.schoolCategory.name}. Available slots: ${
+								limit.maxParticipants - currentCount
+							}`,
+						});
+					}
 				}
 			}
 
@@ -308,8 +409,11 @@ router.post(
 			const newGroups = await prisma.participationGroup.createMany({
 				data: groups.map((group) => ({
 					participationId: registration.id,
+					schoolCategoryId: group.schoolCategoryId,
 					groupName: group.groupName,
 					teamMembers: group.teamMembers,
+					memberNames: group.memberNames,
+					memberData: group.memberData,
 					notes: group.notes,
 					status: "ACTIVE",
 				})),
@@ -323,10 +427,12 @@ router.post(
 				where: { id },
 				include: {
 					event: true,
-					schoolCategory: true,
 					groups: {
 						where: {
 							status: "ACTIVE",
+						},
+						include: {
+							schoolCategory: true,
 						},
 					},
 				},
@@ -408,6 +514,111 @@ router.delete(
 		} catch (error) {
 			console.error("Error cancelling group:", error);
 			res.status(500).json({ error: "Failed to cancel group" });
+		}
+	}
+);
+
+// PATCH /api/registrations/:id/groups/:groupId/restore - Restore a cancelled group
+router.patch(
+	"/:id/groups/:groupId/restore",
+	authenticate,
+	async (req: AuthenticatedRequest, res) => {
+		try {
+			const userId = req.user!.userId;
+			const { id, groupId } = req.params;
+
+			// Check if registration exists and belongs to user
+			const registration = await prisma.eventParticipation.findFirst({
+				where: {
+					id,
+					userId,
+				},
+				include: {
+					event: {
+						include: {
+							schoolCategoryLimits: {
+								include: {
+									schoolCategory: true,
+								},
+							},
+						},
+					},
+					groups: {
+						where: {
+							id: groupId,
+						},
+					},
+				},
+			});
+
+			if (!registration) {
+				return res.status(404).json({ error: "Registration not found" });
+			}
+
+			if (registration.groups.length === 0) {
+				return res.status(404).json({ error: "Group not found" });
+			}
+
+			const group = registration.groups[0];
+
+			if (!group) {
+				return res.status(404).json({ error: "Group not found" });
+			}
+
+			if (group.status !== "CANCELLED") {
+				return res.status(400).json({ error: "Group is not cancelled" });
+			}
+
+			// Check school category limits
+			const limit = registration.event.schoolCategoryLimits.find(
+				(l: { schoolCategoryId: string }) => l.schoolCategoryId === group.schoolCategoryId
+			);
+
+			if (limit && registration.status === "CONFIRMED") {
+				const currentCount = await prisma.participationGroup.count({
+					where: {
+						schoolCategoryId: group.schoolCategoryId,
+						participation: {
+							eventId: registration.eventId,
+							status: "CONFIRMED",
+						},
+						status: "ACTIVE",
+					},
+				});
+
+				if (currentCount + 1 > limit.maxParticipants) {
+					return res.status(400).json({
+						error: `Cannot restore group. Category limit exceeded for ${limit.schoolCategory.name}. Available slots: ${
+							limit.maxParticipants - currentCount
+						}`,
+					});
+				}
+			}
+
+			// Update group status to ACTIVE
+			await prisma.participationGroup.update({
+				where: { id: groupId },
+				data: {
+					status: "ACTIVE",
+				},
+			});
+
+			// If registration was confirmed, increase the count
+			if (registration.status === "CONFIRMED") {
+				await prisma.event.update({
+					where: { id: registration.eventId },
+					data: {
+						currentParticipants: {
+							increment: 1,
+						},
+					},
+				});
+			}
+
+			res.json({ message: "Group restored successfully" });
+		} catch (error) {
+			console.error("Error restoring group:", error);
+			res.status(500).json({ error: "Failed to restore group" });
 		}
 	}
 );
@@ -506,10 +717,18 @@ router.patch(
 						where: {
 							status: "ACTIVE",
 						},
+						select: {
+							id: true,
+							schoolCategoryId: true,
+						},
 					},
 					event: {
 						include: {
-							schoolCategoryLimits: true,
+							schoolCategoryLimits: {
+								include: {
+									schoolCategory: true,
+								},
+							},
 						},
 					},
 				},
@@ -522,36 +741,46 @@ router.patch(
 			const oldStatus = registration.status;
 			const activeGroupsCount = registration.groups.length;
 
+			// Group counts by school category for proper limit updates
+			const groupCountsByCategory: Record<string, number> = {};
+			for (const group of registration.groups) {
+				if (group.schoolCategoryId) {
+					groupCountsByCategory[group.schoolCategoryId] = (groupCountsByCategory[group.schoolCategoryId] || 0) + 1;
+				}
+			}
+
 			// Check if we need to update participant counts
 			const wasConfirmed = oldStatus === "CONFIRMED";
 			const willBeConfirmed = status === "CONFIRMED";
 
 			// If changing TO confirmed, increment count
 			if (!wasConfirmed && willBeConfirmed) {
-				// Check school category limit before confirming
-				const limit = registration.event.schoolCategoryLimits.find(
-					(l) => l.schoolCategoryId === registration.schoolCategoryId
-				);
+				// Check school category limits before confirming
+				for (const [categoryId, groupCount] of Object.entries(groupCountsByCategory)) {
+					const limit = registration.event.schoolCategoryLimits.find(
+						(l) => l.schoolCategoryId === categoryId
+					);
 
-				if (limit) {
-					// Count current confirmed participants for this category
-					const currentCount = await prisma.participationGroup.count({
-						where: {
-							participation: {
-								eventId: registration.eventId,
-								schoolCategoryId: registration.schoolCategoryId,
-								status: "CONFIRMED",
+					if (limit) {
+						// Count current confirmed participants for this category
+						const currentCount = await prisma.participationGroup.count({
+							where: {
+								schoolCategoryId: categoryId,
+								participation: {
+									eventId: registration.eventId,
+									status: "CONFIRMED",
+								},
+								status: "ACTIVE",
 							},
-							status: "ACTIVE",
-						},
-					});
-
-					if (currentCount + activeGroupsCount > limit.maxParticipants) {
-						return res.status(400).json({
-							error: `Cannot confirm registration. Category limit exceeded. Available slots: ${
-								limit.maxParticipants - currentCount
-							}`,
 						});
+
+						if (currentCount + groupCount > limit.maxParticipants) {
+							return res.status(400).json({
+								error: `Cannot confirm registration. Category limit exceeded for ${limit.schoolCategory.name}. Available slots: ${
+									limit.maxParticipants - currentCount
+								}`,
+							});
+						}
 					}
 				}
 
@@ -565,19 +794,21 @@ router.patch(
 					},
 				});
 
-				// Increment currentParticipants in SchoolCategoryLimit
-				const limitToUpdate = registration.event.schoolCategoryLimits.find(
-					(l) => l.schoolCategoryId === registration.schoolCategoryId
-				);
-				if (limitToUpdate) {
-					await prisma.eventSchoolCategoryLimit.update({
-						where: { id: limitToUpdate.id },
-						data: {
-							currentParticipants: {
-								increment: activeGroupsCount,
+				// Increment currentParticipants in each SchoolCategoryLimit
+				for (const [categoryId, groupCount] of Object.entries(groupCountsByCategory)) {
+					const limitToUpdate = registration.event.schoolCategoryLimits.find(
+						(l) => l.schoolCategoryId === categoryId
+					);
+					if (limitToUpdate) {
+						await prisma.eventSchoolCategoryLimit.update({
+							where: { id: limitToUpdate.id },
+							data: {
+								currentParticipants: {
+									increment: groupCount,
+								},
 							},
-						},
-					});
+						});
+					}
 				}
 			}
 			// If changing FROM confirmed to something else, decrement count
@@ -592,19 +823,21 @@ router.patch(
 					},
 				});
 
-				// Decrement currentParticipants in SchoolCategoryLimit
-				const limitToUpdate = registration.event.schoolCategoryLimits.find(
-					(l) => l.schoolCategoryId === registration.schoolCategoryId
-				);
-				if (limitToUpdate) {
-					await prisma.eventSchoolCategoryLimit.update({
-						where: { id: limitToUpdate.id },
-						data: {
-							currentParticipants: {
-								decrement: activeGroupsCount,
+				// Decrement currentParticipants in each SchoolCategoryLimit
+				for (const [categoryId, groupCount] of Object.entries(groupCountsByCategory)) {
+					const limitToUpdate = registration.event.schoolCategoryLimits.find(
+						(l) => l.schoolCategoryId === categoryId
+					);
+					if (limitToUpdate) {
+						await prisma.eventSchoolCategoryLimit.update({
+							where: { id: limitToUpdate.id },
+							data: {
+								currentParticipants: {
+									decrement: groupCount,
+								},
 							},
-						},
-					});
+						});
+					}
 				}
 			}
 

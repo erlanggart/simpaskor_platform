@@ -5,12 +5,13 @@ import {
 	CalendarIcon,
 	MapPinIcon,
 	UsersIcon,
-	PencilIcon,
+	Cog6ToothIcon,
 	TicketIcon,
 	ArrowRightOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../utils/api";
-import { Logo } from "../../components/Logo";
+import { DraftEventsList } from "../../components/event-wizard";
+import Swal from "sweetalert2";
 
 interface SchoolCategoryLimit {
 	id: string;
@@ -55,43 +56,17 @@ const PanitiaDashboard: React.FC = () => {
 	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState<"events" | "coupons">("events");
-	const [user, setUser] = useState<any>(null);
-	const [checkingAssignment, setCheckingAssignment] = useState(true);
+	const [assigningEventId, setAssigningEventId] = useState<string | null>(null);
 
 	useEffect(() => {
 		fetchData();
-		loadUser();
-		checkActiveAssignment();
 	}, []);
-
-	const checkActiveAssignment = async () => {
-		try {
-			const response = await api.get("/panitia-assignment/current");
-			if (response.data && response.data.event) {
-				// Redirect to manage event if there's active assignment
-				navigate(`/panitia/events/${response.data.event.id}/manage`, {
-					replace: true,
-				});
-			}
-		} catch (error) {
-			// No active assignment, stay on dashboard
-		} finally {
-			setCheckingAssignment(false);
-		}
-	};
-
-	const loadUser = () => {
-		const userData = localStorage.getItem("user");
-		if (userData) {
-			setUser(JSON.parse(userData));
-		}
-	};
 
 	const fetchData = async () => {
 		try {
 			setLoading(true);
 			const [eventsRes, couponsRes] = await Promise.all([
-				api.get("/events/my"), // Get only events created by this Panitia
+				api.get("/events/my"),
 				api.get("/coupons/my"),
 			]);
 
@@ -105,10 +80,37 @@ const PanitiaDashboard: React.FC = () => {
 		}
 	};
 
-	const handleLogout = () => {
-		localStorage.removeItem("token");
-		localStorage.removeItem("user");
-		window.location.href = "/login";
+	const handleEnterEvent = async (event: Event) => {
+		if (!event.slug) {
+			Swal.fire({
+				icon: "error",
+				title: "Error",
+				text: "Event belum memiliki slug",
+			});
+			return;
+		}
+
+		try {
+			setAssigningEventId(event.id);
+			// Assign to event
+			await api.post(`/panitia-assignment/assign/${event.slug}`);
+			// Navigate to manage event
+			navigate(`/panitia/events/${event.slug}/manage`);
+		} catch (error: any) {
+			// If already assigned to this event, just navigate
+			if (error.response?.data?.message === "Anda sudah mengelola event ini") {
+				navigate(`/panitia/events/${event.slug}/manage`);
+				return;
+			}
+			
+			Swal.fire({
+				icon: "error",
+				title: "Gagal",
+				text: error.response?.data?.message || "Gagal masuk ke event",
+			});
+		} finally {
+			setAssigningEventId(null);
+		}
 	};
 
 	const formatDate = (dateString: string) => {
@@ -123,22 +125,22 @@ const PanitiaDashboard: React.FC = () => {
 		const statusConfig: {
 			[key: string]: { label: string; className: string };
 		} = {
-			DRAFT: { label: "Draft", className: "bg-gray-100 text-gray-800" },
+			DRAFT: { label: "Draft", className: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300" },
 			PUBLISHED: {
 				label: "Published",
-				className: "bg-green-100 text-green-800",
+				className: "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400",
 			},
-			ONGOING: { label: "Ongoing", className: "bg-blue-100 text-blue-800" },
+			ONGOING: { label: "Ongoing", className: "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-400" },
 			COMPLETED: {
 				label: "Completed",
-				className: "bg-purple-100 text-purple-800",
+				className: "bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-400",
 			},
-			CANCELLED: { label: "Cancelled", className: "bg-red-100 text-red-800" },
+			CANCELLED: { label: "Cancelled", className: "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400" },
 		};
 
 		const config = statusConfig[status] || {
 			label: "Draft",
-			className: "bg-gray-100 text-gray-800",
+			className: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300",
 		};
 		return (
 			<span
@@ -149,100 +151,88 @@ const PanitiaDashboard: React.FC = () => {
 		);
 	};
 
-	if (loading || checkingAssignment) {
+	const getImageUrl = (thumbnail: string | null) => {
+		if (!thumbnail) return null;
+		if (thumbnail.startsWith("http://") || thumbnail.startsWith("https://")) {
+			return thumbnail;
+		}
+		const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+		return `${backendUrl}${thumbnail}`;
+	};
+
+	if (loading) {
 		return (
-			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-colors">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-					<p className="text-gray-600">Memuat data...</p>
+					<div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto mb-4"></div>
+					<p className="text-gray-600 dark:text-gray-400">Memuat data...</p>
 				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
-			<header className="bg-white shadow-sm">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex justify-between items-center py-4">
-						<div className="flex items-center gap-4">
-							<Logo size="sm" />
-							<div>
-								<h1 className="text-xl font-bold text-gray-900">
-									Dashboard Panitia
-								</h1>
-								<p className="text-sm text-gray-500">Kelola Event Anda</p>
-							</div>
-						</div>
-						<div className="flex items-center gap-4">
-							{user && (
-								<div className="text-right">
-									<p className="text-sm font-medium text-gray-900">
-										{user.name}
-									</p>
-									<p className="text-xs text-gray-500">{user.email}</p>
-								</div>
-							)}
-							<button
-								onClick={handleLogout}
-								className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-							>
-								<ArrowRightOnRectangleIcon className="w-5 h-5" />
-								Logout
-							</button>
-						</div>
-					</div>
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				{/* Header */}
+				<div className="mb-8">
+					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+						Dashboard Panitia
+					</h1>
+					<p className="mt-2 text-gray-600 dark:text-gray-400">
+						Kelola event Anda
+					</p>
 				</div>
-			</header>
 
-			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				{/* Stats Cards */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-					<div className="bg-white rounded-lg shadow p-6">
+					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-sm text-gray-600">Total Event</p>
-								<p className="text-3xl font-bold text-gray-900">
+								<p className="text-sm text-gray-600 dark:text-gray-400">Total Event</p>
+								<p className="text-3xl font-bold text-gray-900 dark:text-white">
 									{events.length}
 								</p>
 							</div>
-							<CalendarIcon className="w-12 h-12 text-indigo-600" />
+							<CalendarIcon className="w-12 h-12 text-indigo-600 dark:text-indigo-400" />
 						</div>
 					</div>
 
-					<div className="bg-white rounded-lg shadow p-6">
+					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-sm text-gray-600">Event Published</p>
-								<p className="text-3xl font-bold text-green-600">
+								<p className="text-sm text-gray-600 dark:text-gray-400">Event Published</p>
+								<p className="text-3xl font-bold text-green-600 dark:text-green-400">
 									{events.filter((e) => e.status === "PUBLISHED").length}
 								</p>
 							</div>
-							<CalendarIcon className="w-12 h-12 text-green-600" />
+							<CalendarIcon className="w-12 h-12 text-green-600 dark:text-green-400" />
 						</div>
 					</div>
 
-					<div className="bg-white rounded-lg shadow p-6">
+					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="text-sm text-gray-600">Coupon Tersedia</p>
-								<p className="text-3xl font-bold text-blue-600">
+								<p className="text-sm text-gray-600 dark:text-gray-400">Coupon Tersedia</p>
+								<p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
 									{coupons.filter((c) => !c.isUsed).length}
 								</p>
 							</div>
-							<TicketIcon className="w-12 h-12 text-blue-600" />
+							<TicketIcon className="w-12 h-12 text-blue-600 dark:text-blue-400" />
 						</div>
 					</div>
 				</div>
 
-				<div className="bg-white rounded-lg shadow mb-6">
-					<div className="border-b border-gray-200">
+				{/* Tabs */}
+				<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+					<div className="border-b border-gray-200 dark:border-gray-700">
 						<nav className="flex -mb-px">
 							<button
 								onClick={() => setActiveTab("events")}
 								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
 									activeTab === "events"
-										? "border-indigo-600 text-indigo-600"
-										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+										? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
+										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
 								}`}
 							>
 								Event Saya
@@ -251,11 +241,11 @@ const PanitiaDashboard: React.FC = () => {
 								onClick={() => setActiveTab("coupons")}
 								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
 									activeTab === "coupons"
-										? "border-indigo-600 text-indigo-600"
-										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+										? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
+										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
 								}`}
 							>
-								Coupon Tersedia ({coupons.filter((c) => !c.isUsed).length})
+								Coupon ({coupons.filter((c) => !c.isUsed).length})
 							</button>
 						</nav>
 					</div>
@@ -263,8 +253,14 @@ const PanitiaDashboard: React.FC = () => {
 
 				{activeTab === "events" && (
 					<div>
+						{/* Draft Events */}
+						<div className="mb-6">
+							<DraftEventsList />
+						</div>
+
+						{/* Create Event Button */}
 						<div className="flex justify-between items-center mb-6">
-							<h2 className="text-2xl font-bold text-gray-900">Daftar Event</h2>
+							<h2 className="text-2xl font-bold text-gray-900 dark:text-white">Daftar Event</h2>
 							{coupons.filter((c) => !c.isUsed).length > 0 ? (
 								<Link
 									to="/panitia/events/create"
@@ -274,29 +270,27 @@ const PanitiaDashboard: React.FC = () => {
 									Buat Event Baru
 								</Link>
 							) : (
-								<div className="text-right">
-									<button
-										disabled
-										className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
-									>
-										<PlusIcon className="w-5 h-5" />
-										Buat Event Baru
-									</button>
-								</div>
+								<button
+									disabled
+									className="flex items-center gap-2 px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 rounded-lg cursor-not-allowed"
+									title="Anda memerlukan kupon untuk membuat event"
+								>
+									<PlusIcon className="w-5 h-5" />
+									Buat Event Baru
+								</button>
 							)}
 						</div>
 
 						{events.length === 0 ? (
-							<div className="bg-white rounded-lg shadow p-12 text-center">
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
 								<CalendarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-								<h3 className="text-lg font-medium text-gray-900 mb-2">
+								<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
 									Belum Ada Event
 								</h3>
-								<p className="text-gray-500 mb-6">
-									Mulai dengan membuat event pertama Anda. Setiap event
-									memerlukan 1 kupon.
+								<p className="text-gray-500 dark:text-gray-400 mb-6">
+									Mulai dengan membuat event pertama Anda. Setiap event memerlukan 1 kupon.
 								</p>
-								{coupons.filter((c) => !c.isUsed).length > 0 ? (
+								{coupons.filter((c) => !c.isUsed).length > 0 && (
 									<Link
 										to="/panitia/events/create"
 										className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
@@ -304,20 +298,6 @@ const PanitiaDashboard: React.FC = () => {
 										<PlusIcon className="w-5 h-5" />
 										Buat Event Baru
 									</Link>
-								) : (
-									<div>
-										<button
-											disabled
-											className="inline-flex items-center gap-2 px-6 py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed mb-2"
-										>
-											<PlusIcon className="w-5 h-5" />
-											Buat Event Baru
-										</button>
-										<p className="text-sm text-red-600">
-											Anda memerlukan kupon untuk membuat event. Hubungi admin
-											untuk mendapatkan kupon.
-										</p>
-									</div>
 								)}
 							</div>
 						) : (
@@ -325,28 +305,15 @@ const PanitiaDashboard: React.FC = () => {
 								{events.map((event) => {
 									const eventStartDate = new Date(event.startDate);
 									const today = new Date();
-									const canEdit = today < eventStartDate; // Can edit if event hasn't started yet
-
-									const getImageUrl = (thumbnail: string | null) => {
-										if (!thumbnail) return null;
-										if (
-											thumbnail.startsWith("http://") ||
-											thumbnail.startsWith("https://")
-										) {
-											return thumbnail;
-										}
-										const backendUrl =
-											import.meta.env.VITE_BACKEND_URL ||
-											"http://localhost:3001";
-										return `${backendUrl}${thumbnail}`;
-									};
+									const canEdit = today < eventStartDate;
+									const isAssigning = assigningEventId === event.id;
 
 									return (
 										<div
 											key={event.id}
-											className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow overflow-hidden flex flex-col"
+											className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-all overflow-hidden flex flex-col"
 										>
-											{/* Thumbnail with 4:5 ratio */}
+											{/* Thumbnail */}
 											<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-indigo-500 to-purple-600">
 												{event.thumbnail ? (
 													<img
@@ -362,7 +329,6 @@ const PanitiaDashboard: React.FC = () => {
 														<CalendarIcon className="w-16 h-16 text-white/50" />
 													</div>
 												)}
-												{/* Status Badge */}
 												<div className="absolute top-4 right-4">
 													{getStatusBadge(event.status)}
 												</div>
@@ -370,82 +336,62 @@ const PanitiaDashboard: React.FC = () => {
 
 											{/* Content */}
 											<div className="p-6 flex flex-col flex-1">
-												<h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
+												<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 line-clamp-2">
 													{event.title}
 												</h3>
 
 												{event.description && (
-													<p className="text-sm text-gray-600 mb-4 line-clamp-2">
+													<p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
 														{event.description}
 													</p>
 												)}
 
 												<div className="space-y-2 mb-4 flex-1">
-													<div className="flex items-center text-sm text-gray-600">
-														<CalendarIcon className="w-4 h-4 mr-2 flex-shrink-0" />
+													<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+														<CalendarIcon className="w-4 h-4 mr-2" />
 														<span>{formatDate(event.startDate)}</span>
 													</div>
 													{event.location && (
-														<div className="flex items-center text-sm text-gray-600">
-															<MapPinIcon className="w-4 h-4 mr-2 flex-shrink-0" />
-															<span className="line-clamp-1">
-																{event.location}
-															</span>
+														<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+															<MapPinIcon className="w-4 h-4 mr-2" />
+															<span className="line-clamp-1">{event.location}</span>
 														</div>
 													)}
-
-													{/* Display school category limits */}
-													{event.schoolCategoryLimits &&
-													event.schoolCategoryLimits.length > 0 ? (
-														<div className="space-y-1">
-															{event.schoolCategoryLimits.map((limit) => (
-																<div
-																	key={limit.id}
-																	className="flex items-start text-sm text-gray-600"
-																>
-																	<UsersIcon className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-																	<span className="line-clamp-2">
-																		<span className="font-medium">
-																			{limit.schoolCategory.name}:
-																		</span>{" "}
-																		Max {limit.maxParticipants} peserta
-																	</span>
-																</div>
-															))}
-														</div>
-													) : (
-														<div className="flex items-center text-sm text-gray-600">
-															<UsersIcon className="w-4 h-4 mr-2 flex-shrink-0" />
-															<span>
-																{event.currentParticipants} /{" "}
-																{event.maxParticipants || "∞"} peserta
-															</span>
-														</div>
-													)}
+													<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+														<UsersIcon className="w-4 h-4 mr-2" />
+														<span>
+															{event.currentParticipants} / {event.maxParticipants || "∞"} peserta
+														</span>
+													</div>
 												</div>
 
 												{/* Action Buttons */}
 												<div className="flex gap-2 mt-auto">
 													{canEdit && (
 														<Link
-															to={`/panitia/events/${event.id}/edit`}
+															to={`/panitia/events/create/${event.id}`}
 															className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
 														>
-															<PencilIcon className="w-4 h-4" />
-															Edit
+															<Cog6ToothIcon className="w-4 h-4" />
+															Setting
 														</Link>
 													)}
-													<Link
-														to={`/panitia/events/${event.id}/manage`}
+													<button
+														onClick={() => handleEnterEvent(event)}
+														disabled={isAssigning}
 														className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
 															canEdit
-																? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+																? "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
 																: "bg-indigo-600 text-white hover:bg-indigo-700"
-														}`}
+														} ${isAssigning ? "opacity-50 cursor-not-allowed" : ""}`}
 													>
-														<ArrowRightOnRectangleIcon className="w-4 h-4" />
+														{isAssigning ? (
+															<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+														) : (
+															<ArrowRightOnRectangleIcon className="w-4 h-4" />
+														)}
 														Kelola
-													</Link>
+													</button>
 												</div>
 											</div>
 										</div>
@@ -458,18 +404,17 @@ const PanitiaDashboard: React.FC = () => {
 
 				{activeTab === "coupons" && (
 					<div>
-						<h2 className="text-2xl font-bold text-gray-900 mb-6">
+						<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
 							Coupon Tersedia
 						</h2>
 						{coupons.length === 0 ? (
-							<div className="bg-white rounded-lg shadow p-12 text-center">
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
 								<TicketIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-								<h3 className="text-lg font-medium text-gray-900 mb-2">
+								<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
 									Tidak Ada Coupon
 								</h3>
-								<p className="text-gray-500">
-									Anda belum memiliki coupon untuk membuat event. Hubungi admin
-									untuk mendapatkan coupon.
+								<p className="text-gray-500 dark:text-gray-400">
+									Anda belum memiliki coupon. Hubungi admin untuk mendapatkan coupon.
 								</p>
 							</div>
 						) : (
@@ -477,27 +422,27 @@ const PanitiaDashboard: React.FC = () => {
 								{coupons.map((coupon) => (
 									<div
 										key={coupon.id}
-										className={`bg-white rounded-lg shadow p-6 ${
+										className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${
 											coupon.isUsed ? "opacity-50" : "hover:shadow-lg"
-										} transition-shadow`}
+										}`}
 									>
 										<div className="flex items-start justify-between mb-4">
-											<TicketIcon className="w-8 h-8 text-indigo-600" />
+											<TicketIcon className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
 											<span
 												className={`px-2 py-1 text-xs font-semibold rounded-full ${
 													coupon.isUsed
-														? "bg-gray-100 text-gray-600"
-														: "bg-green-100 text-green-800"
+														? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+														: "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400"
 												}`}
 											>
 												{coupon.isUsed ? "Terpakai" : "Tersedia"}
 											</span>
 										</div>
-										<h3 className="text-lg font-bold text-gray-900 mb-2 font-mono">
+										<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 font-mono">
 											{coupon.code}
 										</h3>
 										{coupon.description && (
-											<p className="text-sm text-gray-600 mb-4">
+											<p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
 												{coupon.description}
 											</p>
 										)}
@@ -506,19 +451,13 @@ const PanitiaDashboard: React.FC = () => {
 												Berlaku hingga: {formatDate(coupon.expiresAt)}
 											</p>
 										)}
-										{!coupon.isUsed && (
-											<p className="mt-4 text-xs text-indigo-600 font-medium">
-												💡 Kupon ini akan otomatis terpakai saat Anda membuat
-												event
-											</p>
-										)}
 									</div>
 								))}
 							</div>
 						)}
 					</div>
 				)}
-			</main>
+			</div>
 		</div>
 	);
 };

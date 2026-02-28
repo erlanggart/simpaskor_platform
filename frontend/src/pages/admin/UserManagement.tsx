@@ -9,6 +9,9 @@ import {
 	XCircleIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	PlusIcon,
+	EyeIcon,
+	EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../utils/api";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
@@ -46,6 +49,20 @@ const UserManagement: React.FC = () => {
 	const [showAssignCouponModal, setShowAssignCouponModal] = useState(false);
 	const [selectedCouponId, setSelectedCouponId] = useState("");
 	const [assignLoading, setAssignLoading] = useState(false);
+
+	// Add User Modal states
+	const [showAddUserModal, setShowAddUserModal] = useState(false);
+	const [addUserLoading, setAddUserLoading] = useState(false);
+	const [showPassword, setShowPassword] = useState(false);
+	const [newUserData, setNewUserData] = useState({
+		email: "",
+		password: "",
+		name: "",
+		role: "PESERTA" as string,
+		phone: "",
+		institution: "",
+		status: "ACTIVE" as string,
+	});
 
 	// Pagination states
 	const [currentPage, setCurrentPage] = useState(1);
@@ -101,6 +118,66 @@ const UserManagement: React.FC = () => {
 		setShowAssignCouponModal(true);
 	};
 
+	const handleAddUser = () => {
+		setShowAddUserModal(true);
+		// Reset form
+		setNewUserData({
+			email: "",
+			password: "",
+			name: "",
+			role: "PESERTA",
+			phone: "",
+			institution: "",
+			status: "ACTIVE",
+		});
+		setShowPassword(false);
+	};
+
+	const handleNewUserChange = (
+		field: string,
+		value: string
+	) => {
+		setNewUserData((prev) => ({
+			...prev,
+			[field]: value,
+		}));
+	};
+
+	const confirmAddUser = async () => {
+		// Validation
+		if (!newUserData.email || !newUserData.password || !newUserData.name) {
+			showWarning("Email, password, dan nama harus diisi");
+			return;
+		}
+
+		if (newUserData.password.length < 8) {
+			showWarning("Password minimal 8 karakter");
+			return;
+		}
+
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(newUserData.email)) {
+			showWarning("Format email tidak valid");
+			return;
+		}
+
+		setAddUserLoading(true);
+		try {
+			await api.post("/users", newUserData);
+
+			showSuccess("User berhasil ditambahkan");
+			setShowAddUserModal(false);
+			fetchUsers(); // Refresh user list
+		} catch (error: any) {
+			console.error("Error creating user:", error);
+			showError(
+				error.response?.data?.message || "Gagal menambahkan user"
+			);
+		} finally {
+			setAddUserLoading(false);
+		}
+	};
+
 	const confirmAssignCoupon = async () => {
 		if (!selectedCouponId || !selectedUser) {
 			showWarning("Pilih kupon terlebih dahulu");
@@ -110,7 +187,7 @@ const UserManagement: React.FC = () => {
 		setAssignLoading(true);
 		try {
 			// Update coupon to assign to user's email
-			await api.patch(`api/coupons/${selectedCouponId}`, {
+			await api.patch(`/coupons/${selectedCouponId}`, {
 				assignedToEmail: selectedUser.email,
 			});
 
@@ -241,6 +318,13 @@ const UserManagement: React.FC = () => {
 					</p>
 				</div>
 				<div className="flex items-center gap-4">
+					<button
+						onClick={handleAddUser}
+						className="flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm hover:shadow-md font-medium"
+					>
+						<PlusIcon className="w-5 h-5" />
+						Tambah User
+					</button>
 					<div className="flex items-center gap-2">
 						<span className="text-sm text-gray-600 dark:text-gray-400">
 							Total User:
@@ -606,6 +690,218 @@ const UserManagement: React.FC = () => {
 								className="flex-1 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
 							>
 								{assignLoading ? "Menyimpan..." : "Assign Kupon"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Add User Modal */}
+			{showAddUserModal && (
+				<div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
+						<div className="flex items-center gap-3 mb-6">
+							<PlusIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+							<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+								Tambah User Baru
+							</h3>
+						</div>
+
+						<div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+							{/* Two Column Grid */}
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								{/* Left Column */}
+								<div className="space-y-4">
+									{/* Name */}
+									<div>
+										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+											Nama Lengkap <span className="text-red-500">*</span>
+										</label>
+										<input
+											type="text"
+											value={newUserData.name}
+											onChange={(e) => handleNewUserChange("name", e.target.value)}
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											placeholder="John Doe"
+											required
+										/>
+									</div>
+
+									{/* Email */}
+									<div>
+										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+											Email <span className="text-red-500">*</span>
+										</label>
+										<input
+											type="email"
+											value={newUserData.email}
+											onChange={(e) => handleNewUserChange("email", e.target.value)}
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											placeholder="john@example.com"
+											required
+										/>
+									</div>
+
+									{/* Password */}
+									<div>
+										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+											Password <span className="text-red-500">*</span>
+										</label>
+										<div className="relative">
+											<input
+												type={showPassword ? "text" : "password"}
+												value={newUserData.password}
+												onChange={(e) =>
+													handleNewUserChange("password", e.target.value)
+												}
+												className="block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+												placeholder="Minimal 8 karakter"
+												required
+											/>
+											<button
+												type="button"
+												onClick={() => setShowPassword(!showPassword)}
+												className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+											>
+												{showPassword ? (
+													<EyeSlashIcon className="w-5 h-5" />
+												) : (
+													<EyeIcon className="w-5 h-5" />
+												)}
+											</button>
+										</div>
+										<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+											Password minimal 8 karakter
+										</p>
+									</div>
+
+									{/* Phone */}
+									<div>
+										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+											No. Telepon{" "}
+											<span className="text-gray-400 dark:text-gray-500 text-xs">
+												(Opsional)
+											</span>
+										</label>
+										<input
+											type="tel"
+											value={newUserData.phone}
+											onChange={(e) => handleNewUserChange("phone", e.target.value)}
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											placeholder="+62812345678"
+										/>
+									</div>
+								</div>
+
+								{/* Right Column */}
+								<div className="space-y-4">
+									{/* Role */}
+									<div>
+										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+											Role <span className="text-red-500">*</span>
+										</label>
+										<select
+											value={newUserData.role}
+											onChange={(e) => handleNewUserChange("role", e.target.value)}
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											required
+										>
+											<option value="PESERTA">Peserta</option>
+											<option value="PELATIH">Pelatih</option>
+											<option value="JURI">Juri</option>
+											<option value="PANITIA">Panitia</option>
+											<option value="SUPERADMIN">Super Admin</option>
+										</select>
+									</div>
+
+									{/* Status */}
+									<div>
+										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+											Status <span className="text-red-500">*</span>
+										</label>
+										<select
+											value={newUserData.status}
+											onChange={(e) => handleNewUserChange("status", e.target.value)}
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											required
+										>
+											<option value="ACTIVE">Active</option>
+											<option value="PENDING">Pending</option>
+											<option value="INACTIVE">Inactive</option>
+											<option value="SUSPENDED">Suspended</option>
+										</select>
+									</div>
+
+									{/* Institution */}
+									<div>
+										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+											Institusi{" "}
+											<span className="text-gray-400 dark:text-gray-500 text-xs">
+												(Opsional)
+											</span>
+										</label>
+										<input
+											type="text"
+											value={newUserData.institution}
+											onChange={(e) =>
+												handleNewUserChange("institution", e.target.value)
+											}
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											placeholder="Nama sekolah/universitas"
+										/>
+									</div>
+
+									{/* Info Box */}
+									<div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+										<p className="text-xs text-blue-800 dark:text-blue-300">
+											<strong>Catatan:</strong> User yang dibuat akan otomatis
+											terverifikasi emailnya.
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* Action Buttons */}
+						<div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+							<button
+								onClick={() => setShowAddUserModal(false)}
+								className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+								disabled={addUserLoading}
+							>
+								Batal
+							</button>
+							<button
+								onClick={confirmAddUser}
+								disabled={addUserLoading}
+								className="flex-1 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed font-medium"
+							>
+								{addUserLoading ? (
+									<span className="flex items-center justify-center gap-2">
+										<svg
+											className="animate-spin h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+										>
+											<circle
+												className="opacity-25"
+												cx="12"
+												cy="12"
+												r="10"
+												stroke="currentColor"
+												strokeWidth="4"
+											></circle>
+											<path
+												className="opacity-75"
+												fill="currentColor"
+												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+											></path>
+										</svg>
+										Memproses...
+									</span>
+								) : (
+									"Tambah User"
+								)}
 							</button>
 						</div>
 					</div>

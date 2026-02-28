@@ -1,57 +1,60 @@
--- Initial database setup for Simpaskor Platform
+-- ============================================================================
+-- Initial Database Setup for Simpaskor Platform
+-- ============================================================================
+-- 
+-- IMPORTANT NOTE:
+-- This file is for REFERENCE ONLY and is NOT used in the normal setup.
+-- 
+-- The database schema is managed by Prisma ORM.
+-- To setup the database, use these Prisma commands instead:
+--
+--   1. npx prisma generate       # Generate Prisma Client
+--   2. npx prisma db push         # Push schema to database
+--   3. npx prisma db seed         # Seed initial data
+--
+-- OR for production with migrations:
+--
+--   1. npx prisma migrate dev     # Create and apply migration
+--   2. npx prisma db seed         # Seed initial data
+--
+-- Schema is defined in: backend/prisma/schema.prisma
+-- Seed data is defined in: backend/prisma/seed.ts
+--
+-- ============================================================================
 
--- Create extensions
+-- Create database extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create users table
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    role VARCHAR(50) DEFAULT 'user',
-    is_active BOOLEAN DEFAULT true,
-    email_verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- ============================================================================
+-- MANUAL DATABASE SETUP (if needed)
+-- ============================================================================
+-- If you need to manually create the database without Prisma:
 
--- Create posts table (example)
-CREATE TABLE IF NOT EXISTS posts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    title VARCHAR(255) NOT NULL,
-    content TEXT,
-    author_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    published BOOLEAN DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Create database
+-- CREATE DATABASE simpaskor_db;
 
--- Create indexes
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
-CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at);
+-- Connect to database
+-- \c simpaskor_db;
 
--- Create function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+-- Create ENUM types
+CREATE TYPE "UserRole" AS ENUM ('SUPERADMIN', 'PANITIA', 'JURI', 'PESERTA', 'PELATIH');
+CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'PENDING', 'SUSPENDED');
 
--- Create triggers for updating updated_at
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- ============================================================================
+-- NOTE: All other tables and relationships are automatically created by Prisma
+-- when you run: npx prisma db push
+-- 
+-- To view the complete schema, see: backend/prisma/schema.prisma
+-- ============================================================================
 
-CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Insert sample data
-INSERT INTO users (email, password_hash, first_name, last_name, role) 
-VALUES 
-    ('admin@simpaskor.com', '$2b$10$example_hash', 'Admin', 'User', 'admin'),
-    ('user@simpaskor.com', '$2b$10$example_hash', 'Regular', 'User', 'user')
-ON CONFLICT (email) DO NOTHING;
+-- For seeding data, run:
+-- cd backend && npm run seed
+-- 
+-- This will create:
+-- - 5 default user accounts (SuperAdmin, Panitia, Juri, Peserta, Pelatih)
+-- - School categories (SD, SMP, SMA, PURNA)
+-- - Assessment categories (PBB, KOMANDAN, VARIASI, FORMASI, KOSTUM_MAKEUP)
+-- - Sample event coupons
+-- - Sample event
+--
+-- ============================================================================

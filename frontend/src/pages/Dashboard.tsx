@@ -52,7 +52,7 @@ const Dashboard = () => {
 	// For PANITIA, check if they have active event assignment
 	if (user.role === "PANITIA" && activeEvent && activeEvent.event) {
 		return (
-			<Navigate to={`/panitia/events/${activeEvent.event.id}/manage`} replace />
+			<Navigate to={`/panitia/events/${activeEvent.event.slug}/manage`} replace />
 		);
 	}
 

@@ -102,7 +102,7 @@ const CouponManagement: React.FC = () => {
 		}
 
 		try {
-			await api.delete(`api/coupons/${id}`);
+			await api.delete(`/coupons/${id}`);
 			showSuccess("Kupon berhasil dihapus");
 			fetchCoupons();
 		} catch (error: any) {

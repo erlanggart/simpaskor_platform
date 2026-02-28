@@ -13,6 +13,16 @@ import { z } from "zod";
 const router = Router();
 
 // Validation schemas
+const createUserSchema = z.object({
+	email: z.string().email("Invalid email format"),
+	password: z.string().min(8, "Password must be at least 8 characters"),
+	name: z.string().min(1, "Name is required"),
+	role: z.enum(["SUPERADMIN", "PANITIA", "JURI", "PESERTA", "PELATIH"]),
+	phone: z.string().optional(),
+	institution: z.string().optional(),
+	status: z.enum(["ACTIVE", "INACTIVE", "PENDING", "SUSPENDED"]).optional(),
+});
+
 const updateUserSchema = z.object({
 	firstName: z.string().min(1).optional(),
 	lastName: z.string().min(1).optional(),
@@ -87,6 +97,72 @@ router.get(
 			console.error("Get users error:", error);
 			res.status(500).json({
 				error: "Failed to fetch users",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Create new user (SuperAdmin only)
+router.post(
+	"/",
+	authenticate,
+	requireSuperAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const validatedData = createUserSchema.parse(req.body);
+
+			// Check if user already exists
+			const existingUser = await prisma.user.findUnique({
+				where: { email: validatedData.email },
+			});
+
+			if (existingUser) {
+				return res.status(400).json({
+					error: "User creation failed",
+					message: "User with this email already exists",
+				});
+			}
+
+			// Hash password
+			const passwordHash = await AuthUtils.hashPassword(validatedData.password);
+
+			// Create user with profile
+			const user = await prisma.user.create({
+				data: {
+					email: validatedData.email,
+					passwordHash,
+					name: validatedData.name,
+					role: validatedData.role as UserRole,
+					phone: validatedData.phone,
+					status: validatedData.status || "ACTIVE",
+					emailVerified: true, // Auto-verify for admin-created users
+					profile: {
+						create: {
+							institution: validatedData.institution,
+						},
+					},
+				},
+				include: {
+					profile: true,
+				},
+			});
+
+			res.status(201).json({
+				message: "User created successfully",
+				user: AuthUtils.sanitizeUser(user),
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+
+			console.error("Create user error:", error);
+			res.status(500).json({
+				error: "User creation failed",
 				message: "Internal server error",
 			});
 		}

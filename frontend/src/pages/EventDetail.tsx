@@ -11,11 +11,13 @@ import {
 	XCircleIcon,
 	ArrowLeftIcon,
 	TrophyIcon,
+	DocumentArrowDownIcon,
+	EyeIcon,
 } from "@heroicons/react/24/outline";
 import api from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
-import RegisterEventModal from "../components/peserta/RegisterEventModal";
-import { SchoolCategory, EventRegistration } from "../types/landing";
+// Registration is handled via dedicated page /peserta/events/:id/register
+import { EventRegistration } from "../types/landing";
 
 interface SchoolCategoryLimit {
 	id: string;
@@ -43,12 +45,19 @@ interface EventAssessmentCategory {
 	};
 }
 
+interface EventCreator {
+	id: string;
+	name: string;
+	email: string;
+}
+
 interface Event {
 	id: string;
 	title: string;
 	slug: string | null;
 	description: string | null;
 	thumbnail: string | null;
+	juknisUrl: string | null;
 	category: string | null;
 	level: string | null;
 	startDate: string;
@@ -63,8 +72,15 @@ interface Event {
 	organizerEmail: string | null;
 	status: string;
 	featured: boolean;
+	createdBy?: EventCreator;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	assessmentCategories?: EventAssessmentCategory[];
+}
+
+interface ParticipantSummary {
+	schoolName: string;
+	teamCount: number;
+	teams: { name: string; category: string | null }[];
 }
 
 const EventDetail: React.FC = () => {
@@ -74,14 +90,14 @@ const EventDetail: React.FC = () => {
 	const [event, setEvent] = useState<Event | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [showRegisterModal, setShowRegisterModal] = useState(false);
-	const [schoolCategories, setSchoolCategories] = useState<SchoolCategory[]>([]);
+	// Registration modal removed - using dedicated page instead
 	const [myRegistration, setMyRegistration] = useState<EventRegistration | null>(null);
 	const [checkingRegistration, setCheckingRegistration] = useState(false);
+	const [participantsSummary, setParticipantsSummary] = useState<ParticipantSummary[]>([]);
 
 	useEffect(() => {
 		fetchEventDetail();
-		fetchSchoolCategories();
+		fetchParticipantsSummary();
 	}, [id]);
 
 	useEffect(() => {
@@ -89,6 +105,15 @@ const EventDetail: React.FC = () => {
 			checkMyRegistration();
 		}
 	}, [isAuthenticated, event]);
+
+	const fetchParticipantsSummary = async () => {
+		try {
+			const response = await api.get(`/events/${id}/participants-summary`);
+			setParticipantsSummary(response.data);
+		} catch (error) {
+			console.error("Error fetching participants summary:", error);
+		}
+	};
 
 	const fetchEventDetail = async () => {
 		try {
@@ -99,15 +124,6 @@ const EventDetail: React.FC = () => {
 			setError(err.response?.data?.message || "Gagal memuat detail event");
 		} finally {
 			setLoading(false);
-		}
-	};
-
-	const fetchSchoolCategories = async () => {
-		try {
-			const response = await api.get("/events/meta/school-categories");
-			setSchoolCategories(response.data);
-		} catch (error) {
-			console.error("Error fetching school categories:", error);
 		}
 	};
 
@@ -192,13 +208,8 @@ const EventDetail: React.FC = () => {
 			return;
 		}
 
-		// Open registration modal
-		setShowRegisterModal(true);
-	};
-
-	const handleRegistrationSuccess = () => {
-		setShowRegisterModal(false);
-		checkMyRegistration(); // Refresh registration status
+		// Navigate to registration page
+		navigate(`/peserta/events/${id}/register`);
 	};
 
 	if (loading) {
@@ -355,6 +366,98 @@ const EventDetail: React.FC = () => {
 								</div>
 							)}
 						</div>
+
+						{/* Juknis Download */}
+						{event.juknisUrl && (
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+								<div className="flex items-center justify-between mb-4">
+									<div className="flex items-center">
+										<DocumentArrowDownIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
+										<h2 className="text-xl font-bold text-gray-900 dark:text-white">
+											Petunjuk Teknis (Juknis)
+										</h2>
+									</div>
+								</div>
+								<p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+									Dokumen petunjuk teknis berisi informasi lengkap mengenai tata cara, peraturan, dan ketentuan event ini.
+								</p>
+								
+								{/* Action Buttons */}
+								<div className="flex flex-wrap gap-3 mb-4">
+									<a
+										href={getImageUrl(event.juknisUrl) || ""}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors"
+									>
+										<EyeIcon className="w-5 h-5 mr-2" />
+										Buka di Tab Baru
+									</a>
+									<a
+										href={getImageUrl(event.juknisUrl) || ""}
+										download
+										className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
+									>
+										<DocumentArrowDownIcon className="w-5 h-5 mr-2" />
+										Download PDF
+									</a>
+								</div>
+
+								{/* Embedded PDF Viewer */}
+								<div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+									<iframe
+										src={getImageUrl(event.juknisUrl) || ""}
+										className="w-full bg-white"
+										style={{ height: "70vh", minHeight: "500px" }}
+										title="Juknis PDF Viewer"
+									/>
+								</div>
+							</div>
+						)}
+
+						{/* Registered Participants Summary */}
+						{participantsSummary.length > 0 && (
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+								<div className="flex items-center mb-4">
+									<UserGroupIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
+									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
+										Peserta Terdaftar ({participantsSummary.reduce((acc, p) => acc + p.teamCount, 0)} Tim)
+									</h2>
+								</div>
+								<div className="space-y-3">
+									{participantsSummary.map((participant, idx) => (
+										<div
+											key={idx}
+											className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+										>
+											<div className="flex items-center justify-between mb-2">
+												<span className="font-medium text-gray-900 dark:text-white">
+													{participant.schoolName}
+												</span>
+												<span className="text-sm text-gray-500 dark:text-gray-400">
+													{participant.teamCount} tim
+												</span>
+											</div>
+											<div className="flex flex-wrap gap-2">
+												{participant.teams.map((team, tidx) => (
+													<span
+														key={tidx}
+														className="inline-flex items-center px-2 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full"
+													>
+														{team.name}
+														{team.category && (
+															<span className="ml-1 text-indigo-500 dark:text-indigo-400">
+																({team.category})
+															</span>
+														)}
+													</span>
+												))}
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						)}
 
 						{/* Assessment Categories */}
 						{event.assessmentCategories &&
@@ -555,7 +658,26 @@ const EventDetail: React.FC = () => {
 										</p>
 									</div>
 								</div>
-							</div>
+								{/* Event Creator */}
+								{event.createdBy && (
+									<div className="flex items-start pt-4 border-t border-gray-200 dark:border-gray-700">
+										<UserGroupIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
+										<div>
+											<p className="text-sm text-gray-500 dark:text-gray-400">
+												Dibuat oleh
+											</p>
+											<p className="text-gray-900 dark:text-white font-medium">
+												{event.createdBy.name}
+											</p>
+											<a
+												href={`mailto:${event.createdBy.email}`}
+												className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+											>
+												{event.createdBy.email}
+											</a>
+										</div>
+									</div>
+								)}							</div>
 
 							{/* Registration Button */}
 							<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -574,6 +696,12 @@ const EventDetail: React.FC = () => {
 										>
 											Kelola Pendaftaran →
 										</Link>
+									</div>
+								) : isAuthenticated && user?.role !== "PESERTA" ? (
+									<div className="text-center text-gray-500 dark:text-gray-400">
+										<p className="text-sm">
+											Hanya akun dengan role PESERTA yang dapat mendaftar ke event
+										</p>
 									</div>
 								) : isRegistrationOpen() ? (
 									<>
@@ -622,15 +750,6 @@ const EventDetail: React.FC = () => {
 				</div>
 			</div>
 
-			{/* Registration Modal */}
-			{showRegisterModal && event && (
-				<RegisterEventModal
-					event={event}
-					schoolCategories={schoolCategories}
-					onClose={() => setShowRegisterModal(false)}
-					onSuccess={handleRegistrationSuccess}
-				/>
-			)}
 		</div>
 	);
 };
