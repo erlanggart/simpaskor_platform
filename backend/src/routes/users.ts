@@ -581,4 +581,88 @@ router.delete(
 	}
 );
 
+// Get public statistics (no auth required) - for landing page
+router.get("/public/stats", async (req, res: Response) => {
+	try {
+		const now = new Date();
+
+		// Get juri count and list
+		const juries = await prisma.user.findMany({
+			where: {
+				role: UserRole.JURI,
+				status: "ACTIVE",
+			},
+			select: {
+				id: true,
+				name: true,
+				profile: {
+					select: {
+						avatar: true,
+						institution: true,
+					},
+				},
+			},
+			orderBy: { createdAt: "desc" },
+			take: 12, // Limit to 12 juries for display
+		});
+
+		// Get peserta count
+		const pesertaCount = await prisma.user.count({
+			where: {
+				role: UserRole.PESERTA,
+				status: "ACTIVE",
+			},
+		});
+
+		// Get available/ongoing events count (events that haven't ended)
+		const availableEventsCount = await prisma.event.count({
+			where: {
+				status: { notIn: ["DRAFT", "CANCELLED"] },
+				endDate: { gte: now },
+			},
+		});
+
+		// Get completed events count (events that have ended)
+		const completedEventsCount = await prisma.event.count({
+			where: {
+				status: { notIn: ["DRAFT", "CANCELLED"] },
+				endDate: { lt: now },
+			},
+		});
+
+		// Total published events (all non-draft, non-cancelled)
+		const totalEventsCount = availableEventsCount + completedEventsCount;
+
+		// Get total juri count
+		const juriCount = await prisma.user.count({
+			where: {
+				role: UserRole.JURI,
+				status: "ACTIVE",
+			},
+		});
+
+		res.json({
+			juries: juries.map((juri) => ({
+				id: juri.id,
+				name: juri.name,
+				avatar: juri.profile?.avatar || null,
+				institution: juri.profile?.institution || null,
+			})),
+			stats: {
+				juriCount,
+				pesertaCount,
+				eventsCount: totalEventsCount,
+				availableEventsCount,
+				completedEventsCount,
+			},
+		});
+	} catch (error) {
+		console.error("Get public stats error:", error);
+		res.status(500).json({
+			error: "Failed to fetch public stats",
+			message: "Internal server error",
+		});
+	}
+});
+
 export default router;

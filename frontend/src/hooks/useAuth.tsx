@@ -78,6 +78,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		setToken(null);
 		localStorage.removeItem("token");
 		localStorage.removeItem("user");
+		localStorage.removeItem("panitia_active_event");
+		
+		// Clear any scoring draft data (keys starting with "scoring_")
+		const keysToRemove: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (key && key.startsWith("scoring_")) {
+				keysToRemove.push(key);
+			}
+		}
+		keysToRemove.forEach(key => localStorage.removeItem(key));
+		
 		authAPI.logout().catch(console.error);
 	};
 

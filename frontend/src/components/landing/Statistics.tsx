@@ -13,25 +13,27 @@ interface StatisticsProps {
 }
 
 const Statistics: React.FC<StatisticsProps> = ({ events }) => {
-	// Calculate statistics from ALL events (not filtered)
+	// Calculate statistics from ALL events using computed status from backend
 	const statistics = useMemo(() => {
-		const now = new Date();
-
+		// Count events with PUBLISHED status (registration open)
 		const openRegistration = events.filter((event) => {
-			const deadline = event.registrationDeadline
-				? new Date(event.registrationDeadline)
-				: new Date(event.startDate);
-			return deadline > now && event.status === "PUBLISHED";
+			return event.status === "PUBLISHED";
 		}).length;
 
+		// Count completed events (status is COMPLETED)
 		const finishedEvents = events.filter((event) => {
-			const endDate = new Date(event.endDate);
-			return endDate < now;
+			return event.status === "COMPLETED";
+		}).length;
+
+		// Count ongoing events
+		const ongoingEvents = events.filter((event) => {
+			return event.status === "ONGOING";
 		}).length;
 
 		return {
 			total: events.length,
 			openRegistration,
+			ongoing: ongoingEvents,
 			finished: finishedEvents,
 		};
 	}, [events]);

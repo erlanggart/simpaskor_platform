@@ -12,11 +12,12 @@ import eventRoutes from "./routes/events";
 import couponRoutes from "./routes/coupons";
 import assessmentCategoryRoutes from "./routes/assessmentCategories";
 import schoolCategoryRoutes from "./routes/schoolCategories";
-import panitiaAssignmentRoutes from "./routes/panitiaAssignment";
 import registrationRoutes from "./routes/registrations";
 import uploadRoutes from "./routes/upload";
 import juryRoutes from "./routes/juries";
 import evaluationRoutes from "./routes/evaluations";
+import materialRoutes from "./routes/materials";
+import juaraCategoryRoutes from "./routes/juaraCategories";
 
 dotenv.config();
 
@@ -90,7 +91,6 @@ app.get("/", (req, res) => {
 			coupons: "/api/coupons",
 			assessmentCategories: "/api/assessment-categories",
 			schoolCategories: "/api/school-categories",
-			panitiaAssignment: "/api/panitia-assignment",
 			registrations: "/api/registrations",
 			juries: "/api/juries",
 			health: "/api/health",
@@ -114,11 +114,12 @@ app.use("/api/events", eventRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/assessment-categories", assessmentCategoryRoutes);
 app.use("/api/school-categories", schoolCategoryRoutes);
-app.use("/api/panitia-assignment", panitiaAssignmentRoutes);
 app.use("/api/registrations", registrationRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/juries", juryRoutes);
 app.use("/api/evaluations", evaluationRoutes);
+app.use("/api/materials", materialRoutes);
+app.use("/api/juara-categories", juaraCategoryRoutes);
 
 // Error handling middleware
 app.use(

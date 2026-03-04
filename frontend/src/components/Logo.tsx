@@ -89,9 +89,9 @@ export const Logo: React.FC<LogoProps> = ({
 					<span
 						className={`text-xs ${
 							variant === "auto"
-								? "text-gray-500 dark:text-gray-300"
+								? "text-gray-500 dark:text-gray-200"
 								: variant === "white" || variant === "dark"
-								? "text-gray-300"
+								? "text-gray-200"
 								: "text-gray-500"
 						}`}
 					>

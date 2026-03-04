@@ -23,7 +23,7 @@ const registrationSchema = z.object({
 	groups: z.array(groupSchema).min(1, "At least one group is required"),
 });
 
-// GET /api/registrations/event/:eventId - Get all registrations for an event (for panitia)
+// GET /api/registrations/event/:eventId - Get all registrations for an event (for panitia/admin)
 router.get(
 	"/event/:eventId",
 	authenticate,
@@ -31,25 +31,19 @@ router.get(
 	async (req: AuthenticatedRequest, res) => {
 		try {
 			const userId = req.user!.userId;
+			const userRole = req.user!.role;
 			const { eventId } = req.params;
 			const { status } = req.query;
 
-			// Check if event exists and user has access (created by this panitia or is assigned)
+			// Check if event exists and user has access
+			// SUPERADMIN can access all events, PANITIA can only access events they created
+			const eventWhereClause: any = { id: eventId };
+			if (userRole !== "SUPERADMIN") {
+				eventWhereClause.createdById = userId;
+			}
+
 			const event = await prisma.event.findFirst({
-				where: {
-					id: eventId,
-					OR: [
-						{ createdById: userId },
-						{
-							panitiaAssignments: {
-								some: {
-									panitiaId: userId,
-									isActive: true,
-								},
-							},
-						},
-					],
-				},
+				where: eventWhereClause,
 			});
 
 			if (!event) {
@@ -85,9 +79,10 @@ router.get(
 						include: {
 							schoolCategory: true,
 						},
-						orderBy: {
-							createdAt: "asc",
-						},
+						orderBy: [
+							{ orderNumber: "asc" },
+							{ createdAt: "asc" },
+						],
 					},
 				},
 				orderBy: {
@@ -810,6 +805,32 @@ router.patch(
 						});
 					}
 				}
+
+				// Assign order numbers to each group by school category
+				for (const group of registration.groups) {
+					// Get the maximum order number for this event and school category
+					const maxOrderResult = await prisma.participationGroup.aggregate({
+						_max: {
+							orderNumber: true,
+						},
+						where: {
+							schoolCategoryId: group.schoolCategoryId,
+							participation: {
+								eventId: registration.eventId,
+								status: "CONFIRMED",
+							},
+							status: "ACTIVE",
+							orderNumber: { not: null },
+						},
+					});
+
+					const nextOrderNumber = (maxOrderResult._max.orderNumber || 0) + 1;
+
+					await prisma.participationGroup.update({
+						where: { id: group.id },
+						data: { orderNumber: nextOrderNumber },
+					});
+				}
 			}
 			// If changing FROM confirmed to something else, decrement count
 			else if (wasConfirmed && !willBeConfirmed) {
@@ -838,6 +859,14 @@ router.patch(
 							},
 						});
 					}
+				}
+
+				// Clear order numbers for all groups in this registration
+				for (const group of registration.groups) {
+					await prisma.participationGroup.update({
+						where: { id: group.id },
+						data: { orderNumber: null },
+					});
 				}
 			}
 
@@ -872,6 +901,213 @@ router.patch(
 		} catch (error) {
 			console.error("Error updating registration status:", error);
 			res.status(500).json({ error: "Failed to update registration status" });
+		}
+	}
+);
+
+// GET /api/registrations/event/:eventId/confirmed-groups - Get confirmed groups by school category for reordering
+router.get(
+	"/event/:eventId/confirmed-groups",
+	authenticate,
+	async (req: AuthenticatedRequest, res) => {
+		try {
+			const { eventId } = req.params;
+			const { schoolCategoryId } = req.query;
+			const userRole = req.user!.role;
+
+			// Only PANITIA and SUPERADMIN can access this
+			if (userRole !== "PANITIA" && userRole !== "SUPERADMIN") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			const whereClause: any = {
+				participation: {
+					eventId,
+					status: "CONFIRMED",
+				},
+				status: "ACTIVE",
+			};
+
+			if (schoolCategoryId && typeof schoolCategoryId === "string") {
+				whereClause.schoolCategoryId = schoolCategoryId;
+			}
+
+			const groups = await prisma.participationGroup.findMany({
+				where: whereClause,
+				include: {
+					schoolCategory: true,
+					participation: {
+						include: {
+							user: {
+								select: {
+									id: true,
+									name: true,
+									email: true,
+									profile: {
+										select: {
+											institution: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				orderBy: [
+					{ schoolCategoryId: "asc" },
+					{ orderNumber: "asc" },
+				],
+			});
+
+			res.json(groups);
+		} catch (error) {
+			console.error("Error fetching confirmed groups:", error);
+			res.status(500).json({ error: "Failed to fetch confirmed groups" });
+		}
+	}
+);
+
+// PATCH /api/registrations/groups/reorder - Reorder groups (update order numbers)
+router.patch(
+	"/groups/reorder",
+	authenticate,
+	async (req: AuthenticatedRequest, res) => {
+		try {
+			const { orders } = req.body; // Array of { groupId, orderNumber }
+			const userRole = req.user!.role;
+
+			// Only PANITIA and SUPERADMIN can reorder
+			if (userRole !== "PANITIA" && userRole !== "SUPERADMIN") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			if (!Array.isArray(orders) || orders.length === 0) {
+				return res.status(400).json({ error: "Invalid orders data" });
+			}
+
+			// Update order numbers for each group
+			const updates = orders.map((order: { groupId: string; orderNumber: number }) =>
+				prisma.participationGroup.update({
+					where: { id: order.groupId },
+					data: { orderNumber: order.orderNumber },
+				})
+			);
+
+			await Promise.all(updates);
+
+			res.json({ message: "Order numbers updated successfully" });
+		} catch (error) {
+			console.error("Error updating order numbers:", error);
+			res.status(500).json({ error: "Failed to update order numbers" });
+		}
+	}
+);
+
+// PATCH /api/registrations/groups/:groupId/order - Update single group order number
+router.patch(
+	"/groups/:groupId/order",
+	authenticate,
+	async (req: AuthenticatedRequest, res) => {
+		try {
+			const { groupId } = req.params;
+			const { orderNumber } = req.body;
+			const userRole = req.user!.role;
+
+			// Only PANITIA and SUPERADMIN can update order
+			if (userRole !== "PANITIA" && userRole !== "SUPERADMIN") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			if (typeof orderNumber !== "number" || orderNumber < 1) {
+				return res.status(400).json({ error: "Invalid order number" });
+			}
+
+			// Get the group with participation info
+			const group = await prisma.participationGroup.findUnique({
+				where: { id: groupId },
+				include: {
+					participation: true,
+				},
+			});
+
+			if (!group) {
+				return res.status(404).json({ error: "Group not found" });
+			}
+
+			if (group.participation.status !== "CONFIRMED") {
+				return res.status(400).json({ error: "Can only reorder confirmed participants" });
+			}
+
+			// Check if the new order number already exists for this event + school category
+			const existingGroup = await prisma.participationGroup.findFirst({
+				where: {
+					schoolCategoryId: group.schoolCategoryId,
+					participation: {
+						eventId: group.participation.eventId,
+						status: "CONFIRMED",
+					},
+					status: "ACTIVE",
+					orderNumber: orderNumber,
+					id: { not: groupId },
+				},
+			});
+
+			if (existingGroup) {
+				// If current group has an order number, swap with existing
+				if (group.orderNumber !== null) {
+					// Swap order numbers
+					await prisma.$transaction([
+						prisma.participationGroup.update({
+							where: { id: existingGroup.id },
+							data: { orderNumber: group.orderNumber },
+						}),
+						prisma.participationGroup.update({
+							where: { id: groupId },
+							data: { orderNumber: orderNumber },
+						}),
+					]);
+				} else {
+					// Current group has no order number - need to find next available for the existing group
+					const maxOrderResult = await prisma.participationGroup.aggregate({
+						_max: {
+							orderNumber: true,
+						},
+						where: {
+							schoolCategoryId: group.schoolCategoryId,
+							participation: {
+								eventId: group.participation.eventId,
+								status: "CONFIRMED",
+							},
+							status: "ACTIVE",
+							orderNumber: { not: null },
+						},
+					});
+					const nextOrderForExisting = (maxOrderResult._max.orderNumber || 0) + 1;
+					
+					// Assign current group the desired number, move existing group to next available
+					await prisma.$transaction([
+						prisma.participationGroup.update({
+							where: { id: existingGroup.id },
+							data: { orderNumber: nextOrderForExisting },
+						}),
+						prisma.participationGroup.update({
+							where: { id: groupId },
+							data: { orderNumber: orderNumber },
+						}),
+					]);
+				}
+			} else {
+				// Just update the order number
+				await prisma.participationGroup.update({
+					where: { id: groupId },
+					data: { orderNumber: orderNumber },
+				});
+			}
+
+			res.json({ message: "Order number updated successfully" });
+		} catch (error) {
+			console.error("Error updating order number:", error);
+			res.status(500).json({ error: "Failed to update order number" });
 		}
 	}
 );

@@ -63,8 +63,14 @@ router.get(
 				skip: offset ? parseInt(offset as string) : undefined,
 			});
 
+			// Add computed isExpired field
+			const couponsWithExpiry = coupons.map(coupon => ({
+				...coupon,
+				isExpired: coupon.expiresAt ? new Date(coupon.expiresAt) < new Date() : false,
+			}));
+
 			res.json({
-				data: coupons,
+				data: couponsWithExpiry,
 				total,
 				limit: limit ? parseInt(limit as string) : coupons.length,
 				offset: offset ? parseInt(offset as string) : 0,
@@ -94,7 +100,15 @@ router.get(
 				orderBy: { createdAt: "desc" },
 			});
 
-			res.json(coupons);
+			// Add computed isExpired field and filter out expired coupons
+			const validCoupons = coupons
+				.map(coupon => ({
+					...coupon,
+					isExpired: coupon.expiresAt ? new Date(coupon.expiresAt) < new Date() : false,
+				}))
+				.filter(coupon => !coupon.isExpired);
+
+			res.json(validCoupons);
 		} catch (error) {
 			console.error("Error fetching available coupons:", error);
 			res.status(500).json({ message: "Failed to fetch available coupons" });
@@ -110,7 +124,7 @@ router.post(
 	async (req: Request, res: Response) => {
 		try {
 			const user = (req as any).user;
-			const { code, description } = req.body;
+			const { code, description, expiresAt } = req.body;
 
 			// Validate required fields
 			if (!code) {
@@ -130,6 +144,7 @@ router.post(
 				data: {
 					code,
 					description,
+					expiresAt: expiresAt ? new Date(expiresAt) : null,
 					createdByAdminId: user.userId,
 				},
 				include: {
@@ -178,6 +193,15 @@ router.post(
 				});
 			}
 
+			// Check if coupon is expired
+			const isExpired = coupon.expiresAt ? new Date(coupon.expiresAt) < new Date() : false;
+			if (isExpired) {
+				return res.status(400).json({
+					valid: false,
+					message: "Coupon sudah kadaluarsa",
+				});
+			}
+
 			res.json({
 				valid: true,
 				message: "Coupon valid",
@@ -185,6 +209,7 @@ router.post(
 					id: coupon.id,
 					code: coupon.code,
 					description: coupon.description,
+					expiresAt: coupon.expiresAt,
 				},
 			});
 		} catch (error) {
@@ -205,7 +230,7 @@ router.patch(
 	async (req: Request, res: Response) => {
 		try {
 			const { id } = req.params;
-			const { description, assignedToEmail } = req.body;
+			const { description, assignedToEmail, expiresAt } = req.body;
 
 			const coupon = await prisma.eventCoupon.findUnique({
 				where: { id },
@@ -250,6 +275,9 @@ router.patch(
 					...(description !== undefined && { description }),
 					...(assignedToEmail !== undefined && {
 						assignedToEmail: assignedToEmail || null,
+					}),
+					...(expiresAt !== undefined && {
+						expiresAt: expiresAt ? new Date(expiresAt) : null,
 					}),
 				},
 			});

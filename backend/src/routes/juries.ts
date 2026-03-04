@@ -26,23 +26,22 @@ const requirePanitiaForEvent = async (
 		return res.status(403).json({ error: "Only Panitia can manage juries" });
 	}
 
-	// Check if panitia is assigned to this event
-	const assignment = await prisma.panitiaEventAssignment.findFirst({
+	// Check if panitia owns this event (created by them)
+	const event = await prisma.event.findFirst({
 		where: {
-			panitiaId: user.userId,
-			eventId,
-			isActive: true,
+			id: eventId,
+			createdById: user.userId,
 		},
 	});
 
-	if (!assignment) {
+	if (!event) {
 		return res.status(403).json({ error: "You are not managing this event" });
 	}
 
 	next();
 };
 
-// GET /api/juries - Get all active verified juries
+// GET /api/juries - Get all active verified juries with pagination and search
 router.get("/", authenticate, async (req: AuthenticatedRequest, res) => {
 	try {
 		const user = req.user;
@@ -51,12 +50,46 @@ router.get("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			return res.status(403).json({ error: "Access denied" });
 		}
 
+		// Pagination and search params
+		const page = parseInt(req.query.page as string) || 1;
+		const limit = parseInt(req.query.limit as string) || 10;
+		const search = (req.query.search as string) || "";
+		const excludeEventId = req.query.excludeEventId as string; // Exclude juries already assigned to this event
+
+		const skip = (page - 1) * limit;
+
+		// Build where clause
+		const whereClause: any = {
+			role: "JURI",
+			status: "ACTIVE",
+			emailVerified: true,
+		};
+
+		// Add search condition
+		if (search) {
+			whereClause.OR = [
+				{ name: { contains: search, mode: "insensitive" } },
+				{ email: { contains: search, mode: "insensitive" } },
+				{ profile: { institution: { contains: search, mode: "insensitive" } } },
+			];
+		}
+
+		// Exclude juries already assigned to an event
+		if (excludeEventId) {
+			whereClause.NOT = {
+				juryAssignments: {
+					some: {
+						eventId: excludeEventId,
+					},
+				},
+			};
+		}
+
+		// Get total count
+		const total = await prisma.user.count({ where: whereClause });
+
 		const juries = await prisma.user.findMany({
-			where: {
-				role: "JURI",
-				status: "ACTIVE",
-				emailVerified: true,
-			},
+			where: whereClause,
 			select: {
 				id: true,
 				name: true,
@@ -75,9 +108,19 @@ router.get("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			orderBy: {
 				name: "asc",
 			},
+			skip,
+			take: limit,
 		});
 
-		res.json(juries);
+		res.json({
+			data: juries,
+			pagination: {
+				page,
+				limit,
+				total,
+				totalPages: Math.ceil(total / limit),
+			},
+		});
 	} catch (error) {
 		console.error("Error fetching juries:", error);
 		res.status(500).json({ error: "Failed to fetch juries" });
@@ -149,17 +192,16 @@ router.post(
 				return res.status(403).json({ error: "Access denied" });
 			}
 
-			// Check if panitia is assigned to this event (skip for superadmin)
+			// Check if panitia owns this event (skip for superadmin)
 			if (user.role === "PANITIA") {
-				const panitiaAssignment = await prisma.panitiaEventAssignment.findFirst({
+				const event = await prisma.event.findFirst({
 					where: {
-						panitiaId: user.userId,
-						eventId,
-						isActive: true,
+						id: eventId,
+						createdById: user.userId,
 					},
 				});
 
-				if (!panitiaAssignment) {
+				if (!event) {
 					return res.status(403).json({ error: "You are not managing this event" });
 				}
 			}
@@ -289,17 +331,16 @@ router.delete(
 				return res.status(404).json({ error: "Assignment not found" });
 			}
 
-			// Check if panitia is managing this event
+			// Check if panitia owns this event
 			if (user.role === "PANITIA") {
-				const panitiaAssignment = await prisma.panitiaEventAssignment.findFirst({
+				const event = await prisma.event.findFirst({
 					where: {
-						panitiaId: user.userId,
-						eventId: assignment.eventId,
-						isActive: true,
+						id: assignment.eventId,
+						createdById: user.userId,
 					},
 				});
 
-				if (!panitiaAssignment) {
+				if (!event) {
 					return res.status(403).json({ error: "You are not managing this event" });
 				}
 			}
@@ -662,9 +703,10 @@ router.get(
 								},
 							},
 						},
-						orderBy: {
-							createdAt: "asc",
-						},
+						orderBy: [
+							{ orderNumber: "asc" },
+							{ createdAt: "asc" },
+						],
 					},
 				},
 				orderBy: [
@@ -690,9 +732,10 @@ router.get(
 							participationId: p.id,
 							teamName: group.groupName,
 							status: p.status,
-							schoolCategory: group.schoolCategory,
+							schoolCategory: group.schoolCategory as { id: string; name: string } | null,
 							members,
 							teamMembers: group.teamMembers,
+							orderNumber: group.orderNumber,
 							registrant: {
 								id: p.user.id,
 								name: p.user.name,
@@ -708,9 +751,10 @@ router.get(
 					participationId: p.id,
 					teamName: p.user.name,
 					status: p.status,
-					schoolCategory: p.schoolCategory,
+					schoolCategory: p.schoolCategory as { id: string; name: string } | null,
 					members: [p.user.name],
 					teamMembers: 1,
+					orderNumber: null as number | null,
 					registrant: {
 						id: p.user.id,
 						name: p.user.name,

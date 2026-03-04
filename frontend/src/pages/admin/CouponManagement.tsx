@@ -6,6 +6,7 @@ import {
 	MagnifyingGlassIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../utils/api";
 import {
@@ -19,6 +20,8 @@ interface Coupon {
 	code: string;
 	description: string | null;
 	assignedToEmail: string | null;
+	expiresAt: string | null;
+	isExpired: boolean;
 	isUsed: boolean;
 	createdAt: string;
 	usedBy?: {
@@ -45,6 +48,7 @@ const CouponManagement: React.FC = () => {
 	const [formData, setFormData] = useState({
 		code: "",
 		description: "",
+		expiresAt: "",
 	});
 
 	const [submitLoading, setSubmitLoading] = useState(false);
@@ -78,6 +82,7 @@ const CouponManagement: React.FC = () => {
 			await api.post("/coupons", {
 				code: formData.code,
 				description: formData.description || null,
+				expiresAt: formData.expiresAt || null,
 			});
 
 			showSuccess("Kupon berhasil dibuat!");
@@ -85,6 +90,7 @@ const CouponManagement: React.FC = () => {
 			setFormData({
 				code: "",
 				description: "",
+				expiresAt: "",
 			});
 			fetchCoupons();
 		} catch (error: any) {
@@ -117,10 +123,14 @@ const CouponManagement: React.FC = () => {
 			(coupon.description &&
 				coupon.description.toLowerCase().includes(searchTerm.toLowerCase()));
 
-		const matchesFilter =
-			filterStatus === "ALL" ||
-			(filterStatus === "USED" && coupon.isUsed) ||
-			(filterStatus === "UNUSED" && !coupon.isUsed);
+		let matchesFilter = true;
+		if (filterStatus === "USED") {
+			matchesFilter = coupon.isUsed;
+		} else if (filterStatus === "UNUSED") {
+			matchesFilter = !coupon.isUsed && !coupon.isExpired;
+		} else if (filterStatus === "EXPIRED") {
+			matchesFilter = coupon.isExpired;
+		}
 
 		return matchesSearch && matchesFilter;
 	});
@@ -182,7 +192,8 @@ const CouponManagement: React.FC = () => {
 	const stats = {
 		total: coupons.length,
 		used: coupons.filter((c) => c.isUsed).length,
-		unused: coupons.filter((c) => !c.isUsed).length,
+		unused: coupons.filter((c) => !c.isUsed && !c.isExpired).length,
+		expired: coupons.filter((c) => c.isExpired).length,
 	};
 
 	if (loading) {
@@ -282,6 +293,7 @@ const CouponManagement: React.FC = () => {
 							<option value="ALL">Semua Status</option>
 							<option value="USED">Terpakai</option>
 							<option value="UNUSED">Tersedia</option>
+							<option value="EXPIRED">Kadaluarsa</option>
 						</select>
 					</div>
 				</div>
@@ -342,13 +354,20 @@ const CouponManagement: React.FC = () => {
 										<td className="px-6 py-4 whitespace-nowrap">
 											<span
 												className={`px-2 py-1 text-xs font-semibold rounded-full ${
-													coupon.isUsed
+													coupon.isExpired
+														? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400"
+														: coupon.isUsed
 														? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400"
 														: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400"
 												}`}
 											>
-												{coupon.isUsed ? "Terpakai" : "Tersedia"}
+												{coupon.isExpired ? "Kadaluarsa" : coupon.isUsed ? "Terpakai" : "Tersedia"}
 											</span>
+											{coupon.expiresAt && !coupon.isExpired && (
+												<div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+													Exp: {new Date(coupon.expiresAt).toLocaleDateString("id-ID")}
+												</div>
+											)}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm">
 											{coupon.assignedToEmail ? (
@@ -519,6 +538,22 @@ const CouponManagement: React.FC = () => {
 									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 									placeholder="Kupon untuk Lakaraja"
 								/>
+							</div>
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+									Tanggal Kadaluarsa
+								</label>
+								<input
+									type="date"
+									value={formData.expiresAt}
+									onChange={(e) =>
+										setFormData({ ...formData, expiresAt: e.target.value })
+									}
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+								/>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+									Event yang menggunakan kupon kadaluarsa tidak dapat diubah pengaturannya
+								</p>
 							</div>
 							<div className="flex gap-3 mt-6">
 								<button

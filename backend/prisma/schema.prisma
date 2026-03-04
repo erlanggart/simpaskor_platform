@@ -46,9 +46,9 @@ model User {
   createdEvents      Event[]                  @relation("EventCreator")
   participations     EventParticipation[]
   evaluations        Evaluation[]
+  materialEvaluations MaterialEvaluation[]
   createdCoupons     EventCoupon[]            @relation("CouponCreator")
   usedCoupons        EventCoupon[]            @relation("CouponUser")
-  panitiaAssignments PanitiaEventAssignment[]
   juryAssignments    JuryEventAssignment[]
 
   @@map("users")
@@ -96,9 +96,9 @@ model SchoolCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  participations EventParticipation[]
-  eventLimits    EventSchoolCategoryLimit[]
-  groups         ParticipationGroup[]
+  participations      EventParticipation[]
+  eventLimits         EventSchoolCategoryLimit[]
+  groups              ParticipationGroup[]
 
   @@map("school_categories")
 }
@@ -187,30 +187,13 @@ model Event {
   // Relations
   participations       EventParticipation[]
   evaluations          Evaluation[]
+  materialEvaluations  MaterialEvaluation[]
   assessmentCategories EventAssessmentCategory[]
   schoolCategoryLimits EventSchoolCategoryLimit[]
-  panitiaAssignments   PanitiaEventAssignment[]
   juryAssignments      JuryEventAssignment[]
+  materials            EventMaterial[]
 
   @@map("events")
-}
-
-// Panitia Event Assignment - Tracks which panitia is managing which event
-model PanitiaEventAssignment {
-  id         String    @id @default(uuid())
-  panitiaId  String    @map("panitia_id")
-  panitia    User      @relation(fields: [panitiaId], references: [id], onDelete: Cascade)
-  eventId    String    @map("event_id")
-  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  isActive   Boolean   @default(true) @map("is_active") // Whether panitia is currently managing this event
-  assignedAt DateTime  @default(now()) @map("assigned_at")
-  leftAt     DateTime? @map("left_at") // When panitia left the event management
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-
-  @@unique([panitiaId, eventId])
-  @@index([panitiaId, isActive])
-  @@map("panitia_event_assignments")
 }
 
 // Jury Event Assignment - Tracks which jury is assigned to which event
@@ -254,6 +237,7 @@ model EventCoupon {
   code             String    @unique // Unique coupon code (e.g., "EVENT2025-ABC123")
   description      String? // Description/notes about this coupon
   assignedToEmail  String?   @map("assigned_to_email") // Email of Panitia this coupon is assigned to
+  expiresAt        DateTime? @map("expires_at") // Expiration date - events using expired coupons cannot be edited
   isUsed           Boolean   @default(false) @map("is_used")
   usedById         String?   @map("used_by_id")
   usedBy           User?     @relation("CouponUser", fields: [usedById], references: [id])
@@ -305,6 +289,7 @@ model ParticipationGroup {
   teamMembers      Int                @default(1) @map("team_members") // Number of members in this group
   memberNames      String?            @map("member_names") // JSON array of member names
   memberData       String?            @map("member_data") // JSON array of member details with photos
+  orderNumber      Int?               @map("order_number") // Order number for confirmed participants (per event & school category)
   status           String             @default("ACTIVE") // ACTIVE, CANCELLED
   notes            String?
   createdAt        DateTime           @default(now()) @map("created_at")
@@ -330,4 +315,143 @@ model Evaluation {
 
   @@unique([eventId, assessmentCategoryId, juryId, participantId])
   @@map("evaluations")
+}
+
+// Event Material - Materi per kategori penilaian per event
+model EventMaterial {
+  id                        String   @id @default(uuid())
+  eventId                   String   @map("event_id")
+  event                     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventAssessmentCategoryId String   @map("event_assessment_category_id")
+  number                    Int      // Nomor urut materi (1, 2, 3, ...)
+  name                      String   // Nama materi (e.g., "Maju Langkah", "Hadap Kanan")
+  description               String?  // Deskripsi materi
+  order                     Int      @default(0) // Urutan tampilan
+  
+  // Denormalized for performance - stores JSON array of score categories with options
+  // Format: [{"name": "Kurang", "color": "red", "order": 0, "options": [{"name": "", "score": 1, "order": 0}]}]
+  scoreCategories           Json     @default("[]") @map("score_categories")
+  
+  // Denormalized for performance - stores array of school category UUIDs
+  schoolCategoryIds         String[] @default([]) @map("school_category_ids")
+  
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  @@unique([eventId, eventAssessmentCategoryId, number])
+  @@map("event_materials")
+}
+
+// Material Evaluation - Penilaian per materi oleh juri
+model MaterialEvaluation {
+  id                String   @id @default(uuid())
+  eventId           String   @map("event_id")
+  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  materialId        String   @map("material_id")
+  juryId            String   @map("jury_id")
+  jury              User     @relation(fields: [juryId], references: [id])
+  participantId     String   @map("participant_id") // ParticipationGroup ID
+  
+  // Score - null means "not scored" and requires skipReason
+  score             Float?   // Score given for this material
+  scoreCategoryName String?  @map("score_category_name") // e.g., "Kurang", "Cukup", "Baik"
+  
+  // Skip reason if not scoring (materi tidak sesuai, materi tidak dijalankan)
+  isSkipped         Boolean  @default(false) @map("is_skipped")
+  skipReason        String?  @map("skip_reason") // "TIDAK_SESUAI" or "TIDAK_DIJALANKAN"
+  
+  notes             String?
+  scoredAt          DateTime? @map("scored_at") // Client-side timestamp when jury clicked score
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([eventId, materialId, juryId, participantId])
+  @@map("material_evaluations")
+}
+
+// Extra Nilai - Punishment (pengurangan) atau Poin Plus (penambahan) untuk peserta
+enum ExtraNilaiType {
+  PUNISHMENT  // Pengurangan nilai
+  POINPLUS    // Penambahan nilai
+}
+
+enum ExtraNilaiScope {
+  GENERAL   // Diterapkan ke total nilai keseluruhan
+  CATEGORY  // Diterapkan ke kategori penilaian tertentu
+}
+
+model ExtraNilai {
+  id                   String              @id @default(uuid())
+  eventId              String              @map("event_id")
+  participantId        String              @map("participant_id") // ParticipationGroup ID
+  type                 ExtraNilaiType      // PUNISHMENT atau POINPLUS
+  scope                ExtraNilaiScope     // GENERAL atau CATEGORY
+  assessmentCategoryId String?             @map("assessment_category_id") // Required if scope is CATEGORY
+  value                Float               // Nilai poin (selalu positif, tipe menentukan + atau -)
+  reason               String?             // Alasan pemberian punishment/poin plus
+  createdById          String              @map("created_by_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  @@index([eventId, participantId])
+  @@index([eventId, type])
+  @@map("extra_nilai")
+}
+
+// Juara Category Type
+enum JuaraCategoryType {
+  UTAMA   // Juara Utama - primary champion category
+  UMUM    // Juara Umum - overall champion (all categories)
+  CUSTOM  // Custom category (max 2 per event)
+}
+
+// Juara Category - Defines champion calculation categories per event
+model JuaraCategory {
+  id          String             @id @default(uuid())
+  eventId     String             @map("event_id")
+  type        JuaraCategoryType
+  name        String             // Display name (e.g., "Juara Utama", "Best PBB")
+  description String?
+  order       Int                @default(0)
+  rankCount   Int                @default(3) @map("rank_count") // Number of ranks (e.g., 3 = Juara 1, 2, 3)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  assessmentCategories JuaraCategoryAssessment[]
+  ranks                JuaraRank[]
+
+  @@unique([eventId, type, name])
+  @@index([eventId])
+  @@map("juara_categories")
+}
+
+// Juara Rank - Defines rank ranges within a juara category
+// Example: Rank 1-3 = "Juara Utama", Rank 4-6 = "Juara Harapan", Rank 7-9 = "Juara Madya"
+model JuaraRank {
+  id              String        @id @default(uuid())
+  juaraCategoryId String        @map("juara_category_id")
+  juaraCategory   JuaraCategory @relation(fields: [juaraCategoryId], references: [id], onDelete: Cascade)
+  startRank       Int           @map("start_rank")    // Starting rank position (e.g., 1)
+  endRank         Int           @map("end_rank")      // Ending rank position (e.g., 3)
+  label           String                              // Display label (e.g., "Juara Utama")
+  order           Int           @default(0)           // Display order
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@unique([juaraCategoryId, order])
+  @@index([juaraCategoryId])
+  @@map("juara_ranks")
+}
+
+// Junction table - which assessment categories belong to each juara category
+model JuaraCategoryAssessment {
+  id                   String             @id @default(uuid())
+  juaraCategoryId      String             @map("juara_category_id")
+  juaraCategory        JuaraCategory      @relation(fields: [juaraCategoryId], references: [id], onDelete: Cascade)
+  assessmentCategoryId String             @map("assessment_category_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+
+  @@unique([juaraCategoryId, assessmentCategoryId])
+  @@map("juara_category_assessments")
 }

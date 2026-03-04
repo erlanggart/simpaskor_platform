@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
 	CalendarIcon,
 	MapPinIcon,
@@ -12,6 +12,7 @@ import {
 	MagnifyingGlassIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
+	Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { api } from "../../utils/api";
@@ -52,10 +53,22 @@ interface Event {
 }
 
 const EventManagement: React.FC = () => {
+	const navigate = useNavigate();
 	const [events, setEvents] = useState<Event[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [filter, setFilter] = useState<"all" | "pinned" | "unpinned">("all");
+	const [statusFilter, setStatusFilter] = useState<"all" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "DRAFT" | "CANCELLED">("all");
 	const [searchTerm, setSearchTerm] = useState("");
+
+	const handleManageEvent = (event: Event) => {
+		// Set active event in localStorage for admin
+		localStorage.setItem(
+			"admin_active_event",
+			JSON.stringify({ slug: event.slug || event.id, title: event.title, id: event.id })
+		);
+		// Navigate to admin event management page
+		navigate(`/admin/events/${event.slug || event.id}/manage`);
+	};
 
 	// Pagination states
 	const [currentPage, setCurrentPage] = useState(1);
@@ -68,7 +81,8 @@ const EventManagement: React.FC = () => {
 	const fetchEvents = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get("/events");
+			// Use admin endpoint to get ALL events without date filtering
+			const response = await api.get("/events/admin/all");
 			setEvents(response.data.data || response.data);
 		} catch (error) {
 			console.error("Error fetching events:", error);
@@ -184,15 +198,20 @@ const EventManagement: React.FC = () => {
 				className:
 					"bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400",
 			},
-			CANCELLED: {
-				label: "Cancelled",
+			ONGOING: {
+				label: "Ongoing",
 				className:
-					"bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400",
+					"bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400",
 			},
 			COMPLETED: {
 				label: "Completed",
 				className:
-					"bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400",
+					"bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400",
+			},
+			CANCELLED: {
+				label: "Cancelled",
+				className:
+					"bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400",
 			},
 		};
 
@@ -217,6 +236,9 @@ const EventManagement: React.FC = () => {
 			(filter === "pinned" && event.isPinned) ||
 			(filter === "unpinned" && !event.isPinned);
 
+		const matchesStatus =
+			statusFilter === "all" || event.status === statusFilter;
+
 		const matchesSearch =
 			searchTerm === "" ||
 			event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -224,7 +246,7 @@ const EventManagement: React.FC = () => {
 			event.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			event.category?.toLowerCase().includes(searchTerm.toLowerCase());
 
-		return matchesFilter && matchesSearch;
+		return matchesFilter && matchesStatus && matchesSearch;
 	});
 
 	const pinnedEvents = filteredEvents
@@ -358,6 +380,25 @@ const EventManagement: React.FC = () => {
 										Unpinned ({events.filter((e) => !e.isPinned).length})
 									</button>
 								</div>
+
+								{/* Status Filter */}
+								<div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-300 dark:border-gray-600">
+									<span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+										Status:
+									</span>
+									<select
+										value={statusFilter}
+										onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+										className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+									>
+										<option value="all">Semua Status</option>
+										<option value="PUBLISHED">Published</option>
+										<option value="ONGOING">Ongoing</option>
+										<option value="COMPLETED">Completed</option>
+										<option value="DRAFT">Draft</option>
+										<option value="CANCELLED">Cancelled</option>
+									</select>
+								</div>
 							</div>
 
 							{/* Items per page selector */}
@@ -412,8 +453,7 @@ const EventManagement: React.FC = () => {
 											key={event.id}
 											event={event}
 											onTogglePin={handleTogglePin}
-											onUpdateOrder={handleUpdatePinnedOrder}
-											canMoveUp={index > 0}
+											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											canMoveUp={index > 0}
 											canMoveDown={index < pinnedEvents.length - 1}
 											getImageUrl={getImageUrl}
 											formatDate={formatDate}
@@ -436,8 +476,7 @@ const EventManagement: React.FC = () => {
 											key={event.id}
 											event={event}
 											onTogglePin={handleTogglePin}
-											onUpdateOrder={handleUpdatePinnedOrder}
-											canMoveUp={false}
+											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											canMoveUp={false}
 											canMoveDown={false}
 											getImageUrl={getImageUrl}
 											formatDate={formatDate}
@@ -540,6 +579,7 @@ interface EventCardProps {
 	event: Event;
 	onTogglePin: (eventId: string, currentPinned: boolean) => void;
 	onUpdateOrder: (eventId: string, direction: "up" | "down") => void;
+	onManage: (event: Event) => void;
 	canMoveUp: boolean;
 	canMoveDown: boolean;
 	getImageUrl: (thumbnail: string | null) => string | null;
@@ -551,6 +591,7 @@ const EventCard: React.FC<EventCardProps> = ({
 	event,
 	onTogglePin,
 	onUpdateOrder,
+	onManage,
 	canMoveUp,
 	canMoveDown,
 	getImageUrl,
@@ -704,6 +745,15 @@ const EventCard: React.FC<EventCardProps> = ({
 								</button>
 							</div>
 						)}
+
+						{/* Kelola Event */}
+						<button
+							onClick={() => onManage(event)}
+							className="flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
+						>
+							<Cog6ToothIcon className="w-4 h-4" />
+							Kelola
+						</button>
 
 						{/* View Event */}
 						<Link

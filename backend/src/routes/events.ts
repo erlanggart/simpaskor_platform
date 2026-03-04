@@ -2,17 +2,33 @@ import express, { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth";
 import { uploadEventThumbnail, uploadJuknis } from "../middleware/upload";
+import { computeEventStatus } from "../utils/eventStatus";
 
 const router = express.Router();
 
 // GET /api/events - Get all published events with search and filters
 router.get("/", async (req: Request, res: Response) => {
 	try {
-		const { search, location, featured, limit, offset } = req.query;
+		const { search, location, featured, limit, offset, status } = req.query;
+		const now = new Date();
 
+		// Base filter: exclude DRAFT and CANCELLED
 		const where: any = {
-			status: "PUBLISHED",
+			status: { notIn: ["DRAFT", "CANCELLED"] },
 		};
+
+		// Status filter based on computed status
+		if (status === "COMPLETED") {
+			// Events that have ended
+			where.endDate = { lt: now };
+		} else if (status === "ONGOING") {
+			// Events happening now
+			where.startDate = { lte: now };
+			where.endDate = { gte: now };
+		} else {
+			// Default: PUBLISHED - events that haven't ended yet
+			where.endDate = { gte: now };
+		}
 
 		// Search filter
 		if (search) {
@@ -63,8 +79,14 @@ router.get("/", async (req: Request, res: Response) => {
 			skip: offset ? parseInt(offset as string) : undefined,
 		});
 
+		// Apply computed status to each event
+		const eventsWithComputedStatus = events.map(event => ({
+			...event,
+			status: computeEventStatus(event),
+		}));
+
 		res.json({
-			data: events,
+			data: eventsWithComputedStatus,
 			total,
 			limit: limit ? parseInt(limit as string) : events.length,
 			offset: offset ? parseInt(offset as string) : 0,
@@ -75,14 +97,98 @@ router.get("/", async (req: Request, res: Response) => {
 	}
 });
 
+// GET /api/events/admin/all - Get ALL events for admin management (SuperAdmin only)
+router.get(
+	"/admin/all",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+
+			if (!user || user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Only SuperAdmin can access all events",
+				});
+			}
+
+			const { search, status: statusFilter, limit, offset } = req.query;
+
+			const where: any = {};
+
+			// Optional status filter
+			if (statusFilter && statusFilter !== "all") {
+				where.status = statusFilter as string;
+			}
+
+			// Search filter
+			if (search) {
+				where.OR = [
+					{ title: { contains: search as string, mode: "insensitive" } },
+					{ description: { contains: search as string, mode: "insensitive" } },
+					{ organizer: { contains: search as string, mode: "insensitive" } },
+					{ location: { contains: search as string, mode: "insensitive" } },
+				];
+			}
+
+			// Get total count
+			const total = await prisma.event.count({ where });
+
+			// Get ALL events without date filtering
+			const events = await prisma.event.findMany({
+				where,
+				include: {
+					createdBy: {
+						select: {
+							id: true,
+							name: true,
+							email: true,
+						},
+					},
+					assessmentCategories: {
+						include: {
+							assessmentCategory: true,
+						},
+					},
+					schoolCategoryLimits: {
+						include: {
+							schoolCategory: true,
+						},
+					},
+				},
+				orderBy: [{ isPinned: "desc" }, { pinnedOrder: "asc" }, { createdAt: "desc" }],
+				take: limit ? parseInt(limit as string) : undefined,
+				skip: offset ? parseInt(offset as string) : undefined,
+			});
+
+			// Apply computed status to each event
+			const eventsWithComputedStatus = events.map(event => ({
+				...event,
+				status: computeEventStatus(event),
+			}));
+
+			res.json({
+				data: eventsWithComputedStatus,
+				total,
+				limit: limit ? parseInt(limit as string) : events.length,
+				offset: offset ? parseInt(offset as string) : 0,
+			});
+		} catch (error) {
+			console.error("Error fetching all events for admin:", error);
+			res.status(500).json({ message: "Failed to fetch events" });
+		}
+	}
+);
+
 // GET /api/events/featured - Get featured events
 router.get("/featured", async (req: Request, res: Response) => {
 	try {
 		const { limit } = req.query;
+		const now = new Date();
 
 		const events = await prisma.event.findMany({
 			where: {
-				status: "PUBLISHED",
+				status: { notIn: ["DRAFT", "CANCELLED"] },
+				endDate: { gte: now },
 				featured: true,
 			},
 			include: {
@@ -105,7 +211,13 @@ router.get("/featured", async (req: Request, res: Response) => {
 			take: limit ? parseInt(limit as string) : 6,
 		});
 
-		res.json(events);
+		// Apply computed status
+		const eventsWithStatus = events.map(event => ({
+			...event,
+			status: computeEventStatus(event),
+		}));
+
+		res.json(eventsWithStatus);
 	} catch (error) {
 		console.error("Error fetching featured events:", error);
 		res.status(500).json({ message: "Failed to fetch featured events" });
@@ -115,9 +227,12 @@ router.get("/featured", async (req: Request, res: Response) => {
 // GET /api/events/pinned/carousel - Get pinned events for carousel
 router.get("/pinned/carousel", async (req: Request, res: Response) => {
 	try {
+		const now = new Date();
+		
 		const events = await prisma.event.findMany({
 			where: {
-				status: "PUBLISHED",
+				status: { notIn: ["DRAFT", "CANCELLED"] },
+				endDate: { gte: now },
 				isPinned: true,
 			},
 			select: {
@@ -131,12 +246,20 @@ router.get("/pinned/carousel", async (req: Request, res: Response) => {
 				location: true,
 				venue: true,
 				pinnedOrder: true,
+				registrationDeadline: true,
+				status: true,
 			},
 			orderBy: [{ pinnedOrder: "asc" }, { createdAt: "desc" }],
 			take: 10, // Maximum 10 pinned events in carousel
 		});
 
-		res.json(events);
+		// Apply computed status
+		const eventsWithStatus = events.map(event => ({
+			...event,
+			status: computeEventStatus(event),
+		}));
+
+		res.json(eventsWithStatus);
 	} catch (error) {
 		console.error("Error fetching pinned events:", error);
 		res.status(500).json({ message: "Failed to fetch pinned events" });
@@ -219,7 +342,13 @@ router.get(
 				},
 			});
 
-			res.json(events);
+			// Apply computed status to each event
+			const eventsWithStatus = events.map(event => ({
+				...event,
+				status: computeEventStatus(event),
+			}));
+
+			res.json(eventsWithStatus);
 		} catch (error) {
 			console.error("Error fetching user events:", error);
 			res.status(500).json({ message: "Failed to fetch events" });
@@ -556,7 +685,15 @@ router.patch(
 			// Verify event exists and belongs to user
 			const existingEvent = await prisma.event.findUnique({
 				where: { id },
-				select: { createdById: true },
+				select: { 
+					createdById: true,
+					coupon: {
+						select: {
+							id: true,
+							expiresAt: true,
+						},
+					},
+				},
 			});
 
 			if (!existingEvent) {
@@ -568,6 +705,14 @@ router.patch(
 			if (existingEvent.createdById !== user.userId) {
 				return res.status(403).json({
 					message: "You can only update your own events",
+				});
+			}
+
+			// Check if event's coupon is expired - prevent editing settings
+			if (existingEvent.coupon?.expiresAt && new Date(existingEvent.coupon.expiresAt) < new Date()) {
+				return res.status(403).json({
+					message: "Coupon sudah kadaluarsa. Pengaturan event tidak dapat diubah.",
+					code: "COUPON_EXPIRED",
 				});
 			}
 
@@ -765,6 +910,76 @@ router.patch(
 			console.error("Error updating pin status:", error);
 			res.status(500).json({
 				message: "Failed to update pin status",
+				error: error.message,
+			});
+		}
+	}
+);
+
+// PATCH /api/events/:id/status - Update event status only (Panitia only)
+router.patch(
+	"/:id/status",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+
+			if (!user || user.role !== "PANITIA") {
+				return res.status(403).json({
+					message: "Only Panitia can update event status",
+				});
+			}
+
+			const { id } = req.params;
+			const { status } = req.body;
+
+			// Validate status - only allow manual status changes to DRAFT, PUBLISHED, or CANCELLED
+			// Other statuses (ONGOING, COMPLETED) are computed automatically based on dates
+			const validStatuses = ["DRAFT", "PUBLISHED", "CANCELLED"];
+			if (!status || !validStatuses.includes(status)) {
+				return res.status(400).json({
+					message: `Invalid status. Status hanya dapat diubah ke: Draft, Published, atau Cancelled. Status lainnya (Ongoing, Completed) dihitung otomatis berdasarkan tanggal.`,
+				});
+			}
+
+			// Verify event exists and belongs to user
+			const existingEvent = await prisma.event.findUnique({
+				where: { id },
+				select: { createdById: true, status: true },
+			});
+
+			if (!existingEvent) {
+				return res.status(404).json({
+					message: "Event not found",
+				});
+			}
+
+			if (existingEvent.createdById !== user.userId) {
+				return res.status(403).json({
+					message: "You can only update status of your own events",
+				});
+			}
+
+			// Update status
+			const updatedEvent = await prisma.event.update({
+				where: { id },
+				data: { status },
+				select: {
+					id: true,
+					title: true,
+					slug: true,
+					status: true,
+				},
+			});
+
+			res.json({
+				message: `Event status updated to ${status}`,
+				data: updatedEvent,
+			});
+		} catch (error: any) {
+			console.error("Error updating event status:", error);
+			res.status(500).json({
+				message: "Failed to update event status",
 				error: error.message,
 			});
 		}
@@ -1512,6 +1727,37 @@ router.get("/:slug", async (req: Request, res: Response) => {
 					},
 				},
 				coupon: true,
+				juryAssignments: {
+					where: {
+						status: "CONFIRMED",
+					},
+					select: {
+						id: true,
+						status: true,
+						jury: {
+							select: {
+								id: true,
+								name: true,
+								profile: {
+									select: {
+										avatar: true,
+										institution: true,
+									},
+								},
+							},
+						},
+						assignedCategories: {
+							select: {
+								assessmentCategory: {
+									select: {
+										id: true,
+										name: true,
+									},
+								},
+							},
+						},
+					},
+				},
 				participations: {
 					select: {
 						id: true,
@@ -1541,7 +1787,13 @@ router.get("/:slug", async (req: Request, res: Response) => {
 			return res.status(404).json({ message: "Event not found" });
 		}
 
-		res.json(event);
+		// Apply computed status
+		const eventWithStatus = {
+			...event,
+			status: computeEventStatus(event),
+		};
+
+		res.json(eventWithStatus);
 	} catch (error) {
 		console.error("Error fetching event:", error);
 		res.status(500).json({ message: "Failed to fetch event" });

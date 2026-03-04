@@ -23,7 +23,6 @@ import {
 	ChevronDoubleLeftIcon,
 	ChevronDoubleRightIcon,
 	AcademicCapIcon,
-	DocumentChartBarIcon,
 } from "@heroicons/react/24/outline";
 
 interface MenuItem {
@@ -84,16 +83,20 @@ export const DashboardLayout: React.FC = () => {
 
 	// Note: Removed auto-redirect to event - now handled explicitly via "Kelola" button in Dashboard
 
-	const checkActiveEvent = async () => {
+	const checkActiveEvent = () => {
+		// Read from localStorage instead of API
 		try {
-			const response = await api.get("/panitia-assignment/current");
-			if (response.data && response.data.event) {
-				setActiveEvent(response.data);
+			const stored = localStorage.getItem("panitia_active_event");
+			if (stored) {
+				const eventData = JSON.parse(stored);
+				// Wrap in { event: {...} } structure for compatibility
+				setActiveEvent({ event: eventData });
 			} else {
 				setActiveEvent(null);
 			}
 		} catch (error) {
-			// No active event
+			// Invalid data in localStorage
+			localStorage.removeItem("panitia_active_event");
 			setActiveEvent(null);
 		}
 	};
@@ -102,6 +105,8 @@ export const DashboardLayout: React.FC = () => {
 		try {
 			const response = await api.get(`/juries/events/${eventId}`);
 			if (response.data && response.data.event) {
+				// Clear the exit flag since user is entering an event
+				sessionStorage.removeItem("juri_exited_event");
 				setActiveJuryEvent(response.data);
 			}
 		} catch (error) {
@@ -111,6 +116,8 @@ export const DashboardLayout: React.FC = () => {
 	};
 
 	const handleLeaveJuryEvent = () => {
+		// Set flag to prevent auto-redirect until browser session ends
+		sessionStorage.setItem("juri_exited_event", "true");
 		setActiveJuryEvent(null);
 		navigate("/juri/events");
 	};
@@ -129,27 +136,19 @@ export const DashboardLayout: React.FC = () => {
 		});
 
 		if (result.isConfirmed) {
-			try {
-				await api.post("/panitia-assignment/leave");
-				setActiveEvent(null);
+			// Remove from localStorage
+			localStorage.removeItem("panitia_active_event");
+			setActiveEvent(null);
 
-				await Swal.fire({
-					title: "Berhasil!",
-					text: "Anda telah keluar dari pengelolaan event",
-					icon: "success",
-					timer: 2000,
-					showConfirmButton: false,
-				});
+			await Swal.fire({
+				title: "Berhasil!",
+				text: "Anda telah keluar dari pengelolaan event",
+				icon: "success",
+				timer: 2000,
+				showConfirmButton: false,
+			});
 
-				navigate("/panitia/dashboard");
-			} catch (error: any) {
-				Swal.fire({
-					title: "Gagal!",
-					text: error.response?.data?.message || "Gagal keluar dari event",
-					icon: "error",
-					confirmButtonText: "OK",
-				});
-			}
+			navigate("/panitia/dashboard");
 		}
 	};
 
@@ -182,7 +181,8 @@ export const DashboardLayout: React.FC = () => {
 				);
 				break;
 			case "PANITIA":
-				// Jika panitia sedang mengelola event, tampilkan menu pengelolaan event
+				// DashboardLayout is now only used when in event mode
+				// Dashboard page uses PreAssignLayout
 				if (activeEvent && activeEvent.event) {
 					roleSpecificItems.push(
 						{
@@ -201,18 +201,18 @@ export const DashboardLayout: React.FC = () => {
 							path: `/panitia/events/${activeEvent.event.slug}/materi`,
 						},
 						{
-							name: "Rekap Nilai",
-							icon: DocumentChartBarIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/rekap`,
+							name: "Kategori Juara",
+							icon: TrophyIcon,
+							path: `/panitia/events/${activeEvent.event.slug}/juara`,
+						},
+						{
+							name: "Rekapitulasi",
+							icon: ChartBarIcon,
+							path: `/panitia/events/${activeEvent.event.slug}/rekapitulasi`,
 						}
 					);
-				} else {
-					// Menu default ketika tidak sedang mengelola event
-					roleSpecificItems.push(
-						{ name: "Event Saya", icon: CalendarIcon, path: "/panitia/events" },
-						{ name: "Laporan", icon: ChartBarIcon, path: "/panitia/reports" }
-					);
 				}
+				// Note: If no activeEvent, menu will be empty (loading state)
 				break;
 			case "PESERTA":
 				roleSpecificItems.push(
@@ -230,7 +230,8 @@ export const DashboardLayout: React.FC = () => {
 				);
 				break;
 			case "JURI":
-				// Jika juri sedang mengelola event, tampilkan menu pengelolaan event
+				// DashboardLayout is now only used when in event mode
+				// Dashboard page uses PreAssignLayout
 				if (activeJuryEvent && activeJuryEvent.event) {
 					roleSpecificItems.push(
 						{
@@ -249,22 +250,8 @@ export const DashboardLayout: React.FC = () => {
 							path: `/juri/events/${activeJuryEvent.event.slug}/penilaian`,
 						}
 					);
-				} else {
-					roleSpecificItems.push(
-						{
-							name: "Event Saya",
-							icon: CalendarIcon,
-							path: "/juri/events",
-						},
-						{
-							name: "Undangan",
-							icon: TicketIcon,
-							path: "/juri/invitations",
-						},
-						{ name: "Penilaian", icon: TrophyIcon, path: "/juri/evaluations" },
-						{ name: "Jadwal", icon: ChartBarIcon, path: "/juri/schedule" }
-					);
 				}
+				// Note: If no activeJuryEvent, menu will be empty (loading state)
 				break;
 			case "PELATIH":
 				roleSpecificItems.push(
@@ -777,7 +764,7 @@ export const DashboardLayout: React.FC = () => {
 
 				{/* Page Content */}
 				<main className="flex-1">
-					<div className="max-w-7xl mx-auto">
+					<div className="">
 						<Outlet />
 					</div>
 				</main>

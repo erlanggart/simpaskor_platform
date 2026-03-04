@@ -5,48 +5,28 @@ import {
 	MagnifyingGlassIcon,
 	CalendarIcon,
 	BuildingOffice2Icon,
-	UserGroupIcon,
-	AcademicCapIcon,
+	CheckCircleIcon,
+	TrophyIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../utils/api";
 
-interface SchoolCategory {
-	id: string;
-	name: string;
-}
-
-interface ParticipationGroup {
-	id: string;
-	groupName: string;
-	teamMembers: number;
-	memberNames: string | null;
-	memberData: string | null;
-	status: string;
-	schoolCategory: SchoolCategory;
-}
-
-interface UserProfile {
-	avatar: string | null;
-	institution: string | null;
-}
-
-interface ParticipantUser {
-	id: string;
-	name: string;
-	email: string;
-	phone: string | null;
-	profile: UserProfile | null;
-}
-
 interface Participant {
 	id: string;
-	teamName: string | null;
-	schoolName: string | null;
+	participationId: string;
+	teamName: string;
 	status: string;
-	createdAt: string;
-	user: ParticipantUser;
-	schoolCategory: SchoolCategory | null;
-	groups: ParticipationGroup[];
+	schoolCategory: {
+		id: string;
+		name: string;
+	} | null;
+	members: string[];
+	teamMembers: number;
+	registrant: {
+		id: string;
+		name: string;
+		email: string;
+		institution: string | null;
+	};
 }
 
 interface EventInfo {
@@ -69,10 +49,27 @@ interface JuryAssignment {
 	}[];
 }
 
+interface MaterialScoringStatus {
+	totalMaterials: number;
+	participantStatus: Record<string, {
+		scoredMaterials: number;
+		totalMaterials: number;
+		isComplete: boolean;
+	}>;
+}
+
+interface ParticipantScore {
+	totalScore: number;
+	scoredCount: number;
+	averageScore: number;
+}
+
 const JuriEventPeserta: React.FC = () => {
 	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const [assignment, setAssignment] = useState<JuryAssignment | null>(null);
 	const [participants, setParticipants] = useState<Participant[]>([]);
+	const [materialScoringStatus, setMaterialScoringStatus] = useState<MaterialScoringStatus | null>(null);
+	const [participantScores, setParticipantScores] = useState<Record<string, ParticipantScore>>({});
 	const [loading, setLoading] = useState(true);
 	const [searchTerm, setSearchTerm] = useState("");
 
@@ -85,12 +82,38 @@ const JuriEventPeserta: React.FC = () => {
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			const [assignmentRes, participantsRes] = await Promise.all([
+			const [assignmentRes, participantsRes, statusRes] = await Promise.all([
 				api.get(`/juries/events/${eventSlug}`),
 				api.get(`/juries/events/${eventSlug}/peserta`),
+				api.get(`/evaluations/materials/event/${eventSlug}/status`).catch(() => ({ data: null })),
 			]);
 			setAssignment(assignmentRes.data);
 			setParticipants(participantsRes.data || []);
+			setMaterialScoringStatus(statusRes.data);
+
+			// Fetch scores for participants who have been scored
+			if (statusRes.data?.participantStatus && assignmentRes.data?.event?.id) {
+				const eventId = assignmentRes.data.event.id;
+				const scoredParticipantIds = Object.keys(statusRes.data.participantStatus);
+				
+				const scorePromises = scoredParticipantIds.map(async (participantId) => {
+					try {
+						const res = await api.get(`/evaluations/materials/participant/${participantId}/summary?eventId=${eventId}`);
+						return { participantId, score: res.data.summary };
+					} catch {
+						return { participantId, score: null };
+					}
+				});
+
+				const scores = await Promise.all(scorePromises);
+				const scoresMap: Record<string, ParticipantScore> = {};
+				scores.forEach(({ participantId, score }) => {
+					if (score) {
+						scoresMap[participantId] = score;
+					}
+				});
+				setParticipantScores(scoresMap);
+			}
 		} catch (error) {
 			console.error("Error fetching data:", error);
 		} finally {
@@ -98,12 +121,23 @@ const JuriEventPeserta: React.FC = () => {
 		}
 	};
 
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString("id-ID", {
-			day: "numeric",
-			month: "long",
-			year: "numeric",
-		});
+	const getParticipantScoringStatus = (participantId: string) => {
+		if (!materialScoringStatus) return { scored: 0, total: 0, isComplete: false };
+		
+		const status = materialScoringStatus.participantStatus[participantId];
+		if (!status) {
+			return {
+				scored: 0,
+				total: materialScoringStatus.totalMaterials,
+				isComplete: false,
+			};
+		}
+		
+		return {
+			scored: status.scoredMaterials,
+			total: status.totalMaterials,
+			isComplete: status.isComplete,
+		};
 	};
 
 	const getStatusBadge = (status: string) => {
@@ -135,41 +169,19 @@ const JuriEventPeserta: React.FC = () => {
 		}
 	};
 
-	const parseMemberNames = (memberNames: string | null): string[] => {
-		if (!memberNames) return [];
-		try {
-			return JSON.parse(memberNames);
-		} catch {
-			return [];
-		}
-	};
-
 	const filteredParticipants = participants.filter((p) => {
 		const searchLower = searchTerm.toLowerCase();
 		return (
 			p.teamName?.toLowerCase().includes(searchLower) ||
-			p.schoolName?.toLowerCase().includes(searchLower) ||
-			p.user.name.toLowerCase().includes(searchLower) ||
-			p.user.email.toLowerCase().includes(searchLower) ||
-			p.groups.some((g) => 
-				g.groupName.toLowerCase().includes(searchLower) ||
-				parseMemberNames(g.memberNames).some(name => 
-					name.toLowerCase().includes(searchLower)
-				)
-			)
+			p.registrant?.name?.toLowerCase().includes(searchLower) ||
+			p.registrant?.email?.toLowerCase().includes(searchLower) ||
+			p.registrant?.institution?.toLowerCase().includes(searchLower) ||
+			p.schoolCategory?.name?.toLowerCase().includes(searchLower) ||
+			p.members?.some(m => m.toLowerCase().includes(searchLower))
 		);
 	});
 
-	// Count unique school categories
-	const uniqueSchoolCategories = new Set<string>();
-	participants.forEach((p) => {
-		if (p.schoolCategory) {
-			uniqueSchoolCategories.add(p.schoolCategory.id);
-		}
-		p.groups.forEach((g) => {
-			uniqueSchoolCategories.add(g.schoolCategory.id);
-		});
-	});
+	
 
 	if (loading) {
 		return (
@@ -225,54 +237,7 @@ const JuriEventPeserta: React.FC = () => {
 					</div>
 				</div>
 
-				{/* Stats */}
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-						<div className="flex items-center gap-3">
-							<div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg">
-								<UsersIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-							</div>
-							<div>
-								<p className="text-2xl font-bold text-gray-900 dark:text-white">
-									{participants.length}
-								</p>
-								<p className="text-sm text-gray-500 dark:text-gray-400">
-									Total Pendaftar
-								</p>
-							</div>
-						</div>
-					</div>
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-						<div className="flex items-center gap-3">
-							<div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
-								<UserGroupIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
-							</div>
-							<div>
-								<p className="text-2xl font-bold text-gray-900 dark:text-white">
-									{participants.reduce((acc, p) => acc + p.groups.length, 0)}
-								</p>
-								<p className="text-sm text-gray-500 dark:text-gray-400">
-									Total Tim/Grup
-								</p>
-							</div>
-						</div>
-					</div>
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-						<div className="flex items-center gap-3">
-							<div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
-								<AcademicCapIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-							</div>
-							<div>
-								<p className="text-2xl font-bold text-gray-900 dark:text-white">
-									{uniqueSchoolCategories.size}
-								</p>
-								<p className="text-sm text-gray-500 dark:text-gray-400">
-									Kategori Sekolah
-								</p>
-							</div>
-						</div>
-					</div>
-				</div>
+				
 
 				{/* Participants List */}
 				<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -298,95 +263,123 @@ const JuriEventPeserta: React.FC = () => {
 						</div>
 					) : (
 						<div className="divide-y divide-gray-200 dark:divide-gray-700">
-							{filteredParticipants.map((participant) => (
+							{filteredParticipants.map((participant) => {
+								const scoringStatus = getParticipantScoringStatus(participant.id);
+								const score = participantScores[participant.id];
+								
+								return (
 								<div
 									key={participant.id}
 									className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50"
 								>
-									{/* Participant Info */}
+									{/* Team/Participant Info */}
 									<div className="flex items-start justify-between">
 										<div className="flex items-start gap-4">
 											<div className="flex-shrink-0">
 												<div className="h-12 w-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
 													<span className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">
-														{participant.user.name.charAt(0).toUpperCase()}
+														{participant.teamName?.charAt(0).toUpperCase() || "?"}
 													</span>
 												</div>
 											</div>
 											<div>
-												<h3 className="text-lg font-medium text-gray-900 dark:text-white">
-													{participant.user.name}
-												</h3>
-												<p className="text-sm text-gray-500 dark:text-gray-400">
-													{participant.user.email}
-												</p>
-												{participant.schoolName && (
-													<div className="flex items-center mt-1 text-sm text-gray-600 dark:text-gray-400">
-														<BuildingOffice2Icon className="h-4 w-4 mr-1" />
-														{participant.schoolName}
-													</div>
-												)}
+												<div className="flex items-center gap-2 flex-wrap">
+													<h3 className="text-lg font-medium text-gray-900 dark:text-white">
+														{participant.teamName}
+													</h3>
+													{participant.schoolCategory && (
+														<span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
+															{participant.schoolCategory.name}
+														</span>
+													)}
+													{scoringStatus.isComplete && (
+														<span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-xs rounded-full">
+															<CheckCircleIcon className="h-3.5 w-3.5" />
+															Sudah Dinilai
+														</span>
+													)}
+												</div>
+												<div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+													<span className="font-medium">{participant.teamMembers}</span> anggota
+												</div>
 											</div>
 										</div>
-										<span
-											className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(
-												participant.status
-											)}`}
-										>
-											{getStatusLabel(participant.status)}
-										</span>
+										<div className="flex flex-col items-end gap-2">
+											<span
+												className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(
+													participant.status
+												)}`}
+											>
+												{getStatusLabel(participant.status)}
+											</span>
+											{/* Scoring Progress/Score */}
+											{scoringStatus.total > 0 && (
+												<div className="text-right">
+													{scoringStatus.isComplete && score ? (
+														<div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/50 rounded-lg">
+															<TrophyIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+															<div>
+																<p className="text-lg font-bold text-amber-700 dark:text-amber-300">
+																	{score.totalScore}
+																</p>
+																<p className="text-xs text-amber-600 dark:text-amber-400">
+																	Total Skor
+																</p>
+															</div>
+														</div>
+													) : scoringStatus.scored > 0 ? (
+														<div className="text-sm text-gray-500 dark:text-gray-400">
+															<p className="font-medium">{scoringStatus.scored}/{scoringStatus.total}</p>
+															<p className="text-xs">materi dinilai</p>
+														</div>
+													) : null}
+												</div>
+											)}
+										</div>
 									</div>
 
-									{/* Groups */}
-									{participant.groups.length > 0 && (
+									{/* Members */}
+									{participant.members.length > 0 && (
 										<div className="mt-4 ml-16">
 											<p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-												Tim Terdaftar:
+												Anggota Tim:
 											</p>
-											<div className="space-y-3">
-												{participant.groups.map((group) => {
-													const memberNames = parseMemberNames(group.memberNames);
-													return (
-														<div
-															key={group.id}
-															className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4"
-														>
-															<div className="flex items-center justify-between mb-2">
-																<span className="font-medium text-gray-900 dark:text-white">
-																	{group.groupName}
-																</span>
-																<span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded">
-																	{group.schoolCategory.name}
-																</span>
-															</div>
-															<div className="text-sm text-gray-600 dark:text-gray-400">
-																<span className="font-medium">{group.teamMembers}</span> anggota
-															</div>
-															{memberNames.length > 0 && (
-																<div className="mt-2 flex flex-wrap gap-1">
-																	{memberNames.map((name, idx) => (
-																		<span
-																			key={idx}
-																			className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-																		>
-																			{name}
-																		</span>
-																	))}
-																</div>
-															)}
-														</div>
-													);
-												})}
+											<div className="flex flex-wrap gap-1">
+												{participant.members.map((name, idx) => (
+													<span
+														key={idx}
+														className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+													>
+														{name}
+													</span>
+												))}
 											</div>
 										</div>
 									)}
 
-									{/* Registration date */}
-									<div className="mt-4 ml-16 text-xs text-gray-500 dark:text-gray-400">
-										Terdaftar: {formatDate(participant.createdAt)}
+									{/* Registrant Info */}
+									<div className="mt-4 ml-16 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+										<p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+											Pendaftar:
+										</p>
+										<div className="flex items-center gap-2">
+											<span className="text-sm text-gray-900 dark:text-white">
+												{participant.registrant.name}
+											</span>
+											<span className="text-xs text-gray-500 dark:text-gray-400">
+												({participant.registrant.email})
+											</span>
+										</div>
+										{participant.registrant.institution && (
+											<div className="flex items-center mt-1 text-xs text-gray-600 dark:text-gray-400">
+												<BuildingOffice2Icon className="h-3 w-3 mr-1" />
+												{participant.registrant.institution}
+											</div>
+										)}
 									</div>
 								</div>
-							))}
+							);
+							})}
 						</div>
 					)}
 				</div>

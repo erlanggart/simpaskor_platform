@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import {
 	UserGroupIcon,
 	CheckCircleIcon,
@@ -10,6 +10,8 @@ import {
 	UserIcon,
 	ArrowLeftIcon,
 	MagnifyingGlassIcon,
+	ArrowsUpDownIcon,
+	HashtagIcon,
 } from "@heroicons/react/24/outline";
 import {
 	CheckCircleIcon as CheckCircleIconSolid,
@@ -31,6 +33,7 @@ interface ParticipationGroup {
 	memberData: string | null;
 	status: string;
 	notes: string | null;
+	orderNumber: number | null;
 	schoolCategory: SchoolCategory;
 }
 
@@ -99,12 +102,18 @@ const parseMemberData = (memberDataStr: string | null): PersonMember[] => {
 const EventParticipantManagement: React.FC = () => {
 	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const navigate = useNavigate();
+	const location = useLocation();
+	const isAdminRoute = location.pathname.startsWith("/admin");
+	const basePath = isAdminRoute ? "/admin" : "/panitia";
+	const storageKey = isAdminRoute ? "admin_active_event" : "panitia_active_event";
+	const dashboardPath = isAdminRoute ? "/admin/events" : "/panitia/dashboard";
+	
 	const [event, setEvent] = useState<Event | null>(null);
 	const [registrations, setRegistrations] = useState<Registration[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
-	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [statusFilter, setStatusFilter] = useState<string>("CONFIRMED");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -116,15 +125,39 @@ const EventParticipantManagement: React.FC = () => {
 		try {
 			setLoading(true);
 
-			// First get current assignment to get event ID
-			const assignmentResponse = await api.get("/panitia-assignment/current");
-			if (!assignmentResponse.data || assignmentResponse.data.event.slug !== eventSlug) {
-				navigate("/panitia/dashboard");
+			// Verify access from localStorage (check both admin and panitia keys)
+			const stored = localStorage.getItem(storageKey);
+			if (!stored && !isAdminRoute) {
+				navigate(dashboardPath);
 				return;
 			}
 
-			const eventData = assignmentResponse.data.event;
+			if (stored) {
+				const storedEvent = JSON.parse(stored);
+				if (storedEvent.slug !== eventSlug) {
+					// Update localStorage to match URL
+					localStorage.setItem(
+						storageKey,
+						JSON.stringify({ slug: eventSlug, title: "", id: "" })
+					);
+				}
+			}
+
+			// Fetch event by slug to get event ID
+			const eventResponse = await api.get(`/events/${eventSlug}`);
+			if (!eventResponse.data) {
+				navigate(dashboardPath);
+				return;
+			}
+
+			const eventData = eventResponse.data;
 			setEvent(eventData);
+
+			// Update localStorage with full event data
+			localStorage.setItem(
+				storageKey,
+				JSON.stringify({ slug: eventData.slug, title: eventData.title, id: eventData.id })
+			);
 
 			// Fetch registrations
 			const registrationsResponse = await api.get(`/registrations/event/${eventData.id}`);
@@ -173,6 +206,56 @@ const EventParticipantManagement: React.FC = () => {
 					icon: "error",
 					title: "Gagal",
 					text: error.response?.data?.error || `Gagal ${statusLabel} pendaftaran`,
+				});
+			} finally {
+				setProcessingId(null);
+			}
+		}
+	};
+
+	const handleUpdateOrderNumber = async (groupId: string, currentOrder: number | null, schoolCategoryName: string) => {
+		const { value: newOrder } = await Swal.fire({
+			title: "Ubah Nomor Urut",
+			text: `Masukkan nomor urut baru untuk tim di kategori ${schoolCategoryName}`,
+			input: "number",
+			inputValue: currentOrder || "",
+			inputAttributes: {
+				min: "1",
+			},
+			inputPlaceholder: "Nomor urut",
+			showCancelButton: true,
+			confirmButtonColor: "#4F46E5",
+			cancelButtonColor: "#6B7280",
+			confirmButtonText: "Simpan",
+			cancelButtonText: "Batal",
+			inputValidator: (value) => {
+				if (!value || parseInt(value) < 1) {
+					return "Masukkan nomor urut yang valid (minimal 1)";
+				}
+				return null;
+			},
+		});
+
+		if (newOrder) {
+			try {
+				setProcessingId(groupId);
+				await api.patch(`/registrations/groups/${groupId}/order`, {
+					orderNumber: parseInt(newOrder),
+				});
+
+				await Swal.fire({
+					icon: "success",
+					title: "Berhasil",
+					text: "Nomor urut berhasil diubah",
+					timer: 1500,
+				});
+
+				fetchEventAndRegistrations();
+			} catch (error: any) {
+				Swal.fire({
+					icon: "error",
+					title: "Gagal",
+					text: error.response?.data?.error || "Gagal mengubah nomor urut",
 				});
 			} finally {
 				setProcessingId(null);
@@ -262,7 +345,7 @@ const EventParticipantManagement: React.FC = () => {
 				{/* Header */}
 				<div className="mb-8">
 					<Link
-						to={`/panitia/events/${eventSlug}/manage`}
+						to={`${basePath}/events/${eventSlug}/manage`}
 						className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4"
 					>
 						<ArrowLeftIcon className="h-4 w-4 mr-1" />
@@ -279,15 +362,15 @@ const EventParticipantManagement: React.FC = () => {
 				{/* Stats */}
 				<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 					<div
-						onClick={() => setStatusFilter("all")}
+						onClick={() => setStatusFilter("CONFIRMED")}
 						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
-							statusFilter === "all"
-								? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-300"
+							statusFilter === "CONFIRMED"
+								? "border-green-500 bg-green-50 dark:bg-green-900/20"
+								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-green-300"
 						}`}
 					>
-						<p className="text-sm text-gray-600 dark:text-gray-400">Semua</p>
-						<p className="text-2xl font-bold text-gray-900 dark:text-white">{statusCounts.all}</p>
+						<p className="text-sm text-green-600 dark:text-green-400">Dikonfirmasi</p>
+						<p className="text-2xl font-bold text-green-600 dark:text-green-400">{statusCounts.CONFIRMED}</p>
 					</div>
 					<div
 						onClick={() => setStatusFilter("REGISTERED")}
@@ -301,17 +384,6 @@ const EventParticipantManagement: React.FC = () => {
 						<p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{statusCounts.REGISTERED}</p>
 					</div>
 					<div
-						onClick={() => setStatusFilter("CONFIRMED")}
-						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
-							statusFilter === "CONFIRMED"
-								? "border-green-500 bg-green-50 dark:bg-green-900/20"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-green-300"
-						}`}
-					>
-						<p className="text-sm text-green-600 dark:text-green-400">Dikonfirmasi</p>
-						<p className="text-2xl font-bold text-green-600 dark:text-green-400">{statusCounts.CONFIRMED}</p>
-					</div>
-					<div
 						onClick={() => setStatusFilter("CANCELLED")}
 						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
 							statusFilter === "CANCELLED"
@@ -321,6 +393,17 @@ const EventParticipantManagement: React.FC = () => {
 					>
 						<p className="text-sm text-red-600 dark:text-red-400">Dibatalkan</p>
 						<p className="text-2xl font-bold text-red-600 dark:text-red-400">{statusCounts.CANCELLED}</p>
+					</div>
+					<div
+						onClick={() => setStatusFilter("all")}
+						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
+							statusFilter === "all"
+								? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-300"
+						}`}
+					>
+						<p className="text-sm text-gray-600 dark:text-gray-400">Semua</p>
+						<p className="text-2xl font-bold text-gray-900 dark:text-white">{statusCounts.all}</p>
 					</div>
 				</div>
 
@@ -483,7 +566,19 @@ const EventParticipantManagement: React.FC = () => {
 															{/* Group Header */}
 															<div className="p-4">
 																<div className="flex items-center justify-between">
-																	<div className="flex items-center gap-2">
+																	<div className="flex items-center gap-2 flex-wrap">
+																		{/* Order Number Badge (only for confirmed) */}
+																		{registration.status === "CONFIRMED" && group.orderNumber && group.status !== "CANCELLED" && (
+																			<button
+																				onClick={() => handleUpdateOrderNumber(group.id, group.orderNumber, group.schoolCategory.name)}
+																				disabled={processingId === group.id}
+																				className="flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md text-sm font-bold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors disabled:opacity-50"
+																				title="Klik untuk mengubah nomor urut"
+																			>
+																				<HashtagIcon className="h-4 w-4" />
+																				{group.orderNumber}
+																			</button>
+																		)}
 																		<UserGroupIcon className="h-5 w-5 text-indigo-600" />
 																		<span className={`font-semibold ${group.status === "CANCELLED" ? "line-through text-gray-400" : "text-gray-900 dark:text-white"}`}>
 																			{group.groupName}
@@ -497,24 +592,37 @@ const EventParticipantManagement: React.FC = () => {
 																			</span>
 																		)}
 																	</div>
-																	{members.length > 0 && group.status !== "CANCELLED" && (
-																		<button
-																			onClick={() => setExpandedGroupId(isGroupExpanded ? null : group.id)}
-																			className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-																		>
-																			{isGroupExpanded ? (
-																				<>
-																					<ChevronUpIcon className="h-4 w-4" />
-																					Tutup
-																				</>
-																			) : (
-																				<>
-																					<ChevronDownIcon className="h-4 w-4" />
-																					Lihat {members.length} Personil
-																				</>
-																			)}
-																		</button>
-																	)}
+																	<div className="flex items-center gap-2">
+																		{/* Reorder Button (only for confirmed without order number) */}
+																		{registration.status === "CONFIRMED" && !group.orderNumber && group.status !== "CANCELLED" && (
+																			<button
+																				onClick={() => handleUpdateOrderNumber(group.id, null, group.schoolCategory.name)}
+																				disabled={processingId === group.id}
+																				className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+																			>
+																				<ArrowsUpDownIcon className="h-4 w-4" />
+																				Set Nomor Urut
+																			</button>
+																		)}
+																		{members.length > 0 && group.status !== "CANCELLED" && (
+																			<button
+																				onClick={() => setExpandedGroupId(isGroupExpanded ? null : group.id)}
+																				className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+																			>
+																				{isGroupExpanded ? (
+																					<>
+																						<ChevronUpIcon className="h-4 w-4" />
+																						Tutup
+																					</>
+																				) : (
+																					<>
+																						<ChevronDownIcon className="h-4 w-4" />
+																						Lihat {members.length} Personil
+																					</>
+																				)}
+																			</button>
+																		)}
+																	</div>
 																</div>
 																<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
 																	{members.length > 0 ? `${members.length} personil` : `${group.teamMembers} anggota`}

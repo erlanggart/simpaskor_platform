@@ -51,6 +51,25 @@ interface EventCreator {
 	email: string;
 }
 
+interface JuryAssignment {
+	id: string;
+	status: string;
+	jury: {
+		id: string;
+		name: string;
+		profile?: {
+			avatar: string | null;
+			institution: string | null;
+		};
+	};
+	assignedCategories: {
+		assessmentCategory: {
+			id: string;
+			name: string;
+		};
+	}[];
+}
+
 interface Event {
 	id: string;
 	title: string;
@@ -75,6 +94,7 @@ interface Event {
 	createdBy?: EventCreator;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	assessmentCategories?: EventAssessmentCategory[];
+	juryAssignments?: JuryAssignment[];
 }
 
 interface ParticipantSummary {
@@ -330,6 +350,36 @@ const EventDetail: React.FC = () => {
 								</div>
 							)}
 
+							{/* Assessment Categories as Badges */}
+							{event.assessmentCategories && event.assessmentCategories.length > 0 && (
+								<div className="mb-4">
+									<div className="flex items-center gap-2 mb-2">
+										<TrophyIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+										<span className="text-sm font-medium text-gray-700 dark:text-gray-300">Kriteria Penilaian:</span>
+									</div>
+									<div className="flex flex-wrap gap-2">
+										{event.assessmentCategories
+											.sort((a, b) => a.assessmentCategory.order - b.assessmentCategory.order)
+											.map((category) => (
+												<span
+													key={category.id}
+													className="inline-flex items-center px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm rounded-full"
+													title={category.assessmentCategory.description || undefined}
+												>
+													{category.assessmentCategory.name}
+													{category.customWeight !== null && (
+														<span className="ml-1.5 text-xs font-semibold text-indigo-500 dark:text-indigo-400">
+															({category.customWeight}%)
+														</span>
+													)}
+												</span>
+											))
+										}
+									</div>
+								</div>
+							)}
+
+							
 							{(event.organizer || event.organizerEmail) && (
 								<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
 									{event.organizer && (
@@ -366,6 +416,72 @@ const EventDetail: React.FC = () => {
 								</div>
 							)}
 						</div>
+
+						{/* Confirmed Juries */}
+						{event.juryAssignments && event.juryAssignments.length > 0 && (
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+								<div className="flex items-center mb-4">
+									<TrophyIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
+									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
+										Dewan Juri ({event.juryAssignments.length})
+									</h2>
+								</div>
+								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+									{event.juryAssignments.map((assignment) => (
+										<div
+											key={assignment.id}
+											className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center"
+										>
+											{/* Avatar */}
+											<div className="relative mx-auto w-20 h-20 mb-3">
+												{assignment.jury.profile?.avatar ? (
+													<img
+														src={getImageUrl(assignment.jury.profile.avatar) || ""}
+														alt={assignment.jury.name}
+														className="w-20 h-20 rounded-full object-cover border-3 border-indigo-200 dark:border-indigo-800"
+													/>
+												) : (
+													<div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+														{assignment.jury.name.charAt(0).toUpperCase()}
+													</div>
+												)}
+												<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
+													<CheckCircleIcon className="w-4 h-4 text-white" />
+												</div>
+											</div>
+											{/* Name */}
+											<h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1 truncate">
+												{assignment.jury.name}
+											</h3>
+											{/* Institution */}
+											{assignment.jury.profile?.institution && (
+												<p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">
+													{assignment.jury.profile.institution}
+												</p>
+											)}
+											{/* Assigned Categories */}
+											{assignment.assignedCategories.length > 0 && (
+												<div className="flex flex-wrap justify-center gap-1">
+													{assignment.assignedCategories.slice(0, 2).map((cat, idx) => (
+														<span
+															key={idx}
+															className="inline-flex items-center px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full"
+														>
+															{cat.assessmentCategory.name}
+														</span>
+													))}
+													{assignment.assignedCategories.length > 2 && (
+														<span className="text-xs text-gray-500 dark:text-gray-400">
+															+{assignment.assignedCategories.length - 2}
+														</span>
+													)}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+							</div>
+						)}
 
 						{/* Juknis Download */}
 						{event.juknisUrl && (
@@ -459,48 +575,7 @@ const EventDetail: React.FC = () => {
 							</div>
 						)}
 
-						{/* Assessment Categories */}
-						{event.assessmentCategories &&
-							event.assessmentCategories.length > 0 && (
-								<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-									<div className="flex items-center mb-4">
-										<TrophyIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-										<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-											Kriteria Penilaian
-										</h2>
-									</div>
-									<div className="space-y-3">
-										{event.assessmentCategories
-											.sort(
-												(a, b) =>
-													a.assessmentCategory.order -
-													b.assessmentCategory.order
-											)
-											.map((category) => (
-												<div
-													key={category.id}
-													className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-												>
-													<div className="flex-1">
-														<span className="text-gray-900 dark:text-white font-medium block">
-															{category.assessmentCategory.name}
-														</span>
-														{category.assessmentCategory.description && (
-															<span className="text-xs text-gray-500 dark:text-gray-400 block mt-1">
-																{category.assessmentCategory.description}
-															</span>
-														)}
-													</div>
-													{category.customWeight !== null && (
-														<span className="text-indigo-600 dark:text-indigo-400 font-bold ml-3">
-															{category.customWeight}%
-														</span>
-													)}
-												</div>
-											))}
-									</div>
-								</div>
-							)}
+						
 					</div>
 
 					{/* Sidebar - Sticky */}
@@ -700,7 +775,7 @@ const EventDetail: React.FC = () => {
 								) : isAuthenticated && user?.role !== "PESERTA" ? (
 									<div className="text-center text-gray-500 dark:text-gray-400">
 										<p className="text-sm">
-											Hanya akun dengan role PESERTA yang dapat mendaftar ke event
+											Hanya akun PESERTA yang dapat mendaftar ke event
 										</p>
 									</div>
 								) : isRegistrationOpen() ? (

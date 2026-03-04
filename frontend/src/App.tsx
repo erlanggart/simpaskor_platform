@@ -3,7 +3,7 @@ import { AuthProvider } from "./hooks/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Layouts
-import { MainLayout, AuthLayout, DashboardLayout } from "./layouts";
+import { MainLayout, AuthLayout, DashboardLayout, ScoringLayout, PreAssignLayout } from "./layouts";
 
 // Public Pages
 import LandingPage from "./pages/LandingPage";
@@ -27,6 +27,8 @@ import UserManagement from "./pages/admin/UserManagement";
 import CouponManagement from "./pages/admin/CouponManagement";
 import AssessmentCategoryManagement from "./pages/admin/AssessmentCategoryManagement";
 import EventManagement from "./pages/admin/EventManagement";
+import AdminManageEvent from "./pages/admin/ManageEvent";
+import AdminEditEvent from "./pages/admin/EditEvent";
 import PanitiaDashboard from "./pages/panitia/Dashboard";
 import CreateEventWizard from "./pages/panitia/CreateEventWizard";
 import EditEventForm from "./pages/panitia/EditEvent";
@@ -43,8 +45,12 @@ import JuriEventMateri from "./pages/juri/EventMateri";
 import JuriEventPeserta from "./pages/juri/EventPeserta";
 import JuriEventPenilaian from "./pages/juri/EventPenilaian";
 import JuriPenilaianDetail from "./pages/juri/PenilaianDetail";
+import JuriMaterialScoring from "./pages/juri/MaterialScoring";
 import PelatihDashboard from "./pages/pelatih/Dashboard";
 import ManageJury from "./pages/panitia/ManageJury";
+import ManageJuara from "./pages/panitia/ManageJuara";
+import ManageMateri from "./pages/panitia/ManageMateri";
+import PanitiaEventRecap from "./pages/panitia/EventRecap";
 
 import "./App.css";
 
@@ -79,6 +85,13 @@ function App() {
 							<Route path="users" element={<UserManagement />} />
 							<Route path="coupons" element={<CouponManagement />} />
 							<Route path="events" element={<EventManagement />} />
+							<Route path="events/:eventSlug/manage" element={<AdminManageEvent />} />
+							<Route path="events/:eventId/edit" element={<AdminEditEvent />} />
+							<Route path="events/:eventSlug/peserta" element={<EventParticipantManagement />} />
+							<Route path="events/:eventSlug/juri" element={<ManageJury />} />
+							<Route path="events/:eventSlug/materi" element={<ManageMateri />} />
+							<Route path="events/:eventSlug/juara" element={<ManageJuara />} />
+							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
 							<Route
 								path="assessment-categories"
 								element={<AssessmentCategoryManagement />}
@@ -114,7 +127,18 @@ function App() {
 							}
 						/>
 
-						{/* Pages with Dashboard Layout */}
+						{/* Dashboard page - PreAssign Layout (before event assignment) */}
+						<Route
+							element={
+								<ProtectedRoute allowedRoles={["PANITIA"]}>
+									<PreAssignLayout />
+								</ProtectedRoute>
+							}
+						>
+							<Route path="dashboard" element={<PanitiaDashboard />} />
+						</Route>
+
+						{/* Event management pages - Dashboard Layout (after event assignment) */}
 						<Route
 							element={
 								<ProtectedRoute allowedRoles={["PANITIA"]}>
@@ -122,10 +146,12 @@ function App() {
 								</ProtectedRoute>
 							}
 						>
-							<Route path="dashboard" element={<PanitiaDashboard />} />
 							<Route path="events/:eventSlug/manage" element={<ManageEvent />} />
 							<Route path="events/:eventSlug/peserta" element={<EventParticipantManagement />} />
 							<Route path="events/:eventSlug/juri" element={<ManageJury />} />
+							<Route path="events/:eventSlug/materi" element={<ManageMateri />} />
+							<Route path="events/:eventSlug/juara" element={<ManageJuara />} />
+							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
@@ -154,7 +180,21 @@ function App() {
 							}
 						/>
 					</Route>
-					{/* Juri Routes - Dashboard Layout */}
+					{/* Juri Routes - PreAssign Layout (before event assignment) */}
+					<Route
+						element={
+							<ProtectedRoute allowedRoles={["JURI"]}>
+								<PreAssignLayout />
+							</ProtectedRoute>
+						}
+					>
+						<Route path="juri">
+							<Route path="dashboard" element={<JuriDashboard />} />
+							<Route path="invitations" element={<JuriInvitations />} />
+							<Route path="events" element={<JuriMyEvents />} />
+						</Route>
+					</Route>
+					{/* Juri Routes - Dashboard Layout (after event assignment) */}
 					<Route
 						element={
 							<ProtectedRoute allowedRoles={["JURI"]}>
@@ -163,15 +203,24 @@ function App() {
 						}
 					>
 						<Route path="juri">
-							<Route path="dashboard" element={<JuriDashboard />} />
-							<Route path="invitations" element={<JuriInvitations />} />
-							<Route path="events" element={<JuriMyEvents />} />
 							<Route path="events/:eventSlug/info" element={<JuriEventInfo />} />
 							<Route path="events/:eventSlug/materi" element={<JuriEventMateri />} />
 							<Route path="events/:eventSlug/peserta" element={<JuriEventPeserta />} />
-							<Route path="events/:eventSlug/penilaian" element={<JuriEventPenilaian />} />
-							<Route path="events/:eventSlug/penilaian/:participantId" element={<JuriPenilaianDetail />} />
 							<Route path="profile" element={<Profile />} />
+						</Route>
+					</Route>
+					{/* Juri Scoring Routes - Minimal Scoring Layout for Tablets */}
+					<Route
+						element={
+							<ProtectedRoute allowedRoles={["JURI"]}>
+								<ScoringLayout />
+							</ProtectedRoute>
+						}
+					>
+						<Route path="juri">
+							<Route path="events/:eventSlug/penilaian" element={<JuriEventPenilaian />} />
+							<Route path="events/:eventSlug/penilaian/:participantId" element={<JuriMaterialScoring />} />
+							<Route path="events/:eventSlug/penilaian/:participantId/kategori" element={<JuriPenilaianDetail />} />
 						</Route>
 					</Route>
 					{/* Pelatih Routes - Dashboard Layout */}

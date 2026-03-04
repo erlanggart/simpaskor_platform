@@ -475,6 +475,16 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 							</p>
 						</label>
 					</div>
+
+					{/* Auto status info */}
+					<div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+						<p className="text-xs text-blue-800 dark:text-blue-200">
+							<strong>ℹ️ Status otomatis:</strong> Setelah dipublish, status akan berubah otomatis:
+							<br />• <strong>Published</strong> → saat pendaftaran masih buka
+							<br />• <strong>Ongoing</strong> → saat batas pendaftaran lewat hingga event selesai
+							<br />• <strong>Completed</strong> → setelah tanggal event berakhir
+						</p>
+					</div>
 				</div>
 			</div>
 

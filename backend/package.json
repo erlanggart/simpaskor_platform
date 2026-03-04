@@ -10,7 +10,8 @@
 		"test": "jest",
 		"migrate": "npx prisma migrate dev",
 		"generate": "npx prisma generate",
-		"seed": "ts-node prisma/seed.ts"
+		"seed": "ts-node prisma/seed.ts",
+		"seed:juri": "ts-node prisma/seed-juri.ts"
 	},
 	"prisma": {
 		"seed": "ts-node prisma/seed.ts"
