@@ -5,41 +5,17 @@ import {
 	MapPinIcon,
 	UsersIcon,
 	ClockIcon,
+	HeartIcon,
+	ChatBubbleLeftIcon,
 } from "@heroicons/react/24/outline";
+import { Event } from "../../types/landing";
 
-interface SchoolCategoryLimit {
-	id: string;
-	maxParticipants: number;
-	schoolCategory: {
-		id: string;
-		name: string;
-	};
-}
-
-interface Event {
-	id: string;
-	title: string;
-	slug: string | null;
-	description: string | null;
-	thumbnail: string | null;
-	category: string | null;
-	level: string | null;
-	startDate: string;
-	endDate: string;
-	registrationDeadline: string | null;
-	location: string | null;
-	venue: string | null;
-	maxParticipants: number | null;
-	currentParticipants: number;
-	registrationFee: number | null;
-	organizer: string | null;
-	status: string;
-	featured: boolean;
-	schoolCategoryLimits?: SchoolCategoryLimit[];
+interface EventWithDistance extends Event {
+	distance?: number;
 }
 
 interface EventCardProps {
-	event: Event;
+	event: EventWithDistance;
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event }) => {
@@ -122,6 +98,23 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 						Pendaftaran Dibuka
 					</div>
 				)}
+				{/* Like & Comment Count */}
+				<div className="absolute bottom-4 left-4 flex items-center gap-2">
+					<div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded-full text-sm">
+						<HeartIcon className="w-4 h-4" />
+						<span>{event.likesCount || 0}</span>
+					</div>
+					<div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded-full text-sm">
+						<ChatBubbleLeftIcon className="w-4 h-4" />
+						<span>{event.commentsCount || 0}</span>
+					</div>
+					{event.distance !== undefined && event.distance !== Infinity && (
+						<div className="flex items-center gap-1 bg-indigo-600/80 backdrop-blur-sm text-white px-2 py-1 rounded-full text-sm">
+							<MapPinIcon className="w-4 h-4" />
+							<span>{event.distance < 1 ? `${Math.round(event.distance * 1000)} m` : `${event.distance.toFixed(1)} km`}</span>
+						</div>
+					)}
+				</div>
 			</div>
 
 			{/* Event Details */}
@@ -150,12 +143,12 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 						<span className="line-clamp-1">{formatDate(event.startDate)}</span>
 					</div>
 
-					{event.location && (
+					{(event.province || event.city) && (
 						<div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
 							<MapPinIcon className="w-4 h-4 mr-2 flex-shrink-0" />
 							<span className="line-clamp-1">
 								{event.venue ? `${event.venue}, ` : ""}
-								{event.location}
+								{event.city}{event.city && event.province ? ", " : ""}{event.province}
 							</span>
 						</div>
 					)}

@@ -57,7 +57,8 @@ const CreateEventWizard: React.FC = () => {
 		startDate: "",
 		endDate: "",
 		registrationDeadline: "",
-		location: "",
+		province: "",
+		city: "",
 		venue: "",
 	});
 
@@ -195,7 +196,8 @@ const CreateEventWizard: React.FC = () => {
 				registrationDeadline: draft.registrationDeadline
 					? new Date(draft.registrationDeadline).toISOString().slice(0, 10)
 					: "",
-				location: draft.location || "",
+				province: draft.province || "",
+				city: draft.city || "",
 				venue: draft.venue || "",
 			});
 
@@ -243,7 +245,8 @@ const CreateEventWizard: React.FC = () => {
 			if (!step1Data.title.trim()) newErrors.title = "Judul wajib diisi";
 			if (!step1Data.startDate) newErrors.startDate = "Tanggal mulai wajib diisi";
 			if (!step1Data.endDate) newErrors.endDate = "Tanggal selesai wajib diisi";
-			if (!step1Data.location.trim()) newErrors.location = "Lokasi wajib diisi";
+			if (!step1Data.province) newErrors.province = "Provinsi wajib diisi";
+			if (!step1Data.city) newErrors.city = "Kota/Kabupaten wajib diisi";
 
 			if (Object.keys(newErrors).length > 0) {
 				setErrors(newErrors);

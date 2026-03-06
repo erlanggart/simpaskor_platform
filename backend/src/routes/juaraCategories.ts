@@ -95,19 +95,6 @@ router.post(
 				return res.status(404).json({ error: "Event tidak ditemukan" });
 			}
 
-			// Count existing custom categories (max 2)
-			if (type === "CUSTOM") {
-				const customCount = await prisma.juaraCategory.count({
-					where: { eventId, type: "CUSTOM" },
-				});
-
-				if (customCount >= 2) {
-					return res.status(400).json({
-						error: "Maksimal 2 kategori juara custom per event",
-					});
-				}
-			}
-
 			// Check for UTAMA and UMUM uniqueness
 			if (type === "UTAMA" || type === "UMUM") {
 				const existing = await prisma.juaraCategory.findFirst({
@@ -265,14 +252,6 @@ router.post(
 			// Validate categories
 			if (!Array.isArray(categories)) {
 				return res.status(400).json({ error: "Categories harus berupa array" });
-			}
-
-			// Count custom categories
-			const customCount = categories.filter((c: any) => c.type === "CUSTOM").length;
-			if (customCount > 2) {
-				return res.status(400).json({
-					error: "Maksimal 2 kategori juara custom per event",
-				});
 			}
 
 			// Transaction: delete existing and create new

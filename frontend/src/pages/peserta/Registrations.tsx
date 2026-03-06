@@ -612,7 +612,7 @@ const PesertaRegistrations: React.FC = () => {
 							{registration.status === "CANCELLED" && registration.event && (
 								<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
 									<Link
-										to={`/peserta/events/${registration.event.id}/register`}
+										to={`/peserta/events/${registration.event.slug || registration.event.id}/register`}
 										className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
 									>
 										Daftar Ulang

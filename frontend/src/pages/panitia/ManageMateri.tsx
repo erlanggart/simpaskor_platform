@@ -39,12 +39,24 @@ interface Material {
 	scoreCategories: ScoreCategory[];
 }
 
+interface SchoolCategoryMaxScore {
+	schoolCategoryId: string;
+	schoolCategoryName: string;
+	maxScore: number;
+	juryCount: number;
+	totalMaxScore: number;
+}
+
 interface CategoryWithMaterials {
 	id: string;
 	assessmentCategoryId: string;
 	categoryName: string;
 	categoryDescription: string | null;
 	materials: Material[];
+	maxScore?: number;
+	juryCount?: number;
+	totalMaxScore?: number;
+	maxScoreBreakdown?: SchoolCategoryMaxScore[];
 }
 
 export type { ScoreCategoryInput };
@@ -467,6 +479,42 @@ const ManageMateri: React.FC = () => {
 								if (!category) return null;
 								return (
 									<div className="p-6">
+										{/* Score Summary Section */}
+										<div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
+											<div className="flex items-center justify-between mb-3">
+												<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Maksimal Nilai per Kategori Sekolah</h4>
+												<span className="text-xs text-gray-500 dark:text-gray-400">Juri: {category.juryCount ?? 0}</span>
+											</div>
+											{category.maxScoreBreakdown && category.maxScoreBreakdown.length > 0 ? (
+												<div className="overflow-x-auto">
+													<table className="w-full text-sm">
+														<thead>
+															<tr className="text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
+																<th className="pb-2 pr-4">Kategori Sekolah</th>
+																<th className="pb-2 pr-4 text-center">Maks. Nilai</th>
+																<th className="pb-2 pr-4 text-center">Juri</th>
+																<th className="pb-2 text-center">Total Maks.</th>
+															</tr>
+														</thead>
+														<tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+															{category.maxScoreBreakdown.map((item) => (
+																<tr key={item.schoolCategoryId}>
+																	<td className="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">{item.schoolCategoryName}</td>
+																	<td className="py-2 pr-4 text-center text-indigo-600 dark:text-indigo-400 font-semibold">{item.maxScore}</td>
+																	<td className="py-2 pr-4 text-center text-purple-600 dark:text-purple-400">{item.juryCount}</td>
+																	<td className="py-2 text-center text-green-600 dark:text-green-400 font-bold">{item.totalMaxScore}</td>
+																</tr>
+															))}
+														</tbody>
+													</table>
+												</div>
+											) : (
+												<p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+													Belum ada materi dengan kategori sekolah
+												</p>
+											)}
+										</div>
+
 										{category.materials.length === 0 ? (
 											<div className="text-center py-4">
 												<p className="text-gray-500 dark:text-gray-400 mb-4">

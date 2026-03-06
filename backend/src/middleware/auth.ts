@@ -34,6 +34,26 @@ export const authenticate = (
 	}
 };
 
+// Optional authentication - doesn't fail if no token, but sets user if valid token exists
+export const optionalAuthenticate = (
+	req: AuthenticatedRequest,
+	res: Response,
+	next: NextFunction
+): void => {
+	try {
+		const authHeader = req.headers.authorization;
+
+		if (authHeader && authHeader.startsWith("Bearer ")) {
+			const token = authHeader.substring(7);
+			const decoded = AuthUtils.verifyToken(token);
+			req.user = decoded;
+		}
+	} catch (error) {
+		// Silently ignore invalid tokens for optional auth
+	}
+	next();
+};
+
 export const authorize = (...allowedRoles: UserRole[]) => {
 	return (
 		req: AuthenticatedRequest,

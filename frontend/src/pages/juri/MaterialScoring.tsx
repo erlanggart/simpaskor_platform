@@ -7,9 +7,15 @@ import {
 	XCircleIcon,
 	CloudArrowUpIcon,
 	ExclamationCircleIcon,
+	SignalSlashIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
+import { 
+	saveOfflineData, 
+	removeOfflineData, 
+	type OfflineParticipantData 
+} from "../../utils/offlineStorage";
 
 interface ScoreOption {
 	name: string;
@@ -88,6 +94,21 @@ const MaterialScoring: React.FC = () => {
 	const [activeCategory, setActiveCategory] = useState<string | null>(null);
 	const [hasLocalChanges, setHasLocalChanges] = useState(false);
 	const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+	const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+	// Listen for online/offline events
+	useEffect(() => {
+		const handleOnline = () => setIsOnline(true);
+		const handleOffline = () => setIsOnline(false);
+		
+		window.addEventListener('online', handleOnline);
+		window.addEventListener('offline', handleOffline);
+		
+		return () => {
+			window.removeEventListener('online', handleOnline);
+			window.removeEventListener('offline', handleOffline);
+		};
+	}, []);
 
 	// Generate localStorage key for this participant
 	const getLocalStorageKey = useCallback(() => {
@@ -412,21 +433,50 @@ const MaterialScoring: React.FC = () => {
 			}
 		}
 
+		// Filter only completed scores
+		const evaluationsToSubmit = scores
+			.filter((s) => s.score !== null || s.isSkipped)
+			.map((s) => ({
+				materialId: s.materialId,
+				score: s.score,
+				scoreCategoryName: s.scoreCategoryName,
+				isSkipped: s.isSkipped,
+				skipReason: s.skipReason,
+				notes: s.notes,
+				scoredAt: s.scoredAt,
+			}));
+
+		// Check if offline
+		if (!navigator.onLine) {
+			// Save to offline storage
+			const offlineData: OfflineParticipantData = {
+				participantId: participantId!,
+				eventSlug: eventSlug!,
+				eventId,
+				scores: evaluationsToSubmit.map(e => ({
+					...e,
+					notes: e.notes || '',
+				})),
+				savedAt: new Date().toISOString(),
+				participantName: participant?.teamName || participant?.registrant.institution || 'Unknown',
+				schoolCategoryName: participant?.schoolCategory?.name,
+			};
+			saveOfflineData(offlineData);
+
+			await Swal.fire({
+				icon: "info",
+				title: "Tersimpan Offline",
+				html: `<p>Tidak ada koneksi internet.</p>
+					   <p class="text-sm text-gray-500 mt-2">Nilai disimpan secara lokal dan akan dikirim saat online.</p>`,
+				confirmButtonText: "Lanjut Nilai Peserta Lain",
+			});
+
+			navigate(`/juri/events/${eventSlug}/penilaian`);
+			return;
+		}
+
 		try {
 			setSaving(true);
-
-			// Filter only completed scores
-			const evaluationsToSubmit = scores
-				.filter((s) => s.score !== null || s.isSkipped)
-				.map((s) => ({
-					materialId: s.materialId,
-					score: s.score,
-					scoreCategoryName: s.scoreCategoryName,
-					isSkipped: s.isSkipped,
-					skipReason: s.skipReason,
-					notes: s.notes,
-					scoredAt: s.scoredAt, // Send client-side timestamp
-				}));
 
 			await api.post("/evaluations/materials/submit", {
 				eventId,
@@ -436,6 +486,8 @@ const MaterialScoring: React.FC = () => {
 
 			// Clear localStorage after successful submission
 			clearLocalStorage();
+			// Also remove from offline storage if exists
+			removeOfflineData(eventSlug!, participantId!);
 
 			await Swal.fire({
 				icon: "success",
@@ -448,11 +500,31 @@ const MaterialScoring: React.FC = () => {
 			navigate(`/juri/events/${eventSlug}/penilaian`);
 		} catch (error) {
 			console.error("Error submitting evaluations:", error);
-			Swal.fire({
-				icon: "error",
-				title: "Gagal Menyimpan",
-				text: "Terjadi kesalahan saat menyimpan penilaian.",
+			
+			// If network error, save offline
+			const offlineData: OfflineParticipantData = {
+				participantId: participantId!,
+				eventSlug: eventSlug!,
+				eventId,
+				scores: evaluationsToSubmit.map(e => ({
+					...e,
+					notes: e.notes || '',
+				})),
+				savedAt: new Date().toISOString(),
+				participantName: participant?.teamName || participant?.registrant.institution || 'Unknown',
+				schoolCategoryName: participant?.schoolCategory?.name,
+			};
+			saveOfflineData(offlineData);
+
+			await Swal.fire({
+				icon: "warning",
+				title: "Gagal Mengirim ke Server",
+				html: `<p>Nilai telah disimpan secara lokal.</p>
+					   <p class="text-sm text-gray-500 mt-2">Nilai akan dikirim saat koneksi tersedia.</p>`,
+				confirmButtonText: "Lanjut Nilai Peserta Lain",
 			});
+
+			navigate(`/juri/events/${eventSlug}/penilaian`);
 		} finally {
 			setSaving(false);
 		}
@@ -493,6 +565,14 @@ const MaterialScoring: React.FC = () => {
 						</div>
 
 						<div className="flex items-center gap-4">
+							{/* Online/Offline Indicator */}
+							{!isOnline && (
+								<div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm">
+									<SignalSlashIcon className="h-4 w-4" />
+									<span className="hidden sm:inline">Offline</span>
+								</div>
+							)}
+
 							{/* Local Changes Indicator */}
 							{hasLocalChanges && (
 								<div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-lg text-sm">
@@ -520,16 +600,20 @@ const MaterialScoring: React.FC = () => {
 								disabled={saving || !isFormComplete()}
 								className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
 									isFormComplete()
-										? "bg-green-600 text-white hover:bg-green-700"
+										? isOnline 
+											? "bg-green-600 text-white hover:bg-green-700"
+											: "bg-yellow-600 text-white hover:bg-yellow-700"
 										: "bg-gray-300 text-gray-500 cursor-not-allowed"
 								}`}
 							>
-								{hasLocalChanges ? (
+								{!isOnline ? (
+									<SignalSlashIcon className="h-5 w-5" />
+								) : hasLocalChanges ? (
 									<CloudArrowUpIcon className="h-5 w-5" />
 								) : (
 									<CheckCircleIcon className="h-5 w-5" />
 								)}
-								{saving ? "Menyimpan..." : hasLocalChanges ? "Simpan ke Server" : "Simpan Nilai"}
+								{saving ? "Menyimpan..." : !isOnline ? "Simpan Offline" : hasLocalChanges ? "Simpan ke Server" : "Simpan Nilai"}
 							</button>
 						</div>
 					</div>

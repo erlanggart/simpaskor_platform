@@ -1,36 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import EventCard from "./EventCard";
-
-interface SchoolCategoryLimit {
-	id: string;
-	maxParticipants: number;
-	schoolCategory: {
-		id: string;
-		name: string;
-	};
-}
-
-interface Event {
-	id: string;
-	title: string;
-	slug: string | null;
-	description: string | null;
-	thumbnail: string | null;
-	category: string | null;
-	level: string | null;
-	startDate: string;
-	endDate: string;
-	registrationDeadline: string | null;
-	location: string | null;
-	venue: string | null;
-	maxParticipants: number | null;
-	currentParticipants: number;
-	registrationFee: number | null;
-	organizer: string | null;
-	status: string;
-	featured: boolean;
-	schoolCategoryLimits?: SchoolCategoryLimit[];
-}
+import { calculateDistance, getCityByName } from "../../utils/indonesiaCities";
+import { Event } from "../../types/landing";
+import {
+	FunnelIcon,
+	FireIcon,
+	ClockIcon,
+	MapPinIcon,
+	XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 interface EventGridProps {
 	events: Event[];
@@ -38,30 +16,143 @@ interface EventGridProps {
 }
 
 type TabType = "available" | "completed";
+type SortType = "default" | "newest" | "popular" | "nearest";
+
+interface UserLocation {
+	latitude: number;
+	longitude: number;
+}
 
 const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) => {
 	const [activeTab, setActiveTab] = useState<TabType>("available");
 	const [currentPage, setCurrentPage] = useState(1);
+	const [sortBy, setSortBy] = useState<SortType>("default");
+	const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+	const [locationLoading, setLocationLoading] = useState(false);
+	const [locationError, setLocationError] = useState<string | null>(null);
 	const eventsPerPage = 9;
+
+	// Request user location when sorting by nearest
+	const requestUserLocation = () => {
+		if (!navigator.geolocation) {
+			setLocationError("Geolocation tidak didukung oleh browser Anda");
+			return;
+		}
+
+		setLocationLoading(true);
+		setLocationError(null);
+
+		navigator.geolocation.getCurrentPosition(
+			(position) => {
+				setUserLocation({
+					latitude: position.coords.latitude,
+					longitude: position.coords.longitude,
+				});
+				setLocationLoading(false);
+				setSortBy("nearest");
+			},
+			(error) => {
+				setLocationLoading(false);
+				switch (error.code) {
+					case error.PERMISSION_DENIED:
+						setLocationError("Izin lokasi ditolak. Aktifkan GPS untuk fitur ini.");
+						break;
+					case error.POSITION_UNAVAILABLE:
+						setLocationError("Informasi lokasi tidak tersedia");
+						break;
+					case error.TIMEOUT:
+						setLocationError("Permintaan lokasi timeout");
+						break;
+					default:
+						setLocationError("Gagal mendapatkan lokasi");
+				}
+			},
+			{ enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+		);
+	};
+
+	// Handle sort change
+	const handleSortChange = (sort: SortType) => {
+		if (sort === "nearest") {
+			if (userLocation) {
+				setSortBy("nearest");
+			} else {
+				requestUserLocation();
+			}
+		} else {
+			setSortBy(sort);
+		}
+		setCurrentPage(1);
+	};
 
 	// Get current events based on active tab
 	const currentTabEvents = activeTab === "available" ? events : completedEvents;
 
+	// Sort events based on selected sort
+	const sortedEvents = useMemo(() => {
+		const eventsCopy = [...currentTabEvents];
+
+		switch (sortBy) {
+			case "newest":
+				return eventsCopy.sort((a, b) => {
+					const dateA = new Date(a.createdAt || a.startDate).getTime();
+					const dateB = new Date(b.createdAt || b.startDate).getTime();
+					return dateB - dateA;
+				});
+			case "popular":
+				return eventsCopy.sort((a, b) => {
+					const popularityA = (a.likesCount || 0) + (a.commentsCount || 0);
+					const popularityB = (b.likesCount || 0) + (b.commentsCount || 0);
+					return popularityB - popularityA;
+				});
+			case "nearest":
+				if (!userLocation) return eventsCopy;
+				return eventsCopy
+					.map((event) => {
+						// Get coordinates from city data
+						const cityData = event.city ? getCityByName(event.city) : undefined;
+						const distance = cityData
+							? calculateDistance(
+									userLocation.latitude,
+									userLocation.longitude,
+									cityData.latitude,
+									cityData.longitude
+							  )
+							: Infinity;
+						return { ...event, distance };
+					})
+					.sort((a, b) => a.distance - b.distance);
+			default:
+				// Default: featured first, then by start date
+				return eventsCopy.sort((a, b) => {
+					if (a.featured !== b.featured) return a.featured ? -1 : 1;
+					return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+				});
+		}
+	}, [currentTabEvents, sortBy, userLocation]);
+
 	// Pagination calculations
-	const totalPages = Math.ceil(currentTabEvents.length / eventsPerPage);
+	const totalPages = Math.ceil(sortedEvents.length / eventsPerPage);
 	const startIndex = (currentPage - 1) * eventsPerPage;
 	const endIndex = startIndex + eventsPerPage;
-	const paginatedEvents = currentTabEvents.slice(startIndex, endIndex);
+	const paginatedEvents = sortedEvents.slice(startIndex, endIndex);
 
 	const handlePageChange = (page: number) => {
 		setCurrentPage(page);
-		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
 
 	const handleTabChange = (tab: TabType) => {
 		setActiveTab(tab);
+		setSortBy("default"); // Reset sort when switching tabs
 		setCurrentPage(1); // Reset to first page when switching tabs
 	};
+
+	const sortOptions = [
+		{ id: "default" as SortType, label: "Default", icon: FunnelIcon },
+		{ id: "newest" as SortType, label: "Terbaru", icon: ClockIcon },
+		{ id: "popular" as SortType, label: "Populer", icon: FireIcon },
+		{ id: "nearest" as SortType, label: "Terdekat", icon: MapPinIcon },
+	];
 
 	const tabs = [
 		{
@@ -119,10 +210,10 @@ const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) =
 					</div>
 				</div>
 				<p className="text-gray-600 dark:text-gray-400 mt-2">
-					{currentTabEvents.length > 0 ? (
+					{sortedEvents.length > 0 ? (
 						<>
-							Menampilkan {startIndex + 1}-{Math.min(endIndex, currentTabEvents.length)}{" "}
-							dari {currentTabEvents.length} event
+							Menampilkan {startIndex + 1}-{Math.min(endIndex, sortedEvents.length)}{" "}
+							dari {sortedEvents.length} event
 						</>
 					) : (
 						activeTab === "available" 
@@ -130,6 +221,61 @@ const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) =
 							: "Belum ada event yang selesai"
 					)}
 				</p>
+
+				{/* Sort/Filter Options */}
+				<div className="flex flex-wrap items-center gap-2 mt-4">
+					<span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Urutkan:</span>
+					{sortOptions.map((option) => {
+						const Icon = option.icon;
+						const isActive = sortBy === option.id;
+						const isNearestLoading = option.id === "nearest" && locationLoading;
+						
+						return (
+							<button
+								key={option.id}
+								onClick={() => handleSortChange(option.id)}
+								disabled={isNearestLoading}
+								className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+									isActive
+										? "bg-indigo-600 dark:bg-indigo-500 text-white"
+										: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+								} ${isNearestLoading ? "opacity-50 cursor-wait" : ""}`}
+							>
+								<Icon className="w-4 h-4" />
+								<span>{isNearestLoading ? "Mencari..." : option.label}</span>
+							</button>
+						);
+					})}
+					{sortBy !== "default" && (
+						<button
+							onClick={() => setSortBy("default")}
+							className="flex items-center gap-1 px-2 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+						>
+							<XMarkIcon className="w-4 h-4" />
+							<span className="hidden sm:inline">Reset</span>
+						</button>
+					)}
+				</div>
+
+				{/* Location Error */}
+				{locationError && (
+					<div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+						<p className="text-sm text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
+							<MapPinIcon className="w-4 h-4" />
+							{locationError}
+						</p>
+					</div>
+				)}
+
+				{/* User Location Info */}
+				{sortBy === "nearest" && userLocation && (
+					<div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+						<p className="text-sm text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
+							<MapPinIcon className="w-4 h-4" />
+							Event diurutkan berdasarkan jarak dari lokasi Anda
+						</p>
+					</div>
+				)}
 			</div>
 
 			{currentTabEvents.length === 0 ? (

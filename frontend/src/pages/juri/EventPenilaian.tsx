@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
 	TrophyIcon,
@@ -7,8 +7,18 @@ import {
 	CheckCircleIcon,
 	ChevronRightIcon,
 	LockClosedIcon,
+	CloudArrowUpIcon,
+	SignalSlashIcon,
+	ExclamationCircleIcon,
+	XMarkIcon,
 } from "@heroicons/react/24/outline";
+import Swal from "sweetalert2";
 import { api } from "../../utils/api";
+import {
+	getOfflineDataByEvent,
+	removeOfflineData,
+	type OfflineParticipantData,
+} from "../../utils/offlineStorage";
 
 interface AssessmentCategory {
 	id: string;
@@ -71,6 +81,38 @@ const JuriEventPenilaian: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedTab, setSelectedTab] = useState<string>("all");
+	
+	// Offline data
+	const [offlineData, setOfflineData] = useState<OfflineParticipantData[]>([]);
+	const [isOnline, setIsOnline] = useState(navigator.onLine);
+	const [showOfflineBubble, setShowOfflineBubble] = useState(false);
+	const [syncing, setSyncing] = useState(false);
+
+	// Listen for online/offline events
+	useEffect(() => {
+		const handleOnline = () => setIsOnline(true);
+		const handleOffline = () => setIsOnline(false);
+		
+		window.addEventListener('online', handleOnline);
+		window.addEventListener('offline', handleOffline);
+		
+		return () => {
+			window.removeEventListener('online', handleOnline);
+			window.removeEventListener('offline', handleOffline);
+		};
+	}, []);
+
+	// Load offline data
+	const loadOfflineData = useCallback(() => {
+		if (eventSlug) {
+			const data = getOfflineDataByEvent(eventSlug);
+			setOfflineData(data);
+		}
+	}, [eventSlug]);
+
+	useEffect(() => {
+		loadOfflineData();
+	}, [loadOfflineData]);
 
 	useEffect(() => {
 		if (eventSlug) {
@@ -118,6 +160,69 @@ const JuriEventPenilaian: React.FC = () => {
 			total: status.totalMaterials,
 			isComplete: status.isComplete,
 		};
+	};
+
+	// Check if participant has offline data
+	const hasOfflineData = (participantId: string) => {
+		return offlineData.some(d => d.participantId === participantId);
+	};
+
+	// Sync all offline data to server
+	const syncOfflineData = async () => {
+		if (!isOnline || offlineData.length === 0) return;
+
+		setSyncing(true);
+		let successCount = 0;
+		let failCount = 0;
+
+		for (const data of offlineData) {
+			try {
+				const evaluationsToSubmit = data.scores
+					.filter((s) => s.score !== null || s.isSkipped)
+					.map((s) => ({
+						materialId: s.materialId,
+						score: s.score,
+						scoreCategoryName: s.scoreCategoryName,
+						isSkipped: s.isSkipped,
+						skipReason: s.skipReason,
+						notes: s.notes,
+						scoredAt: s.scoredAt,
+					}));
+
+				await api.post("/evaluations/materials/submit", {
+					eventId: data.eventId,
+					participantId: data.participantId,
+					evaluations: evaluationsToSubmit,
+				});
+
+				// Remove from offline storage on success
+				removeOfflineData(data.eventSlug, data.participantId);
+				successCount++;
+			} catch (error) {
+				console.error(`Failed to sync data for ${data.participantId}:`, error);
+				failCount++;
+			}
+		}
+
+		// Reload offline data
+		loadOfflineData();
+		
+		// Refresh status data
+		await fetchData();
+
+		setSyncing(false);
+
+		if (successCount > 0) {
+			Swal.fire({
+				icon: failCount > 0 ? "warning" : "success",
+				title: "Sinkronisasi Selesai",
+				html: `<p>${successCount} penilaian berhasil dikirim ke server.</p>${
+					failCount > 0 ? `<p class="text-red-500">${failCount} gagal dikirim.</p>` : ''
+				}`,
+				timer: 2000,
+				showConfirmButton: false,
+			});
+		}
 	};
 
 	const filteredParticipants = participants
@@ -340,6 +445,12 @@ const JuriEventPenilaian: React.FC = () => {
 															Sudah Dinilai
 														</span>
 													)}
+													{hasOfflineData(participant.id) && (
+														<span className="flex items-center gap-1 px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 text-xs rounded-full">
+															<ExclamationCircleIcon className="h-3.5 w-3.5" />
+															Tersimpan Lokal
+														</span>
+													)}
 												</div>
 												
 											</div>
@@ -362,6 +473,15 @@ const JuriEventPenilaian: React.FC = () => {
 														<LockClosedIcon className="h-4 w-4" />
 														<span className="hidden sm:inline">Selesai</span>
 													</button>
+												) : hasOfflineData(participant.id) ? (
+													<button
+														disabled
+														className="flex items-center gap-2 px-4 py-2.5 bg-yellow-200 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 rounded-lg cursor-not-allowed"
+														title="Data tersimpan di lokal, kirim terlebih dahulu"
+													>
+														<CloudArrowUpIcon className="h-4 w-4" />
+														<span className="hidden sm:inline">Lokal</span>
+													</button>
 												) : (
 													<Link
 														to={`/juri/events/${eventSlug}/penilaian/${participant.id}`}
@@ -380,6 +500,103 @@ const JuriEventPenilaian: React.FC = () => {
 					</div>
 				)}
 			</div>
+
+			{/* Offline Data Bubble */}
+			{offlineData.length > 0 && (
+				<div className="fixed bottom-6 right-6 z-50">
+					{/* Collapsed State - Just a badge */}
+					{!showOfflineBubble ? (
+						<button
+							onClick={() => setShowOfflineBubble(true)}
+							className="flex items-center gap-2 px-4 py-3 bg-yellow-500 text-white rounded-full shadow-lg hover:bg-yellow-600 transition-all animate-pulse"
+						>
+							<CloudArrowUpIcon className="h-5 w-5" />
+							<span className="font-medium">{offlineData.length} Data Lokal</span>
+						</button>
+					) : (
+						/* Expanded State - Show details */
+						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-80 max-h-96 overflow-hidden">
+							{/* Header */}
+							<div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20">
+								<div className="flex items-center gap-2">
+									<CloudArrowUpIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+									<h3 className="font-semibold text-gray-900 dark:text-white">
+										Data Tersimpan Lokal
+									</h3>
+								</div>
+								<button
+									onClick={() => setShowOfflineBubble(false)}
+									className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
+								>
+									<XMarkIcon className="h-5 w-5" />
+								</button>
+							</div>
+
+							{/* Status Bar */}
+							<div className={`px-4 py-2 text-sm flex items-center gap-2 ${isOnline ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'}`}>
+								{isOnline ? (
+									<>
+										<span className="w-2 h-2 bg-green-500 rounded-full"></span>
+										Online - Siap dikirim
+									</>
+								) : (
+									<>
+										<SignalSlashIcon className="h-4 w-4" />
+										Offline - Menunggu koneksi
+									</>
+								)}
+							</div>
+
+							{/* List */}
+							<div className="max-h-48 overflow-y-auto">
+								{offlineData.map((data) => (
+									<div
+										key={data.participantId}
+										className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0"
+									>
+										<p className="font-medium text-gray-900 dark:text-white text-sm">
+											{data.participantName}
+										</p>
+										<p className="text-xs text-gray-500 dark:text-gray-400">
+											{data.schoolCategoryName} • {new Date(data.savedAt).toLocaleString('id-ID')}
+										</p>
+									</div>
+								))}
+							</div>
+
+							{/* Action Button */}
+							<div className="p-4 border-t border-gray-200 dark:border-gray-700">
+								<button
+									onClick={syncOfflineData}
+									disabled={!isOnline || syncing}
+									className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
+										isOnline
+											? 'bg-green-600 text-white hover:bg-green-700'
+											: 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+									}`}
+								>
+									{syncing ? (
+										<>
+											<div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+											Mengirim...
+										</>
+									) : isOnline ? (
+										<>
+											<CloudArrowUpIcon className="h-5 w-5" />
+											Kirim Semua ke Server
+										</>
+									) : (
+										<>
+											<SignalSlashIcon className="h-5 w-5" />
+											Menunggu Koneksi
+										</>
+									)}
+								</button>
+							</div>
+						</div>
+					)}
+				</div>
+			)}
 		</div>
 	);
 };

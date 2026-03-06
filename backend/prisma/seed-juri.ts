@@ -93,7 +93,6 @@ const juriNames = [
   'Ezhar',
   
   // F
-  'Fahri',
   'Fahrul',
   'Faisal Afandi',
   'Fajrin Saputra',
@@ -108,8 +107,6 @@ const juriNames = [
   'Guntur',
   
   // H
-  'Hafis',
-  'Hawsyi',
   'Hendra Tandu',
   'Hengki',
   'Herudin',
@@ -162,8 +159,7 @@ const juriNames = [
   'Nessya',
   'Nur Adly',
   
-  // O
-  'Obi',
+  
   
   // P
   'Pabos',

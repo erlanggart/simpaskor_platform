@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
 	CalendarIcon,
 	MapPinIcon,
@@ -6,6 +6,10 @@ import {
 	DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { Step1Props, Step1Data } from "../../types/eventWizard";
+import {
+	indonesiaCities,
+	provinces,
+} from "../../utils/indonesiaCities";
 
 const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 	data,
@@ -17,13 +21,33 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 	isEditMode,
 	currentCouponCode,
 }) => {
+	// Filter cities based on selected province
+	const filteredCities = useMemo(() => {
+		if (!data.province) return [];
+		return indonesiaCities.filter((city) => city.province === data.province);
+	}, [data.province]);
+
 	const handleChange = (
 		e: React.ChangeEvent<
 			HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 		>
 	) => {
 		const { name, value } = e.target;
-		setData((prev: Step1Data) => ({ ...prev, [name]: value }));
+		// Reset city when province changes
+		if (name === "province") {
+			setData((prev: Step1Data) => ({ ...prev, province: value, city: "" }));
+		} else if (name === "startDate") {
+			// When start date changes, reset end date if it's before start date
+			setData((prev: Step1Data) => {
+				const newData = { ...prev, startDate: value };
+				if (prev.endDate && value && prev.endDate < value) {
+					newData.endDate = value;
+				}
+				return newData;
+			});
+		} else {
+			setData((prev: Step1Data) => ({ ...prev, [name]: value }));
+		}
 	};
 
 	// Let parent handle validation - just call onNext directly
@@ -199,6 +223,7 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 							name="endDate"
 							value={data.endDate}
 							onChange={handleChange}
+							min={data.startDate || undefined}
 							className={`w-full px-4 py-2.5 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors ${
 								errors.endDate ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
 							}`}
@@ -227,27 +252,61 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-					{/* Location */}
+					{/* Province */}
 					<div>
 						<label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 							<MapPinIcon className="w-4 h-4" />
-							Lokasi (Kota/Provinsi) <span className="text-red-500">*</span>
+							Provinsi <span className="text-red-500">*</span>
 						</label>
-						<input
-							type="text"
-							name="location"
-							value={data.location}
+						<select
+							name="province"
+							value={data.province}
 							onChange={handleChange}
-							placeholder="Contoh: Jakarta, DKI Jakarta"
-							className={`w-full px-4 py-2.5 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors ${
-								errors.location ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
+							className={`w-full px-4 py-2.5 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors ${
+								errors.province ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
 							}`}
-						/>
-						{errors.location && (
-							<p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.location}</p>
+						>
+							<option value="">Pilih Provinsi</option>
+							{provinces.map((prov) => (
+								<option key={prov.id} value={prov.name}>
+									{prov.name}
+								</option>
+							))}
+						</select>
+						{errors.province && (
+							<p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.province}</p>
 						)}
 					</div>
 
+					{/* City/Kabupaten */}
+					<div>
+						<label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+							<MapPinIcon className="w-4 h-4" />
+							Kota/Kabupaten <span className="text-red-500">*</span>
+						</label>
+						<select
+							name="city"
+							value={data.city}
+							onChange={handleChange}
+							disabled={!data.province}
+							className={`w-full px-4 py-2.5 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800 disabled:cursor-not-allowed ${
+								errors.city ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
+							}`}
+						>
+							<option value="">{data.province ? "Pilih Kota/Kabupaten" : "Pilih Provinsi dulu"}</option>
+							{filteredCities.map((city) => (
+								<option key={city.id} value={city.name}>
+									{city.name}
+								</option>
+							))}
+						</select>
+						{errors.city && (
+							<p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.city}</p>
+						)}
+					</div>
+				</div>
+
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 					{/* Venue */}
 					<div>
 						<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -1,38 +1,53 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../../utils/api";
-import { Event, SchoolCategory } from "../../types/landing";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import EventCard from "../../components/landing/EventCard";
+import { 
+	TrophyIcon, 
+	CalendarIcon, 
+	ChartBarIcon,
+	ArrowRightIcon,
+	ClipboardDocumentListIcon,
+	UserGroupIcon,
+} from "@heroicons/react/24/outline";
+
+interface Statistics {
+	totalEvents: number;
+	eventsWithScores: number;
+	totalScore: number;
+	totalMaterialsEvaluated: number;
+	averageScore: number | null;
+}
+
+interface RecentEvent {
+	id: string;
+	status: string;
+	event: {
+		id: string;
+		title: string;
+		slug: string;
+		startDate: string;
+		thumbnail: string | null;
+	};
+}
 
 const PesertaDashboard: React.FC = () => {
-	const [events, setEvents] = useState<Event[]>([]);
-	const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
-	const [schoolCategories, setSchoolCategories] = useState<SchoolCategory[]>(
-		[]
-	);
+	const [statistics, setStatistics] = useState<Statistics | null>(null);
+	const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [searchTerm, setSearchTerm] = useState("");
-	const [selectedCategory, setSelectedCategory] = useState<string>("");
 
 	useEffect(() => {
 		fetchData();
 	}, []);
 
-	useEffect(() => {
-		filterEvents();
-	}, [searchTerm, selectedCategory, events]);
-
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			const [eventsRes, categoriesRes] = await Promise.all([
-				api.get("/events?status=PUBLISHED"),
-				api.get("/events/meta/school-categories"),
+			const [statsRes, eventsRes] = await Promise.all([
+				api.get("/evaluations/my-statistics"),
+				api.get("/evaluations/my-events"),
 			]);
-
-			// API returns {data: [...], total: X} format
-			setEvents(eventsRes.data.data || []);
-			setSchoolCategories(categoriesRes.data || []);
+			setStatistics(statsRes.data);
+			setRecentEvents(eventsRes.data?.slice(0, 3) || []);
 		} catch (error) {
 			console.error("Error fetching data:", error);
 		} finally {
@@ -40,27 +55,12 @@ const PesertaDashboard: React.FC = () => {
 		}
 	};
 
-	const filterEvents = () => {
-		let filtered = events;
-
-		if (searchTerm) {
-			filtered = filtered.filter(
-				(event) =>
-					event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-					event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-					event.location?.toLowerCase().includes(searchTerm.toLowerCase())
-			);
-		}
-
-		if (selectedCategory) {
-			filtered = filtered.filter((event) =>
-				event.schoolCategoryLimits?.some(
-					(limit) => limit.schoolCategory.id === selectedCategory
-				)
-			);
-		}
-
-		setFilteredEvents(filtered);
+	const formatDate = (dateString: string) => {
+		return new Date(dateString).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+		});
 	};
 
 	if (loading) {
@@ -77,58 +77,203 @@ const PesertaDashboard: React.FC = () => {
 				{/* Header */}
 				<div className="mb-8">
 					<h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-						Event Paskibra
+						Dashboard Peserta
 					</h1>
 					<p className="text-gray-600 dark:text-gray-400">
-						Temukan dan daftar event paskibra yang sesuai untuk tim Anda
+						Selamat datang! Lihat ringkasan aktivitas dan penilaian Anda
 					</p>
 				</div>
 
-				{/* Search and Filters */}
-				<div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-					{/* Search */}
-					<div className="relative">
-						<MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-						<input
-							type="text"
-							placeholder="Cari event..."
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-						/>
+				{/* Statistics Cards */}
+				<div className="mb-8">
+					<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+						Statistik Penilaian
+					</h2>
+					<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+							<div className="flex items-center gap-3">
+								<div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+									<CalendarIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+								</div>
+								<div>
+									<div className="text-2xl font-bold text-gray-900 dark:text-white">
+										{statistics?.totalEvents || 0}
+									</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										Event Diikuti
+									</div>
+								</div>
+							</div>
+						</div>
+						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+							<div className="flex items-center gap-3">
+								<div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+									<TrophyIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
+								</div>
+								<div>
+									<div className="text-2xl font-bold text-gray-900 dark:text-white">
+										{statistics?.eventsWithScores || 0}
+									</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										Sudah Dinilai
+									</div>
+								</div>
+							</div>
+						</div>
+						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+							<div className="flex items-center gap-3">
+								<div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+									<ChartBarIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+								</div>
+								<div>
+									<div className="text-2xl font-bold text-gray-900 dark:text-white">
+										{statistics?.totalScore?.toFixed(1) || "0"}
+									</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										Total Nilai
+									</div>
+								</div>
+							</div>
+						</div>
+						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4">
+							<div className="flex items-center gap-3">
+								<div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+									<TrophyIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+								</div>
+								<div>
+									<div className="text-2xl font-bold text-gray-900 dark:text-white">
+										{statistics?.averageScore?.toFixed(2) || "-"}
+									</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										Rata-rata
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
-
-					{/* Category Filter */}
-					<select
-						value={selectedCategory}
-						onChange={(e) => setSelectedCategory(e.target.value)}
-						className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-					>
-						<option value="">Semua Kategori</option>
-						{schoolCategories.map((category) => (
-							<option key={category.id} value={category.id}>
-								{category.name}
-							</option>
-						))}
-					</select>
 				</div>
 
-			{/* Events Grid */}
-			{filteredEvents.length === 0 ? (
-				<div className="text-center py-12">
-					<p className="text-gray-500 dark:text-gray-400">
-						Tidak ada event yang ditemukan
-					</p>
+				{/* Quick Links */}
+				<div className="mb-8">
+					<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+						Menu Cepat
+					</h2>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<Link
+							to="/peserta/events"
+							className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md p-6 text-white hover:from-blue-600 hover:to-blue-700 transition-all"
+						>
+							<div className="flex items-center gap-4">
+								<div className="p-3 bg-white/20 rounded-xl">
+									<CalendarIcon className="h-8 w-8" />
+								</div>
+								<div>
+									<h3 className="font-semibold text-lg">Event Tersedia</h3>
+									<p className="text-blue-100 text-sm">Cari dan daftar event baru</p>
+								</div>
+							</div>
+						</Link>
+						<Link
+							to="/peserta/registrations"
+							className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-6 text-white hover:from-green-600 hover:to-green-700 transition-all"
+						>
+							<div className="flex items-center gap-4">
+								<div className="p-3 bg-white/20 rounded-xl">
+									<ClipboardDocumentListIcon className="h-8 w-8" />
+								</div>
+								<div>
+									<h3 className="font-semibold text-lg">Pendaftaran Saya</h3>
+									<p className="text-green-100 text-sm">Lihat status pendaftaran</p>
+								</div>
+							</div>
+						</Link>
+						<Link
+							to="/peserta/assessment-history"
+							className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-md p-6 text-white hover:from-purple-600 hover:to-purple-700 transition-all"
+						>
+							<div className="flex items-center gap-4">
+								<div className="p-3 bg-white/20 rounded-xl">
+									<ChartBarIcon className="h-8 w-8" />
+								</div>
+								<div>
+									<h3 className="font-semibold text-lg">Riwayat Penilaian</h3>
+									<p className="text-purple-100 text-sm">Lihat nilai dari juri</p>
+								</div>
+							</div>
+						</Link>
+					</div>
 				</div>
-			) : (
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-					{filteredEvents.map((event) => (
-						<EventCard key={event.id} event={event} />
-					))}
-				</div>
-			)}
+
+				{/* Recent Events */}
+				{recentEvents.length > 0 && (
+					<div>
+						<div className="flex items-center justify-between mb-4">
+							<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+								Event Terakhir Diikuti
+							</h2>
+							<Link
+								to="/peserta/assessment-history"
+								className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1"
+							>
+								Lihat Semua
+								<ArrowRightIcon className="h-4 w-4" />
+							</Link>
+						</div>
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							{recentEvents.map((participation) => (
+								<Link
+									key={participation.id}
+									to={`/peserta/assessment-history/${participation.event.slug}`}
+									className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+								>
+									<div className="h-32 bg-gray-200 dark:bg-gray-700">
+										{participation.event.thumbnail ? (
+											<img
+												src={participation.event.thumbnail}
+												alt={participation.event.title}
+												className="w-full h-full object-cover"
+											/>
+										) : (
+											<div className="w-full h-full flex items-center justify-center">
+												<UserGroupIcon className="h-12 w-12 text-gray-400" />
+											</div>
+										)}
+									</div>
+									<div className="p-4">
+										<h3 className="font-medium text-gray-900 dark:text-white line-clamp-1">
+											{participation.event.title}
+										</h3>
+										<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+											{formatDate(participation.event.startDate)}
+										</p>
+									</div>
+								</Link>
+							))}
+						</div>
+					</div>
+				)}
+
+				{/* Empty State */}
+				{!statistics?.totalEvents && (
+					<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
+						<UserGroupIcon className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+						<h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+							Belum Ada Event
+						</h3>
+						<p className="text-gray-500 dark:text-gray-400 mb-6">
+							Anda belum terdaftar di event manapun. Mulai dengan mencari event yang tersedia.
+						</p>
+						<Link
+							to="/peserta/events"
+							className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+						>
+							<CalendarIcon className="h-5 w-5 mr-2" />
+							Cari Event
+						</Link>
+					</div>
+				)}
+			</div>
 		</div>
-	</div>
 	);
 };
 

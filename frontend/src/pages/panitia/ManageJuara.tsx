@@ -246,14 +246,6 @@ const ManageJuara: React.FC = () => {
 
   const addCustomCategory = () => {
     const customCount = juaraCategories.filter(j => j.type === "CUSTOM").length;
-    if (customCount >= 2) {
-      Swal.fire({
-        icon: "warning",
-        title: "Batas Maksimal",
-        text: "Maksimal 2 kategori juara custom per event",
-      });
-      return;
-    }
 
     const defaultRanks: JuaraRank[] = [
       { startRank: 1, endRank: 3, label: "Juara 1", order: 0 },
@@ -485,7 +477,7 @@ const ManageJuara: React.FC = () => {
             <strong>ℹ️ Informasi:</strong> Kategori juara menentukan bagaimana pemeringkatan dihitung.
             <br />• <strong>Juara Utama</strong> - Kategori inti untuk menentukan juara utama
             <br />• <strong>Juara Umum</strong> - Semua kategori digabung untuk ranking keseluruhan
-            <br />• <strong>Custom</strong> - Tambah kategori sesuai kebutuhan (max 2)
+            <br />• <strong>Custom</strong> - Tambah kategori sesuai kebutuhan
             <br />• <strong>Peringkat</strong> - Atur label berdasarkan posisi ranking
             <br />• <strong>Template Simpaskor</strong> - Gunakan template 11 tingkatan: Utama, Harapan, Madya, Bina, Mula, Purwa, Caraka, Wira, Perintis, Potensial, Pemula
           </p>
@@ -709,20 +701,15 @@ const ManageJuara: React.FC = () => {
         </div>
 
         {/* Add Custom Button */}
-        {juaraCategories.filter(j => j.type === "CUSTOM").length < 2 && (
-          <div className="mt-6">
-            <button
-              onClick={addCustomCategory}
-              className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-colors flex items-center justify-center"
-            >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Tambah Kategori Juara Custom
-            </button>
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
-              Maksimal 2 kategori custom ({juaraCategories.filter(j => j.type === "CUSTOM").length}/2)
-            </p>
-          </div>
-        )}
+        <div className="mt-6">
+          <button
+            onClick={addCustomCategory}
+            className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-colors flex items-center justify-center"
+          >
+            <PlusIcon className="w-5 h-5 mr-2" />
+            Tambah Kategori Juara Custom
+          </button>
+        </div>
       </div>
     </div>
   );

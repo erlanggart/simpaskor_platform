@@ -18,6 +18,7 @@ import juryRoutes from "./routes/juries";
 import evaluationRoutes from "./routes/evaluations";
 import materialRoutes from "./routes/materials";
 import juaraCategoryRoutes from "./routes/juaraCategories";
+import performanceFieldRoutes from "./routes/performanceFields";
 
 dotenv.config();
 
@@ -120,6 +121,7 @@ app.use("/api/juries", juryRoutes);
 app.use("/api/evaluations", evaluationRoutes);
 app.use("/api/materials", materialRoutes);
 app.use("/api/juara-categories", juaraCategoryRoutes);
+app.use("/api/performance", performanceFieldRoutes);
 
 // Error handling middleware
 app.use(

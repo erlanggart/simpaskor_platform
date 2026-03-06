@@ -325,6 +325,18 @@ router.get(
 				return res.status(404).json({ error: "Event tidak ditemukan" });
 			}
 
+			// Get participant to check their school category
+			const participant = await prisma.participationGroup.findUnique({
+				where: { id: participantId },
+				select: { schoolCategoryId: true },
+			});
+
+			if (!participant) {
+				return res.status(404).json({ error: "Peserta tidak ditemukan" });
+			}
+
+			const participantSchoolCategoryId = participant.schoolCategoryId;
+
 			// Verify juri is assigned to this event
 			const assignment = await prisma.juryEventAssignment.findFirst({
 				where: {
@@ -372,11 +384,21 @@ router.get(
 				},
 			});
 
-			// Filter materials to only those in assigned categories
+			// Filter materials to only those in assigned categories AND matching participant's school category
 			const assignedEventCategoryIds = eventAssessmentCategories.map((c) => c.id);
-			const filteredMaterials = materials.filter((m) =>
-				assignedEventCategoryIds.includes(m.eventAssessmentCategoryId)
-			);
+			const filteredMaterials = materials.filter((m) => {
+				// Must be in assigned assessment category
+				if (!assignedEventCategoryIds.includes(m.eventAssessmentCategoryId)) {
+					return false;
+				}
+				// Must match participant's school category (if material has schoolCategoryIds)
+				const materialSchoolCategoryIds = m.schoolCategoryIds || [];
+				if (materialSchoolCategoryIds.length > 0 && participantSchoolCategoryId) {
+					return materialSchoolCategoryIds.includes(participantSchoolCategoryId);
+				}
+				// If material has no school category restriction, show it to all
+				return materialSchoolCategoryIds.length === 0;
+			});
 
 			// Get existing evaluations for this participant by this juri
 			const existingEvaluations = await prisma.materialEvaluation.findMany({
@@ -1711,6 +1733,411 @@ router.delete(
 		} catch (error) {
 			console.error("Error deleting extra nilai:", error);
 			res.status(500).json({ error: "Failed to delete extra nilai" });
+		}
+	}
+);
+
+// DELETE /api/evaluations/jury-category - Delete all evaluations for a jury in a category
+router.delete(
+	"/jury-category",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { eventId, juryId, eventCategoryId, participantId } = req.body;
+
+			if (!user || !["PANITIA", "SUPERADMIN"].includes(user.role)) {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			if (!eventId || !juryId || !eventCategoryId || !participantId) {
+				return res.status(400).json({ error: "Missing required fields" });
+			}
+
+			// Check event access
+			const event = await prisma.event.findUnique({
+				where: { id: eventId },
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event tidak ditemukan" });
+			}
+
+			if (user.role === "PANITIA" && event.createdById !== user.userId) {
+				return res.status(403).json({ error: "Anda tidak memiliki akses ke event ini" });
+			}
+
+			// Get all materials in the category
+			const materials = await prisma.eventMaterial.findMany({
+				where: {
+					eventId,
+					eventAssessmentCategoryId: eventCategoryId,
+				},
+				select: { id: true },
+			});
+
+			const materialIds = materials.map((m: { id: string }) => m.id);
+
+			// Delete all evaluations for this jury on these materials for this participant
+			const deleted = await prisma.materialEvaluation.deleteMany({
+				where: {
+					eventId,
+					juryId,
+					participantId,
+					materialId: { in: materialIds },
+				},
+			});
+
+			res.json({ 
+				message: `${deleted.count} nilai berhasil dihapus`,
+				deletedCount: deleted.count,
+			});
+		} catch (error) {
+			console.error("Error deleting jury category evaluations:", error);
+			res.status(500).json({ error: "Failed to delete evaluations" });
+		}
+	}
+);
+
+// =====================================================
+// PESERTA ROUTES - View own assessment results
+// =====================================================
+
+// GET /api/evaluations/my-events - Get list of confirmed events for peserta
+router.get(
+	"/my-events",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+
+			if (!user || user.role !== "PESERTA") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			// Get all confirmed participations for this user
+			const participations = await prisma.eventParticipation.findMany({
+				where: {
+					userId: user.userId,
+					status: {
+						in: ["CONFIRMED", "ATTENDED"],
+					},
+				},
+				include: {
+					event: {
+						select: {
+							id: true,
+							title: true,
+							slug: true,
+							startDate: true,
+							endDate: true,
+							location: true,
+							thumbnail: true,
+							status: true,
+						},
+					},
+					groups: {
+						where: { status: "ACTIVE" },
+						include: {
+							schoolCategory: {
+								select: { id: true, name: true },
+							},
+						},
+					},
+				},
+				orderBy: { createdAt: "desc" },
+			});
+
+			res.json(participations);
+		} catch (error) {
+			console.error("Error fetching my events:", error);
+			res.status(500).json({ error: "Failed to fetch events" });
+		}
+	}
+);
+
+// GET /api/evaluations/my-scores/:eventSlug - Get peserta's scores for an event
+router.get(
+	"/my-scores/:eventSlug",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { eventSlug } = req.params;
+
+			if (!user || user.role !== "PESERTA") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			// Find event
+			const event = await prisma.event.findFirst({
+				where: {
+					OR: [{ slug: eventSlug }, { id: eventSlug }],
+				},
+				include: {
+					assessmentCategories: {
+						include: {
+							assessmentCategory: {
+								select: { id: true, name: true, order: true },
+							},
+						},
+						orderBy: {
+							assessmentCategory: { order: "asc" },
+						},
+					},
+				},
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found" });
+			}
+
+			// Verify user is a confirmed participant
+			const participation = await prisma.eventParticipation.findFirst({
+				where: {
+					userId: user.userId,
+					eventId: event.id,
+					status: { in: ["CONFIRMED", "ATTENDED"] },
+				},
+				include: {
+					groups: {
+						where: { status: "ACTIVE" },
+						include: {
+							schoolCategory: { select: { id: true, name: true } },
+						},
+					},
+				},
+			});
+
+			if (!participation) {
+				return res.status(403).json({ error: "Anda tidak terdaftar sebagai peserta di event ini" });
+			}
+
+			// Get participant group IDs
+			const groupIds = participation.groups.map((g) => g.id);
+
+			// Get materials for this event filtered by school category
+			const schoolCategoryIds = participation.groups.map((g) => g.schoolCategoryId).filter(Boolean) as string[];
+			const materials = await prisma.eventMaterial.findMany({
+				where: {
+					eventId: event.id,
+					OR: [
+						{ schoolCategoryIds: { hasSome: schoolCategoryIds } },
+						{ schoolCategoryIds: { isEmpty: true } },
+					],
+				},
+				orderBy: [
+					{ eventAssessmentCategoryId: "asc" },
+					{ order: "asc" },
+				],
+			});
+
+			// Get assessment categories for material grouping
+			const categoryIds = [...new Set(materials.map((m) => m.eventAssessmentCategoryId))];
+			const eventCategories = await prisma.eventAssessmentCategory.findMany({
+				where: { id: { in: categoryIds } },
+				include: { assessmentCategory: { select: { id: true, name: true } } },
+			});
+			const categoryMap = new Map(
+				eventCategories.map((c) => [c.id, c.assessmentCategory])
+			);
+
+			// Get all material evaluations for this participant
+			const materialEvaluations = await prisma.materialEvaluation.findMany({
+				where: {
+					eventId: event.id,
+					participantId: { in: groupIds },
+				},
+				include: {
+					jury: {
+						select: { id: true, name: true },
+					},
+				},
+			});
+
+			// Get juries who evaluated this participant
+			const juriesMap = new Map<string, { id: string; name: string }>();
+			materialEvaluations.forEach((me) => {
+				if (me.jury && !juriesMap.has(me.jury.id)) {
+					juriesMap.set(me.jury.id, me.jury);
+				}
+			});
+			const juries = Array.from(juriesMap.values());
+
+			// Group scores by material and jury
+			interface MaterialScore {
+				material: {
+					id: string;
+					name: string;
+					number: number;
+					categoryId: string;
+					categoryName: string;
+				};
+				scores: {
+					juryId: string;
+					juryName: string;
+					score: number | null;
+					scoreCategoryName: string | null;
+					scoredAt: Date | null;
+				}[];
+				averageScore: number | null;
+			}
+
+			const materialScores: MaterialScore[] = materials.map((material) => {
+				const evals = materialEvaluations.filter((me) => me.materialId === material.id);
+				const scores = juries.map((jury) => {
+					const eval_ = evals.find((e) => e.juryId === jury.id);
+					return {
+						juryId: jury.id,
+						juryName: jury.name,
+						score: eval_?.score ?? null,
+						scoreCategoryName: eval_?.scoreCategoryName ?? null,
+						scoredAt: eval_?.scoredAt ?? null,
+					};
+				});
+
+				const validScores = scores.filter((s) => s.score !== null).map((s) => s.score as number);
+				const averageScore = validScores.length > 0
+					? validScores.reduce((a, b) => a + b, 0) / validScores.length
+					: null;
+
+				return {
+					material: {
+						id: material.id,
+						name: material.name,
+						number: material.number,
+						categoryId: material.eventAssessmentCategoryId,
+						categoryName: categoryMap.get(material.eventAssessmentCategoryId)?.name || "Lainnya",
+					},
+					scores,
+					averageScore,
+				};
+			});
+
+			// Group by category
+			const scoresByCategory = materialScores.reduce((acc, ms) => {
+				const catId = ms.material.categoryId;
+				if (!acc[catId]) {
+					acc[catId] = {
+						categoryName: ms.material.categoryName,
+						materials: [],
+					};
+				}
+				acc[catId].materials.push(ms);
+				return acc;
+			}, {} as Record<string, { categoryName: string; materials: MaterialScore[] }>);
+
+			// Calculate totals
+			const allValidScores = materialScores
+				.filter((ms) => ms.averageScore !== null)
+				.map((ms) => ms.averageScore as number);
+			const totalScore = allValidScores.reduce((a, b) => a + b, 0);
+			const totalMaterials = materials.length;
+			const evaluatedMaterials = materialScores.filter((ms) => ms.averageScore !== null).length;
+
+			res.json({
+				event: {
+					id: event.id,
+					title: event.title,
+					slug: event.slug,
+				},
+				participation: {
+					id: participation.id,
+					groups: participation.groups,
+				},
+				juries,
+				scoresByCategory: Object.values(scoresByCategory),
+				summary: {
+					totalScore,
+					totalMaterials,
+					evaluatedMaterials,
+					averageScore: evaluatedMaterials > 0 ? totalScore / evaluatedMaterials : null,
+				},
+			});
+		} catch (error) {
+			console.error("Error fetching my scores:", error);
+			res.status(500).json({ error: "Failed to fetch scores" });
+		}
+	}
+);
+
+// Get overall statistics for peserta dashboard
+router.get(
+	"/my-statistics",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+		try {
+			const user = req.user;
+			if (!user || user.role !== "PESERTA") {
+				res.status(403).json({ error: "Access denied" });
+				return;
+			}
+			const userId = user.userId;
+
+			// Get all confirmed participations for this user
+			const participations = await prisma.eventParticipation.findMany({
+				where: {
+					userId,
+					status: "CONFIRMED",
+				},
+				include: {
+					event: {
+						select: {
+							id: true,
+							title: true,
+							slug: true,
+							materials: { select: { id: true } },
+						},
+					},
+					groups: true,
+				},
+			});
+
+			// For each participation, calculate scores
+			let totalEvents = participations.length;
+			let eventsWithScores = 0;
+			let totalOverallScore = 0;
+			let totalMaterialsEvaluated = 0;
+			let totalMaterials = 0;
+
+			for (const participation of participations) {
+				// Get all group IDs for this participation
+				const groupIds = participation.groups.map((g) => g.id);
+				
+				if (groupIds.length === 0) continue;
+
+				// Get evaluations for this participation
+				const evaluations = await prisma.materialEvaluation.findMany({
+					where: {
+						participantId: { in: groupIds },
+						eventId: participation.eventId,
+						score: { not: null },
+					},
+					select: { score: true },
+				});
+
+				const materialsInEvent = participation.event.materials.length;
+				totalMaterials += materialsInEvent;
+
+				if (evaluations.length > 0) {
+					eventsWithScores++;
+					const scores = evaluations.map((e) => e.score!);
+					const eventTotalScore = scores.reduce((a, b) => a + b, 0);
+					totalOverallScore += eventTotalScore;
+					totalMaterialsEvaluated += scores.length;
+				}
+			}
+
+			res.json({
+				totalEvents,
+				eventsWithScores,
+				totalScore: totalOverallScore,
+				totalMaterialsEvaluated,
+				averageScore: totalMaterialsEvaluated > 0 ? totalOverallScore / totalMaterialsEvaluated : null,
+			});
+		} catch (error) {
+			console.error("Error fetching statistics:", error);
+			res.status(500).json({ error: "Failed to fetch statistics" });
 		}
 	}
 );

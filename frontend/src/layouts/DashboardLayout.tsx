@@ -23,6 +23,7 @@ import {
 	ChevronDoubleLeftIcon,
 	ChevronDoubleRightIcon,
 	AcademicCapIcon,
+	MapPinIcon,
 } from "@heroicons/react/24/outline";
 
 interface MenuItem {
@@ -206,6 +207,11 @@ export const DashboardLayout: React.FC = () => {
 							path: `/panitia/events/${activeEvent.event.slug}/juara`,
 						},
 						{
+							name: "Perform",
+							icon: MapPinIcon,
+							path: `/panitia/events/${activeEvent.event.slug}/field-rechecking`,
+						},
+						{
 							name: "Rekapitulasi",
 							icon: ChartBarIcon,
 							path: `/panitia/events/${activeEvent.event.slug}/rekapitulasi`,
@@ -226,7 +232,7 @@ export const DashboardLayout: React.FC = () => {
 						icon: TrophyIcon,
 						path: "/peserta/registrations",
 					},
-					{ name: "Riwayat", icon: ChartBarIcon, path: "/peserta/history" }
+					{ name: "Riwayat Penilaian", icon: ChartBarIcon, path: "/peserta/assessment-history" }
 				);
 				break;
 			case "JURI":
@@ -763,12 +769,75 @@ export const DashboardLayout: React.FC = () => {
 				</div>
 
 				{/* Page Content */}
-				<main className="flex-1">
+				<main className={`flex-1 ${user?.role === "PESERTA" ? "pb-16 md:pb-0" : ""}`}>
 					<div className="">
 						<Outlet />
 					</div>
 				</main>
 			</div>
+
+			{/* Mobile Bottom Navigation for PESERTA */}
+			{user?.role === "PESERTA" && (
+				<nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
+					<div className="flex items-center justify-around h-16">
+						<Link
+							to="/peserta/dashboard"
+							className={`flex flex-col items-center justify-center flex-1 h-full ${
+								location.pathname === "/peserta/dashboard"
+									? "text-indigo-600 dark:text-indigo-400"
+									: "text-gray-500 dark:text-gray-400"
+							}`}
+						>
+							<HomeIcon className="w-6 h-6" />
+							<span className="text-xs mt-1">Dashboard</span>
+						</Link>
+						<Link
+							to="/peserta/events"
+							className={`flex flex-col items-center justify-center flex-1 h-full ${
+								location.pathname === "/peserta/events"
+									? "text-indigo-600 dark:text-indigo-400"
+									: "text-gray-500 dark:text-gray-400"
+							}`}
+						>
+							<CalendarIcon className="w-6 h-6" />
+							<span className="text-xs mt-1">Event</span>
+						</Link>
+						<Link
+							to="/peserta/registrations"
+							className={`flex flex-col items-center justify-center flex-1 h-full ${
+								location.pathname === "/peserta/registrations"
+									? "text-indigo-600 dark:text-indigo-400"
+									: "text-gray-500 dark:text-gray-400"
+							}`}
+						>
+							<TrophyIcon className="w-6 h-6" />
+							<span className="text-xs mt-1">Daftar</span>
+						</Link>
+						<Link
+							to="/peserta/assessment-history"
+							className={`flex flex-col items-center justify-center flex-1 h-full ${
+								location.pathname.startsWith("/peserta/assessment-history")
+									? "text-indigo-600 dark:text-indigo-400"
+									: "text-gray-500 dark:text-gray-400"
+							}`}
+						>
+							<ChartBarIcon className="w-6 h-6" />
+							<span className="text-xs mt-1">Riwayat</span>
+						</Link>
+						<Link
+							to="/profile"
+							className={`flex flex-col items-center justify-center flex-1 h-full ${
+								location.pathname === "/profile"
+									? "text-indigo-600 dark:text-indigo-400"
+									: "text-gray-500 dark:text-gray-400"
+							}`}
+						>
+							<UserCircleIcon className="w-6 h-6" />
+							<span className="text-xs mt-1">Profil</span>
+						</Link>
+					</div>
+				</nav>
+			)}
 		</div>
 	);
 };

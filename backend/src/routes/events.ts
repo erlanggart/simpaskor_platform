@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { authenticate, AuthenticatedRequest } from "../middleware/auth";
+import { authenticate, optionalAuthenticate, AuthenticatedRequest } from "../middleware/auth";
 import { uploadEventThumbnail, uploadJuknis } from "../middleware/upload";
 import { computeEventStatus } from "../utils/eventStatus";
 
@@ -73,16 +73,24 @@ router.get("/", async (req: Request, res: Response) => {
 						schoolCategory: true,
 					},
 				},
+				_count: {
+					select: {
+						likes: true,
+						comments: true,
+					},
+				},
 			},
 			orderBy: [{ featured: "desc" }, { startDate: "asc" }],
 			take: limit ? parseInt(limit as string) : undefined,
 			skip: offset ? parseInt(offset as string) : undefined,
 		});
 
-		// Apply computed status to each event
+		// Apply computed status to each event and flatten counts
 		const eventsWithComputedStatus = events.map(event => ({
 			...event,
 			status: computeEventStatus(event),
+			likesCount: event._count.likes,
+			commentsCount: event._count.comments,
 		}));
 
 		res.json({
@@ -423,7 +431,8 @@ router.post(
 				startDate,
 				endDate,
 				registrationDeadline,
-				location,
+				province,
+				city,
 				venue,
 				maxParticipants,
 				registrationFee,
@@ -476,14 +485,15 @@ router.post(
 				!title ||
 				!startDate ||
 				!endDate ||
-				!location ||
+				!province ||
+				!city ||
 				!assessmentCategoryIds ||
 				!Array.isArray(assessmentCategoryIds) ||
 				assessmentCategoryIds.length === 0
 			) {
 				return res.status(400).json({
 					message:
-						"Missing required fields: title, startDate, endDate, location, assessmentCategoryIds (must be a non-empty array)",
+						"Missing required fields: title, startDate, endDate, province, city, assessmentCategoryIds (must be a non-empty array)",
 				});
 			}
 
@@ -571,7 +581,8 @@ router.post(
 						registrationDeadline: registrationDeadline
 							? new Date(registrationDeadline)
 							: null,
-						location,
+						province,
+						city,
 						venue,
 						maxParticipants: totalMaxParticipants,
 						currentParticipants: 0,
@@ -671,7 +682,8 @@ router.patch(
 				startDate,
 				endDate,
 				registrationDeadline,
-				location,
+				province,
+				city,
 				venue,
 				schoolCategoryLimits,
 				registrationFee,
@@ -779,10 +791,51 @@ router.patch(
 
 			// Update event in transaction
 			const updatedEvent = await prisma.$transaction(async (tx) => {
-				// Delete existing assessment categories
-				await tx.eventAssessmentCategory.deleteMany({
+				// Get existing assessment categories for this event
+				const existingCategories = await tx.eventAssessmentCategory.findMany({
 					where: { eventId: id },
+					select: { id: true, assessmentCategoryId: true },
 				});
+
+				const existingCategoryMap = new Map(
+					existingCategories.map((c) => [c.assessmentCategoryId, c.id])
+				);
+
+				// Find categories to add (new ones not in existing)
+				const categoriesToAdd = assessmentCategoryIds.filter(
+					(catId: string) => !existingCategoryMap.has(catId)
+				);
+
+				// Find EventAssessmentCategory IDs to remove (existing but not in new list)
+				const categoriesToRemoveIds = existingCategories
+					.filter((c) => !assessmentCategoryIds.includes(c.assessmentCategoryId))
+					.map((c) => c.id);
+
+				// Check if any category to remove has materials - only delete those without materials
+				if (categoriesToRemoveIds.length > 0) {
+					const materialsUsingCategories = await tx.eventMaterial.count({
+						where: {
+							eventId: id,
+							eventAssessmentCategoryId: { in: categoriesToRemoveIds },
+						},
+					});
+
+					if (materialsUsingCategories === 0) {
+						await tx.eventAssessmentCategory.deleteMany({
+							where: { id: { in: categoriesToRemoveIds } },
+						});
+					}
+				}
+
+				// Create new assessment category associations
+				if (categoriesToAdd.length > 0) {
+					await tx.eventAssessmentCategory.createMany({
+						data: categoriesToAdd.map((catId: string) => ({
+							eventId: id,
+							assessmentCategoryId: catId,
+						})),
+					});
+				}
 
 				// Delete existing school category limits
 				await tx.eventSchoolCategoryLimit.deleteMany({
@@ -801,7 +854,8 @@ router.patch(
 						registrationDeadline: registrationDeadline
 							? new Date(registrationDeadline)
 							: null,
-						location,
+						province,
+						city,
 						venue,
 						maxParticipants: totalMaxParticipants,
 						registrationFee: registrationFee ? parseFloat(registrationFee) : 0,
@@ -810,11 +864,6 @@ router.patch(
 						contactPhone,
 						status: status || "DRAFT",
 						couponId: couponId || null,
-						assessmentCategories: {
-							create: assessmentCategoryIds.map((catId: string) => ({
-								assessmentCategoryId: catId,
-							})),
-						},
 						schoolCategoryLimits: {
 							create: uniqueLimits.map((limit: any) => ({
 								schoolCategoryId: limit.categoryId,
@@ -1252,7 +1301,8 @@ router.post(
 				startDate,
 				endDate,
 				registrationDeadline,
-				location,
+				province,
+				city,
 				venue,
 			} = req.body;
 
@@ -1282,9 +1332,9 @@ router.post(
 			}
 
 			// Validate required fields for step 1
-			if (!title || !startDate || !endDate || !location) {
+			if (!title || !startDate || !endDate || !province || !city) {
 				return res.status(400).json({
-					message: "Missing required fields: title, startDate, endDate, location",
+					message: "Missing required fields: title, startDate, endDate, province, city",
 				});
 			}
 
@@ -1307,7 +1357,8 @@ router.post(
 						registrationDeadline: registrationDeadline
 							? new Date(registrationDeadline)
 							: null,
-						location,
+						province,
+						city,
 						venue: venue || null,
 						status: "DRAFT",
 						wizardStep: 2, // Move to step 2
@@ -1400,18 +1451,53 @@ router.patch(
 
 			// Update in transaction
 			await prisma.$transaction(async (tx) => {
-				// Delete existing assessment categories
-				await tx.eventAssessmentCategory.deleteMany({
+				// Get existing assessment categories for this event
+				const existingCategories = await tx.eventAssessmentCategory.findMany({
 					where: { eventId: id },
+					select: { id: true, assessmentCategoryId: true },
 				});
 
+				const existingCategoryMap = new Map(
+					existingCategories.map((c) => [c.assessmentCategoryId, c.id])
+				);
+
+				// Find categories to add (new ones not in existing)
+				const categoriesToAdd = assessmentCategoryIds.filter(
+					(catId: string) => !existingCategoryMap.has(catId)
+				);
+
+				// Find EventAssessmentCategory IDs to remove (existing but not in new list)
+				const categoriesToRemoveIds = existingCategories
+					.filter((c) => !assessmentCategoryIds.includes(c.assessmentCategoryId))
+					.map((c) => c.id);
+
+				// Check if any category to remove has materials
+				if (categoriesToRemoveIds.length > 0) {
+					const materialsUsingCategories = await tx.eventMaterial.count({
+						where: {
+							eventId: id,
+							eventAssessmentCategoryId: { in: categoriesToRemoveIds },
+						},
+					});
+
+					// Only delete categories that have no materials
+					if (materialsUsingCategories === 0) {
+						await tx.eventAssessmentCategory.deleteMany({
+							where: { id: { in: categoriesToRemoveIds } },
+						});
+					}
+					// If there are materials, keep the categories to avoid orphaning them
+				}
+
 				// Create new assessment category associations
-				await tx.eventAssessmentCategory.createMany({
-					data: assessmentCategoryIds.map((catId: string) => ({
-						eventId: id,
-						assessmentCategoryId: catId,
-					})),
-				});
+				if (categoriesToAdd.length > 0) {
+					await tx.eventAssessmentCategory.createMany({
+						data: categoriesToAdd.map((catId: string) => ({
+							eventId: id,
+							assessmentCategoryId: catId,
+						})),
+					});
+				}
 
 				// Delete existing school category limits
 				await tx.eventSchoolCategoryLimit.deleteMany({
@@ -1571,7 +1657,8 @@ router.patch(
 				startDate,
 				endDate,
 				registrationDeadline,
-				location,
+				province,
+				city,
 				venue,
 			} = req.body;
 
@@ -1599,7 +1686,8 @@ router.patch(
 					registrationDeadline: registrationDeadline
 						? new Date(registrationDeadline)
 						: existingDraft.registrationDeadline,
-					location: location || existingDraft.location,
+					province: province || existingDraft.province,
+					city: city || existingDraft.city,
 					venue: venue !== undefined ? venue : existingDraft.venue,
 					// Only update wizardStep for incomplete drafts
 					...(existingDraft.wizardCompleted ? {} : { wizardStep: 2 }),
@@ -1799,5 +1887,264 @@ router.get("/:slug", async (req: Request, res: Response) => {
 		res.status(500).json({ message: "Failed to fetch event" });
 	}
 });
+
+// ============================================
+// EVENT COMMENTS & LIKES
+// ============================================
+
+// GET /api/events/:id/comments - Get all comments for an event (public)
+router.get("/:id/comments", async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+
+		// Find event by ID or slug
+		const event = await prisma.event.findFirst({
+			where: {
+				OR: [
+					{ id },
+					{ slug: id },
+				],
+			},
+		});
+
+		if (!event) {
+			return res.status(404).json({ message: "Event not found" });
+		}
+
+		const comments = await prisma.eventComment.findMany({
+			where: { eventId: event.id },
+			include: {
+				user: {
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						role: true,
+						profile: {
+							select: {
+								avatar: true,
+								institution: true,
+							},
+						},
+					},
+				},
+			},
+			orderBy: { createdAt: "desc" },
+		});
+
+		res.json(comments);
+	} catch (error) {
+		console.error("Error fetching comments:", error);
+		res.status(500).json({ message: "Failed to fetch comments" });
+	}
+});
+
+// POST /api/events/:id/comments - Add a comment (requires auth)
+router.post(
+	"/:id/comments",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { id } = req.params;
+			const { content } = req.body;
+			const userId = req.user!.userId;
+
+			if (!content || content.trim().length === 0) {
+				return res.status(400).json({ message: "Content is required" });
+			}
+
+			if (content.length > 1000) {
+				return res.status(400).json({ message: "Comment too long (max 1000 characters)" });
+			}
+
+			// Check if event exists (by ID or slug)
+			const event = await prisma.event.findFirst({
+				where: {
+					OR: [
+						{ id },
+						{ slug: id },
+					],
+				},
+			});
+
+			if (!event) {
+				return res.status(404).json({ message: "Event not found" });
+			}
+
+			const comment = await prisma.eventComment.create({
+				data: {
+					eventId: event.id,
+					userId,
+					content: content.trim(),
+				},
+				include: {
+					user: {
+						select: {
+							id: true,
+							name: true,
+							email: true,
+							role: true,
+							profile: {
+								select: {
+									avatar: true,
+									institution: true,
+								},
+							},
+						},
+					},
+				},
+			});
+
+			res.status(201).json(comment);
+		} catch (error) {
+			console.error("Error creating comment:", error);
+			res.status(500).json({ message: "Failed to create comment" });
+		}
+	}
+);
+
+// DELETE /api/events/:id/comments/:commentId - Delete a comment (owner or admin)
+router.delete(
+	"/:id/comments/:commentId",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { commentId } = req.params;
+			const userId = req.user!.userId;
+			const userRole = req.user!.role;
+
+			const comment = await prisma.eventComment.findUnique({
+				where: { id: commentId },
+			});
+
+			if (!comment) {
+				return res.status(404).json({ message: "Comment not found" });
+			}
+
+			// Only owner or admin can delete
+			if (comment.userId !== userId && userRole !== "SUPERADMIN" && userRole !== "PANITIA") {
+				return res.status(403).json({ message: "Not authorized to delete this comment" });
+			}
+
+			await prisma.eventComment.delete({
+				where: { id: commentId },
+			});
+
+			res.json({ message: "Comment deleted successfully" });
+		} catch (error) {
+			console.error("Error deleting comment:", error);
+			res.status(500).json({ message: "Failed to delete comment" });
+		}
+	}
+);
+
+// GET /api/events/:id/likes - Get like count and user's like status
+router.get("/:id/likes", optionalAuthenticate, async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		const userId = (req as AuthenticatedRequest).user?.userId;
+
+		// Find event by ID or slug
+		const event = await prisma.event.findFirst({
+			where: {
+				OR: [
+					{ id },
+					{ slug: id },
+				],
+			},
+		});
+
+		if (!event) {
+			return res.status(404).json({ message: "Event not found" });
+		}
+
+		const likeCount = await prisma.eventLike.count({
+			where: { eventId: event.id },
+		});
+
+		let isLiked = false;
+		if (userId) {
+			const userLike = await prisma.eventLike.findUnique({
+				where: {
+					eventId_userId: {
+						eventId: event.id,
+						userId,
+					},
+				},
+			});
+			isLiked = !!userLike;
+		}
+
+		res.json({ count: likeCount, isLiked });
+	} catch (error) {
+		console.error("Error fetching likes:", error);
+		res.status(500).json({ message: "Failed to fetch likes" });
+	}
+});
+
+// POST /api/events/:id/likes - Toggle like (requires auth)
+router.post(
+	"/:id/likes",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { id } = req.params;
+			const userId = req.user!.userId;
+
+			// Check if event exists (by ID or slug)
+			const event = await prisma.event.findFirst({
+				where: {
+					OR: [
+						{ id },
+						{ slug: id },
+					],
+				},
+			});
+
+			if (!event) {
+				return res.status(404).json({ message: "Event not found" });
+			}
+
+			// Check if already liked
+			const existingLike = await prisma.eventLike.findUnique({
+				where: {
+					eventId_userId: {
+						eventId: event.id,
+						userId,
+					},
+				},
+			});
+
+			let isLiked: boolean;
+
+			if (existingLike) {
+				// Unlike
+				await prisma.eventLike.delete({
+					where: { id: existingLike.id },
+				});
+				isLiked = false;
+			} else {
+				// Like
+				await prisma.eventLike.create({
+					data: {
+						eventId: event.id,
+						userId,
+					},
+				});
+				isLiked = true;
+			}
+
+			// Get new count
+			const count = await prisma.eventLike.count({
+				where: { eventId: event.id },
+			});
+
+			res.json({ count, isLiked });
+		} catch (error) {
+			console.error("Error toggling like:", error);
+			res.status(500).json({ message: "Failed to toggle like" });
+		}
+	}
+);
 
 export default router;

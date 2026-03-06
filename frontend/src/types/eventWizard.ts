@@ -37,7 +37,8 @@ export interface Step1Data {
 	startDate: string;
 	endDate: string;
 	registrationDeadline: string;
-	location: string;
+	province: string;
+	city: string;
 	venue: string;
 }
 
@@ -72,7 +73,8 @@ export interface DraftEvent {
 	startDate: string;
 	endDate: string;
 	registrationDeadline: string | null;
-	location: string | null;
+	province: string | null;
+	city: string | null;
 	venue: string | null;
 	registrationFee: string | null;
 	organizer: string | null;

@@ -156,6 +156,30 @@ router.get(
 				},
 			});
 
+			// Get jury assignments for this event to count juries per category
+			const juryAssignments = await prisma.juryEventAssignment.findMany({
+				where: {
+					eventId,
+					status: "CONFIRMED",
+				},
+				include: {
+					assignedCategories: {
+						select: {
+							assessmentCategoryId: true,
+						},
+					},
+				},
+			});
+
+			// Count juries per assessment category
+			const juryCategoryCount = new Map<string, number>();
+			juryAssignments.forEach((assignment) => {
+				assignment.assignedCategories.forEach((ac) => {
+					const count = juryCategoryCount.get(ac.assessmentCategoryId) || 0;
+					juryCategoryCount.set(ac.assessmentCategoryId, count + 1);
+				});
+			});
+
 			// Get materials - no more JOINs needed!
 			const materials = await prisma.eventMaterial.findMany({
 				where: { eventId },
@@ -211,16 +235,73 @@ router.get(
 				};
 			});
 
-			// Group materials by category
-			const materialsByCategory = eventCategories.map((ec) => ({
-				id: ec.id,
-				assessmentCategoryId: ec.assessmentCategoryId,
-				categoryName: ec.assessmentCategory.name,
-				categoryDescription: ec.assessmentCategory.description,
-				materials: transformedMaterials.filter(
+			// Group materials by category and calculate max score per school category
+			const materialsByCategory = eventCategories.map((ec) => {
+				const categoryMaterials = transformedMaterials.filter(
 					(m) => m.eventAssessmentCategoryId === ec.id
-				),
-			}));
+				);
+				
+				// Calculate max score per school category
+				const maxScoreBySchoolCategory = new Map<string, number>();
+				
+				categoryMaterials.forEach((material) => {
+					// Find the highest score for this material
+					let materialMaxScore = 0;
+					material.scoreCategories.forEach((scoreCat) => {
+						scoreCat.options.forEach((opt) => {
+							if ((opt.score || 0) > materialMaxScore) {
+								materialMaxScore = opt.score || 0;
+							}
+						});
+					});
+					
+					// Add this max score to each school category this material belongs to
+					material.schoolCategoryIds.forEach((scId) => {
+						const current = maxScoreBySchoolCategory.get(scId) || 0;
+						maxScoreBySchoolCategory.set(scId, current + materialMaxScore);
+					});
+				});
+
+				// Get jury count for this assessment category
+				const juryCount = juryCategoryCount.get(ec.assessmentCategoryId) || 0;
+
+				// Convert map to array with school category info
+				const maxScoreBreakdown = Array.from(maxScoreBySchoolCategory.entries()).map(([scId, maxScore]) => {
+					const schoolCat = schoolCategoryMap.get(scId);
+					return {
+						schoolCategoryId: scId,
+						schoolCategoryName: schoolCat?.name || 'Unknown',
+						maxScore,
+						juryCount,
+						totalMaxScore: maxScore * juryCount,
+					};
+				});
+
+				// Calculate overall max score (sum of all materials' max scores)
+				const maxScore = categoryMaterials.reduce((total, material) => {
+					let materialMaxScore = 0;
+					material.scoreCategories.forEach((scoreCat) => {
+						scoreCat.options.forEach((opt) => {
+							if ((opt.score || 0) > materialMaxScore) {
+								materialMaxScore = opt.score || 0;
+							}
+						});
+					});
+					return total + materialMaxScore;
+				}, 0);
+
+				return {
+					id: ec.id,
+					assessmentCategoryId: ec.assessmentCategoryId,
+					categoryName: ec.assessmentCategory.name,
+					categoryDescription: ec.assessmentCategory.description,
+					materials: categoryMaterials,
+					maxScore,
+					juryCount,
+					totalMaxScore: maxScore * juryCount,
+					maxScoreBreakdown,
+				};
+			});
 
 			res.json({
 				categories: materialsByCategory,

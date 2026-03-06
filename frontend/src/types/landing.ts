@@ -37,6 +37,8 @@ export interface Event {
 	endDate: string;
 	registrationDeadline: string | null;
 	location: string | null;
+	province: string | null;
+	city: string | null;
 	venue: string | null;
 	maxParticipants: number | null;
 	currentParticipants: number;
@@ -45,6 +47,9 @@ export interface Event {
 	status: string;
 	featured: boolean;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
+	likesCount?: number;
+	commentsCount?: number;
+	createdAt?: string;
 }
 
 export interface PersonMember {

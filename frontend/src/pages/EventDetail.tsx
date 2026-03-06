@@ -13,11 +13,36 @@ import {
 	TrophyIcon,
 	DocumentArrowDownIcon,
 	EyeIcon,
+	ChatBubbleLeftIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
+import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
+import { HeartIcon as HeartIconOutline } from "@heroicons/react/24/outline";
 import api from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
 // Registration is handled via dedicated page /peserta/events/:id/register
 import { EventRegistration } from "../types/landing";
+
+interface EventComment {
+	id: string;
+	content: string;
+	createdAt: string;
+	user: {
+		id: string;
+		name: string;
+		email: string;
+		role: string;
+		profile?: {
+			avatar: string | null;
+			institution: string | null;
+		};
+	};
+}
+
+interface LikeData {
+	count: number;
+	isLiked: boolean;
+}
 
 interface SchoolCategoryLimit {
 	id: string;
@@ -114,17 +139,112 @@ const EventDetail: React.FC = () => {
 	const [myRegistration, setMyRegistration] = useState<EventRegistration | null>(null);
 	const [checkingRegistration, setCheckingRegistration] = useState(false);
 	const [participantsSummary, setParticipantsSummary] = useState<ParticipantSummary[]>([]);
+	
+	// Comments & Likes state
+	const [comments, setComments] = useState<EventComment[]>([]);
+	const [likeData, setLikeData] = useState<LikeData>({ count: 0, isLiked: false });
+	const [newComment, setNewComment] = useState("");
+	const [submittingComment, setSubmittingComment] = useState(false);
+	const [togglingLike, setTogglingLike] = useState(false);
 
 	useEffect(() => {
 		fetchEventDetail();
 		fetchParticipantsSummary();
+		fetchComments();
+		fetchLikes();
 	}, [id]);
 
 	useEffect(() => {
 		if (isAuthenticated && event) {
 			checkMyRegistration();
+			// Refresh likes to get user's like status
+			fetchLikes();
 		}
 	}, [isAuthenticated, event]);
+
+	const fetchComments = async () => {
+		try {
+			const response = await api.get(`/events/${id}/comments`);
+			setComments(response.data);
+		} catch (error) {
+			console.error("Error fetching comments:", error);
+		}
+	};
+
+	const fetchLikes = async () => {
+		try {
+			const response = await api.get(`/events/${id}/likes`);
+			setLikeData(response.data);
+		} catch (error) {
+			console.error("Error fetching likes:", error);
+		}
+	};
+
+	const handleAddComment = async () => {
+		if (!newComment.trim() || submittingComment) return;
+
+		try {
+			setSubmittingComment(true);
+			const response = await api.post(`/events/${id}/comments`, {
+				content: newComment.trim(),
+			});
+			setComments([response.data, ...comments]);
+			setNewComment("");
+		} catch (error: any) {
+			alert(error.response?.data?.message || "Gagal menambahkan komentar");
+		} finally {
+			setSubmittingComment(false);
+		}
+	};
+
+	const handleDeleteComment = async (commentId: string) => {
+		if (!confirm("Hapus komentar ini?")) return;
+
+		try {
+			await api.delete(`/events/${id}/comments/${commentId}`);
+			setComments(comments.filter((c) => c.id !== commentId));
+		} catch (error: any) {
+			alert(error.response?.data?.message || "Gagal menghapus komentar");
+		}
+	};
+
+	const handleToggleLike = async () => {
+		if (!isAuthenticated) {
+			navigate("/login", { state: { from: `/events/${id}` } });
+			return;
+		}
+
+		if (togglingLike) return;
+
+		try {
+			setTogglingLike(true);
+			const response = await api.post(`/events/${id}/likes`);
+			setLikeData(response.data);
+		} catch (error: any) {
+			alert(error.response?.data?.message || "Gagal menyukai event");
+		} finally {
+			setTogglingLike(false);
+		}
+	};
+
+	const formatCommentDate = (dateString: string) => {
+		const date = new Date(dateString);
+		const now = new Date();
+		const diff = now.getTime() - date.getTime();
+		const minutes = Math.floor(diff / 60000);
+		const hours = Math.floor(diff / 3600000);
+		const days = Math.floor(diff / 86400000);
+
+		if (minutes < 1) return "Baru saja";
+		if (minutes < 60) return `${minutes} menit lalu`;
+		if (hours < 24) return `${hours} jam lalu`;
+		if (days < 7) return `${days} hari lalu`;
+		return date.toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+		});
+	};
 
 	const fetchParticipantsSummary = async () => {
 		try {
@@ -229,7 +349,7 @@ const EventDetail: React.FC = () => {
 		}
 
 		// Navigate to registration page
-		navigate(`/peserta/events/${id}/register`);
+		navigate(`/peserta/events/${event?.slug || id}/register`);
 	};
 
 	if (loading) {
@@ -575,6 +695,162 @@ const EventDetail: React.FC = () => {
 							</div>
 						)}
 
+						{/* Like & Comment Section */}
+						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+							{/* Event Caption */}
+							<div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+								<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+									{event.title}
+								</h2>
+								{event.description && (
+									<p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-line line-clamp-3">
+										{event.description}
+									</p>
+								)}
+							</div>
+
+							{/* Like Button */}
+							<div className="flex items-center justify-between mb-6">
+								<button
+									onClick={handleToggleLike}
+									disabled={togglingLike}
+									className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all active:scale-95 ${
+										likeData.isLiked
+											? "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
+											: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+									}`}
+								>
+									{likeData.isLiked ? (
+										<HeartIconSolid className="w-5 h-5 text-red-500" />
+									) : (
+										<HeartIconOutline className="w-5 h-5" />
+									)}
+									<span>{likeData.count}</span>
+									<span className="hidden sm:inline">Suka</span>
+								</button>
+								<div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+									<ChatBubbleLeftIcon className="w-5 h-5" />
+									<span>{comments.length} Komentar</span>
+								</div>
+							</div>
+
+							{/* Comment Form */}
+							{isAuthenticated ? (
+								<div className="mb-6">
+									<div className="flex gap-3">
+										{/* User Avatar */}
+										<div className="flex-shrink-0">
+											<div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
+												{user?.name?.charAt(0).toUpperCase() || "U"}
+											</div>
+										</div>
+										{/* Input */}
+										<div className="flex-1">
+											<textarea
+												value={newComment}
+												onChange={(e) => setNewComment(e.target.value)}
+												placeholder="Tulis komentar..."
+												className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-colors"
+												rows={3}
+												maxLength={1000}
+											/>
+											<div className="flex justify-between items-center mt-2">
+												<span className="text-xs text-gray-400">
+													{newComment.length}/1000
+												</span>
+												<button
+													onClick={handleAddComment}
+													disabled={!newComment.trim() || submittingComment}
+													className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
+												>
+													{submittingComment ? "Mengirim..." : "Kirim"}
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							) : (
+								<div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+									<p className="text-gray-600 dark:text-gray-400 mb-2">
+										Login untuk memberikan komentar
+									</p>
+									<Link
+										to="/login"
+										state={{ from: `/events/${id}` }}
+										className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+									>
+										Login Sekarang →
+									</Link>
+								</div>
+							)}
+
+							{/* Comments List */}
+							<div className="space-y-4">
+								{comments.length === 0 ? (
+									<div className="text-center py-8 text-gray-500 dark:text-gray-400">
+										<ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+										<p>Belum ada komentar</p>
+										<p className="text-sm">Jadilah yang pertama berkomentar!</p>
+									</div>
+								) : (
+									comments.map((comment) => (
+										<div
+											key={comment.id}
+											className="flex gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+										>
+											{/* Avatar */}
+											<div className="flex-shrink-0">
+												{comment.user.profile?.avatar ? (
+													<img
+														src={getImageUrl(comment.user.profile.avatar) || ""}
+														alt={comment.user.name}
+														className="w-10 h-10 rounded-full object-cover"
+													/>
+												) : (
+													<div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+														{comment.user.name.charAt(0).toUpperCase()}
+													</div>
+												)}
+											</div>
+											{/* Content */}
+											<div className="flex-1 min-w-0">
+												<div className="flex items-start justify-between gap-2">
+													<div>
+														<p className="font-semibold text-gray-900 dark:text-white">
+															{comment.user.name}
+															<span className="ml-2 text-xs font-normal px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full">
+																{comment.user.role}
+															</span>
+														</p>
+														<p className="text-xs text-gray-500 dark:text-gray-400">
+															{comment.user.email}
+															{comment.user.profile?.institution && (
+																<span> • {comment.user.profile.institution}</span>
+															)}
+														</p>
+													</div>
+													{(user?.id === comment.user.id || user?.role === "SUPERADMIN" || user?.role === "PANITIA") && (
+														<button
+															onClick={() => handleDeleteComment(comment.id)}
+															className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+															title="Hapus komentar"
+														>
+															<TrashIcon className="w-4 h-4" />
+														</button>
+													)}
+												</div>
+												<p className="mt-2 text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">
+													{comment.content}
+												</p>
+												<p className="mt-2 text-xs text-gray-400">
+													{formatCommentDate(comment.createdAt)}
+												</p>
+											</div>
+										</div>
+									))
+								)}
+							</div>
+						</div>
 						
 					</div>
 

@@ -3,7 +3,9 @@ import {
 	XMarkIcon,
 	PencilIcon,
 	CheckIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
+import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 
 interface ScoreOption {
@@ -101,6 +103,7 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 	const [editScoreCategoryName, setEditScoreCategoryName] = useState<string>("");
 	const [editSkipReason, setEditSkipReason] = useState<string>("");
 	const [saving, setSaving] = useState(false);
+	const [deletingJury, setDeletingJury] = useState<string | null>(null);
 
 	useEffect(() => {
 		fetchParticipantDetail();
@@ -118,7 +121,11 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 		} catch (err: unknown) {
 			console.error("Error fetching participant detail:", err);
 			const error = err as { response?: { data?: { error?: string } } };
-			alert(error.response?.data?.error || "Gagal memuat detail peserta");
+			Swal.fire({
+				icon: "error",
+				title: "Gagal",
+				text: error.response?.data?.error || "Gagal memuat detail peserta",
+			});
 		} finally {
 			setLoading(false);
 		}
@@ -195,7 +202,11 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 		} catch (err: unknown) {
 			console.error("Error saving evaluation:", err);
 			const error = err as { response?: { data?: { error?: string } } };
-			alert(error.response?.data?.error || "Gagal menyimpan nilai");
+			Swal.fire({
+				icon: "error",
+				title: "Gagal",
+				text: error.response?.data?.error || "Gagal menyimpan nilai",
+			});
 		} finally {
 			setSaving(false);
 		}
@@ -209,6 +220,49 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 		if (lower.includes("baik") || lower.includes("bagus")) return "bg-green-600";
 		if (lower.includes("sangat")) return "bg-emerald-600";
 		return "bg-blue-600";
+	};
+
+	const deleteJuryEvaluations = async (categoryDetail: CategoryDetail, juryId: string, juryName: string) => {
+		if (!participantDetail) return;
+
+		const result = await Swal.fire({
+			title: "Konfirmasi",
+			text: `Hapus semua nilai dari ${juryName} untuk kategori ${categoryDetail.categoryName}?`,
+			icon: "warning",
+			showCancelButton: true,
+			confirmButtonColor: "#d33",
+			cancelButtonColor: "#6b7280",
+			confirmButtonText: "Ya, Hapus",
+			cancelButtonText: "Batal",
+		});
+
+		if (!result.isConfirmed) return;
+
+		try {
+			setDeletingJury(juryId);
+			await api.delete("/evaluations/jury-category", {
+				data: {
+					eventId: participantDetail.eventId,
+					juryId,
+					eventCategoryId: categoryDetail.eventCategoryId,
+					participantId: participantDetail.participant.id,
+				},
+			});
+
+			// Refresh data
+			await fetchParticipantDetail();
+			onDataChange();
+		} catch (err: unknown) {
+			console.error("Error deleting jury evaluations:", err);
+			const error = err as { response?: { data?: { error?: string } } };
+			Swal.fire({
+				icon: "error",
+				title: "Gagal",
+				text: error.response?.data?.error || "Gagal menghapus nilai",
+			});
+		} finally {
+			setDeletingJury(null);
+		}
 	};
 
 	// Find all juries for a category
@@ -353,16 +407,34 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 										<div className="mb-4 flex flex-wrap gap-4 text-sm">
 											{getCategoryJuries(activeCategory).map(jury => {
 												let total = 0;
-												activeCategory.materials.forEach(material => {
-													const evaluation = material.evaluations.find(ev => ev.juryId === jury.id);
-													if (evaluation && !evaluation.isSkipped && evaluation.score !== null) {
+											let hasEvaluations = false;
+											activeCategory.materials.forEach(material => {
+												const evaluation = material.evaluations.find(ev => ev.juryId === jury.id);
+												if (evaluation) {
+													hasEvaluations = true;
+													if (!evaluation.isSkipped && evaluation.score !== null) {
 														total += evaluation.score;
 													}
-												});
-												return (
-													<div key={jury.id} className="bg-white dark:bg-gray-700 px-4 py-2 rounded-lg shadow">
-														<span className="text-gray-600 dark:text-gray-400">{jury.name}:</span>
-														<span className="ml-2 font-bold text-gray-900 dark:text-white">{total.toFixed(1)}</span>
+												}
+											});
+											return (
+												<div key={jury.id} className="bg-white dark:bg-gray-700 px-4 py-2 rounded-lg shadow flex items-center gap-2">
+													<span className="text-gray-600 dark:text-gray-400">{jury.name}:</span>
+													<span className="font-bold text-gray-900 dark:text-white">{total.toFixed(1)}</span>
+													{hasEvaluations && (
+														<button
+															onClick={() => deleteJuryEvaluations(activeCategory, jury.id, jury.name)}
+															disabled={deletingJury === jury.id}
+															className="ml-1 p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors disabled:opacity-50"
+															title="Hapus semua nilai juri ini"
+														>
+															{deletingJury === jury.id ? (
+																<div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+															) : (
+																<TrashIcon className="w-4 h-4" />
+															)}
+														</button>
+													)}
 													</div>
 												);
 											})}

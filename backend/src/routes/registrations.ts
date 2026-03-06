@@ -220,25 +220,19 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 				.json({ error: "Registration deadline has passed" });
 		}
 
-		// Check if user already registered for this event (exclude cancelled registrations)
+		// Check if user already registered for this event
 		const existingRegistration = await prisma.eventParticipation.findFirst({
 			where: {
 				eventId: validatedData.eventId,
 				userId,
-				status: {
-					not: "CANCELLED",
-				},
 			},
 			include: {
-				groups: {
-					where: {
-						status: "ACTIVE",
-					},
-				},
+				groups: true,
 			},
 		});
 
-		if (existingRegistration) {
+		// If active registration exists, reject
+		if (existingRegistration && existingRegistration.status !== "CANCELLED") {
 			return res.status(400).json({
 				error: "You have already registered for this event",
 				registration: existingRegistration,
@@ -275,33 +269,84 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			}
 		}
 
-		// Create registration with groups
-		const registration = await prisma.eventParticipation.create({
-			data: {
-				eventId: validatedData.eventId,
-				userId,
-				schoolName: validatedData.schoolName,
-				supportingDoc: validatedData.supportingDoc,
-				status: "REGISTERED",
-				groups: {
-					create: validatedData.groups.map((group) => ({
-						groupName: group.groupName,
-						schoolCategoryId: group.schoolCategoryId,
-						teamMembers: group.teamMembers,
-						memberNames: group.memberNames,					memberData: group.memberData,						notes: group.notes,
-						status: "ACTIVE",
-					})),
-				},
-			},
-			include: {
-				event: true,
-				groups: {
-					include: {
-						schoolCategory: true,
+		let registration;
+
+		// If cancelled registration exists, re-register by updating it
+		if (existingRegistration && existingRegistration.status === "CANCELLED") {
+			// Get old group IDs first
+			const oldGroupIds = existingRegistration.groups.map(g => g.id);
+
+			// Delete performance sessions linked to old groups (to avoid orphan data)
+			if (oldGroupIds.length > 0) {
+				await prisma.performanceSession.deleteMany({
+					where: { participantId: { in: oldGroupIds } },
+				});
+			}
+
+			// Delete old groups
+			await prisma.participationGroup.deleteMany({
+				where: { participationId: existingRegistration.id },
+			});
+
+			// Update the cancelled registration
+			registration = await prisma.eventParticipation.update({
+				where: { id: existingRegistration.id },
+				data: {
+					schoolName: validatedData.schoolName,
+					supportingDoc: validatedData.supportingDoc,
+					status: "REGISTERED",
+					groups: {
+						create: validatedData.groups.map((group) => ({
+							groupName: group.groupName,
+							schoolCategoryId: group.schoolCategoryId,
+							teamMembers: group.teamMembers,
+							memberNames: group.memberNames,
+							memberData: group.memberData,
+							notes: group.notes,
+							status: "ACTIVE",
+						})),
 					},
 				},
-			},
-		});
+				include: {
+					event: true,
+					groups: {
+						include: {
+							schoolCategory: true,
+						},
+					},
+				},
+			});
+		} else {
+			// Create new registration
+			registration = await prisma.eventParticipation.create({
+				data: {
+					eventId: validatedData.eventId,
+					userId,
+					schoolName: validatedData.schoolName,
+					supportingDoc: validatedData.supportingDoc,
+					status: "REGISTERED",
+					groups: {
+						create: validatedData.groups.map((group) => ({
+							groupName: group.groupName,
+							schoolCategoryId: group.schoolCategoryId,
+							teamMembers: group.teamMembers,
+							memberNames: group.memberNames,
+							memberData: group.memberData,
+							notes: group.notes,
+							status: "ACTIVE",
+						})),
+					},
+				},
+				include: {
+					event: true,
+					groups: {
+						include: {
+							schoolCategory: true,
+						},
+					},
+				},
+			});
+		}
 
 		// DON'T update current participants count here
 		// Only update when status is changed to CONFIRMED by panitia

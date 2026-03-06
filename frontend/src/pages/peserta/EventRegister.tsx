@@ -72,12 +72,12 @@ const createInitialTeam = (name: string, categoryId: string = ""): TeamData => (
 	schoolCategoryId: categoryId,
 	pasukan: Array.from({ length: 6 }, () => createEmptyMember()), // Default 6 pasukan
 	danton: createEmptyMember(),
-	cadangan: [createEmptyMember(), createEmptyMember()], // Default 2 cadangan
+	cadangan: [], // Start empty, add as needed
 	notes: "",
 });
 
 const EventRegister: React.FC = () => {
-	const { eventId } = useParams<{ eventId: string }>();
+	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const navigate = useNavigate();
 	const { user } = useAuth();
 
@@ -92,9 +92,14 @@ const EventRegister: React.FC = () => {
 	const [supportingDoc, setSupportingDoc] = useState<File | null>(null);
 	const [supportingDocPreview, setSupportingDocPreview] = useState<string>("");
 
+	// Check if registration is closed
+	const isRegistrationClosed = event?.registrationDeadline
+		? new Date(event.registrationDeadline) < new Date()
+		: false;
+
 	useEffect(() => {
 		fetchEventDetail();
-	}, [eventId]);
+	}, [eventSlug]);
 
 	useEffect(() => {
 		// Auto-fill institution from user profile
@@ -106,7 +111,7 @@ const EventRegister: React.FC = () => {
 	const fetchEventDetail = async () => {
 		try {
 			setLoading(true);
-			const response = await api.get(`/events/${eventId}`);
+			const response = await api.get(`/events/${eventSlug}`);
 			setEvent(response.data);
 
 			// Set default school category for first team if only one option
@@ -276,11 +281,12 @@ const EventRegister: React.FC = () => {
 			teams.map((t) => {
 				if (t.id !== teamId) return t;
 				const members = t[role].filter((m) => m.id !== memberId);
-				if (members.length === 0) {
+				// Only pasukan requires minimum 1
+				if (role === "pasukan" && members.length === 0) {
 					Swal.fire({
 						icon: "warning",
 						title: "Tidak dapat menghapus",
-						text: `Minimal harus ada satu ${role}`,
+						text: "Minimal harus ada satu pasukan",
 					});
 					return t;
 				}
@@ -518,40 +524,40 @@ const EventRegister: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-8 px-3 sm:px-4">
 			<div className="max-w-6xl mx-auto">
 				{/* Header */}
-				<div className="mb-6">
+				<div className="mb-4 sm:mb-6">
 					<button
-						onClick={() => navigate(`/events/${eventId}`)}
-						className="flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4"
+						onClick={() => navigate(`/events/${eventSlug}`)}
+						className="flex items-center text-sm sm:text-base text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-3 sm:mb-4"
 					>
-						<ArrowLeftIcon className="w-5 h-5 mr-2" />
+						<ArrowLeftIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
 						Kembali ke Detail Event
 					</button>
-					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+					<h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
 						Pendaftaran Event
 					</h1>
-					<p className="text-gray-600 dark:text-gray-400 mt-1">
+					<p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
 						Lengkapi formulir di bawah untuk mendaftar ke event ini
 					</p>
 				</div>
 
 				<form onSubmit={handleSubmit}>
-					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 						{/* Main Form */}
-						<div className="lg:col-span-2 space-y-6">
+						<div className="lg:col-span-2 space-y-4 sm:space-y-6">
 							{/* Event Info Card */}
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-								<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+								<h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
 									Informasi Event
 								</h2>
-								<div className="flex items-start gap-4">
+								<div className="flex flex-col sm:flex-row items-start gap-4">
 									{event.thumbnail && (
 										<img
 											src={`${import.meta.env.VITE_API_URL?.replace("/api", "")}${event.thumbnail}`}
 											alt={event.title}
-											className="w-24 h-30 object-cover rounded-lg"
+											className="w-full sm:w-24 h-32 sm:h-30 object-cover rounded-lg"
 										/>
 									)}
 									<div className="flex-1">
@@ -576,7 +582,7 @@ const EventRegister: React.FC = () => {
 							</div>
 
 							{/* Organization Info */}
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
 								<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
 									Informasi Organisasi
 								</h2>
@@ -641,7 +647,7 @@ const EventRegister: React.FC = () => {
 							</div>
 
 							{/* Teams Section */}
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
 								<div className="flex items-center justify-between mb-4">
 									<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
 										Daftar Tim ({teams.length})
@@ -660,16 +666,16 @@ const EventRegister: React.FC = () => {
 									Setiap tim dapat memilih kategori sekolah yang berbeda sesuai kuota tersedia
 								</p>
 
-								<div className="space-y-6">
+								<div className="space-y-4 sm:space-y-6">
 									{teams.map((team, teamIndex) => (
 										<div
 											key={team.id}
-											className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+											className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4"
 										>
 											<div className="flex items-start justify-between mb-4">
-												<h3 className="font-medium text-gray-900 dark:text-white">
+												<h3 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">
 													Tim #{teamIndex + 1}
-													<span className="ml-2 text-sm font-normal text-gray-500">
+													<span className="ml-1 sm:ml-2 text-xs sm:text-sm font-normal text-gray-500">
 														({getTotalMembers(team)} personil)
 													</span>
 												</h3>
@@ -736,27 +742,18 @@ const EventRegister: React.FC = () => {
 
 											{/* Pasukan and Danton Grid */}
 											<div className="mb-6">
-												<div className="flex items-center justify-between mb-3">
+												<div className="mb-3">
 													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
 														Pasukan ({team.pasukan.length} orang)
 													</h4>
-													<button
-														type="button"
-														onClick={() => addMemberToRole(team.id, "pasukan")}
-														className="flex items-center px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
-													>
-														<PlusIcon className="w-3 h-3 mr-1" />
-														Tambah
-													</button>
 												</div>
-												
-												<div className="flex gap-4">
-													{/* Pasukan Grid - 3 columns */}
-													<div className="flex-1 grid grid-cols-3 gap-3">
+												<div className="flex flex-col md:flex-row gap-4">
+													{/* Pasukan Grid - responsive columns */}
+													<div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 order-2 md:order-1">
 														{team.pasukan.map((member, idx) => (
 															<div
 																key={member.id}
-																className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 relative group"
+																className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2 sm:p-3 relative group"
 															>
 																{team.pasukan.length > 1 && (
 																	<button
@@ -770,7 +767,7 @@ const EventRegister: React.FC = () => {
 																{/* Photo Upload */}
 																<div className="flex justify-center mb-2">
 																	<label className="relative cursor-pointer">
-																		<div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-500 hover:border-indigo-500">
+																		<div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-500 hover:border-indigo-500">
 																			{member.photoPreview ? (
 																				<img
 																					src={member.photoPreview}
@@ -778,7 +775,7 @@ const EventRegister: React.FC = () => {
 																					className="w-full h-full object-cover"
 																				/>
 																			) : (
-																				<CameraIcon className="w-6 h-6 text-gray-400" />
+																				<CameraIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
 																			)}
 																		</div>
 																		<input
@@ -803,20 +800,29 @@ const EventRegister: React.FC = () => {
 																/>
 															</div>
 														))}
-													</div>
+													{/* Add Pasukan Button */}
+													<button
+														type="button"
+														onClick={() => addMemberToRole(team.id, "pasukan")}
+														className="flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-green-500 transition-colors min-h-[100px]"
+													>
+														<PlusIcon className="w-6 h-6 text-gray-400 hover:text-green-500" />
+														<span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tambah</span>
+													</button>
+												</div>
 
-													{/* Danton - Right Side */}
-													<div className="w-32">
+													{/* Danton - Top on mobile, Right Side on desktop */}
+													<div className="w-full md:w-32 order-1 md:order-2">
 														<div className="text-center mb-2">
 															<span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">
 																Komandan
 															</span>
 														</div>
-														<div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-3 border-2 border-indigo-200 dark:border-indigo-700">
+														<div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-3 border-2 border-indigo-200 dark:border-indigo-700 flex md:flex-col items-center md:items-stretch gap-3 md:gap-0">
 															{/* Photo Upload */}
-															<div className="flex justify-center mb-2">
+															<div className="flex justify-center md:mb-2 flex-shrink-0">
 																<label className="relative cursor-pointer">
-																	<div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-indigo-300 dark:border-indigo-600 hover:border-indigo-500">
+																	<div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-indigo-300 dark:border-indigo-600 hover:border-indigo-500">
 																		{team.danton.photoPreview ? (
 																			<img
 																				src={team.danton.photoPreview}
@@ -824,7 +830,7 @@ const EventRegister: React.FC = () => {
 																				className="w-full h-full object-cover"
 																			/>
 																		) : (
-																			<UserIcon className="w-8 h-8 text-indigo-400" />
+																			<UserIcon className="w-6 h-6 md:w-8 md:h-8 text-indigo-400" />
 																		)}
 																	</div>
 																	<input
@@ -845,7 +851,7 @@ const EventRegister: React.FC = () => {
 																	updateMember(team.id, "danton", team.danton.id, "name", e.target.value)
 																}
 																placeholder="Nama Danton"
-																className="w-full px-2 py-1 text-xs border border-indigo-300 dark:border-indigo-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center"
+																className="flex-1 md:w-full px-2 py-1 text-xs border border-indigo-300 dark:border-indigo-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center"
 															/>
 														</div>
 													</div>
@@ -854,39 +860,28 @@ const EventRegister: React.FC = () => {
 
 											{/* Cadangan Section */}
 											<div className="mb-4">
-												<div className="flex items-center justify-between mb-3">
+												<div className="mb-3">
 													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
 														Cadangan ({team.cadangan.length} orang)
 													</h4>
-													<button
-														type="button"
-														onClick={() => addMemberToRole(team.id, "cadangan")}
-														className="flex items-center px-2 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded"
-													>
-														<PlusIcon className="w-3 h-3 mr-1" />
-														Tambah
-													</button>
 												</div>
-												
-												<div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+												<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
 													{team.cadangan.map((member, idx) => (
 														<div
 															key={member.id}
-															className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 relative group border border-amber-200 dark:border-amber-700"
+															className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2 sm:p-3 relative group border border-amber-200 dark:border-amber-700"
 														>
-															{team.cadangan.length > 1 && (
-																<button
-																	type="button"
-																	onClick={() => removeMemberFromRole(team.id, "cadangan", member.id)}
-																	className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-																>
-																	×
-																</button>
-															)}
+															<button
+																type="button"
+																onClick={() => removeMemberFromRole(team.id, "cadangan", member.id)}
+																className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+															>
+																×
+															</button>
 															{/* Photo Upload */}
 															<div className="flex justify-center mb-2">
 																<label className="relative cursor-pointer">
-																	<div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-amber-300 dark:border-amber-600 hover:border-amber-500">
+																	<div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-amber-100 dark:bg-amber-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-amber-300 dark:border-amber-600 hover:border-amber-500">
 																		{member.photoPreview ? (
 																			<img
 																				src={member.photoPreview}
@@ -894,7 +889,7 @@ const EventRegister: React.FC = () => {
 																				className="w-full h-full object-cover"
 																			/>
 																		) : (
-																			<CameraIcon className="w-5 h-5 text-amber-400" />
+																			<CameraIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
 																		)}
 																	</div>
 																	<input
@@ -919,10 +914,17 @@ const EventRegister: React.FC = () => {
 															/>
 														</div>
 													))}
+												{/* Add Cadangan Button */}
+												<button
+													type="button"
+													onClick={() => addMemberToRole(team.id, "cadangan")}
+													className="flex flex-col items-center justify-center bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-amber-300 dark:border-amber-600 hover:border-amber-500 transition-colors min-h-[90px]"
+												>
+													<PlusIcon className="w-5 h-5 text-amber-400 hover:text-amber-500" />
+													<span className="text-xs text-amber-500 dark:text-amber-400 mt-1">Tambah</span>
+												</button>
 												</div>
 											</div>
-
-											{/* Notes */}
 											<div>
 												<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 													Catatan (Opsional)
@@ -943,8 +945,8 @@ const EventRegister: React.FC = () => {
 
 						{/* Sidebar */}
 						<div className="lg:col-span-1">
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sticky top-4">
-								<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 sticky top-4">
+								<h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
 									Ringkasan Pendaftaran
 								</h2>
 
@@ -1034,10 +1036,18 @@ const EventRegister: React.FC = () => {
 
 								<button
 									type="submit"
-									disabled={submitting}
-									className="w-full mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+									disabled={submitting || isRegistrationClosed}
+									className={`w-full mt-6 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center ${isRegistrationClosed
+										? 'bg-gray-400 cursor-not-allowed text-white'
+										: 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+									}`}
 								>
-									{submitting ? (
+									{isRegistrationClosed ? (
+										<>
+											<ExclamationCircleIcon className="w-5 h-5 mr-2" />
+											Pendaftaran Telah Ditutup
+										</>
+									) : submitting ? (
 										<>
 											<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
 											Mendaftar...

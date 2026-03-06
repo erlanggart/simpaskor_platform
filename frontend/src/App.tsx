@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -37,6 +37,8 @@ import EventParticipantManagement from "./pages/panitia/EventParticipantManageme
 import PesertaDashboard from "./pages/peserta/Dashboard";
 import PesertaRegistrations from "./pages/peserta/Registrations";
 import PesertaEventRegister from "./pages/peserta/EventRegister";
+import PesertaAssessmentHistory from "./pages/peserta/AssessmentHistory";
+import PesertaEventsAvailable from "./pages/peserta/EventsAvailable";
 import JuriDashboard from "./pages/juri/Dashboard";
 import JuriInvitations from "./pages/juri/Invitations";
 import JuriMyEvents from "./pages/juri/MyEvents";
@@ -50,7 +52,9 @@ import PelatihDashboard from "./pages/pelatih/Dashboard";
 import ManageJury from "./pages/panitia/ManageJury";
 import ManageJuara from "./pages/panitia/ManageJuara";
 import ManageMateri from "./pages/panitia/ManageMateri";
+import FieldRechecking from "./pages/panitia/FieldRechecking";
 import PanitiaEventRecap from "./pages/panitia/EventRecap";
+import PerformanceHistory from "./pages/shared/PerformanceHistory";
 
 import "./App.css";
 
@@ -91,6 +95,9 @@ function App() {
 							<Route path="events/:eventSlug/juri" element={<ManageJury />} />
 							<Route path="events/:eventSlug/materi" element={<ManageMateri />} />
 							<Route path="events/:eventSlug/juara" element={<ManageJuara />} />
+							<Route path="events/:eventSlug/manage-fields" element={<Navigate to="../field-rechecking" replace />} />
+							<Route path="events/:eventSlug/field-rechecking" element={<FieldRechecking />} />
+							<Route path="events/:eventSlug/performance-history" element={<PerformanceHistory />} />
 							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
 							<Route
 								path="assessment-categories"
@@ -151,6 +158,9 @@ function App() {
 							<Route path="events/:eventSlug/juri" element={<ManageJury />} />
 							<Route path="events/:eventSlug/materi" element={<ManageMateri />} />
 							<Route path="events/:eventSlug/juara" element={<ManageJuara />} />
+							<Route path="events/:eventSlug/manage-fields" element={<Navigate to="../field-rechecking" replace />} />
+							<Route path="events/:eventSlug/field-rechecking" element={<FieldRechecking />} />
+							<Route path="events/:eventSlug/performance-history" element={<PerformanceHistory />} />
 							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
@@ -165,14 +175,18 @@ function App() {
 					>
 						<Route path="peserta">
 							<Route path="dashboard" element={<PesertaDashboard />} />
+							<Route path="events" element={<PesertaEventsAvailable />} />
 							<Route path="registrations" element={<PesertaRegistrations />} />
+							<Route path="events/:eventSlug/performance-history" element={<PerformanceHistory />} />
+							<Route path="assessment-history" element={<PesertaAssessmentHistory />} />
+							<Route path="assessment-history/:eventSlug" element={<PesertaAssessmentHistory />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
 					{/* Peserta Event Registration - Main Layout */}
 					<Route element={<MainLayout />}>
 						<Route
-							path="peserta/events/:eventId/register"
+							path="peserta/events/:eventSlug/register"
 							element={
 								<ProtectedRoute allowedRoles={["PESERTA"]}>
 									<PesertaEventRegister />
