@@ -34,6 +34,7 @@ model User {
   role             UserRole   @default(PESERTA)
   status           UserStatus @default(PENDING)
   emailVerified    Boolean    @default(false) @map("email_verified")
+  isPinned         Boolean    @default(false) @map("is_pinned")
   lastLogin        DateTime?  @map("last_login")
   resetToken       String?    @map("reset_token")
   resetTokenExpiry DateTime?  @map("reset_token_expiry")
@@ -173,6 +174,7 @@ model Event {
   currentParticipants  Int          @default(0) @map("current_participants")
   registrationFee      Decimal?     @map("registration_fee") @db.Decimal(10, 2)
   organizer            String? // Organization/institution name
+  contactPersonName    String?      @map("contact_person_name") // Contact person name
   contactEmail         String?      @map("contact_email")
   contactPhone         String?      @map("contact_phone")
   status               String       @default("DRAFT") // DRAFT, PUBLISHED, ONGOING, COMPLETED, CANCELLED

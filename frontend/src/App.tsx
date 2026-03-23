@@ -10,6 +10,7 @@ import LandingPage from "./pages/LandingPage";
 import EventDetail from "./pages/EventDetail";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
+import AllJuries from "./pages/AllJuries";
 
 // Auth Pages
 import Login from "./pages/Login";
@@ -67,6 +68,7 @@ function App() {
 					<Route element={<MainLayout />}>
 						<Route index element={<LandingPage />} />
 						<Route path="events/:id" element={<EventDetail />} />
+						<Route path="juries" element={<AllJuries />} />
 						<Route path="unauthorized" element={<Unauthorized />} />
 					</Route>
 					{/* Auth Routes - Auth Layout */}

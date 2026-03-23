@@ -135,8 +135,8 @@ router.post(
 					name: validatedData.name,
 					role: validatedData.role as UserRole,
 					phone: validatedData.phone,
-					status: validatedData.status || "ACTIVE",
-					emailVerified: true, // Auto-verify for admin-created users
+					status: validatedData.status || "PENDING",
+					emailVerified: false, // Needs admin verification
 					profile: {
 						create: {
 							institution: validatedData.institution,
@@ -581,16 +581,112 @@ router.delete(
 	}
 );
 
+// Verify/Unverify user (SuperAdmin only)
+router.patch(
+	"/:userId/verify",
+	authenticate,
+	requireSuperAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { userId } = req.params;
+
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+			});
+
+			if (!user) {
+				return res.status(404).json({
+					error: "User not found",
+					message: "User with this ID does not exist",
+				});
+			}
+
+			const newVerified = !user.emailVerified;
+			const updatedUser = await prisma.user.update({
+				where: { id: userId },
+				data: {
+					emailVerified: newVerified,
+					status: newVerified ? "ACTIVE" : "PENDING",
+				},
+				include: { profile: true },
+			});
+
+			res.json({
+				message: newVerified
+					? "User berhasil diverifikasi"
+					: "Verifikasi user dicabut",
+				user: AuthUtils.sanitizeUser(updatedUser),
+			});
+		} catch (error) {
+			console.error("Verify user error:", error);
+			res.status(500).json({
+				error: "Failed to verify user",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Pin/Unpin jury (SuperAdmin only)
+router.patch(
+	"/:userId/pin",
+	authenticate,
+	requireSuperAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { userId } = req.params;
+
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+			});
+
+			if (!user) {
+				return res.status(404).json({
+					error: "User not found",
+					message: "User with this ID does not exist",
+				});
+			}
+
+			if (user.role !== UserRole.JURI) {
+				return res.status(400).json({
+					error: "Invalid operation",
+					message: "Hanya juri yang bisa di-pin/unpin",
+				});
+			}
+
+			const updatedUser = await prisma.user.update({
+				where: { id: userId },
+				data: { isPinned: !user.isPinned },
+				include: { profile: true },
+			});
+
+			res.json({
+				message: updatedUser.isPinned
+					? "Juri berhasil di-pin"
+					: "Pin juri dicabut",
+				user: AuthUtils.sanitizeUser(updatedUser),
+			});
+		} catch (error) {
+			console.error("Pin jury error:", error);
+			res.status(500).json({
+				error: "Failed to pin/unpin jury",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
 // Get public statistics (no auth required) - for landing page
 router.get("/public/stats", async (req, res: Response) => {
 	try {
 		const now = new Date();
 
-		// Get juri count and list
+		// Get juri count and list (only pinned juries for landing page)
 		const juries = await prisma.user.findMany({
 			where: {
 				role: UserRole.JURI,
 				status: "ACTIVE",
+				isPinned: true,
 			},
 			select: {
 				id: true,
@@ -660,6 +756,51 @@ router.get("/public/stats", async (req, res: Response) => {
 		console.error("Get public stats error:", error);
 		res.status(500).json({
 			error: "Failed to fetch public stats",
+			message: "Internal server error",
+		});
+	}
+});
+
+// Get all juries (public, no auth) - for "View All Juries" page
+router.get("/public/juries", async (req, res: Response) => {
+	try {
+		const juries = await prisma.user.findMany({
+			where: {
+				role: UserRole.JURI,
+			},
+			select: {
+				id: true,
+				name: true,
+				status: true,
+				isPinned: true,
+				profile: {
+					select: {
+						avatar: true,
+						institution: true,
+						city: true,
+						bio: true,
+					},
+				},
+			},
+			orderBy: { name: "asc" },
+		});
+
+		res.json({
+			juries: juries.map((juri) => ({
+				id: juri.id,
+				name: juri.name,
+				status: juri.status,
+				isPinned: juri.isPinned,
+				avatar: juri.profile?.avatar || null,
+				institution: juri.profile?.institution || null,
+				city: juri.profile?.city || null,
+				bio: juri.profile?.bio || null,
+			})),
+		});
+	} catch (error) {
+		console.error("Get all juries error:", error);
+		res.status(500).json({
+			error: "Failed to fetch juries",
 			message: "Internal server error",
 		});
 	}

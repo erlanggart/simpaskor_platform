@@ -68,7 +68,7 @@ export class GoogleAuthUtils {
           name: googleUser.name,
           passwordHash: '', // No password for Google OAuth users
           role: UserRole.PESERTA, // Default role for Google sign-up
-          status: UserStatus.ACTIVE, // Active immediately for Google users
+          status: UserStatus.PENDING, // Pending until verified by admin
           emailVerified: googleUser.email_verified,
           profile: {
             create: {

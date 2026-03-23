@@ -19,6 +19,7 @@ import evaluationRoutes from "./routes/evaluations";
 import materialRoutes from "./routes/materials";
 import juaraCategoryRoutes from "./routes/juaraCategories";
 import performanceFieldRoutes from "./routes/performanceFields";
+import adminStatsRoutes from "./routes/adminStats";
 
 dotenv.config();
 
@@ -122,6 +123,7 @@ app.use("/api/evaluations", evaluationRoutes);
 app.use("/api/materials", materialRoutes);
 app.use("/api/juara-categories", juaraCategoryRoutes);
 app.use("/api/performance", performanceFieldRoutes);
+app.use("/api/admin", adminStatsRoutes);
 
 // Error handling middleware
 app.use(

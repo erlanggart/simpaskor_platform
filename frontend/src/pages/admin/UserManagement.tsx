@@ -12,7 +12,11 @@ import {
 	PlusIcon,
 	EyeIcon,
 	EyeSlashIcon,
+	ShieldCheckIcon,
+	ShieldExclamationIcon,
+	StarIcon,
 } from "@heroicons/react/24/outline";
+import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { api } from "../../utils/api";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
 interface User {
@@ -23,6 +27,7 @@ interface User {
 	role: string;
 	status: string;
 	emailVerified: boolean;
+	isPinned: boolean;
 	createdAt: string;
 	profile?: {
 		institution: string | null;
@@ -61,7 +66,7 @@ const UserManagement: React.FC = () => {
 		role: "PESERTA" as string,
 		phone: "",
 		institution: "",
-		status: "ACTIVE" as string,
+		status: "PENDING" as string,
 	});
 
 	// Pagination states
@@ -118,6 +123,34 @@ const UserManagement: React.FC = () => {
 		setShowAssignCouponModal(true);
 	};
 
+	const handleVerifyUser = async (user: User) => {
+		try {
+			await api.patch(`/users/${user.id}/verify`);
+			showSuccess(
+				user.emailVerified
+					? "Verifikasi user dicabut"
+					: "User berhasil diverifikasi"
+			);
+			fetchUsers();
+		} catch (error: any) {
+			showError(error.response?.data?.message || "Gagal mengubah status verifikasi");
+		}
+	};
+
+	const handleTogglePin = async (user: User) => {
+		try {
+			await api.patch(`/users/${user.id}/pin`);
+			showSuccess(
+				user.isPinned
+					? "Pin juri dicabut"
+					: "Juri berhasil di-pin"
+			);
+			fetchUsers();
+		} catch (error: any) {
+			showError(error.response?.data?.message || "Gagal mengubah status pin");
+		}
+	};
+
 	const handleAddUser = () => {
 		setShowAddUserModal(true);
 		// Reset form
@@ -128,7 +161,7 @@ const UserManagement: React.FC = () => {
 			role: "PESERTA",
 			phone: "",
 			institution: "",
-			status: "ACTIVE",
+			status: "PENDING",
 		});
 		setShowPassword(false);
 	};
@@ -506,15 +539,49 @@ const UserManagement: React.FC = () => {
 											)}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm">
-											{user.role === "PANITIA" && (
+											<div className="flex items-center gap-2">
 												<button
-													onClick={() => handleAssignCoupon(user)}
-													className="flex items-center gap-1 px-3 py-1.5 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors text-xs font-medium"
+													onClick={() => handleVerifyUser(user)}
+													title={user.emailVerified ? "Cabut Verifikasi" : "Verifikasi User"}
+													className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${
+														user.emailVerified
+															? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+															: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+													}`}
 												>
-													<TicketIcon className="w-4 h-4" />
-													Assign Kupon
+													{user.emailVerified ? (
+														<><ShieldCheckIcon className="w-4 h-4" /> Verified</>
+													) : (
+														<><ShieldExclamationIcon className="w-4 h-4" /> Verifikasi</>
+													)}
 												</button>
-											)}
+												{user.role === "JURI" && (
+													<button
+														onClick={() => handleTogglePin(user)}
+														title={user.isPinned ? "Unpin Juri" : "Pin Juri"}
+														className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${
+															user.isPinned
+																? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
+																: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+														}`}
+													>
+														{user.isPinned ? (
+															<><StarIconSolid className="w-4 h-4" /> Pinned</>
+														) : (
+															<><StarIcon className="w-4 h-4" /> Pin</>
+														)}
+													</button>
+												)}
+												{user.role === "PANITIA" && (
+													<button
+														onClick={() => handleAssignCoupon(user)}
+														className="flex items-center gap-1 px-3 py-1.5 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors text-xs font-medium"
+													>
+														<TicketIcon className="w-4 h-4" />
+														Assign Kupon
+													</button>
+												)}
+											</div>
 										</td>
 									</tr>
 								))
@@ -854,8 +921,8 @@ const UserManagement: React.FC = () => {
 									{/* Info Box */}
 									<div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
 										<p className="text-xs text-blue-800 dark:text-blue-300">
-											<strong>Catatan:</strong> User yang dibuat akan otomatis
-											terverifikasi emailnya.
+											<strong>Catatan:</strong> User baru akan memiliki status
+											Pending dan perlu diverifikasi oleh admin.
 										</p>
 									</div>
 								</div>

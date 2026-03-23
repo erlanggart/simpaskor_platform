@@ -4,10 +4,10 @@ import {
 	DocumentArrowUpIcon,
 	CurrencyDollarIcon,
 	PhoneIcon,
-	EnvelopeIcon,
 	BuildingOfficeIcon,
 	PlayCircleIcon,
 	XMarkIcon,
+	UserIcon,
 } from "@heroicons/react/24/outline";
 import { Step3Props, Step3Data } from "../../types/eventWizard";
 import { api } from "../../utils/api";
@@ -175,85 +175,90 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 					</h3>
 				</div>
 
-				<div className="flex flex-col md:flex-row gap-6">
-					{/* Upload Area */}
-					<div className="flex-1">
-						<label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-							Upload Poster (Opsional)
-						</label>
-						<div
-							onClick={() => !isUploadingPoster && posterInputRef.current?.click()}
-							className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors bg-gray-50 dark:bg-gray-900 ${
-								isUploadingPoster 
-									? "border-indigo-400 dark:border-indigo-500 cursor-wait"
-									: posterError 
-										? "border-red-400 dark:border-red-500 hover:border-red-500 dark:hover:border-red-400 cursor-pointer" 
-										: "border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-400 cursor-pointer"
-							}`}
-						>
-							{isUploadingPoster ? (
-								<>
-									<div className="w-12 h-12 mx-auto mb-4 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-									<p className="text-indigo-600 dark:text-indigo-400 font-medium">
-										Mengupload poster...
-									</p>
-								</>
-							) : (
-								<>
-									<PhotoIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" />
-									<p className="text-gray-600 dark:text-gray-400">
-										Klik untuk upload atau drag & drop
-									</p>
-									<p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-										PNG, JPG, WEBP (maks 5MB)
-									</p>
-								</>
-							)}
-						</div>
-						{posterError && (
-							<p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-								<span className="font-medium">⚠️</span> {posterError}
-							</p>
-						)}
-						<input
-							ref={posterInputRef}
-							type="file"
-							accept="image/png,image/jpeg,image/webp"
-							onChange={handlePosterChange}
-							className="hidden"
-						/>
-					</div>
+				<label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+					Upload Poster (Opsional)
+				</label>
 
-					{/* Preview */}
-					{thumbnailPreview && (
-						<div className="md:w-48 relative">
-							<label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-								Preview
-							</label>
-							<div className="relative rounded-lg overflow-hidden shadow dark:shadow-gray-900/50">
-								<img
-									src={thumbnailPreview}
-									alt="Preview"
-									className="w-full aspect-[3/4] object-cover"
-								/>
-								{isUploadingPoster && (
-									<div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-										<div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-									</div>
-								)}
-								{!isUploadingPoster && (
-									<button
-										type="button"
-										onClick={removePoster}
-										className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-									>
-										<XMarkIcon className="w-4 h-4" />
-									</button>
-								)}
+				{thumbnailPreview ? (
+					/* Image Preview - replaces the drop zone */
+					<div className="relative rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 max-w-xs">
+						<img
+							src={thumbnailPreview}
+							alt="Preview Poster"
+							className="w-full aspect-[3/4] object-cover cursor-pointer"
+							onClick={() => !isUploadingPoster && posterInputRef.current?.click()}
+							title="Klik untuk ganti poster"
+						/>
+						{isUploadingPoster && (
+							<div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+								<div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
 							</div>
-						</div>
-					)}
-				</div>
+						)}
+						{!isUploadingPoster && (
+							<>
+								<div
+									onClick={() => posterInputRef.current?.click()}
+									className="absolute inset-0 bg-black/0 hover:bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer"
+								>
+									<span className="text-white text-sm font-medium bg-black/60 px-3 py-1.5 rounded-lg">
+										Ganti Poster
+									</span>
+								</div>
+								<button
+									type="button"
+									onClick={(e) => { e.stopPropagation(); removePoster(); }}
+									className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow"
+								>
+									<XMarkIcon className="w-4 h-4" />
+								</button>
+							</>
+						)}
+					</div>
+				) : (
+					/* Drop Zone - shown when no image selected */
+					<div
+						onClick={() => !isUploadingPoster && posterInputRef.current?.click()}
+						className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors bg-gray-50 dark:bg-gray-900 ${
+							isUploadingPoster 
+								? "border-indigo-400 dark:border-indigo-500 cursor-wait"
+								: posterError 
+									? "border-red-400 dark:border-red-500 hover:border-red-500 dark:hover:border-red-400 cursor-pointer" 
+									: "border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-400 cursor-pointer"
+						}`}
+					>
+						{isUploadingPoster ? (
+							<>
+								<div className="w-12 h-12 mx-auto mb-4 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+								<p className="text-indigo-600 dark:text-indigo-400 font-medium">
+									Mengupload poster...
+								</p>
+							</>
+						) : (
+							<>
+								<PhotoIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" />
+								<p className="text-gray-600 dark:text-gray-400">
+									Klik untuk upload atau drag & drop
+								</p>
+								<p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+									PNG, JPG, WEBP (maks 5MB)
+								</p>
+							</>
+						)}
+					</div>
+				)}
+
+				{posterError && (
+					<p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+						<span className="font-medium">⚠️</span> {posterError}
+					</p>
+				)}
+				<input
+					ref={posterInputRef}
+					type="file"
+					accept="image/png,image/jpeg,image/webp"
+					onChange={handlePosterChange}
+					className="hidden"
+				/>
 			</div>
 
 			{/* Juknis Upload */}
@@ -333,12 +338,56 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 				)}
 			</div>
 
-			{/* Fee & Contact */}
+			{/* Contact Person */}
+			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+				<div className="flex items-center gap-3 mb-4">
+					<UserIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+						Contact Person
+					</h3>
+				</div>
+
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					{/* Contact Person Name */}
+					<div>
+						<label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+							<UserIcon className="w-4 h-4" />
+							Nama Contact Person
+						</label>
+						<input
+							type="text"
+							name="contactPersonName"
+							value={data.contactPersonName}
+							onChange={handleChange}
+							placeholder="Nama lengkap contact person"
+							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+						/>
+					</div>
+
+					{/* Contact Phone/WA */}
+					<div>
+						<label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+							<PhoneIcon className="w-4 h-4" />
+							Nomor Telepon / WhatsApp
+						</label>
+						<input
+							type="tel"
+							name="contactPhone"
+							value={data.contactPhone}
+							onChange={handleChange}
+							placeholder="08xxxxxxxxxx"
+							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+						/>
+					</div>
+				</div>
+			</div>
+
+			{/* Fee & Organizer */}
 			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
 					<CurrencyDollarIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-						Biaya & Kontak
+						Biaya & Penyelenggara
 					</h3>
 				</div>
 
@@ -374,38 +423,6 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 							value={data.organizer}
 							onChange={handleChange}
 							placeholder="Nama penyelenggara"
-							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
-						/>
-					</div>
-
-					{/* Contact Email */}
-					<div>
-						<label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-							<EnvelopeIcon className="w-4 h-4" />
-							Email Kontak
-						</label>
-						<input
-							type="email"
-							name="contactEmail"
-							value={data.contactEmail}
-							onChange={handleChange}
-							placeholder="email@example.com"
-							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
-						/>
-					</div>
-
-					{/* Contact Phone */}
-					<div>
-						<label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-							<PhoneIcon className="w-4 h-4" />
-							Nomor Telepon (WhatsApp)
-						</label>
-						<input
-							type="tel"
-							name="contactPhone"
-							value={data.contactPhone}
-							onChange={handleChange}
-							placeholder="08xxxxxxxxxx"
 							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
 						/>
 					</div>

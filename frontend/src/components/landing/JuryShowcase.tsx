@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 interface Juri {
 	id: string;
@@ -277,6 +278,29 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 								)}
 							</div>
 						))}
+					</div>
+
+					{/* View All Link */}
+					<div className="text-center mt-8">
+						<Link
+							to="/juries"
+							className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300"
+						>
+							Lihat Semua Juri
+							<svg
+								className="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M13 7l5 5m0 0l-5 5m5-5H6"
+								/>
+							</svg>
+						</Link>
 					</div>
 				</div>
 			)}

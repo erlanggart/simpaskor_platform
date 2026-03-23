@@ -54,6 +54,7 @@ export interface Step3Data {
 	juknisUrl: string;
 	registrationFee: number;
 	organizer: string;
+	contactPersonName: string;
 	contactEmail: string;
 	contactPhone: string;
 	status: 'DRAFT' | 'PUBLISHED';
@@ -78,6 +79,7 @@ export interface DraftEvent {
 	venue: string | null;
 	registrationFee: string | null;
 	organizer: string | null;
+	contactPersonName: string | null;
 	contactEmail: string | null;
 	contactPhone: string | null;
 	status: string;

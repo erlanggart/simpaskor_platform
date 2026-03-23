@@ -15,6 +15,10 @@ import {
 	EyeIcon,
 	ChatBubbleLeftIcon,
 	TrashIcon,
+	InformationCircleIcon,
+	PhoneIcon,
+	UserIcon,
+	ShareIcon,
 } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
 import { HeartIcon as HeartIconOutline } from "@heroicons/react/24/outline";
@@ -114,18 +118,51 @@ interface Event {
 	registrationFee: number | null;
 	organizer: string | null;
 	organizerEmail: string | null;
+	contactPersonName: string | null;
+	contactPhone: string | null;
 	status: string;
 	featured: boolean;
 	createdBy?: EventCreator;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	assessmentCategories?: EventAssessmentCategory[];
 	juryAssignments?: JuryAssignment[];
+	participations?: {
+		id: string;
+		status: string;
+		teamName: string | null;
+		schoolName: string | null;
+		totalScore: number | null;
+		user: { id: string; name: string };
+		schoolCategory: { id: string; name: string; description: string | null } | null;
+		groups: {
+			id: string;
+			groupName: string;
+			orderNumber: number | null;
+			schoolCategory: { id: string; name: string } | null;
+		}[];
+	}[];
 }
 
 interface ParticipantSummary {
 	schoolName: string;
 	teamCount: number;
 	teams: { name: string; category: string | null }[];
+}
+
+interface LeaderboardEntry {
+	id: string;
+	teamName: string;
+	schoolName: string;
+	schoolCategory: { id: string; name: string } | null;
+	orderNumber: number | null;
+	grandTotal: number;
+}
+
+interface LeaderboardData {
+	event: { id: string; title: string; slug: string | null };
+	categories: { id: string; name: string }[];
+	schoolCategories: { id: string; name: string }[];
+	leaderboard: LeaderboardEntry[];
 }
 
 const EventDetail: React.FC = () => {
@@ -139,6 +176,10 @@ const EventDetail: React.FC = () => {
 	const [myRegistration, setMyRegistration] = useState<EventRegistration | null>(null);
 	const [checkingRegistration, setCheckingRegistration] = useState(false);
 	const [participantsSummary, setParticipantsSummary] = useState<ParticipantSummary[]>([]);
+	const [participantTab, setParticipantTab] = useState<string>("all");
+	const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
+	const [leaderboardTab, setLeaderboardTab] = useState<string>("all");
+	const [activeTab, setActiveTab] = useState<string>("info");
 	
 	// Comments & Likes state
 	const [comments, setComments] = useState<EventComment[]>([]);
@@ -161,6 +202,21 @@ const EventDetail: React.FC = () => {
 			fetchLikes();
 		}
 	}, [isAuthenticated, event]);
+
+	useEffect(() => {
+		if (event && event.status === "COMPLETED") {
+			fetchLeaderboard();
+		}
+	}, [event]);
+
+	const fetchLeaderboard = async () => {
+		try {
+			const response = await api.get(`/events/${id}/leaderboard`);
+			setLeaderboardData(response.data);
+		} catch (error) {
+			console.error("Error fetching leaderboard:", error);
+		}
+	};
 
 	const fetchComments = async () => {
 		try {
@@ -356,7 +412,7 @@ const EventDetail: React.FC = () => {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto"></div>
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 dark:border-cyan-400 mx-auto"></div>
 					<p className="mt-4 text-gray-600 dark:text-gray-400">
 						Memuat detail event...
 					</p>
@@ -378,7 +434,7 @@ const EventDetail: React.FC = () => {
 					</p>
 					<button
 						onClick={() => navigate(-1)}
-						className="inline-flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg transition-colors"
+						className="inline-flex items-center px-6 py-3 bg-red-600 hover:bg-red-700 dark:bg-cyan-700 dark:hover:bg-cyan-600 text-white rounded-lg transition-colors"
 					>
 						<ArrowLeftIcon className="w-5 h-5 mr-2" />
 						Kembali
@@ -388,243 +444,269 @@ const EventDetail: React.FC = () => {
 		);
 	}
 
+	// Determine tabs for the event
+	const tabs = [
+		{ id: "info", label: "Informasi Event", icon: InformationCircleIcon },
+		{ id: "jury", label: "Juri & Penilaian", icon: TrophyIcon },
+		{ id: "peserta", label: "Peserta", icon: UserGroupIcon },
+		...(event.status === "COMPLETED"
+			? [{ id: "leaderboard", label: "Hasil Perlombaan", icon: TrophyIcon }]
+			: []),
+	];
+
+	const handleShare = async () => {
+		const url = window.location.href;
+		if (navigator.share) {
+			try {
+				await navigator.share({ title: event.title, url });
+			} catch { /* user cancelled */ }
+		} else {
+			await navigator.clipboard.writeText(url);
+			alert("Link berhasil disalin!");
+		}
+	};
+
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Back Button */}
-				<button
-					onClick={() => navigate(-1)}
-					className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-6 transition-colors"
-				>
-					<ArrowLeftIcon className="w-5 h-5 mr-2" />
-					Kembali
-				</button>
+			{/* Red-White accent line at top */}
+			<div className="h-1 bg-gradient-to-r from-red-600 via-white to-red-600 dark:from-cyan-500 dark:via-purple-500 dark:to-pink-500" />
 
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-					{/* Main Content */}
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+				{/* ============ HERO: Poster + Info Side-by-Side ============ */}
+				<div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
+
+					{/* Poster - 2 cols */}
 					<div className="lg:col-span-2">
-						{/* Event Image with 4:5 aspect ratio */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-6">
-							<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-indigo-500 to-purple-600">
+						<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-red-100 dark:border-gray-700/50">
+							<div className="relative w-full aspect-[3/4] bg-gradient-to-br from-red-600 to-red-800 dark:from-gray-800 dark:to-gray-900">
 								{event.thumbnail ? (
 									<img
 										src={getImageUrl(event.thumbnail) || ""}
 										alt={event.title}
 										className="w-full h-full object-cover"
-										onError={(e) => {
-											e.currentTarget.style.display = "none";
-										}}
+										onError={(e) => { e.currentTarget.style.display = "none"; }}
 									/>
 								) : (
-									<div className="flex items-center justify-center h-full">
-										<CalendarIcon className="w-24 h-24 text-white/50" />
+									<div className="flex flex-col items-center justify-center h-full gap-3">
+										<CalendarIcon className="w-20 h-20 text-white/40" />
+										<span className="text-white/50 text-sm">Belum ada poster</span>
 									</div>
 								)}
 
-								{/* Status Badges */}
+								{/* Status badges */}
 								<div className="absolute top-4 left-4 flex flex-wrap gap-2">
 									{event.featured && (
-										<span className="bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
+										<span className="bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg uppercase tracking-wide">
 											Featured
 										</span>
 									)}
 									{event.category && (
-										<span className="bg-indigo-600 dark:bg-indigo-700 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
+										<span className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
 											{event.category}
 										</span>
 									)}
 									{event.level && (
-										<span className="bg-blue-600 dark:bg-blue-700 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
+										<span className="bg-white/90 text-red-700 px-3 py-1 rounded-full text-xs font-bold shadow-lg">
 											{event.level}
 										</span>
 									)}
 								</div>
 
+								{/* Registration status badge */}
 								{isEventFull() ? (
-									<div className="absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+									<div className="absolute bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
 										Event Penuh
 									</div>
 								) : isRegistrationOpen() ? (
-									<div className="absolute bottom-4 right-4 bg-green-500 dark:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+									<div className="absolute bottom-4 right-4 bg-green-500 dark:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg animate-pulse">
 										Pendaftaran Dibuka
 									</div>
 								) : (
-									<div className="absolute bottom-4 right-4 bg-gray-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+									<div className="absolute bottom-4 right-4 bg-gray-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
 										Pendaftaran Ditutup
 									</div>
 								)}
 							</div>
 						</div>
+					</div>
 
-						{/* Event Description */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-							<h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-								{event.title}
-							</h1>
+					{/* Event Info - 3 cols */}
+					<div className="lg:col-span-3 flex flex-col">
+						<h1 className="text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 leading-tight">
+							{event.title}
+						</h1>
 
-							{event.description && (
-								<div className="prose dark:prose-invert max-w-none mb-6">
-									<p className="text-gray-600 dark:text-gray-300 whitespace-pre-line">
-										{event.description}
-									</p>
-								</div>
-							)}
-
-							{/* Assessment Categories as Badges */}
-							{event.assessmentCategories && event.assessmentCategories.length > 0 && (
-								<div className="mb-4">
-									<div className="flex items-center gap-2 mb-2">
-										<TrophyIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-										<span className="text-sm font-medium text-gray-700 dark:text-gray-300">Kriteria Penilaian:</span>
-									</div>
-									<div className="flex flex-wrap gap-2">
-										{event.assessmentCategories
-											.sort((a, b) => a.assessmentCategory.order - b.assessmentCategory.order)
-											.map((category) => (
-												<span
-													key={category.id}
-													className="inline-flex items-center px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm rounded-full"
-													title={category.assessmentCategory.description || undefined}
-												>
-													{category.assessmentCategory.name}
-													{category.customWeight !== null && (
-														<span className="ml-1.5 text-xs font-semibold text-indigo-500 dark:text-indigo-400">
-															({category.customWeight}%)
-														</span>
-													)}
-												</span>
-											))
-										}
-									</div>
-								</div>
-							)}
-
-							
-							{(event.organizer || event.organizerEmail) && (
-								<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
-									{event.organizer && (
-										<div className="flex items-center text-gray-600 dark:text-gray-300">
-											<UserGroupIcon className="w-5 h-5 mr-2 flex-shrink-0" />
-											<span className="font-medium">Penyelenggara:</span>
-											<span className="ml-2">{event.organizer}</span>
-										</div>
-									)}
-									{event.organizerEmail && (
-										<div className="flex items-center text-gray-600 dark:text-gray-300">
-											<svg
-												className="w-5 h-5 mr-2 flex-shrink-0"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													strokeWidth={2}
-													d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-												/>
-											</svg>
-											<span className="font-medium">Email:</span>
-											<a
-												href={`mailto:${event.organizerEmail}`}
-												className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline"
-											>
-												{event.organizerEmail}
-											</a>
-										</div>
-									)}
-								</div>
-							)}
-						</div>
-
-						{/* Confirmed Juries */}
-						{event.juryAssignments && event.juryAssignments.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-								<div className="flex items-center mb-4">
-									<TrophyIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-										Dewan Juri ({event.juryAssignments.length})
-									</h2>
-								</div>
-								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-									{event.juryAssignments.map((assignment) => (
-										<div
-											key={assignment.id}
-											className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center"
-										>
-											{/* Avatar */}
-											<div className="relative mx-auto w-20 h-20 mb-3">
-												{assignment.jury.profile?.avatar ? (
-													<img
-														src={getImageUrl(assignment.jury.profile.avatar) || ""}
-														alt={assignment.jury.name}
-														className="w-20 h-20 rounded-full object-cover border-3 border-indigo-200 dark:border-indigo-800"
-													/>
-												) : (
-													<div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-														{assignment.jury.name.charAt(0).toUpperCase()}
-													</div>
-												)}
-												<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-													<CheckCircleIcon className="w-4 h-4 text-white" />
-												</div>
-											</div>
-											{/* Name */}
-											<h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1 truncate">
-												{assignment.jury.name}
-											</h3>
-											{/* Institution */}
-											{assignment.jury.profile?.institution && (
-												<p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">
-													{assignment.jury.profile.institution}
-												</p>
-											)}
-											{/* Assigned Categories */}
-											{assignment.assignedCategories.length > 0 && (
-												<div className="flex flex-wrap justify-center gap-1">
-													{assignment.assignedCategories.slice(0, 2).map((cat, idx) => (
-														<span
-															key={idx}
-															className="inline-flex items-center px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full"
-														>
-															{cat.assessmentCategory.name}
-														</span>
-													))}
-													{assignment.assignedCategories.length > 2 && (
-														<span className="text-xs text-gray-500 dark:text-gray-400">
-															+{assignment.assignedCategories.length - 2}
-														</span>
-													)}
-												</div>
-											)}
-										</div>
-									))}
-								</div>
+						{/* Creator */}
+						{event.createdBy && (
+							<div className="flex items-center gap-3 mb-5">
+								<span className="text-sm text-gray-500 dark:text-gray-400 italic">presented by</span>
+								<span className="font-semibold text-gray-800 dark:text-white">{event.createdBy.name}</span>
+								<span className="text-xs bg-red-100 dark:bg-cyan-900/40 text-red-700 dark:text-cyan-300 px-2 py-0.5 rounded-full">{event.createdBy.email}</span>
 							</div>
 						)}
 
-						{/* Juknis Download */}
-						{event.juknisUrl && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-								<div className="flex items-center justify-between mb-4">
-									<div className="flex items-center">
-										<DocumentArrowDownIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-										<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-											Petunjuk Teknis (Juknis)
-										</h2>
+						{/* Info items */}
+						<div className="space-y-4 flex-1">
+							{/* Date */}
+							<div className="flex items-start gap-3">
+								<CalendarIcon className="w-5 h-5 text-red-500 dark:text-cyan-400 mt-0.5 flex-shrink-0" />
+								<div>
+									<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Tanggal Pelaksanaan</p>
+									<p className="text-gray-900 dark:text-white font-semibold">
+										{formatDate(event.startDate)}
+										{event.startDate !== event.endDate && ` — ${formatDate(event.endDate)}`}
+									</p>
+								</div>
+							</div>
+
+							{/* Location */}
+							{event.location && (
+								<div className="flex items-start gap-3">
+									<MapPinIcon className="w-5 h-5 text-red-500 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+									<div>
+										<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Lokasi</p>
+										<p className="text-gray-900 dark:text-white font-semibold">
+											{event.venue && `${event.venue}, `}{event.location}
+										</p>
 									</div>
+								</div>
+							)}
+
+							{/* Registration Deadline */}
+							{event.registrationDeadline && (
+								<div className="flex items-start gap-3">
+									<ClockIcon className="w-5 h-5 text-red-500 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+									<div>
+										<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Batas Pendaftaran</p>
+										<p className="text-gray-900 dark:text-white font-semibold">{formatDate(event.registrationDeadline)}</p>
+									</div>
+								</div>
+							)}
+
+							{/* Fee */}
+							<div className="flex items-start gap-3">
+								<CurrencyDollarIcon className="w-5 h-5 text-red-500 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+								<div>
+									<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Biaya Pendaftaran</p>
+									<p className="text-2xl font-bold text-red-600 dark:text-yellow-400">{formatCurrency(event.registrationFee)}</p>
+								</div>
+							</div>
+						</div>
+
+						{/* Registration CTA */}
+						<div className="mt-6 pt-6 border-t border-red-100 dark:border-gray-700">
+							{myRegistration ? (
+								<div className="text-center">
+									<div className="inline-flex items-center px-5 py-2.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-xl border border-green-200 dark:border-green-800 mb-2">
+										<CheckCircleIcon className="w-5 h-5 mr-2" />
+										<span className="font-bold">Sudah Terdaftar</span>
+									</div>
+									<p className="text-sm text-gray-600 dark:text-gray-400">
+										{myRegistration.groups.filter(g => g.status === "ACTIVE").length} Tim Terdaftar
+									</p>
+									<Link
+										to="/peserta/registrations"
+										className="mt-2 inline-block text-sm text-red-600 dark:text-cyan-400 hover:underline font-medium"
+									>
+										Kelola Pendaftaran →
+									</Link>
+								</div>
+							) : isAuthenticated && user?.role !== "PESERTA" ? (
+								<p className="text-center text-sm text-gray-500 dark:text-gray-400">
+									Hanya akun PESERTA yang dapat mendaftar ke event
+								</p>
+							) : isRegistrationOpen() ? (
+								<>
+									<button
+										onClick={handleRegister}
+										disabled={checkingRegistration}
+										className="w-full px-6 py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 dark:from-cyan-600 dark:to-blue-600 dark:hover:from-cyan-500 dark:hover:to-blue-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg shadow-red-500/20 dark:shadow-cyan-900/30"
+									>
+										{checkingRegistration ? (
+											<><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" /> Memeriksa...</>
+										) : (
+											<><UserGroupIcon className="w-5 h-5 mr-2" />{isAuthenticated ? "Daftar Sekarang" : "Login untuk Daftar"}</>
+										)}
+									</button>
+									{!isAuthenticated && (
+										<p className="mt-3 text-sm text-center text-gray-500 dark:text-gray-400">
+											Silakan login terlebih dahulu untuk mendaftar ke event ini
+										</p>
+									)}
+								</>
+							) : (
+								<button
+									disabled
+									className="w-full px-6 py-3.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl font-bold cursor-not-allowed"
+								>
+									{isEventFull() ? "Event Penuh" : "Pendaftaran Ditutup"}
+								</button>
+							)}
+						</div>
+					</div>
+				</div>
+
+				{/* ============ TAB NAVIGATION ============ */}
+				<div className="border-b border-red-200 dark:border-gray-700/50 mb-6">
+					<nav className="flex gap-1 overflow-x-auto -mb-px">
+						{tabs.map((tab) => {
+							const Icon = tab.icon;
+							const isActive = activeTab === tab.id;
+							return (
+								<button
+									key={tab.id}
+									onClick={() => setActiveTab(tab.id)}
+									className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
+										isActive
+											? "border-red-600 text-red-600 dark:border-cyan-400 dark:text-cyan-400"
+											: "border-transparent text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-cyan-400 hover:border-red-300 dark:hover:border-cyan-600"
+									}`}
+								>
+									<Icon className={`w-5 h-5 ${isActive ? "text-red-600 dark:text-cyan-400" : ""}`} />
+									{tab.label}
+								</button>
+							);
+						})}
+					</nav>
+				</div>
+
+				{/* ============ TAB CONTENT ============ */}
+
+				{/* --- Tab 1: Informasi Event --- */}
+				{activeTab === "info" && (
+					<div className="space-y-6">
+						{/* Description */}
+						{event.description && (
+							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+									<InformationCircleIcon className="w-5 h-5 text-red-500 dark:text-cyan-400" />
+									Tentang Event
+								</h2>
+								<p className="text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
+									{event.description}
+								</p>
+							</div>
+						)}
+
+						{/* Juknis */}
+						{event.juknisUrl && (
+							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+								<div className="flex items-center justify-between mb-4">
+									<h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+										<DocumentArrowDownIcon className="w-5 h-5 text-red-500 dark:text-violet-400" />
+										Petunjuk Teknis (Juknis)
+									</h2>
 								</div>
 								<p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
 									Dokumen petunjuk teknis berisi informasi lengkap mengenai tata cara, peraturan, dan ketentuan event ini.
 								</p>
-								
-								{/* Action Buttons */}
 								<div className="flex flex-wrap gap-3 mb-4">
 									<a
 										href={getImageUrl(event.juknisUrl) || ""}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors"
+										className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-violet-600 dark:hover:bg-violet-500 text-white rounded-lg font-medium transition-colors"
 									>
 										<EyeIcon className="w-5 h-5 mr-2" />
 										Buka di Tab Baru
@@ -638,8 +720,6 @@ const EventDetail: React.FC = () => {
 										Download PDF
 									</a>
 								</div>
-
-								{/* Embedded PDF Viewer */}
 								<div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
 									<iframe
 										src={getImageUrl(event.juknisUrl) || ""}
@@ -651,456 +731,512 @@ const EventDetail: React.FC = () => {
 							</div>
 						)}
 
-						{/* Registered Participants Summary */}
-						{participantsSummary.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-								<div className="flex items-center mb-4">
-									<UserGroupIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-										Peserta Terdaftar ({participantsSummary.reduce((acc, p) => acc + p.teamCount, 0)} Tim)
-									</h2>
-								</div>
-								<div className="space-y-3">
-									{participantsSummary.map((participant, idx) => (
-										<div
-											key={idx}
-											className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-										>
-											<div className="flex items-center justify-between mb-2">
-												<span className="font-medium text-gray-900 dark:text-white">
-													{participant.schoolName}
-												</span>
-												<span className="text-sm text-gray-500 dark:text-gray-400">
-													{participant.teamCount} tim
-												</span>
-											</div>
-											<div className="flex flex-wrap gap-2">
-												{participant.teams.map((team, tidx) => (
-													<span
-														key={tidx}
-														className="inline-flex items-center px-2 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full"
-													>
-														{team.name}
-														{team.category && (
-															<span className="ml-1 text-indigo-500 dark:text-indigo-400">
-																({team.category})
-															</span>
-														)}
-													</span>
-												))}
+						{/* Contact Person */}
+						{(event.contactPersonName || event.contactPhone || event.organizer) && (
+							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+									<PhoneIcon className="w-5 h-5 text-red-500 dark:text-emerald-400" />
+									Contact Person
+								</h2>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									{event.contactPersonName && (
+										<div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl">
+											<UserIcon className="w-8 h-8 text-red-500 dark:text-cyan-400 flex-shrink-0" />
+											<div>
+												<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Nama</p>
+												<p className="font-semibold text-gray-900 dark:text-white">{event.contactPersonName}</p>
 											</div>
 										</div>
-									))}
+									)}
+									{event.contactPhone && (
+										<div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl">
+											<PhoneIcon className="w-8 h-8 text-red-500 dark:text-emerald-400 flex-shrink-0" />
+											<div>
+												<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Telepon / WhatsApp</p>
+												<a href={`https://wa.me/${event.contactPhone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-red-600 dark:text-emerald-400 hover:underline">
+													{event.contactPhone}
+												</a>
+											</div>
+										</div>
+									)}
+									{event.organizer && (
+										<div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl sm:col-span-2">
+											<UsersIcon className="w-8 h-8 text-red-500 dark:text-violet-400 flex-shrink-0" />
+											<div>
+												<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Penyelenggara</p>
+												<p className="font-semibold text-gray-900 dark:text-white">{event.organizer}</p>
+											</div>
+										</div>
+									)}
+								</div>
+							</div>
+						)}
+					</div>
+				)}
+
+				{/* --- Tab 2: Juri & Penilaian --- */}
+				{activeTab === "jury" && (
+					<div className="space-y-6">
+						{/* Assessment Categories */}
+						{event.assessmentCategories && event.assessmentCategories.length > 0 && (
+							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+									<TrophyIcon className="w-5 h-5 text-red-500 dark:text-amber-400" />
+									Kriteria Penilaian
+								</h2>
+								<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+									{event.assessmentCategories
+										.sort((a, b) => a.assessmentCategory.order - b.assessmentCategory.order)
+										.map((category, idx) => (
+											<div
+												key={category.id}
+												className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-white dark:from-gray-700/50 dark:to-gray-700/30 rounded-xl border border-red-100 dark:border-gray-600"
+											>
+												<div className="w-8 h-8 flex items-center justify-center bg-red-600 dark:bg-cyan-600 text-white rounded-full text-sm font-bold flex-shrink-0">
+													{idx + 1}
+												</div>
+												<div className="min-w-0">
+													<p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{category.assessmentCategory.name}</p>
+													{category.assessmentCategory.description && (
+														<p className="text-xs text-gray-500 dark:text-gray-400 truncate">{category.assessmentCategory.description}</p>
+													)}
+													{category.customWeight !== null && (
+														<span className="text-xs font-bold text-red-600 dark:text-amber-400">Bobot: {category.customWeight}%</span>
+													)}
+												</div>
+											</div>
+										))
+									}
 								</div>
 							</div>
 						)}
 
-						{/* Like & Comment Section */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-							{/* Event Caption */}
-							<div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-								<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-									{event.title}
+						{/* Jury List */}
+						{event.juryAssignments && event.juryAssignments.length > 0 ? (
+							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+									<TrophyIcon className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+									Dewan Juri ({event.juryAssignments.length})
 								</h2>
-								{event.description && (
-									<p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-line line-clamp-3">
-										{event.description}
-									</p>
-								)}
-							</div>
-
-							{/* Like Button */}
-							<div className="flex items-center justify-between mb-6">
-								<button
-									onClick={handleToggleLike}
-									disabled={togglingLike}
-									className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all active:scale-95 ${
-										likeData.isLiked
-											? "bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400"
-											: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-									}`}
-								>
-									{likeData.isLiked ? (
-										<HeartIconSolid className="w-5 h-5 text-red-500" />
-									) : (
-										<HeartIconOutline className="w-5 h-5" />
-									)}
-									<span>{likeData.count}</span>
-									<span className="hidden sm:inline">Suka</span>
-								</button>
-								<div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-									<ChatBubbleLeftIcon className="w-5 h-5" />
-									<span>{comments.length} Komentar</span>
+								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+									{event.juryAssignments.map((assignment) => (
+										<div
+											key={assignment.id}
+											className="bg-gradient-to-b from-red-50 to-white dark:from-gray-700/50 dark:to-gray-700/30 rounded-xl p-4 text-center border border-red-100 dark:border-gray-600"
+										>
+											<div className="relative mx-auto w-20 h-20 mb-3">
+												{assignment.jury.profile?.avatar ? (
+													<img
+														src={getImageUrl(assignment.jury.profile.avatar) || ""}
+														alt={assignment.jury.name}
+														className="w-20 h-20 rounded-lg object-cover border-2 border-red-200 dark:border-cyan-700"
+													/>
+												) : (
+													<div className="w-20 h-20 rounded-lg bg-gradient-to-br from-red-500 to-red-700 dark:from-cyan-600 dark:to-violet-600 flex items-center justify-center text-white text-2xl font-bold">
+														{assignment.jury.name.charAt(0).toUpperCase()}
+													</div>
+												)}
+												<div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
+													<CheckCircleIcon className="w-3 h-3 text-white" />
+												</div>
+											</div>
+											<h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-0.5 truncate">{assignment.jury.name}</h3>
+											{assignment.jury.profile?.institution && (
+												<p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">{assignment.jury.profile.institution}</p>
+											)}
+											{assignment.assignedCategories.length > 0 && (
+												<div className="flex flex-wrap justify-center gap-1 mt-1">
+													{assignment.assignedCategories.slice(0, 2).map((cat, cidx) => (
+														<span key={cidx} className="inline-flex items-center px-2 py-0.5 bg-red-100 dark:bg-cyan-900/40 text-red-700 dark:text-cyan-300 text-xs rounded-full">
+															{cat.assessmentCategory.name}
+														</span>
+													))}
+													{assignment.assignedCategories.length > 2 && (
+														<span className="text-xs text-gray-500 dark:text-gray-400">+{assignment.assignedCategories.length - 2}</span>
+													)}
+												</div>
+											)}
+										</div>
+									))}
 								</div>
 							</div>
+						) : (
+							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center border border-red-50 dark:border-gray-700">
+								<TrophyIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+								<p className="text-gray-500 dark:text-gray-400">Belum ada juri yang ditugaskan</p>
+							</div>
+						)}
+					</div>
+				)}
 
-							{/* Comment Form */}
-							{isAuthenticated ? (
-								<div className="mb-6">
-									<div className="flex gap-3">
-										{/* User Avatar */}
-										<div className="flex-shrink-0">
-											<div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
-												{user?.name?.charAt(0).toUpperCase() || "U"}
+				{/* --- Tab 3: Peserta --- */}
+				{activeTab === "peserta" && (
+					<div className="space-y-6">
+						{/* Quota */}
+						<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+							<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+								<UsersIcon className="w-5 h-5 text-red-500 dark:text-pink-400" />
+								Kuota Peserta
+							</h2>
+							{event.schoolCategoryLimits && event.schoolCategoryLimits.length > 0 ? (
+								<div className="space-y-4">
+									{event.schoolCategoryLimits.map((limit) => {
+										const current = limit.currentParticipants || 0;
+										const max = limit.maxParticipants;
+										const percentage = (current / max) * 100;
+										const isFull = current >= max;
+										return (
+											<div key={limit.id}>
+												<div className="flex items-center justify-between mb-1.5">
+													<span className="font-semibold text-gray-900 dark:text-white text-sm">{limit.schoolCategory.name}</span>
+													<span className={`text-sm font-bold ${isFull ? "text-red-600 dark:text-pink-400" : "text-gray-600 dark:text-gray-400"}`}>
+														{current} / {max} tim
+													</span>
+												</div>
+												<div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+													<div
+														className={`h-2.5 rounded-full transition-all ${
+															isFull ? "bg-red-500" : percentage > 75 ? "bg-yellow-500" : "bg-green-500"
+														}`}
+														style={{ width: `${Math.min(percentage, 100)}%` }}
+													/>
+												</div>
 											</div>
-										</div>
-										{/* Input */}
-										<div className="flex-1">
-											<textarea
-												value={newComment}
-												onChange={(e) => setNewComment(e.target.value)}
-												placeholder="Tulis komentar..."
-												className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-colors"
-												rows={3}
-												maxLength={1000}
-											/>
-											<div className="flex justify-between items-center mt-2">
-												<span className="text-xs text-gray-400">
-													{newComment.length}/1000
-												</span>
-												<button
-													onClick={handleAddComment}
-													disabled={!newComment.trim() || submittingComment}
-													className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
-												>
-													{submittingComment ? "Mengirim..." : "Kirim"}
-												</button>
-											</div>
-										</div>
-									</div>
+										);
+									})}
 								</div>
 							) : (
-								<div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-									<p className="text-gray-600 dark:text-gray-400 mb-2">
-										Login untuk memberikan komentar
-									</p>
-									<Link
-										to="/login"
-										state={{ from: `/events/${id}` }}
-										className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-									>
-										Login Sekarang →
-									</Link>
+								<div className="flex items-center gap-3">
+									<UsersIcon className="w-8 h-8 text-red-500 dark:text-pink-400" />
+									<div>
+										<p className="text-gray-900 dark:text-white font-semibold">
+											{event.currentParticipants} / {event.maxParticipants || "∞"} terdaftar
+										</p>
+										{event.maxParticipants && (
+											<p className="text-sm text-green-600 dark:text-green-400">{getAvailableSpots()} slot tersisa</p>
+										)}
+									</div>
+								</div>
+							)}
+						</div>
+
+						{/* Registered Participants */}
+						{participantsSummary.length > 0 && (() => {
+							const allCategories = Array.from(
+								new Set(participantsSummary.flatMap((p) => p.teams.map((t) => t.category).filter(Boolean)))
+							) as string[];
+
+							const filteredSummary = participantTab === "all"
+								? participantsSummary
+								: participantsSummary
+									.map((p) => ({
+										...p,
+										teams: p.teams.filter((t) => t.category === participantTab),
+										teamCount: p.teams.filter((t) => t.category === participantTab).length,
+									}))
+									.filter((p) => p.teams.length > 0);
+
+							const totalTeams = filteredSummary.reduce((acc, p) => acc + p.teamCount, 0);
+
+							return (
+								<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+									<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+										<UserGroupIcon className="w-5 h-5 text-red-500 dark:text-pink-400" />
+										Peserta Terdaftar ({totalTeams} Tim)
+									</h2>
+
+									{allCategories.length > 1 && (
+										<div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">
+											<button
+												onClick={() => setParticipantTab("all")}
+												className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+													participantTab === "all"
+														? "bg-red-600 dark:bg-cyan-600 text-white"
+														: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+												}`}
+											>
+												Semua
+											</button>
+											{allCategories.map((cat) => (
+												<button
+													key={cat}
+													onClick={() => setParticipantTab(cat)}
+													className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+														participantTab === cat
+															? "bg-red-600 text-white"
+															: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+													}`}
+												>
+													{cat}
+												</button>
+											))}
+										</div>
+									)}
+
+									<div className="space-y-3 overflow-y-auto" style={{ maxHeight: "80vh" }}>
+										{filteredSummary.map((participant, idx) => (
+											<div key={idx} className="p-3 bg-red-50/50 dark:bg-gray-700/40 rounded-xl border border-red-100 dark:border-gray-600">
+												<div className="flex items-center justify-between mb-2">
+													<span className="font-semibold text-gray-900 dark:text-white">{participant.schoolName}</span>
+													<span className="text-sm text-gray-500 dark:text-gray-400 bg-red-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{participant.teamCount} tim</span>
+												</div>
+												<div className="flex flex-wrap gap-2">
+													{participant.teams.map((team, tidx) => (
+														<span key={tidx} className="inline-flex items-center px-2.5 py-1 bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs rounded-full border border-red-200 dark:border-gray-500">
+															{team.name}
+															{team.category && participantTab === "all" && (
+																<span className="ml-1 text-red-500 dark:text-cyan-400">({team.category})</span>
+															)}
+														</span>
+													))}
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							);
+						})()}
+					</div>
+				)}
+
+				{/* --- Tab 4: Leaderboard --- */}
+				{activeTab === "leaderboard" && (() => {
+					const leaderboard = leaderboardData?.leaderboard || [];
+					const schoolCategories = leaderboardData?.schoolCategories || [];
+
+					// Group by school category — no "Semua" tab
+					const defaultCat = schoolCategories && schoolCategories.length > 0 ? schoolCategories[0]!.id : "all";
+					const currentTab = leaderboardTab === "all" && schoolCategories.length > 0 ? defaultCat : leaderboardTab;
+					const filteredLeaderboard = schoolCategories.length > 0
+						? leaderboard.filter((l) => l.schoolCategory?.id === currentTab)
+						: leaderboard;
+
+					const ranked = [...filteredLeaderboard].sort((a, b) => b.grandTotal - a.grandTotal);
+
+					return (
+						<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+							<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+								<TrophyIcon className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+								Rekapitulasi Nilai & Peringkat
+							</h2>
+
+							{/* School Category Tabs - no "Semua" */}
+							{schoolCategories.length > 1 && (
+								<div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">
+									{schoolCategories.map((cat) => (
+										<button
+											key={cat.id}
+											onClick={() => setLeaderboardTab(cat.id)}
+											className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+												currentTab === cat.id
+													? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow"
+													: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+											}`}
+										>
+											{cat.name}
+										</button>
+									))}
 								</div>
 							)}
 
-							{/* Comments List */}
-							<div className="space-y-4">
-								{comments.length === 0 ? (
+							{/* Leaderboard Table */}
+							<div className="overflow-x-auto" style={{ maxHeight: "80vh", overflowY: "auto" }}>
+								<table className="w-full text-sm">
+									<thead className="sticky top-0 bg-gray-50 dark:bg-gray-700">
+										<tr>
+											<th className="px-3 py-3 text-left text-gray-500 dark:text-gray-400 font-semibold">#</th>
+											<th className="px-3 py-3 text-left text-gray-500 dark:text-gray-400 font-semibold">Peserta</th>
+											<th className="px-3 py-3 text-left text-gray-500 dark:text-gray-400 font-semibold">Asal</th>
+											<th className="px-3 py-3 text-right text-gray-500 dark:text-gray-400 font-semibold">Total Nilai</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+										{ranked.map((entry, idx) => {
+											const rank = idx + 1;
+											const isTop3 = rank <= 3;
+											const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+											return (
+												<tr key={entry.id} className={`${isTop3 ? "bg-yellow-50/70 dark:bg-yellow-900/10" : ""} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
+													<td className="px-3 py-3">
+														{medalEmoji ? (
+															<span className="text-lg">{medalEmoji}</span>
+														) : (
+															<span className="font-bold text-gray-400 dark:text-gray-500">{rank}</span>
+														)}
+													</td>
+													<td className="px-3 py-3">
+														<span className={`font-semibold ${isTop3 ? "text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"}`}>
+															{entry.teamName}
+														</span>
+													</td>
+													<td className="px-3 py-3 text-gray-600 dark:text-gray-400">{entry.schoolName}</td>
+													<td className="px-3 py-3 text-right">
+														<span className={`font-bold ${isTop3 ? "text-red-600 dark:text-amber-400 text-base" : "text-gray-700 dark:text-gray-300"}`}>
+															{entry.grandTotal.toFixed(1)}
+														</span>
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+								{ranked.length === 0 && (
 									<div className="text-center py-8 text-gray-500 dark:text-gray-400">
-										<ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-										<p>Belum ada komentar</p>
-										<p className="text-sm">Jadilah yang pertama berkomentar!</p>
+										<TrophyIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
+										<p>Belum ada data peringkat untuk kategori ini</p>
 									</div>
-								) : (
-									comments.map((comment) => (
-										<div
-											key={comment.id}
-											className="flex gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-										>
-											{/* Avatar */}
-											<div className="flex-shrink-0">
-												{comment.user.profile?.avatar ? (
-													<img
-														src={getImageUrl(comment.user.profile.avatar) || ""}
-														alt={comment.user.name}
-														className="w-10 h-10 rounded-full object-cover"
-													/>
-												) : (
-													<div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-														{comment.user.name.charAt(0).toUpperCase()}
-													</div>
-												)}
-											</div>
-											{/* Content */}
-											<div className="flex-1 min-w-0">
-												<div className="flex items-start justify-between gap-2">
-													<div>
-														<p className="font-semibold text-gray-900 dark:text-white">
-															{comment.user.name}
-															<span className="ml-2 text-xs font-normal px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full">
-																{comment.user.role}
-															</span>
-														</p>
-														<p className="text-xs text-gray-500 dark:text-gray-400">
-															{comment.user.email}
-															{comment.user.profile?.institution && (
-																<span> • {comment.user.profile.institution}</span>
-															)}
-														</p>
-													</div>
-													{(user?.id === comment.user.id || user?.role === "SUPERADMIN" || user?.role === "PANITIA") && (
-														<button
-															onClick={() => handleDeleteComment(comment.id)}
-															className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-															title="Hapus komentar"
-														>
-															<TrashIcon className="w-4 h-4" />
-														</button>
-													)}
-												</div>
-												<p className="mt-2 text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">
-													{comment.content}
-												</p>
-												<p className="mt-2 text-xs text-gray-400">
-													{formatCommentDate(comment.createdAt)}
-												</p>
-											</div>
-										</div>
-									))
 								)}
 							</div>
 						</div>
-						
+					);
+				})()}
+
+				{/* ============ Like, Comment & Share Section ============ */}
+				<div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+					{/* Event Caption */}
+					{event.description && (
+						<div className="mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
+							<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{event.title}</h2>
+							<p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-line line-clamp-3">{event.description}</p>
+						</div>
+					)}
+
+					{/* Like, Share buttons */}
+					<div className="flex items-center justify-between mb-6">
+						<div className="flex items-center gap-3">
+							<button
+								onClick={handleToggleLike}
+								disabled={togglingLike}
+								className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all active:scale-95 ${
+									likeData.isLiked
+										? "bg-red-100 dark:bg-pink-900/40 text-red-600 dark:text-pink-400 border border-red-200 dark:border-pink-800"
+										: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+								}`}
+							>
+								{likeData.isLiked ? (
+									<HeartIconSolid className="w-5 h-5 text-red-500" />
+								) : (
+									<HeartIconOutline className="w-5 h-5" />
+								)}
+								<span className="font-bold">{likeData.count}</span>
+								<span className="hidden sm:inline">Suka</span>
+							</button>
+							<button
+								onClick={handleShare}
+								className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 transition-all active:scale-95"
+							>
+								<ShareIcon className="w-5 h-5" />
+								<span className="hidden sm:inline">Bagikan</span>
+							</button>
+						</div>
+						<div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+							<ChatBubbleLeftIcon className="w-5 h-5" />
+							<span className="text-sm">{comments.length} Komentar</span>
+						</div>
 					</div>
 
-					{/* Sidebar - Sticky */}
-					<div className="lg:col-span-1">
-						{/* Event Info Card */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sticky top-20">
-							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-								Informasi Event
-							</h2>
-
-							<div className="space-y-4">
-								{/* Date & Time */}
-								<div className="flex items-start">
-									<CalendarIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-									<div>
-										<p className="text-sm text-gray-500 dark:text-gray-400">
-											Tanggal Pelaksanaan
-										</p>
-										<p className="text-gray-900 dark:text-white font-medium">
-											{formatDate(event.startDate)}
-										</p>
-										{event.startDate !== event.endDate && (
-											<p className="text-gray-900 dark:text-white font-medium">
-												s/d {formatDate(event.endDate)}
-											</p>
-										)}
+					{/* Comment Form */}
+					{isAuthenticated ? (
+						<div className="mb-6">
+							<div className="flex gap-3">
+								<div className="flex-shrink-0">
+									<div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 dark:from-cyan-500 dark:to-violet-600 flex items-center justify-center text-white font-bold">
+										{user?.name?.charAt(0).toUpperCase() || "U"}
 									</div>
 								</div>
-
-								{/* Location */}
-								{event.location && (
-									<div className="flex items-start">
-										<MapPinIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-										<div>
-											<p className="text-sm text-gray-500 dark:text-gray-400">
-												Lokasi
-											</p>
-											<p className="text-gray-900 dark:text-white font-medium">
-												{event.venue && `${event.venue}, `}
-												{event.location}
-											</p>
-										</div>
-									</div>
-								)}
-
-								{/* Registration Deadline */}
-								{event.registrationDeadline && (
-									<div className="flex items-start">
-										<ClockIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-										<div>
-											<p className="text-sm text-gray-500 dark:text-gray-400">
-												Batas Pendaftaran
-											</p>
-											<p className="text-gray-900 dark:text-white font-medium">
-												{formatDate(event.registrationDeadline)}
-											</p>
-										</div>
-									</div>
-								)}
-
-								{/* Participants */}
-								{event.schoolCategoryLimits &&
-								event.schoolCategoryLimits.length > 0 ? (
-									<div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-										<div className="flex items-start mb-3">
-											<UsersIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-											<p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-												Kuota Peserta per Kategori Sekolah
-											</p>
-										</div>
-										<div className="space-y-3 ml-8">
-											{event.schoolCategoryLimits.map((limit) => {
-												const current = limit.currentParticipants || 0;
-												const max = limit.maxParticipants;
-												const available = max - current;
-												const percentage = (current / max) * 100;
-												const isFull = current >= max;
-
-												return (
-													<div
-														key={limit.id}
-														className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3"
-													>
-														<div className="flex justify-between items-center mb-2">
-															<span className="text-gray-900 dark:text-white font-medium text-sm">
-																{limit.schoolCategory.name}
-															</span>
-															<span
-																className={`text-xs font-semibold ${
-																	isFull
-																		? "text-red-600 dark:text-red-400"
-																		: "text-gray-600 dark:text-gray-400"
-																}`}
-															>
-																{current} / {max}
-															</span>
-														</div>
-														<div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-1">
-															<div
-																className={`h-2 rounded-full transition-all ${
-																	isFull
-																		? "bg-red-500"
-																		: percentage > 75
-																		? "bg-yellow-500"
-																		: "bg-green-500"
-																}`}
-																style={{
-																	width: `${Math.min(percentage, 100)}%`,
-																}}
-															></div>
-														</div>
-														<p
-															className={`text-xs ${
-																isFull
-																	? "text-red-600 dark:text-red-400"
-																	: "text-green-600 dark:text-green-400"
-															}`}
-														>
-															{isFull ? "Penuh" : `${available} slot tersisa`}
-														</p>
-													</div>
-												);
-											})}
-										</div>
-									</div>
-								) : (
-									<div className="flex items-start">
-										<UsersIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-										<div>
-											<p className="text-sm text-gray-500 dark:text-gray-400">
-												Peserta
-											</p>
-											<p className="text-gray-900 dark:text-white font-medium">
-												{event.currentParticipants} /{" "}
-												{event.maxParticipants || "∞"} terdaftar
-											</p>
-											{event.maxParticipants && (
-												<p className="text-sm text-green-600 dark:text-green-400">
-													{getAvailableSpots()} slot tersisa
-												</p>
-											)}
-										</div>
-									</div>
-								)}
-
-								{/* Registration Fee */}
-								<div className="flex items-start pt-4 border-t border-gray-200 dark:border-gray-700">
-									<CurrencyDollarIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-									<div>
-										<p className="text-sm text-gray-500 dark:text-gray-400">
-											Biaya Pendaftaran
-										</p>
-										<p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-											{formatCurrency(event.registrationFee)}
-										</p>
-									</div>
-								</div>
-								{/* Event Creator */}
-								{event.createdBy && (
-									<div className="flex items-start pt-4 border-t border-gray-200 dark:border-gray-700">
-										<UserGroupIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-										<div>
-											<p className="text-sm text-gray-500 dark:text-gray-400">
-												Dibuat oleh
-											</p>
-											<p className="text-gray-900 dark:text-white font-medium">
-												{event.createdBy.name}
-											</p>
-											<a
-												href={`mailto:${event.createdBy.email}`}
-												className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
-											>
-												{event.createdBy.email}
-											</a>
-										</div>
-									</div>
-								)}							</div>
-
-							{/* Registration Button */}
-							<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-								{myRegistration ? (
-									<div className="text-center">
-										<div className="inline-flex items-center px-4 py-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-lg mb-3">
-											<CheckCircleIcon className="w-5 h-5 mr-2" />
-											<span className="font-semibold">Sudah Terdaftar</span>
-										</div>
-										<p className="text-sm text-gray-600 dark:text-gray-400">
-											{myRegistration.groups.filter(g => g.status === "ACTIVE").length} Tim Terdaftar
-										</p>
-										<Link
-											to="/peserta/registrations"
-											className="mt-3 inline-block text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
-										>
-											Kelola Pendaftaran →
-										</Link>
-									</div>
-								) : isAuthenticated && user?.role !== "PESERTA" ? (
-									<div className="text-center text-gray-500 dark:text-gray-400">
-										<p className="text-sm">
-											Hanya akun PESERTA yang dapat mendaftar ke event
-										</p>
-									</div>
-								) : isRegistrationOpen() ? (
-									<>
+								<div className="flex-1">
+									<textarea
+										value={newComment}
+										onChange={(e) => setNewComment(e.target.value)}
+										placeholder="Tulis komentar..."
+										className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 dark:focus:ring-cyan-500 focus:border-red-500 dark:focus:border-cyan-500 resize-none transition-colors"
+										rows={3}
+										maxLength={1000}
+									/>
+									<div className="flex justify-between items-center mt-2">
+										<span className="text-xs text-gray-400">{newComment.length}/1000</span>
 										<button
-											onClick={handleRegister}
-											disabled={checkingRegistration}
-											className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+											onClick={handleAddComment}
+											disabled={!newComment.trim() || submittingComment}
+											className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
 										>
-											{checkingRegistration ? (
-												<>
-													<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-													Memeriksa...
-												</>
-											) : (
-												<>
-													<UserGroupIcon className="w-5 h-5 mr-2" />
-													{isAuthenticated ? "Daftar Sekarang" : "Login untuk Daftar"}
-												</>
-											)}
+											{submittingComment ? "Mengirim..." : "Kirim"}
 										</button>
-										
-										{!isAuthenticated && (
-											<p className="mt-3 text-sm text-center text-gray-500 dark:text-gray-400">
-												Silakan login terlebih dahulu untuk mendaftar ke event ini
-											</p>
-										)}
-									</>
-								) : isEventFull() ? (
-									<button
-										disabled
-										className="w-full px-6 py-3 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg font-semibold cursor-not-allowed"
-									>
-										Event Penuh
-									</button>
-								) : (
-									<button
-										disabled
-										className="w-full px-6 py-3 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg font-semibold cursor-not-allowed"
-									>
-										Pendaftaran Ditutup
-									</button>
-								)}
+									</div>
+								</div>
 							</div>
 						</div>
+					) : (
+						<div className="mb-6 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl text-center border border-red-100 dark:border-gray-600">
+							<p className="text-gray-600 dark:text-gray-400 mb-2">Login untuk memberikan komentar</p>
+							<Link
+								to="/login"
+								state={{ from: `/events/${id}` }}
+								className="text-red-600 dark:text-cyan-400 font-medium hover:underline"
+							>
+								Login Sekarang →
+							</Link>
+						</div>
+					)}
+
+					{/* Comments List */}
+					<div className="space-y-4">
+						{comments.length === 0 ? (
+							<div className="text-center py-8 text-gray-500 dark:text-gray-400">
+								<ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 opacity-40" />
+								<p>Belum ada komentar</p>
+								<p className="text-sm">Jadilah yang pertama berkomentar!</p>
+							</div>
+						) : (
+							comments.map((comment) => (
+								<div key={comment.id} className="flex gap-3 p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-100 dark:border-gray-600">
+									<div className="flex-shrink-0">
+										{comment.user.profile?.avatar ? (
+											<img
+												src={getImageUrl(comment.user.profile.avatar) || ""}
+												alt={comment.user.name}
+												className="w-10 h-10 rounded-full object-cover"
+											/>
+										) : (
+											<div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 dark:from-cyan-500 dark:to-violet-600 flex items-center justify-center text-white font-bold text-sm">
+												{comment.user.name.charAt(0).toUpperCase()}
+											</div>
+										)}
+									</div>
+									<div className="flex-1 min-w-0">
+										<div className="flex items-start justify-between gap-2">
+											<div>
+												<p className="font-semibold text-gray-900 dark:text-white">
+													{comment.user.name}
+													<span className="ml-2 text-xs font-normal px-2 py-0.5 bg-red-100 dark:bg-violet-900/40 text-red-600 dark:text-violet-300 rounded-full">
+														{comment.user.role}
+													</span>
+												</p>
+												<p className="text-xs text-gray-500 dark:text-gray-400">
+													{comment.user.email}
+													{comment.user.profile?.institution && <span> • {comment.user.profile.institution}</span>}
+												</p>
+											</div>
+											{(user?.id === comment.user.id || user?.role === "SUPERADMIN" || user?.role === "PANITIA") && (
+												<button
+													onClick={() => handleDeleteComment(comment.id)}
+													className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+													title="Hapus komentar"
+												>
+													<TrashIcon className="w-4 h-4" />
+												</button>
+											)}
+										</div>
+										<p className="mt-2 text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">{comment.content}</p>
+										<p className="mt-2 text-xs text-gray-400">{formatCommentDate(comment.createdAt)}</p>
+									</div>
+								</div>
+							))
+						)}
 					</div>
 				</div>
-			</div>
 
+			</div>
 		</div>
 	);
 };

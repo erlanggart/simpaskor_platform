@@ -437,6 +437,7 @@ router.post(
 				maxParticipants,
 				registrationFee,
 				organizer,
+				contactPersonName,
 				contactEmail,
 				contactPhone,
 				status,
@@ -588,6 +589,7 @@ router.post(
 						currentParticipants: 0,
 						registrationFee: registrationFee ? parseFloat(registrationFee) : 0,
 						organizer,
+						contactPersonName,
 						contactEmail,
 						contactPhone,
 						status: status || "DRAFT",
@@ -688,6 +690,7 @@ router.patch(
 				schoolCategoryLimits,
 				registrationFee,
 				organizer,
+				contactPersonName,
 				contactEmail,
 				contactPhone,
 				status,
@@ -860,6 +863,7 @@ router.patch(
 						maxParticipants: totalMaxParticipants,
 						registrationFee: registrationFee ? parseFloat(registrationFee) : 0,
 						organizer,
+						contactPersonName,
 						contactEmail,
 						contactPhone,
 						status: status || "DRAFT",
@@ -1576,6 +1580,7 @@ router.patch(
 				juknisUrl,
 				registrationFee,
 				organizer,
+				contactPersonName,
 				contactEmail,
 				contactPhone,
 				status,
@@ -1601,6 +1606,7 @@ router.patch(
 					juknisUrl: juknisUrl || null,
 					registrationFee: registrationFee ? registrationFee : null,
 					organizer: organizer || null,
+					contactPersonName: contactPersonName || null,
 					contactEmail: contactEmail || null,
 					contactPhone: contactPhone || null,
 					status: status || "DRAFT",
@@ -1787,6 +1793,213 @@ router.post(
 	}
 );
 
+// GET /api/events/:id/leaderboard - Public leaderboard for completed events
+router.get("/:id/leaderboard", async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		if (!id) {
+			return res.status(400).json({ error: "Event ID or slug is required" });
+		}
+		const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+		const event = await prisma.event.findFirst({
+			where: isUUID ? { id } : { slug: id },
+			include: {
+				assessmentCategories: {
+					include: {
+						assessmentCategory: {
+							select: { id: true, name: true, order: true },
+						},
+					},
+					orderBy: { assessmentCategory: { order: "asc" } },
+				},
+			},
+		});
+
+		if (!event) {
+			return res.status(404).json({ error: "Event not found" });
+		}
+
+		// Only allow leaderboard for completed events
+		const status = computeEventStatus(event);
+		if (status !== "COMPLETED") {
+			return res.status(400).json({ error: "Leaderboard only available for completed events" });
+		}
+
+		// Get participants with groups
+		const participants = await prisma.eventParticipation.findMany({
+			where: {
+				eventId: event.id,
+				status: { in: ["REGISTERED", "CONFIRMED", "ATTENDED"] },
+			},
+			include: {
+				user: { select: { id: true, name: true } },
+				groups: {
+					where: { status: "ACTIVE" },
+					include: {
+						schoolCategory: { select: { id: true, name: true } },
+					},
+					orderBy: { orderNumber: "asc" },
+				},
+			},
+		});
+
+		// Flatten to groups
+		const participantGroups: Array<{
+			id: string;
+			teamName: string;
+			schoolName: string;
+			schoolCategory: { id: string; name: string } | null;
+			orderNumber: number | null;
+		}> = [];
+		participants.forEach((p) => {
+			if (p.groups.length > 0) {
+				p.groups.forEach((g) => {
+					participantGroups.push({
+						id: g.id,
+						teamName: g.groupName,
+						schoolName: p.schoolName || "Tidak diketahui",
+						schoolCategory: g.schoolCategory,
+						orderNumber: g.orderNumber,
+					});
+				});
+			} else {
+				participantGroups.push({
+					id: p.id,
+					teamName: p.user.name,
+					schoolName: p.schoolName || "Tidak diketahui",
+					schoolCategory: null,
+					orderNumber: null,
+				});
+			}
+		});
+
+		// Get juries
+		const juries = await prisma.juryEventAssignment.findMany({
+			where: { eventId: event.id, status: "CONFIRMED" },
+			include: {
+				jury: { select: { id: true, name: true } },
+				assignedCategories: { select: { assessmentCategoryId: true } },
+			},
+		});
+
+		// Get material evaluations
+		const materialEvaluations = await prisma.materialEvaluation.findMany({
+			where: { eventId: event.id },
+			select: { participantId: true, juryId: true, materialId: true, score: true, isSkipped: true },
+		});
+
+		// Get evaluations
+		const evaluations = await prisma.evaluation.findMany({
+			where: { eventId: event.id },
+			select: { participantId: true, assessmentCategoryId: true, juryId: true, score: true, maxScore: true },
+		});
+
+		// Get event materials
+		const eventMaterials = await prisma.eventMaterial.findMany({
+			where: { eventId: event.id },
+			select: { id: true, eventAssessmentCategoryId: true },
+		});
+
+		// Get extra nilai
+		const extraNilaiList = await prisma.extraNilai.findMany({
+			where: { eventId: event.id },
+			select: { participantId: true, type: true, scope: true, assessmentCategoryId: true, value: true },
+		});
+
+		const materialToCategoryMap = new Map(eventMaterials.map((m) => [m.id, m.eventAssessmentCategoryId]));
+
+		// Group material evaluations
+		const materialEvalsByParticipant = materialEvaluations.reduce((acc, me) => {
+			const categoryId = materialToCategoryMap.get(me.materialId);
+			if (!categoryId) return acc;
+			const key = `${me.participantId}:${categoryId}:${me.juryId}`;
+			if (!acc[key]) acc[key] = { totalScore: 0, count: 0 };
+			if (!me.isSkipped && me.score !== null) {
+				acc[key].totalScore += me.score;
+				acc[key].count += 1;
+			}
+			return acc;
+		}, {} as Record<string, { totalScore: number; count: number }>);
+
+		// Build evaluation map
+		const evaluationMap = new Map<string, number>();
+		evaluations.forEach((e) => {
+			evaluationMap.set(`${e.participantId}:${e.assessmentCategoryId}:${e.juryId}`, e.score);
+		});
+
+		// Group extra nilai
+		const extraNilaiByParticipant: Record<string, typeof extraNilaiList> = {};
+		extraNilaiList.forEach((en) => {
+			if (!extraNilaiByParticipant[en.participantId]) extraNilaiByParticipant[en.participantId] = [];
+			extraNilaiByParticipant[en.participantId]!.push(en);
+		});
+
+		// Compute scores for each participant group
+		const leaderboard = participantGroups.map((pg) => {
+			let grandTotal = 0;
+
+			event.assessmentCategories.forEach((eac) => {
+				juries.forEach((juryAssignment) => {
+					const assignedCategoryIds = juryAssignment.assignedCategories.map((ac) => ac.assessmentCategoryId);
+					if (!assignedCategoryIds.includes(eac.assessmentCategoryId)) return;
+
+					const evalKey = `${pg.id}:${eac.assessmentCategoryId}:${juryAssignment.jury.id}`;
+					const evalScore = evaluationMap.get(evalKey);
+					if (evalScore !== undefined) {
+						grandTotal += evalScore;
+						return;
+					}
+
+					const materialKey = `${pg.id}:${eac.id}:${juryAssignment.jury.id}`;
+					const materialEval = materialEvalsByParticipant[materialKey];
+					if (materialEval && materialEval.count > 0) {
+						grandTotal += materialEval.totalScore;
+					}
+				});
+			});
+
+			// Apply extra nilai
+			const participantExtraNilai = extraNilaiByParticipant[pg.id] || [];
+			participantExtraNilai.forEach((en) => {
+				grandTotal += en.type === "PUNISHMENT" ? -en.value : en.value;
+			});
+
+			return {
+				id: pg.id,
+				teamName: pg.teamName,
+				schoolName: pg.schoolName,
+				schoolCategory: pg.schoolCategory,
+				orderNumber: pg.orderNumber,
+				grandTotal,
+			};
+		});
+
+		// Sort by grandTotal descending
+		leaderboard.sort((a, b) => b.grandTotal - a.grandTotal);
+
+		// Get unique school categories
+		const schoolCategories = [...new Map(
+			leaderboard
+				.filter((l) => l.schoolCategory)
+				.map((l) => [l.schoolCategory!.id, l.schoolCategory!])
+		).values()];
+
+		res.json({
+			event: { id: event.id, title: event.title, slug: event.slug },
+			categories: event.assessmentCategories.map((eac) => ({
+				id: eac.assessmentCategoryId,
+				name: eac.assessmentCategory.name,
+			})),
+			schoolCategories,
+			leaderboard,
+		});
+	} catch (error) {
+		console.error("Error fetching leaderboard:", error);
+		res.status(500).json({ error: "Failed to fetch leaderboard" });
+	}
+});
+
 // GET /api/events/:slug - Get event by slug (MUST BE LAST - catches all unmatched routes)
 router.get("/:slug", async (req: Request, res: Response) => {
 	try {
@@ -1866,6 +2079,18 @@ router.get("/:slug", async (req: Request, res: Response) => {
 								description: true,
 							},
 						},
+						groups: {
+							where: { status: "ACTIVE" },
+							select: {
+								id: true,
+								groupName: true,
+								orderNumber: true,
+								schoolCategory: {
+									select: { id: true, name: true },
+								},
+							},
+							orderBy: { orderNumber: "asc" },
+						},
 					},
 				},
 			},
@@ -1875,10 +2100,35 @@ router.get("/:slug", async (req: Request, res: Response) => {
 			return res.status(404).json({ message: "Event not found" });
 		}
 
+		// Compute actual currentParticipants from confirmed participations' active groups
+		const confirmedParticipations = event.participations.filter(
+			(p) => p.status === "CONFIRMED" || p.status === "ATTENDED"
+		);
+		const totalActiveGroups = confirmedParticipations.reduce(
+			(sum, p) => sum + p.groups.length, 0
+		);
+
+		// Compute currentParticipants per school category
+		const categoryCountMap: Record<string, number> = {};
+		confirmedParticipations.forEach((p) => {
+			p.groups.forEach((g) => {
+				if (g.schoolCategory) {
+					categoryCountMap[g.schoolCategory.id] = (categoryCountMap[g.schoolCategory.id] || 0) + 1;
+				}
+			});
+		});
+
+		const schoolCategoryLimitsWithCount = event.schoolCategoryLimits.map((limit) => ({
+			...limit,
+			currentParticipants: categoryCountMap[limit.schoolCategoryId] || 0,
+		}));
+
 		// Apply computed status
 		const eventWithStatus = {
 			...event,
 			status: computeEventStatus(event),
+			currentParticipants: totalActiveGroups,
+			schoolCategoryLimits: schoolCategoryLimitsWithCount,
 		};
 
 		res.json(eventWithStatus);

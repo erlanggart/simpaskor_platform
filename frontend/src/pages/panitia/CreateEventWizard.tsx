@@ -74,6 +74,7 @@ const CreateEventWizard: React.FC = () => {
 		juknisUrl: "",
 		registrationFee: 0,
 		organizer: "",
+		contactPersonName: "",
 		contactEmail: "",
 		contactPhone: "",
 		status: "DRAFT",
@@ -220,6 +221,7 @@ const CreateEventWizard: React.FC = () => {
 					? parseFloat(draft.registrationFee)
 					: 0,
 				organizer: draft.organizer || "",
+				contactPersonName: draft.contactPersonName || "",
 				contactEmail: draft.contactEmail || "",
 				contactPhone: draft.contactPhone || "",
 				status: (draft.status as "DRAFT" | "PUBLISHED") || "DRAFT",
@@ -241,7 +243,7 @@ const CreateEventWizard: React.FC = () => {
 		try {
 			// Validate
 			const newErrors: Record<string, string> = {};
-			if (!step1Data.couponId) newErrors.couponId = "Pilih kupon";
+			if (!isEditMode && !step1Data.couponId) newErrors.couponId = "Pilih kupon";
 			if (!step1Data.title.trim()) newErrors.title = "Judul wajib diisi";
 			if (!step1Data.startDate) newErrors.startDate = "Tanggal mulai wajib diisi";
 			if (!step1Data.endDate) newErrors.endDate = "Tanggal selesai wajib diisi";
@@ -277,7 +279,7 @@ const CreateEventWizard: React.FC = () => {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [step1Data, eventDraftId]);
+	}, [step1Data, eventDraftId, isEditMode]);
 
 	// Save Step 2
 	const saveStep2 = useCallback(async () => {
