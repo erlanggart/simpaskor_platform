@@ -18,7 +18,7 @@ const getImageUrl = (thumbnail: string | null) => {
 	if (thumbnail.startsWith("http://") || thumbnail.startsWith("https://") || thumbnail.startsWith("data:")) {
 		return thumbnail;
 	}
-	const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+	const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
 	return `${backendUrl}${thumbnail}`;
 };
 

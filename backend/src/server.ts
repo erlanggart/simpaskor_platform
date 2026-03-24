@@ -20,6 +20,10 @@ import materialRoutes from "./routes/materials";
 import juaraCategoryRoutes from "./routes/juaraCategories";
 import performanceFieldRoutes from "./routes/performanceFields";
 import adminStatsRoutes from "./routes/adminStats";
+import productRoutes from "./routes/products";
+import orderRoutes from "./routes/orders";
+import ticketRoutes from "./routes/tickets";
+import votingRoutes from "./routes/voting";
 
 dotenv.config();
 
@@ -35,10 +39,18 @@ app.use(
 	})
 );
 
-// CORS configuration for development
+// CORS configuration
+const allowedOrigins = [
+	"http://localhost:5173",
+	"http://localhost:5174",
+	"https://localhost:5173",
+	"https://localhost:5174",
+	...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+	...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.replace("http://", "https://")] : []),
+];
 app.use(
 	cors({
-		origin: ["http://localhost:5173", "http://localhost:5174"],
+		origin: allowedOrigins,
 		credentials: true,
 		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization"],
@@ -124,6 +136,10 @@ app.use("/api/materials", materialRoutes);
 app.use("/api/juara-categories", juaraCategoryRoutes);
 app.use("/api/performance", performanceFieldRoutes);
 app.use("/api/admin", adminStatsRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/tickets", ticketRoutes);
+app.use("/api/voting", votingRoutes);
 
 // Error handling middleware
 app.use(

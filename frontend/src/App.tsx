@@ -7,6 +7,9 @@ import { MainLayout, AuthLayout, DashboardLayout, ScoringLayout, PreAssignLayout
 
 // Public Pages
 import LandingPage from "./pages/LandingPage";
+import MarketplacePage from "./pages/MarketplacePage";
+import ETicketingPage from "./pages/ETicketingPage";
+import EVotingPage from "./pages/EVotingPage";
 import EventDetail from "./pages/EventDetail";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
@@ -30,6 +33,8 @@ import AssessmentCategoryManagement from "./pages/admin/AssessmentCategoryManage
 import EventManagement from "./pages/admin/EventManagement";
 import AdminManageEvent from "./pages/admin/ManageEvent";
 import AdminEditEvent from "./pages/admin/EditEvent";
+import ProductManagement from "./pages/admin/ProductManagement";
+import OrderManagement from "./pages/admin/OrderManagement";
 import PanitiaDashboard from "./pages/panitia/Dashboard";
 import CreateEventWizard from "./pages/panitia/CreateEventWizard";
 import EditEventForm from "./pages/panitia/EditEvent";
@@ -55,6 +60,8 @@ import ManageJuara from "./pages/panitia/ManageJuara";
 import ManageMateri from "./pages/panitia/ManageMateri";
 import FieldRechecking from "./pages/panitia/FieldRechecking";
 import PanitiaEventRecap from "./pages/panitia/EventRecap";
+import EventTicketing from "./pages/panitia/EventTicketing";
+import EventVoting from "./pages/panitia/EventVoting";
 import PerformanceHistory from "./pages/shared/PerformanceHistory";
 
 import "./App.css";
@@ -67,6 +74,9 @@ function App() {
 					{/* Public Routes - Main Layout */}
 					<Route element={<MainLayout />}>
 						<Route index element={<LandingPage />} />
+						<Route path="marketplace" element={<MarketplacePage />} />
+						<Route path="e-ticketing" element={<ETicketingPage />} />
+						<Route path="e-voting" element={<EVotingPage />} />
 						<Route path="events/:id" element={<EventDetail />} />
 						<Route path="juries" element={<AllJuries />} />
 						<Route path="unauthorized" element={<Unauthorized />} />
@@ -101,10 +111,14 @@ function App() {
 							<Route path="events/:eventSlug/field-rechecking" element={<FieldRechecking />} />
 							<Route path="events/:eventSlug/performance-history" element={<PerformanceHistory />} />
 							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
+							<Route path="events/:eventSlug/ticketing" element={<EventTicketing />} />
+							<Route path="events/:eventSlug/voting" element={<EventVoting />} />
 							<Route
 								path="assessment-categories"
 								element={<AssessmentCategoryManagement />}
 							/>
+							<Route path="products" element={<ProductManagement />} />
+							<Route path="orders" element={<OrderManagement />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
@@ -164,6 +178,8 @@ function App() {
 							<Route path="events/:eventSlug/field-rechecking" element={<FieldRechecking />} />
 							<Route path="events/:eventSlug/performance-history" element={<PerformanceHistory />} />
 							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
+							<Route path="events/:eventSlug/ticketing" element={<EventTicketing />} />
+							<Route path="events/:eventSlug/voting" element={<EventVoting />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>

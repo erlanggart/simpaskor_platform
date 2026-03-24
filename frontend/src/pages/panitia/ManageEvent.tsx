@@ -177,7 +177,7 @@ const ManageEvent: React.FC = () => {
 			return path;
 		}
 		const backendUrl =
-			import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+			import.meta.env.VITE_BACKEND_URL || "";
 		return `${backendUrl}${path}`;
 	};
 

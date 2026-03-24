@@ -14,8 +14,7 @@ import {
 	Cog6ToothIcon,
 	UserCircleIcon,
 	ArrowRightOnRectangleIcon,
-	Bars3Icon,
-	XMarkIcon,
+	EllipsisHorizontalIcon,
 	TicketIcon,
 	ScaleIcon,
 	SunIcon,
@@ -24,6 +23,9 @@ import {
 	ChevronDoubleRightIcon,
 	AcademicCapIcon,
 	MapPinIcon,
+	ShoppingBagIcon,
+	ClipboardDocumentListIcon,
+	HandThumbUpIcon,
 } from "@heroicons/react/24/outline";
 
 interface MenuItem {
@@ -38,9 +40,9 @@ export const DashboardLayout: React.FC = () => {
 	const { theme, toggleTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [showUserMenu, setShowUserMenu] = useState(false);
+	const [showMoreMenu, setShowMoreMenu] = useState(false);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
 	const [activeJuryEvent, setActiveJuryEvent] = useState<any>(null);
 	const userButtonRef = useRef<HTMLButtonElement>(null);
@@ -177,6 +179,8 @@ export const DashboardLayout: React.FC = () => {
 						path: "/admin/assessment-categories",
 					},
 					{ name: "Kelola Event", icon: CalendarIcon, path: "/admin/events" },
+					{ name: "Produk", icon: ShoppingBagIcon, path: "/admin/products" },
+					{ name: "Pesanan", icon: ClipboardDocumentListIcon, path: "/admin/orders" },
 					{ name: "Statistik", icon: ChartBarIcon, path: "/admin/statistics" },
 					{ name: "Pengaturan", icon: Cog6ToothIcon, path: "/admin/settings" }
 				);
@@ -215,6 +219,16 @@ export const DashboardLayout: React.FC = () => {
 							name: "Rekapitulasi",
 							icon: ChartBarIcon,
 							path: `/panitia/events/${activeEvent.event.slug}/rekapitulasi`,
+						},
+						{
+							name: "E-Ticketing",
+							icon: TicketIcon,
+							path: `/panitia/events/${activeEvent.event.slug}/ticketing`,
+						},
+						{
+							name: "E-Voting",
+							icon: HandThumbUpIcon,
+							path: `/panitia/events/${activeEvent.event.slug}/voting`,
 						}
 					);
 				}
@@ -322,6 +336,40 @@ export const DashboardLayout: React.FC = () => {
 	const isActive = (path: string) => {
 		return location.pathname === path;
 	};
+
+	// Mobile bottom navigation config per role
+	const getMobileNavConfig = (): { primaryItems: MenuItem[]; moreItems: MenuItem[] } => {
+		const allItems = getMenuItems();
+
+		if (user?.role === "PANITIA" && activeEvent?.event) {
+			const primaryPaths = new Set(
+				allItems
+					.filter(
+						(i) =>
+							i.path.endsWith("/manage") ||
+							i.path.endsWith("/field-rechecking") ||
+							i.path.endsWith("/ticketing")
+					)
+					.map((i) => i.path)
+			);
+			const primaryItems = allItems.filter((i) => primaryPaths.has(i.path));
+			const moreItems = allItems.filter((i) => !primaryPaths.has(i.path));
+			return { primaryItems, moreItems };
+		}
+
+		if (user?.role === "SUPERADMIN") {
+			const primaryPaths = new Set(["/admin/dashboard", "/admin/users", "/admin/events"]);
+			const primaryItems = allItems.filter((i) => primaryPaths.has(i.path));
+			const moreItems = allItems.filter((i) => !primaryPaths.has(i.path));
+			return { primaryItems, moreItems };
+		}
+
+		// PESERTA, JURI, PELATIH, or PANITIA without event
+		return { primaryItems: allItems.slice(0, 4), moreItems: allItems.slice(4) };
+	};
+
+	const { primaryItems: mobilePrimaryItems, moreItems: mobileMoreItems } = getMobileNavConfig();
+	const mobileHasMore = mobileMoreItems.length > 0;
 
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -508,35 +556,140 @@ export const DashboardLayout: React.FC = () => {
 				</div>
 			</aside>
 
-			{/* Mobile Sidebar */}
-			{sidebarOpen && (
-				<>
-					{/* Backdrop */}
-					<div
-						className="fixed inset-0 bg-gray-600 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 z-40 md:hidden"
-						onClick={() => setSidebarOpen(false)}
-					/>
 
-					{/* Sidebar */}
-					<aside className="fixed inset-y-0 left-0 flex flex-col w-64 bg-white dark:bg-gray-800 z-50 md:hidden">
-						<div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-							<Logo size="sm" showText variant="auto" />
-							<button
-								onClick={() => setSidebarOpen(false)}
-								className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+
+			{/* Main Content */}
+			<div
+				className={`md:flex md:flex-col md:flex-1 transition-all duration-300 ${
+					sidebarCollapsed ? "md:pl-20" : "md:pl-64"
+				}`}
+			>
+
+
+				{/* Page Content */}
+				<main className="flex-1 pb-16 md:pb-0">
+					<div className="">
+						<Outlet />
+					</div>
+				</main>
+			</div>
+
+			{/* Mobile Bottom Navigation */}
+			<nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
+				<div className="flex items-center justify-around h-16">
+					{mobilePrimaryItems.map((item) => {
+						const Icon = item.icon;
+						return (
+							<Link
+								key={item.path}
+								to={item.path}
+								className={`flex flex-col items-center justify-center flex-1 h-full ${isActive(item.path) ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"}`}
 							>
-								<XMarkIcon className="w-6 h-6" />
-							</button>
+								<Icon className="w-6 h-6" />
+								<span className="text-xs mt-1">{item.name}</span>
+							</Link>
+						);
+					})}
+					{mobileHasMore ? (
+						<button
+							onClick={() => setShowMoreMenu(!showMoreMenu)}
+							className={`flex flex-col items-center justify-center flex-1 h-full ${showMoreMenu ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"}`}
+						>
+							<EllipsisHorizontalIcon className="w-6 h-6" />
+							<span className="text-xs mt-1">Lainnya</span>
+						</button>
+					) : (
+						<Link
+							to="/profile"
+							className={`flex flex-col items-center justify-center flex-1 h-full ${isActive("/profile") ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"}`}
+						>
+							<UserCircleIcon className="w-6 h-6" />
+							<span className="text-xs mt-1">Profil</span>
+						</Link>
+					)}
+				</div>
+			</nav>
+
+			{/* Mobile "Lainnya" Slide-up Panel */}
+			{showMoreMenu && (
+				<>
+					<div
+						className="fixed inset-0 bg-black/50 z-40 md:hidden"
+						onClick={() => setShowMoreMenu(false)}
+					/>
+					<div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl z-50 md:hidden max-h-[70vh] flex flex-col">
+						{/* Handle bar */}
+						<div className="flex justify-center pt-3 pb-1">
+							<div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
 						</div>
 
-						<nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-							{getMenuItems().map((item) => {
+						{/* Profile & Event Info */}
+						<div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+							<div className="flex items-center gap-3">
+								<div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-sm">
+									{user?.name
+										?.split(" ")
+										.map((n) => n[0])
+										.join("")
+										.substring(0, 2)
+										.toUpperCase()}
+								</div>
+								<div className="flex-1">
+									<div className="text-sm font-semibold text-gray-900 dark:text-white">
+										{user?.name}
+									</div>
+									<div className="text-xs text-gray-500 dark:text-gray-400">
+										{user?.role}
+									</div>
+								</div>
+							</div>
+							{activeEvent && (
+								<div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+									<div className="text-xs text-gray-500 dark:text-gray-400">Mengelola Event:</div>
+									<div className="text-sm font-medium text-gray-900 dark:text-white mt-0.5 mb-2">
+										{activeEvent.event.title}
+									</div>
+									<button
+										onClick={() => {
+											setShowMoreMenu(false);
+											handleLeaveEvent();
+										}}
+										className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
+									>
+										<ArrowRightOnRectangleIcon className="w-4 h-4" />
+										Keluar Event
+									</button>
+								</div>
+							)}
+							{activeJuryEvent && (
+								<div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+									<div className="text-xs text-gray-500 dark:text-gray-400">Menilai Event:</div>
+									<div className="text-sm font-medium text-gray-900 dark:text-white mt-0.5 mb-2">
+										{activeJuryEvent.event.title}
+									</div>
+									<button
+										onClick={() => {
+											setShowMoreMenu(false);
+											handleLeaveJuryEvent();
+										}}
+										className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
+									>
+										<ArrowRightOnRectangleIcon className="w-4 h-4" />
+										Keluar Event
+									</button>
+								</div>
+							)}
+						</div>
+
+						{/* Menu Items */}
+						<div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+							{mobileMoreItems.map((item) => {
 								const Icon = item.icon;
 								return (
 									<Link
 										key={item.path}
 										to={item.path}
-										onClick={() => setSidebarOpen(false)}
+										onClick={() => setShowMoreMenu(false)}
 										className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
 											isActive(item.path)
 												? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
@@ -548,295 +701,54 @@ export const DashboardLayout: React.FC = () => {
 									</Link>
 								);
 							})}
-						</nav>
-
-						<div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
-							<div className="flex items-center gap-3 px-4 py-3">
-								<div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-xs">
-									{user?.name
-										?.split(" ")
-										.map((n) => n[0])
-										.join("")
-										.substring(0, 2)
-										.toUpperCase()}
-								</div>
-								<div className="flex-1">
-									<div className="text-sm font-medium text-gray-900 dark:text-white">
-										{user?.name}
-									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
-										{user?.role}
-									</div>
-								</div>
-							</div>
-							<div className="mt-2 space-y-1">
-								<Link
-									to="/profile"
-									onClick={() => setSidebarOpen(false)}
-									className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-								>
-									<UserCircleIcon className="w-5 h-5" />
-									Profil Saya
-								</Link>
-								<button
-									onClick={toggleTheme}
-									className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-								>
-									{theme === "dark" ? (
-										<>
-											<SunIcon className="w-5 h-5" />
-											Mode Terang
-										</>
-									) : (
-										<>
-											<MoonIcon className="w-5 h-5" />
-											Mode Gelap
-										</>
-									)}
-								</button>
-								{activeEvent && (
-									<>
-										<hr className="my-2 border-gray-200 dark:border-gray-700" />
-										<div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-											<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-												Mengelola Event:
-											</div>
-											<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-												{activeEvent.event.title}
-											</div>
-											<button
-												onClick={() => {
-													setSidebarOpen(false);
-													handleLeaveEvent();
-												}}
-												className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
-											>
-												<ArrowRightOnRectangleIcon className="w-4 h-4" />
-												Keluar Event
-											</button>
-										</div>
-									</>
-								)}
-								{activeJuryEvent && (
-									<>
-										<hr className="my-2 border-gray-200 dark:border-gray-700" />
-										<div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-											<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-												Menilai Event:
-											</div>
-											<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-												{activeJuryEvent.event.title}
-											</div>
-											<button
-												onClick={() => {
-													setSidebarOpen(false);
-													handleLeaveJuryEvent();
-												}}
-												className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
-											>
-												<ArrowRightOnRectangleIcon className="w-4 h-4" />
-												Keluar Event
-											</button>
-										</div>
-									</>
-								)}
-								<hr className="my-2 border-gray-200 dark:border-gray-700" />
-								<button
-									onClick={handleLogout}
-									className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-								>
-									<ArrowRightOnRectangleIcon className="w-5 h-5" />
-									Keluar
-								</button>
-							</div>
-						</div>
-					</aside>
-				</>
-			)}
-
-			{/* Main Content */}
-			<div
-				className={`md:flex md:flex-col md:flex-1 transition-all duration-300 ${
-					sidebarCollapsed ? "md:pl-20" : "md:pl-64"
-				}`}
-			>
-				{/* Top bar untuk Mobile */}
-				<div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white dark:bg-gray-800 shadow md:hidden">
-					<button
-						onClick={() => setSidebarOpen(true)}
-						className="px-4 border-r border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-					>
-						<Bars3Icon className="h-6 w-6" />
-					</button>
-					<div className="flex-1 px-4 flex items-center justify-between">
-						<Logo size="sm" />
-						<div className="relative">
-							<button
-								ref={userButtonRef}
-								onClick={() => setShowUserMenu(!showUserMenu)}
-								className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-xs"
+							<Link
+								to="/profile"
+								onClick={() => setShowMoreMenu(false)}
+								className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+									isActive("/profile")
+										? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
+										: "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+								}`}
 							>
-								{user?.name
-									?.split(" ")
-									.map((n) => n[0])
-									.join("")
-									.substring(0, 2)
-									.toUpperCase()}
+								<UserCircleIcon className="w-5 h-5" />
+								Profil Saya
+							</Link>
+							<button
+								onClick={() => {
+									toggleTheme();
+									setShowMoreMenu(false);
+								}}
+								className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+							>
+								{theme === "dark" ? (
+									<>
+										<SunIcon className="w-5 h-5" />
+										Mode Terang
+									</>
+								) : (
+									<>
+										<MoonIcon className="w-5 h-5" />
+										Mode Gelap
+									</>
+								)}
 							</button>
+						</div>
 
-							{/* Mobile User Dropdown */}
-							{showUserMenu && (
-								<>
-									<div
-										className="fixed inset-0 z-40 md:hidden"
-										onClick={() => setShowUserMenu(false)}
-									/>
-									<div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50 md:hidden">
-										<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-											<div className="text-sm font-medium text-gray-900 dark:text-white">
-												{user?.name}
-											</div>
-											<div className="text-xs text-gray-500 dark:text-gray-400">
-												{user?.role}
-											</div>
-										</div>
-										<Link
-											to="/profile"
-											className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-											onClick={() => setShowUserMenu(false)}
-										>
-											<UserCircleIcon className="w-5 h-5" />
-											Profil Saya
-										</Link>
-										<button
-											onClick={() => {
-												toggleTheme();
-												setShowUserMenu(false);
-											}}
-											className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-										>
-											{theme === "dark" ? (
-												<>
-													<SunIcon className="w-5 h-5" />
-													Mode Terang
-												</>
-											) : (
-												<>
-													<MoonIcon className="w-5 h-5" />
-													Mode Gelap
-												</>
-											)}
-										</button>
-										{activeEvent && (
-											<>
-												<hr className="my-1 border-gray-200 dark:border-gray-700" />
-												<div className="px-4 py-2">
-													<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-														Mengelola Event:
-													</div>
-													<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-														{activeEvent.event.title}
-													</div>
-													<button
-														onClick={() => {
-															setShowUserMenu(false);
-															handleLeaveEvent();
-														}}
-														className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
-													>
-														<ArrowRightOnRectangleIcon className="w-4 h-4" />
-														Keluar Event
-													</button>
-												</div>
-											</>
-										)}
-										<hr className="my-1 border-gray-200 dark:border-gray-700" />
-										<button
-											onClick={() => {
-												setShowUserMenu(false);
-												handleLogout();
-											}}
-											className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-										>
-											<ArrowRightOnRectangleIcon className="w-5 h-5" />
-											Keluar
-										</button>
-									</div>
-								</>
-							)}
+						{/* Logout */}
+						<div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-3 py-2">
+							<button
+								onClick={() => {
+									setShowMoreMenu(false);
+									handleLogout();
+								}}
+								className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+							>
+								<ArrowRightOnRectangleIcon className="w-5 h-5" />
+								Keluar
+							</button>
 						</div>
 					</div>
-				</div>
-
-				{/* Page Content */}
-				<main className={`flex-1 ${user?.role === "PESERTA" ? "pb-16 md:pb-0" : ""}`}>
-					<div className="">
-						<Outlet />
-					</div>
-				</main>
-			</div>
-
-			{/* Mobile Bottom Navigation for PESERTA */}
-			{user?.role === "PESERTA" && (
-				<nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
-					<div className="flex items-center justify-around h-16">
-						<Link
-							to="/peserta/dashboard"
-							className={`flex flex-col items-center justify-center flex-1 h-full ${
-								location.pathname === "/peserta/dashboard"
-									? "text-indigo-600 dark:text-indigo-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<HomeIcon className="w-6 h-6" />
-							<span className="text-xs mt-1">Dashboard</span>
-						</Link>
-						<Link
-							to="/peserta/events"
-							className={`flex flex-col items-center justify-center flex-1 h-full ${
-								location.pathname === "/peserta/events"
-									? "text-indigo-600 dark:text-indigo-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<CalendarIcon className="w-6 h-6" />
-							<span className="text-xs mt-1">Event</span>
-						</Link>
-						<Link
-							to="/peserta/registrations"
-							className={`flex flex-col items-center justify-center flex-1 h-full ${
-								location.pathname === "/peserta/registrations"
-									? "text-indigo-600 dark:text-indigo-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<TrophyIcon className="w-6 h-6" />
-							<span className="text-xs mt-1">Daftar</span>
-						</Link>
-						<Link
-							to="/peserta/assessment-history"
-							className={`flex flex-col items-center justify-center flex-1 h-full ${
-								location.pathname.startsWith("/peserta/assessment-history")
-									? "text-indigo-600 dark:text-indigo-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<ChartBarIcon className="w-6 h-6" />
-							<span className="text-xs mt-1">Riwayat</span>
-						</Link>
-						<Link
-							to="/profile"
-							className={`flex flex-col items-center justify-center flex-1 h-full ${
-								location.pathname === "/profile"
-									? "text-indigo-600 dark:text-indigo-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<UserCircleIcon className="w-6 h-6" />
-							<span className="text-xs mt-1">Profil</span>
-						</Link>
-					</div>
-				</nav>
+				</>
 			)}
 		</div>
 	);

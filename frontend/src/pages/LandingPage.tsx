@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import BannerCarousel from "../components/landing/BannerCarousel";
+import QuickActions from "../components/landing/QuickActions";
 import Statistics from "../components/landing/Statistics";
 import JuryShowcase from "../components/landing/JuryShowcase";
 import SearchBar from "../components/landing/SearchBar";
@@ -56,10 +57,11 @@ const LandingPage: React.FC = () => {
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
 			<BannerCarousel events={pinnedEvents} />
 
+			<QuickActions />
+
 			<Statistics events={allEvents} />
 
 			<SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-
 			<EventGrid events={filteredEvents} completedEvents={filteredCompletedEvents} />
 
 			<JuryShowcase juries={juries} stats={publicStats} loading={loading} />

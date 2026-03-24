@@ -337,7 +337,7 @@ const ManageJury: React.FC = () => {
 	};
 
 	const getBackendUrl = () => {
-		return import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+		return import.meta.env.VITE_BACKEND_URL || "";
 	};
 
 	const getAvatarUrl = (avatar: string | null) => {

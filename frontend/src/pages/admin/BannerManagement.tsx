@@ -66,8 +66,8 @@ const BannerManagement: React.FC = () => {
 		if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
 			return imageUrl;
 		}
-		// Otherwise, prepend backend URL
-		return `http://localhost:3001${imageUrl}`;
+		// Otherwise, use relative path (proxied by Vite)
+		return imageUrl;
 	};
 
 	const fetchBanners = async () => {

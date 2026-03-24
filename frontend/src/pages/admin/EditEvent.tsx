@@ -138,7 +138,7 @@ const AdminEditEvent: React.FC = () => {
 				if (event.thumbnail) {
 					const imageUrl = event.thumbnail.startsWith("http")
 						? event.thumbnail
-						: `${import.meta.env.VITE_BACKEND_URL || "http://localhost:3001"}${event.thumbnail}`;
+						: `${import.meta.env.VITE_BACKEND_URL || ""}${event.thumbnail}`;
 					setThumbnailPreview(imageUrl);
 				}
 			} catch (error: any) {

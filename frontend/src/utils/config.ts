@@ -16,8 +16,8 @@ const toNumber = (value: string | undefined, defaultValue: number): number => {
 export const config = {
 	// API Configuration
 	api: {
-		baseUrl: import.meta.env.VITE_API_URL || "http://localhost:3001/api",
-		backendUrl: import.meta.env.VITE_BACKEND_URL || "http://localhost:3001",
+		baseUrl: import.meta.env.VITE_API_URL || "/api",
+		backendUrl: import.meta.env.VITE_BACKEND_URL || "",
 		timeout: toNumber(import.meta.env.VITE_API_TIMEOUT, 10000),
 	},
 

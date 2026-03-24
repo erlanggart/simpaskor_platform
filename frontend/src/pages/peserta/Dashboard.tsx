@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../utils/api";
+import { useAuth } from "../../hooks/useAuth";
 import { 
 	TrophyIcon, 
 	CalendarIcon, 
@@ -8,6 +9,7 @@ import {
 	ArrowRightIcon,
 	ClipboardDocumentListIcon,
 	UserGroupIcon,
+	ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 
 interface Statistics {
@@ -31,6 +33,7 @@ interface RecentEvent {
 }
 
 const PesertaDashboard: React.FC = () => {
+	const { user } = useAuth();
 	const [statistics, setStatistics] = useState<Statistics | null>(null);
 	const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -83,6 +86,24 @@ const PesertaDashboard: React.FC = () => {
 						Selamat datang! Lihat ringkasan aktivitas dan penilaian Anda
 					</p>
 				</div>
+
+				{/* Unverified Account Banner */}
+				{user && (user.status === "PENDING" || !user.emailVerified) && (
+					<div className="mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-4">
+						<div className="flex items-start gap-3">
+							<ExclamationTriangleIcon className="h-6 w-6 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+							<div>
+								<h3 className="font-semibold text-amber-800 dark:text-amber-300">
+									Akun Belum Diverifikasi
+								</h3>
+								<p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+									Akun Anda masih berstatus <span className="font-medium">Pending</span>. 
+									Hubungi admin atau panitia event untuk verifikasi akun Anda agar dapat mengikuti event dan mendapatkan penilaian.
+								</p>
+							</div>
+						</div>
+					</div>
+				)}
 
 				{/* Statistics Cards */}
 				<div className="mb-8">
