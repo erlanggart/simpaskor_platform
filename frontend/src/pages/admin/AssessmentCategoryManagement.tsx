@@ -229,7 +229,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 								onChange={(e) =>
 									handleItemsPerPageChange(Number(e.target.value))
 								}
-								className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+								className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 							>
 								<option value={5}>5</option>
 								<option value={10}>10</option>
@@ -249,7 +249,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 			</div>
 
 			{categories.length === 0 ? (
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-12 text-center">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-12 text-center">
 					<ChartBarIcon className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
 					<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
 						Belum Ada Kategori Penilaian
@@ -266,7 +266,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 					</button>
 				</div>
 			) : (
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
 					<table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 						<thead className="bg-gray-50 dark:bg-gray-700">
 							<tr>
@@ -287,7 +287,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 								</th>
 							</tr>
 						</thead>
-						<tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+						<tbody className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm divide-y divide-gray-200 dark:divide-gray-700">
 							{paginatedCategories.map((category) => (
 								<tr
 									key={category.id}
@@ -338,7 +338,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 
 					{/* Pagination */}
 					{totalPages > 1 && (
-						<div className="bg-white dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm px-6 py-4 border-t border-gray-200/60 dark:border-gray-700/40">
 							<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 								{/* Info */}
 								<div className="text-sm text-gray-600 dark:text-gray-400">
@@ -412,7 +412,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 			{/* Modal */}
 			{showModal && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50">
-					<div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
 						<div className="p-6">
 							<div className="flex justify-between items-center mb-6">
 								<h2 className="text-xl font-bold text-gray-900 dark:text-white">
@@ -439,7 +439,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 										onChange={(e) =>
 											setFormData({ ...formData, name: e.target.value })
 										}
-										className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+										className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 										placeholder="Contoh: PBB, KOMANDAN, VARIASI"
 										required
 									/>
@@ -454,7 +454,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 										onChange={(e) =>
 											setFormData({ ...formData, description: e.target.value })
 										}
-										className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+										className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 										placeholder="Deskripsi kategori penilaian"
 										rows={3}
 									/>
@@ -473,7 +473,7 @@ const AssessmentCategoryManagement: React.FC = () => {
 												order: parseInt(e.target.value) || 0,
 											})
 										}
-										className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+										className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 										min="0"
 										required
 									/>

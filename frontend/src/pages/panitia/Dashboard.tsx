@@ -1,61 +1,39 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-	PlusIcon,
 	CalendarIcon,
-	MapPinIcon,
 	UsersIcon,
-	Cog6ToothIcon,
 	TicketIcon,
-	ArrowRightOnRectangleIcon,
+	ChartBarIcon,
+	ClockIcon,
+	ArrowTrendingUpIcon,
 } from "@heroicons/react/24/outline";
+import { LuChevronRight } from "react-icons/lu";
 import { api } from "../../utils/api";
-import { DraftEventsList } from "../../components/event-wizard";
-import Swal from "sweetalert2";
-
-interface SchoolCategoryLimit {
-	id: string;
-	maxParticipants: number;
-	schoolCategory: {
-		id: string;
-		name: string;
-	};
-}
+import { useAuth } from "../../hooks/useAuth";
+import "../../components/landing/LandingPage.css";
 
 interface Event {
 	id: string;
 	title: string;
 	slug: string | null;
-	description: string | null;
-	category: string | null;
-	level: string | null;
 	startDate: string;
 	endDate: string;
-	location: string | null;
-	venue: string | null;
-	maxParticipants: number | null;
 	currentParticipants: number;
+	maxParticipants: number | null;
 	status: string;
-	featured: boolean;
-	couponId: string | null;
-	thumbnail: string | null;
-	schoolCategoryLimits?: SchoolCategoryLimit[];
 }
 
 interface Coupon {
 	id: string;
-	code: string;
-	description: string | null;
 	isUsed: boolean;
-	expiresAt: string | null;
 }
 
 const PanitiaDashboard: React.FC = () => {
-	const navigate = useNavigate();
+	const { user } = useAuth();
 	const [events, setEvents] = useState<Event[]>([]);
 	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [activeTab, setActiveTab] = useState<"events" | "coupons">("events");
 
 	useEffect(() => {
 		fetchData();
@@ -68,10 +46,10 @@ const PanitiaDashboard: React.FC = () => {
 				api.get("/events/my"),
 				api.get("/coupons/my"),
 			]);
-
 			const myEvents = eventsRes.data || [];
+			myEvents.sort((a: Event, b: Event) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 			setEvents(myEvents);
-			setCoupons(couponsRes.data);
+			setCoupons(couponsRes.data || []);
 		} catch (error) {
 			console.error("Error fetching data:", error);
 		} finally {
@@ -79,366 +57,277 @@ const PanitiaDashboard: React.FC = () => {
 		}
 	};
 
-	const handleEnterEvent = (event: Event) => {
-		if (!event.slug) {
-			Swal.fire({
-				icon: "error",
-				title: "Error",
-				text: "Event belum memiliki slug",
-			});
-			return;
-		}
-
-		// Save active event to localStorage
-		localStorage.setItem(
-			"panitia_active_event",
-			JSON.stringify({
-				slug: event.slug,
-				title: event.title,
-				id: event.id,
-			})
-		);
-		
-		// Navigate to manage event
-		navigate(`/panitia/events/${event.slug}/manage`);
-	};
-
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString("id-ID", {
+	const formatDate = (dateString: string) =>
+		new Date(dateString).toLocaleDateString("id-ID", {
 			day: "numeric",
-			month: "long",
+			month: "short",
 			year: "numeric",
 		});
+
+	// Stats
+	const totalEvents = events.length;
+	const activeEvents = events.filter((e) => e.status === "PUBLISHED" || e.status === "ONGOING").length;
+	const completedEvents = events.filter((e) => e.status === "COMPLETED").length;
+	const totalParticipants = events.reduce((sum, e) => sum + e.currentParticipants, 0);
+	const availableCoupons = coupons.filter((c) => !c.isUsed).length;
+
+	// Recent events (last 5)
+	const recentEvents = events.slice(0, 5);
+
+	// Status distribution for simple bar chart
+	const statusCounts = {
+		DRAFT: events.filter((e) => e.status === "DRAFT").length,
+		PUBLISHED: events.filter((e) => e.status === "PUBLISHED").length,
+		ONGOING: events.filter((e) => e.status === "ONGOING").length,
+		COMPLETED: events.filter((e) => e.status === "COMPLETED").length,
+		CANCELLED: events.filter((e) => e.status === "CANCELLED").length,
 	};
+	const maxStatusCount = Math.max(...Object.values(statusCounts), 1);
 
-	const getStatusBadge = (status: string) => {
-		const statusConfig: {
-			[key: string]: { label: string; className: string };
-		} = {
-			DRAFT: { label: "Draft", className: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300" },
-			PUBLISHED: {
-				label: "Published",
-				className: "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400",
-			},
-			ONGOING: { label: "Ongoing", className: "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-400" },
-			COMPLETED: {
-				label: "Completed",
-				className: "bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-400",
-			},
-			CANCELLED: { label: "Cancelled", className: "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400" },
-		};
-
-		const config = statusConfig[status] || {
-			label: "Draft",
-			className: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300",
-		};
-		return (
-			<span
-				className={`px-2 py-1 text-xs font-semibold rounded-full ${config.className}`}
-			>
-				{config.label}
-			</span>
-		);
-	};
-
-	const getImageUrl = (thumbnail: string | null) => {
-		if (!thumbnail) return null;
-		if (thumbnail.startsWith("http://") || thumbnail.startsWith("https://")) {
-			return thumbnail;
-		}
-		const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
-		return `${backendUrl}${thumbnail}`;
+	const statusColors: Record<string, string> = {
+		DRAFT: "bg-gray-400",
+		PUBLISHED: "bg-green-500",
+		ONGOING: "bg-blue-500",
+		COMPLETED: "bg-purple-500",
+		CANCELLED: "bg-red-500",
 	};
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-colors">
+			<div className="flex items-center justify-center py-32">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto mb-4"></div>
-					<p className="text-gray-600 dark:text-gray-400">Memuat data...</p>
+					<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mx-auto mb-4"></div>
+					<p className="text-sm text-gray-500 dark:text-gray-400">Memuat data...</p>
 				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Header */}
-				<div className="mb-8">
-					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-						Dashboard Panitia
-					</h1>
-					<p className="mt-2 text-gray-600 dark:text-gray-400">
-						Kelola event Anda
-					</p>
+		<div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+
+			{/* ===== Greeting Hero ===== */}
+			<div className="mb-8">
+				<div className="relative overflow-hidden rounded-2xl bg-white/40 dark:bg-white/[0.02] backdrop-blur-sm border border-gray-200/50 dark:border-white/[0.06] p-6 md:p-8">
+					<div className="relative z-10">
+						<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">
+							DASHBOARD PANITIA
+						</p>
+						<h1 className="text-2xl sm:text-3xl md:text-4xl font-black leading-none mb-2 landing-title-gradient">
+							Halo, {user?.name || "Panitia"}
+						</h1>
+						<p className="text-xs md:text-sm text-gray-500 dark:text-gray-500 font-medium">
+							{user?.email}
+						</p>
+						<div className="w-12 h-[1px] bg-gradient-to-r from-red-500/50 to-transparent mt-4" />
+					</div>
+					<div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-red-500/[0.04] to-transparent pointer-events-none" />
 				</div>
+			</div>
 
-				{/* Stats Cards */}
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm text-gray-600 dark:text-gray-400">Total Event</p>
-								<p className="text-3xl font-bold text-gray-900 dark:text-white">
-									{events.length}
-								</p>
+			{/* ===== Stat Cards ===== */}
+			<div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+				{[
+					{ label: "Total Event", value: totalEvents, icon: CalendarIcon, color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-500/10" },
+					{ label: "Event Aktif", value: activeEvents, icon: ArrowTrendingUpIcon, color: "text-green-500 dark:text-green-400", bg: "bg-green-500/10" },
+					{ label: "Total Peserta", value: totalParticipants, icon: UsersIcon, color: "text-purple-500 dark:text-purple-400", bg: "bg-purple-500/10" },
+					{ label: "Kupon Tersedia", value: availableCoupons, icon: TicketIcon, color: "text-orange-500 dark:text-orange-400", bg: "bg-orange-500/10" },
+				].map((stat) => {
+					const Icon = stat.icon;
+					return (
+						<div
+							key={stat.label}
+							className="rounded-xl bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm border border-gray-200/50 dark:border-white/[0.06] p-4 transition-all hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20"
+						>
+							<div className="flex items-center gap-3">
+								<div className={`w-10 h-10 rounded-lg ${stat.bg} flex items-center justify-center flex-shrink-0`}>
+									<Icon className={`w-5 h-5 ${stat.color}`} />
+								</div>
+								<div>
+									<p className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-none">
+										{stat.value}
+									</p>
+									<p className="text-[10px] text-gray-500 dark:text-gray-500 font-medium mt-0.5">
+										{stat.label}
+									</p>
+								</div>
 							</div>
-							<CalendarIcon className="w-12 h-12 text-indigo-600 dark:text-indigo-400" />
 						</div>
+					);
+				})}
+			</div>
+
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+				{/* ===== Status Distribution Chart ===== */}
+				<div className="rounded-xl bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm border border-gray-200/50 dark:border-white/[0.06] p-5">
+					<div className="flex items-center gap-2 mb-4">
+						<ChartBarIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+						<h3 className="text-sm font-bold text-gray-900 dark:text-white">
+							Distribusi Status Event
+						</h3>
 					</div>
-
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm text-gray-600 dark:text-gray-400">Event Published</p>
-								<p className="text-3xl font-bold text-green-600 dark:text-green-400">
-									{events.filter((e) => e.status === "PUBLISHED").length}
-								</p>
-							</div>
-							<CalendarIcon className="w-12 h-12 text-green-600 dark:text-green-400" />
-						</div>
-					</div>
-
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm text-gray-600 dark:text-gray-400">Coupon Tersedia</p>
-								<p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-									{coupons.filter((c) => !c.isUsed).length}
-								</p>
-							</div>
-							<TicketIcon className="w-12 h-12 text-blue-600 dark:text-blue-400" />
-						</div>
-					</div>
-				</div>
-
-				{/* Tabs */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-					<div className="border-b border-gray-200 dark:border-gray-700">
-						<nav className="flex -mb-px">
-							<button
-								onClick={() => setActiveTab("events")}
-								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-									activeTab === "events"
-										? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
-										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-								}`}
-							>
-								Event Saya
-							</button>
-							<button
-								onClick={() => setActiveTab("coupons")}
-								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-									activeTab === "coupons"
-										? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
-										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-								}`}
-							>
-								Coupon ({coupons.filter((c) => !c.isUsed).length})
-							</button>
-						</nav>
-					</div>
-				</div>
-
-				{activeTab === "events" && (
-					<div>
-						{/* Draft Events */}
-						<div className="mb-6">
-							<DraftEventsList />
-						</div>
-
-						{/* Create Event Button */}
-						<div className="flex justify-between items-center mb-6">
-							<h2 className="text-2xl font-bold text-gray-900 dark:text-white">Daftar Event</h2>
-							{coupons.filter((c) => !c.isUsed).length > 0 ? (
-								<Link
-									to="/panitia/events/create"
-									className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-								>
-									<PlusIcon className="w-5 h-5" />
-									Buat Event Baru
-								</Link>
-							) : (
-								<button
-									disabled
-									className="flex items-center gap-2 px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 rounded-lg cursor-not-allowed"
-									title="Anda memerlukan kupon untuk membuat event"
-								>
-									<PlusIcon className="w-5 h-5" />
-									Buat Event Baru
-								</button>
-							)}
-						</div>
-
-						{events.length === 0 ? (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-								<CalendarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-								<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-									Belum Ada Event
-								</h3>
-								<p className="text-gray-500 dark:text-gray-400 mb-6">
-									Mulai dengan membuat event pertama Anda. Setiap event memerlukan 1 kupon.
-								</p>
-								{coupons.filter((c) => !c.isUsed).length > 0 && (
-									<Link
-										to="/panitia/events/create"
-										className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-									>
-										<PlusIcon className="w-5 h-5" />
-										Buat Event Baru
-									</Link>
-								)}
-							</div>
-						) : (
-							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-								{events.map((event) => {
-									const eventStartDate = new Date(event.startDate);
-									const today = new Date();
-									const canEdit = today < eventStartDate;
-
-									return (
-										<div
-											key={event.id}
-											className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-all overflow-hidden flex flex-col"
-										>
-											{/* Thumbnail */}
-											<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-indigo-500 to-purple-600">
-												{event.thumbnail ? (
-													<img
-														src={getImageUrl(event.thumbnail) || ""}
-														alt={event.title}
-														className="w-full h-full object-cover"
-														onError={(e) => {
-															e.currentTarget.style.display = "none";
-														}}
-													/>
-												) : (
-													<div className="flex items-center justify-center h-full">
-														<CalendarIcon className="w-16 h-16 text-white/50" />
-													</div>
-												)}
-												<div className="absolute top-4 right-4">
-													{getStatusBadge(event.status)}
-												</div>
-											</div>
-
-											{/* Content */}
-											<div className="p-6 flex flex-col flex-1">
-												<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 line-clamp-2">
-													{event.title}
-												</h3>
-
-												{event.description && (
-													<p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
-														{event.description}
-													</p>
-												)}
-
-												<div className="space-y-2 mb-4 flex-1">
-													<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-														<CalendarIcon className="w-4 h-4 mr-2" />
-														<span>{formatDate(event.startDate)}</span>
-													</div>
-													{event.location && (
-														<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-															<MapPinIcon className="w-4 h-4 mr-2" />
-															<span className="line-clamp-1">{event.location}</span>
-														</div>
-													)}
-													<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-														<UsersIcon className="w-4 h-4 mr-2" />
-														<span>
-															{event.currentParticipants} / {event.maxParticipants || "∞"} peserta
-														</span>
-													</div>
-												</div>
-
-												{/* Action Buttons */}
-												<div className="flex gap-2 mt-auto">
-													{canEdit && (
-														<Link
-															to={`/panitia/events/create/${event.id}`}
-															className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-														>
-															<Cog6ToothIcon className="w-4 h-4" />
-															Setting
-														</Link>
-													)}
-													<button
-														onClick={() => handleEnterEvent(event)}
-															className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-																canEdit
-																	? "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-																	: "bg-indigo-600 text-white hover:bg-indigo-700"
-															}`}
-														>
-															<ArrowRightOnRectangleIcon className="w-4 h-4" />
-														Kelola
-													</button>
-												</div>
-											</div>
-										</div>
-									);
-								})}
-							</div>
-						)}
-					</div>
-				)}
-
-				{activeTab === "coupons" && (
-					<div>
-						<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-							Coupon Tersedia
-						</h2>
-						{coupons.length === 0 ? (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-								<TicketIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-								<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-									Tidak Ada Coupon
-								</h3>
-								<p className="text-gray-500 dark:text-gray-400">
-									Anda belum memiliki coupon. Hubungi admin untuk mendapatkan coupon.
-								</p>
-							</div>
-						) : (
-							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-								{coupons.map((coupon) => (
-									<div
-										key={coupon.id}
-										className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${
-											coupon.isUsed ? "opacity-50" : "hover:shadow-lg"
-										}`}
-									>
-										<div className="flex items-start justify-between mb-4">
-											<TicketIcon className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-											<span
-												className={`px-2 py-1 text-xs font-semibold rounded-full ${
-													coupon.isUsed
-														? "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-														: "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400"
-												}`}
+					{totalEvents === 0 ? (
+						<p className="text-xs text-gray-400 dark:text-gray-600 text-center py-6">
+							Belum ada data event
+						</p>
+					) : (
+						<div className="space-y-2.5">
+							{Object.entries(statusCounts)
+								.filter(([, count]) => count > 0)
+								.map(([status, count]) => (
+									<div key={status} className="flex items-center gap-3">
+										<span className="text-[10px] font-medium text-gray-500 dark:text-gray-500 w-20 text-right">
+											{status}
+										</span>
+										<div className="flex-1 h-5 bg-gray-100/50 dark:bg-white/[0.04] rounded-full overflow-hidden">
+											<div
+												className={`h-full ${statusColors[status]} rounded-full transition-all duration-700 ease-out flex items-center justify-end pr-2`}
+												style={{ width: `${Math.max((count / maxStatusCount) * 100, 10)}%` }}
 											>
-												{coupon.isUsed ? "Terpakai" : "Tersedia"}
-											</span>
+												<span className="text-[9px] font-bold text-white drop-shadow-sm">
+													{count}
+												</span>
+											</div>
 										</div>
-										<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 font-mono">
-											{coupon.code}
-										</h3>
-										{coupon.description && (
-											<p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-												{coupon.description}
-											</p>
-										)}
-										{coupon.expiresAt && (
-											<p className="text-xs text-gray-500">
-												Berlaku hingga: {formatDate(coupon.expiresAt)}
-											</p>
-										)}
 									</div>
 								))}
+						</div>
+					)}
+				</div>
+
+				{/* ===== Quick Summary ===== */}
+				<div className="rounded-xl bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm border border-gray-200/50 dark:border-white/[0.06] p-5">
+					<div className="flex items-center gap-2 mb-4">
+						<ArrowTrendingUpIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+						<h3 className="text-sm font-bold text-gray-900 dark:text-white">
+							Ringkasan
+						</h3>
+					</div>
+					<div className="space-y-3">
+						{[
+							{ label: "Event Selesai", value: completedEvents, total: totalEvents },
+							{ label: "Kupon Terpakai", value: coupons.filter((c) => c.isUsed).length, total: coupons.length },
+						].map((item) => (
+							<div key={item.label}>
+								<div className="flex items-center justify-between mb-1">
+									<span className="text-xs text-gray-600 dark:text-gray-400">{item.label}</span>
+									<span className="text-xs font-bold text-gray-900 dark:text-white">
+										{item.value}/{item.total}
+									</span>
+								</div>
+								<div className="h-1.5 bg-gray-100/50 dark:bg-white/[0.04] rounded-full overflow-hidden">
+									<div
+										className="h-full bg-gradient-to-r from-red-500 to-red-400 rounded-full transition-all duration-700"
+										style={{ width: item.total > 0 ? `${(item.value / item.total) * 100}%` : "0%" }}
+									/>
+								</div>
 							</div>
-						)}
+						))}
+					</div>
+
+					{/* Quick Links */}
+					<div className="mt-5 pt-4 border-t border-gray-200/30 dark:border-white/[0.04] flex flex-col gap-2">
+						<Link
+							to="/panitia/events-list"
+							className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50/50 dark:bg-white/[0.02] border border-gray-200/30 dark:border-white/[0.04] hover:bg-gray-100/50 dark:hover:bg-white/[0.05] transition-colors text-xs font-medium text-gray-700 dark:text-gray-300"
+						>
+							<span className="flex items-center gap-2">
+								<CalendarIcon className="w-3.5 h-3.5" />
+								Lihat Semua Event
+							</span>
+							<LuChevronRight className="w-3.5 h-3.5 text-gray-400" />
+						</Link>
+						<Link
+							to="/panitia/coupons"
+							className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50/50 dark:bg-white/[0.02] border border-gray-200/30 dark:border-white/[0.04] hover:bg-gray-100/50 dark:hover:bg-white/[0.05] transition-colors text-xs font-medium text-gray-700 dark:text-gray-300"
+						>
+							<span className="flex items-center gap-2">
+								<TicketIcon className="w-3.5 h-3.5" />
+								Lihat Semua Kupon
+							</span>
+							<LuChevronRight className="w-3.5 h-3.5 text-gray-400" />
+						</Link>
+					</div>
+				</div>
+			</div>
+
+			{/* ===== Recent Activity ===== */}
+			<div className="rounded-xl bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm border border-gray-200/50 dark:border-white/[0.06] p-5">
+				<div className="flex items-center justify-between mb-4">
+					<div className="flex items-center gap-2">
+						<ClockIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+						<h3 className="text-sm font-bold text-gray-900 dark:text-white">
+							Event Terbaru
+						</h3>
+					</div>
+					{events.length > 5 && (
+						<Link
+							to="/panitia/events-list"
+							className="text-[11px] font-medium text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1 transition-colors"
+						>
+							Lihat Semua
+							<LuChevronRight className="w-3 h-3" />
+						</Link>
+					)}
+				</div>
+
+				{recentEvents.length === 0 ? (
+					<div className="text-center py-8">
+						<CalendarIcon className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+						<p className="text-xs text-gray-400 dark:text-gray-600">Belum ada event</p>
+					</div>
+				) : (
+					<div className="space-y-1">
+						{recentEvents.map((event, idx) => {
+							const statusLabel: Record<string, string> = {
+								DRAFT: "Draft",
+								PUBLISHED: "Published",
+								ONGOING: "Berlangsung",
+								COMPLETED: "Selesai",
+								CANCELLED: "Dibatalkan",
+							};
+							const statusDot: Record<string, string> = {
+								DRAFT: "bg-gray-400",
+								PUBLISHED: "bg-green-500",
+								ONGOING: "bg-blue-500",
+								COMPLETED: "bg-purple-500",
+								CANCELLED: "bg-red-500",
+							};
+
+							return (
+								<div
+									key={event.id}
+									className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors"
+								>
+									{/* Timeline dot */}
+									<div className="relative flex flex-col items-center">
+										<div className={`w-2 h-2 rounded-full ${statusDot[event.status] || "bg-gray-400"}`} />
+										{idx < recentEvents.length - 1 && (
+											<div className="w-px h-8 bg-gray-200/50 dark:bg-white/[0.06] absolute top-3" />
+										)}
+									</div>
+
+									<div className="flex-1 min-w-0">
+										<p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+											{event.title}
+										</p>
+										<div className="flex items-center gap-2 mt-0.5">
+											<span className="text-[10px] text-gray-400 dark:text-gray-600">
+												{formatDate(event.startDate)}
+											</span>
+											<span className="text-[10px] text-gray-300 dark:text-gray-700">·</span>
+											<span className="text-[10px] text-gray-400 dark:text-gray-600">
+												{statusLabel[event.status] || event.status}
+											</span>
+											<span className="text-[10px] text-gray-300 dark:text-gray-700">·</span>
+											<span className="text-[10px] text-gray-400 dark:text-gray-600">
+												{event.currentParticipants} peserta
+											</span>
+										</div>
+									</div>
+								</div>
+							);
+						})}
 					</div>
 				)}
 			</div>

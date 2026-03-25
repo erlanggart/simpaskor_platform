@@ -148,7 +148,7 @@ const AssessmentHistory: React.FC = () => {
 	// Show score details for selected event
 	if (eventSlug && scoreData) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+			<div className="min-h-screen">
 				<div className="max-w-4xl mx-auto px-4 py-6">
 					{/* Back Button */}
 					<Link
@@ -160,7 +160,7 @@ const AssessmentHistory: React.FC = () => {
 					</Link>
 
 					{/* Event Header */}
-					<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-6 mb-6">
 						<h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
 							{scoreData.event.title}
 						</h1>
@@ -179,7 +179,7 @@ const AssessmentHistory: React.FC = () => {
 					</div>
 
 					{/* Summary Card */}
-					<div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg p-6 mb-6 text-white">
+					<div className="bg-gradient-to-r from-blue-500 to-red-600 rounded-xl shadow-lg p-6 mb-6 text-white">
 						<div className="flex items-center gap-3 mb-4">
 							<div className="p-3 bg-white/20 rounded-xl">
 								<TrophyIcon className="h-8 w-8" />
@@ -221,7 +221,7 @@ const AssessmentHistory: React.FC = () => {
 
 					{/* Juries */}
 					{scoreData.juries.length > 0 && (
-						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-6 mb-6">
 							<h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
 								<UserGroupIcon className="h-5 w-5 text-gray-500" />
 								Dewan Juri
@@ -241,7 +241,7 @@ const AssessmentHistory: React.FC = () => {
 
 					{/* Scores by Category */}
 					{scoreData.scoresByCategory.length === 0 ? (
-						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-8 text-center">
 							<ChartBarIcon className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
 							<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
 								Belum Ada Penilaian
@@ -251,9 +251,9 @@ const AssessmentHistory: React.FC = () => {
 							</p>
 						</div>
 					) : (
-						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md overflow-hidden">
 							{/* Category Tabs */}
-							<div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+							<div className="border-b border-gray-200/60 dark:border-gray-700/40 overflow-x-auto">
 								<nav className="flex -mb-px" aria-label="Tabs">
 									{scoreData.scoresByCategory.map((category) => {
 										// Calculate category total for tab display
@@ -269,14 +269,14 @@ const AssessmentHistory: React.FC = () => {
 												onClick={() => setActiveTab(category.categoryName)}
 												className={`whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors flex flex-col items-center ${
 													activeTab === category.categoryName
-														? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+														? "border-red-500 text-red-600 dark:text-red-400"
 														: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
 												}`}
 											>
 												<span>{category.categoryName}</span>
 												<span className={`text-xs mt-0.5 ${
 													activeTab === category.categoryName
-														? "text-indigo-500 dark:text-indigo-300"
+														? "text-red-500 dark:text-red-300"
 														: "text-gray-400"
 												}`}>
 													{tabTotal.toFixed(1)}
@@ -324,7 +324,7 @@ const AssessmentHistory: React.FC = () => {
 												{category.materials.map((ms, idx) => (
 													<tr
 														key={ms.material.id}
-														className={idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"}
+														className={idx % 2 === 0 ? "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm" : "bg-gray-50 dark:bg-gray-700"}
 													>
 														<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
 															<span className="font-medium">{ms.material.number}.</span>{" "}
@@ -367,7 +367,7 @@ const AssessmentHistory: React.FC = () => {
 													</tr>
 												))}
 											</tbody>
-											<tfoot className="bg-indigo-50 dark:bg-indigo-900/30">
+											<tfoot className="bg-red-50 dark:bg-red-900/30">
 												<tr>
 													<td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
 														Total {category.categoryName}
@@ -376,7 +376,7 @@ const AssessmentHistory: React.FC = () => {
 														colSpan={scoreData.juries.length} 
 														className="px-4 py-3 text-center"
 													>
-														<span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+														<span className="text-xl font-bold text-red-600 dark:text-red-400">
 															{categoryTotal.toFixed(1)}
 														</span>
 													</td>
@@ -403,7 +403,7 @@ const AssessmentHistory: React.FC = () => {
 
 	// Event list view
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-4xl mx-auto px-4 py-6">
 				{/* Header */}
 				<div className="mb-6">
@@ -417,7 +417,7 @@ const AssessmentHistory: React.FC = () => {
 				</div>
 
 				{events.length === 0 ? (
-					<div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-8 text-center">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-8 text-center">
 						<TrophyIcon className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
 						<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
 							Belum Ada Event
@@ -438,7 +438,7 @@ const AssessmentHistory: React.FC = () => {
 							<Link
 								key={participation.id}
 								to={`/peserta/assessment-history/${participation.event.slug}`}
-								className="block bg-white dark:bg-gray-800 rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden"
+								className="block bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md hover:shadow-lg transition-shadow overflow-hidden"
 							>
 								<div className="flex">
 									{/* Event Poster */}

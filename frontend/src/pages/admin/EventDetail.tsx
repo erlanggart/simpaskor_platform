@@ -443,7 +443,7 @@ const AdminEventDetail: React.FC = () => {
 									{event.assessmentCategories.map((cat) => (
 										<span
 											key={cat.id}
-											className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-medium"
+											className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-xs font-medium"
 										>
 											{cat.assessmentCategory.name}
 										</span>
@@ -514,7 +514,7 @@ const AdminEventDetail: React.FC = () => {
 													{assignment.assignedCategories.map((cat) => (
 														<span
 															key={cat.assessmentCategory.id}
-															className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-[10px] font-medium"
+															className="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-[10px] font-medium"
 														>
 															{cat.assessmentCategory.name}
 														</span>

@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-	CalendarIcon,
-	MapPinIcon,
-	UsersIcon,
-	CurrencyDollarIcon,
-	UserGroupIcon,
-	TrophyIcon,
-	ClockIcon,
-	CheckCircleIcon,
-	DocumentArrowDownIcon,
-	EyeIcon,
-	ArrowPathIcon,
-} from "@heroicons/react/24/outline";
+	LuCalendar,
+	LuMapPin,
+	LuUsers,
+	LuBadgeDollarSign,
+	LuUserCog,
+	LuClock,
+	LuCircleCheck,
+	LuFileDown,
+	LuExternalLink,
+	LuLoader,
+	LuTriangleAlert,
+	LuCircleX,
+	LuInfo,
+	LuSchool,
+} from "react-icons/lu";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 
@@ -93,13 +96,41 @@ interface Event {
 	juryAssignments?: JuryAssignment[];
 }
 
-const EVENT_STATUSES = [
-	{ value: "DRAFT", label: "Draft", color: "bg-gray-500", description: "Event belum dipublish" },
-	{ value: "PUBLISHED", label: "Published", color: "bg-green-500", description: "Event aktif dan tersedia" },
-	{ value: "ONGOING", label: "Ongoing", color: "bg-blue-500", description: "Event sedang berlangsung" },
-	{ value: "COMPLETED", label: "Completed", color: "bg-purple-500", description: "Event sudah selesai" },
-	{ value: "CANCELLED", label: "Cancelled", color: "bg-red-500", description: "Event dibatalkan" },
-];
+const getStatusConfig = (status: string) => {
+	const configs: Record<string, { color: string; icon: React.ReactNode; label: string; description: string }> = {
+		DRAFT: {
+			color: "bg-gray-500/20 text-gray-400 border border-gray-500/20",
+			icon: <LuTriangleAlert className="w-4 h-4" />,
+			label: "Draft",
+			description: "Event belum dipublish",
+		},
+		PUBLISHED: {
+			color: "bg-green-500/20 text-green-400 border border-green-500/20",
+			icon: <LuCircleCheck className="w-4 h-4" />,
+			label: "Published",
+			description: "Event aktif dan tersedia",
+		},
+		ONGOING: {
+			color: "bg-blue-500/20 text-blue-400 border border-blue-500/20",
+			icon: <LuClock className="w-4 h-4" />,
+			label: "Ongoing",
+			description: "Event sedang berlangsung",
+		},
+		COMPLETED: {
+			color: "bg-purple-500/20 text-purple-400 border border-purple-500/20",
+			icon: <LuCircleCheck className="w-4 h-4" />,
+			label: "Completed",
+			description: "Event sudah selesai",
+		},
+		CANCELLED: {
+			color: "bg-red-500/20 text-red-400 border border-red-500/20",
+			icon: <LuCircleX className="w-4 h-4" />,
+			label: "Cancelled",
+			description: "Event dibatalkan",
+		},
+	};
+	return configs[status] ?? configs.DRAFT;
+};
 
 const ManageEvent: React.FC = () => {
 	const { eventSlug } = useParams<{ eventSlug: string }>();
@@ -193,14 +224,14 @@ const ManageEvent: React.FC = () => {
 	const handleStatusChange = async (newStatus: string) => {
 		if (!event || newStatus === event.status) return;
 
-		const statusInfo = EVENT_STATUSES.find(s => s.value === newStatus);
+		const statusInfo = getStatusConfig(newStatus)!;
 		
 		const result = await Swal.fire({
 			title: "Ubah Status Event?",
-			html: `<p>Status event akan diubah menjadi <strong>${statusInfo?.label}</strong></p><p class="text-sm text-gray-500 mt-2">${statusInfo?.description}</p>`,
+			html: `<p>Status event akan diubah menjadi <strong>${statusInfo.label}</strong></p><p class="text-sm text-gray-500 mt-2">${statusInfo.description}</p>`,
 			icon: "question",
 			showCancelButton: true,
-			confirmButtonColor: "#4F46E5",
+			confirmButtonColor: "#EF4444",
 			cancelButtonColor: "#6B7280",
 			confirmButtonText: "Ya, Ubah",
 			cancelButtonText: "Batal",
@@ -235,555 +266,415 @@ const ManageEvent: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+			<div className="min-h-screen flex items-center justify-center">
+				<div className="animate-spin rounded-full h-10 w-10 border-2 border-red-500/30 border-t-red-500"></div>
 			</div>
 		);
 	}
 
 	if (!event) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+			<div className="min-h-screen flex items-center justify-center">
+				<div className="text-center">
+					<h2 className="text-xl font-semibold text-gray-900 dark:text-white">Event tidak ditemukan</h2>
+					<button
+						onClick={() => navigate("/panitia/dashboard")}
+						className="mt-4 text-red-500 hover:text-red-400 text-sm"
+					>
+						Kembali ke Dashboard
+					</button>
+				</div>
 			</div>
 		);
 	}
 
+	const statusConfig = getStatusConfig(event.status)!;
+
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-					{/* Main Content */}
-					<div className="lg:col-span-2">
-						{/* Event Image */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-6">
-							<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-indigo-500 to-purple-600">
-								{event.thumbnail ? (
-									<img
-										src={getImageUrl(event.thumbnail) || ""}
-										alt={event.title}
-										className="w-full h-full object-cover"
-										onError={(e) => {
-											e.currentTarget.style.display = "none";
-										}}
-									/>
-								) : (
-									<div className="flex items-center justify-center h-full">
-										<CalendarIcon className="w-24 h-24 text-white/50" />
-									</div>
-								)}
-
-								{/* Status Badges */}
-								<div className="absolute top-4 left-4 flex flex-wrap gap-2">
-									{event.featured && (
-										<span className="bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-											Featured
-										</span>
-									)}
-									{event.category && (
-										<span className="bg-indigo-600 dark:bg-indigo-700 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-											{event.category}
-										</span>
-									)}
-									{event.level && (
-										<span className="bg-blue-600 dark:bg-blue-700 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-											{event.level}
-										</span>
-									)}
-								</div>
-
-								{/* Status Event */}
-								<div className="absolute bottom-4 right-4">
-									<span
-										className={`px-4 py-2 rounded-full text-sm font-semibold shadow-lg ${
-											event.status === "PUBLISHED"
-												? "bg-green-500 text-white"
-												: event.status === "DRAFT"
-												? "bg-yellow-500 text-white"
-												: "bg-gray-500 text-white"
-										}`}
-									>
-										{event.status}
+		<div className="min-h-screen transition-colors">
+			{/* Header */}
+			<header className="border-b border-gray-200/30 dark:border-white/[0.06] bg-white/60 dark:bg-white/[0.02] backdrop-blur-xl">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="flex items-center justify-between py-5">
+						<div className="flex items-center gap-4 min-w-0">
+							<div className="min-w-0">
+								<div className="flex items-center gap-3 flex-wrap">
+									<h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+										{event.title}
+									</h1>
+									<span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`}>
+										{statusConfig.icon}
+										{statusConfig.label}
 									</span>
 								</div>
-							</div>
-						</div>
-
-						{/* Event Description */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-							<h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-								{event.title}
-							</h1>
-
-							{event.description && (
-								<div className="prose dark:prose-invert max-w-none mb-6">
-									<p className="text-gray-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">
-										{event.description}
-									</p>
-								</div>
-							)}
-
-							{/* Assessment Categories as Badges */}
-							{event.assessmentCategories && event.assessmentCategories.length > 0 && (
-								<div className="mb-4">
-									<div className="flex items-center gap-2 mb-2">
-										<TrophyIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-										<span className="text-sm font-medium text-gray-700 dark:text-gray-300">Kriteria Penilaian:</span>
-									</div>
-									<div className="flex flex-wrap gap-2">
-										{event.assessmentCategories
-											.sort((a, b) => a.assessmentCategory.order - b.assessmentCategory.order)
-											.map((category) => (
-												<span
-													key={category.id}
-													className="inline-flex items-center px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm rounded-full"
-													title={category.assessmentCategory.description || undefined}
-												>
-													{category.assessmentCategory.name}
-													{category.customWeight !== null && (
-														<span className="ml-1.5 text-xs font-semibold text-indigo-500 dark:text-indigo-400">
-															({category.customWeight}%)
-														</span>
-													)}
-												</span>
-											))
-										}
-									</div>
-								</div>
-							)}
-
-							{(event.organizer || event.organizerEmail) && (
-								<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
-									{event.organizer && (
-										<div className="flex items-center text-gray-600 dark:text-gray-300">
-											<UserGroupIcon className="w-5 h-5 mr-2 flex-shrink-0" />
-											<span className="font-medium">Penyelenggara:</span>
-											<span className="ml-2">{event.organizer}</span>
-										</div>
-									)}
-									{event.organizerEmail && (
-										<div className="flex items-center text-gray-600 dark:text-gray-300">
-											<svg
-												className="w-5 h-5 mr-2 flex-shrink-0"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													strokeWidth={2}
-													d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-												/>
-											</svg>
-											<span className="font-medium">Email:</span>
-											<a
-												href={`mailto:${event.organizerEmail}`}
-												className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline"
-											>
-												{event.organizerEmail}
-											</a>
-										</div>
-									)}
-								</div>
-							)}
-						</div>
-
-						{/* Confirmed Juries */}
-						{event.juryAssignments && event.juryAssignments.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-								<div className="flex items-center mb-4">
-									<TrophyIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-										Dewan Juri ({event.juryAssignments.length})
-									</h2>
-								</div>
-								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-									{event.juryAssignments.map((juryAssignment) => (
-										<div
-											key={juryAssignment.id}
-											className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center"
-										>
-											{/* Avatar */}
-											<div className="relative mx-auto w-20 h-20 mb-3">
-												{juryAssignment.jury.profile?.avatar ? (
-													<img
-														src={getImageUrl(juryAssignment.jury.profile.avatar) || ""}
-														alt={juryAssignment.jury.name}
-														className="w-20 h-20 rounded-full object-cover border-3 border-indigo-200 dark:border-indigo-800"
-													/>
-												) : (
-													<div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-														{juryAssignment.jury.name.charAt(0).toUpperCase()}
-													</div>
-												)}
-												<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-													<CheckCircleIcon className="w-4 h-4 text-white" />
-												</div>
-											</div>
-											{/* Name */}
-											<h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1 truncate">
-												{juryAssignment.jury.name}
-											</h3>
-											{/* Institution */}
-											{juryAssignment.jury.profile?.institution && (
-												<p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">
-													{juryAssignment.jury.profile.institution}
-												</p>
-											)}
-											{/* Assigned Categories */}
-											{juryAssignment.assignedCategories.length > 0 && (
-												<div className="flex flex-wrap justify-center gap-1">
-													{juryAssignment.assignedCategories.slice(0, 2).map((cat, idx) => (
-														<span
-															key={idx}
-															className="inline-flex items-center px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full"
-														>
-															{cat.assessmentCategory.name}
-														</span>
-													))}
-													{juryAssignment.assignedCategories.length > 2 && (
-														<span className="text-xs text-gray-500 dark:text-gray-400">
-															+{juryAssignment.assignedCategories.length - 2}
-														</span>
-													)}
-												</div>
-											)}
-										</div>
-									))}
-								</div>
-							</div>
-						)}
-
-						{/* Juknis Download */}
-						{event.juknisUrl && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-								<div className="flex items-center justify-between mb-4">
-									<div className="flex items-center">
-										<DocumentArrowDownIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-										<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-											Petunjuk Teknis (Juknis)
-										</h2>
-									</div>
-								</div>
-								<p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-									Dokumen petunjuk teknis berisi informasi lengkap mengenai tata cara, peraturan, dan ketentuan event ini.
+								<p className="text-sm text-gray-500 dark:text-gray-500 mt-0.5">
+									{event.organizer || "Kelola event"}
 								</p>
-								
-								{/* Action Buttons */}
-								<div className="flex flex-wrap gap-3 mb-4">
-									<a
-										href={getImageUrl(event.juknisUrl) || ""}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-lg font-medium transition-colors"
-									>
-										<EyeIcon className="w-5 h-5 mr-2" />
-										Buka di Tab Baru
-									</a>
-									<a
-										href={getImageUrl(event.juknisUrl) || ""}
-										download
-										className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
-									>
-										<DocumentArrowDownIcon className="w-5 h-5 mr-2" />
-										Download PDF
-									</a>
-								</div>
-
-								{/* Embedded PDF Viewer */}
-								<div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-									<iframe
-										src={getImageUrl(event.juknisUrl) || ""}
-										className="w-full bg-white"
-										style={{ height: "70vh", minHeight: "500px" }}
-										title="Juknis PDF Viewer"
-									/>
-								</div>
-							</div>
-						)}
-
-						{/* Registered Participants Summary */}
-						{participantsSummary.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-								<div className="flex items-center mb-4">
-									<UserGroupIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-										Peserta Terdaftar ({participantsSummary.reduce((acc, p) => acc + p.teamCount, 0)} Tim)
-									</h2>
-								</div>
-								<div className="space-y-3">
-									{participantsSummary.map((participant, idx) => (
-										<div
-											key={idx}
-											className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-										>
-											<div className="flex items-center justify-between mb-2">
-												<span className="font-medium text-gray-900 dark:text-white">
-													{participant.schoolName}
-												</span>
-												<span className="text-sm text-gray-500 dark:text-gray-400">
-													{participant.teamCount} tim
-												</span>
-											</div>
-											<div className="flex flex-wrap gap-2">
-												{participant.teams.map((team, tidx) => (
-													<span
-														key={tidx}
-														className="inline-flex items-center px-2 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full"
-													>
-														{team.name}
-														{team.category && (
-															<span className="ml-1 text-indigo-500 dark:text-indigo-400">
-																({team.category})
-															</span>
-														)}
-													</span>
-												))}
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
-
-						{/* School Category Limits */}
-						{event.schoolCategoryLimits &&
-							event.schoolCategoryLimits.length > 0 && (
-								<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-									<div className="flex items-center mb-4">
-										<UsersIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
-										<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-											Kuota Berdasarkan Kategori Sekolah
-										</h2>
-									</div>
-									<div className="space-y-3">
-										{event.schoolCategoryLimits.map((limit) => {
-											const current = limit.currentParticipants || 0;
-											const max = limit.maxParticipants;
-											const available = max - current;
-											const percentage = (current / max) * 100;
-											const isFull = current >= max;
-
-											return (
-												<div
-													key={limit.id}
-													className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3"
-												>
-													<div className="flex justify-between items-center mb-2">
-														<span className="text-gray-900 dark:text-white font-medium text-sm">
-															{limit.schoolCategory.name}
-														</span>
-														<span
-															className={`text-xs font-semibold ${
-																isFull
-																	? "text-red-600 dark:text-red-400"
-																	: "text-gray-600 dark:text-gray-400"
-															}`}
-														>
-															{current} / {max}
-														</span>
-													</div>
-													<div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-1">
-														<div
-															className={`h-2 rounded-full transition-all ${
-																isFull
-																	? "bg-red-500"
-																	: percentage > 75
-																	? "bg-yellow-500"
-																	: "bg-green-500"
-															}`}
-															style={{
-																width: `${Math.min(percentage, 100)}%`,
-															}}
-														></div>
-													</div>
-													<p
-														className={`text-xs ${
-															isFull
-																? "text-red-600 dark:text-red-400"
-																: "text-green-600 dark:text-green-400"
-														}`}
-													>
-														{isFull ? "Penuh" : `${available} slot tersisa`}
-													</p>
-												</div>
-											);
-										})}
-									</div>
-								</div>
-							)}
-					</div>
-
-					{/* Sidebar - Info Event */}
-					<div className="lg:col-span-1">
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sticky top-0">
-							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-								Informasi Event
-							</h2>
-
-							<div className="space-y-4">
-								{/* Date & Time */}
-								<div className="flex items-start">
-									<CalendarIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-									<div>
-										<p className="text-sm text-gray-500 dark:text-gray-400">
-											Tanggal Pelaksanaan
-										</p>
-										<p className="text-gray-900 dark:text-white font-medium">
-											{formatDate(event.startDate)}
-										</p>
-										{event.startDate !== event.endDate && (
-											<p className="text-gray-900 dark:text-white font-medium">
-												s/d {formatDate(event.endDate)}
-											</p>
-										)}
-									</div>
-								</div>
-
-								{/* Registration Deadline */}
-								{event.registrationDeadline && (
-									<div className="flex items-start">
-										<ClockIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-										<div>
-											<p className="text-sm text-gray-500 dark:text-gray-400">
-												Batas Pendaftaran
-											</p>
-											<p className="text-gray-900 dark:text-white font-medium">
-												{formatDate(event.registrationDeadline)}
-											</p>
-										</div>
-									</div>
-								)}
-
-								{/* Location */}
-								{event.location && (
-									<div className="flex items-start">
-										<MapPinIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-										<div>
-											<p className="text-sm text-gray-500 dark:text-gray-400">
-												Lokasi
-											</p>
-											<p className="text-gray-900 dark:text-white font-medium">
-												{event.venue && `${event.venue}, `}
-												{event.location}
-											</p>
-										</div>
-									</div>
-								)}
-
-								{/* Participants */}
-								<div className="flex items-start">
-									<UsersIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-									<div>
-										<p className="text-sm text-gray-500 dark:text-gray-400">
-											Peserta
-										</p>
-										<p className="text-gray-900 dark:text-white font-medium">
-											{event.currentParticipants}{" "}
-											{event.maxParticipants && `/ ${event.maxParticipants}`}
-										</p>
-									</div>
-								</div>
-
-								{/* Registration Fee */}
-								<div className="flex items-start pt-4 border-t border-gray-200 dark:border-gray-700">
-									<CurrencyDollarIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-									<div>
-										<p className="text-sm text-gray-500 dark:text-gray-400">
-											Biaya Pendaftaran
-										</p>
-										<p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-											{formatCurrency(event.registrationFee)}
-										</p>
-									</div>
-								</div>
-							</div>
-
-							{/* Status Change */}
-							<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-								<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
-									<CheckCircleIcon className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
-									Status Event
-								</h3>
-								
-								{/* Current Status Badge */}
-								<div className="mb-4">
-									<span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
-										EVENT_STATUSES.find(s => s.value === event.status)?.color || "bg-gray-500"
-									} text-white`}>
-										{EVENT_STATUSES.find(s => s.value === event.status)?.label || event.status}
-									</span>
-									<p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-										{EVENT_STATUSES.find(s => s.value === event.status)?.description}
-									</p>
-								</div>
-
-								{/* Auto-computed status info */}
-								<div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4">
-									<p className="text-xs text-gray-600 dark:text-gray-400">
-										<strong>ℹ️ Status otomatis:</strong> Status dihitung berdasarkan tanggal event.
-										<br />• <strong>Published</strong> = Pendaftaran masih buka
-										<br />• <strong>Ongoing</strong> = Batas pendaftaran lewat / event berlangsung
-										<br />• <strong>Completed</strong> = Event sudah selesai
-									</p>
-								</div>
-
-								{/* Manual Override Buttons */}
-								{event.status !== "CANCELLED" && event.status !== "DRAFT" && (
-									<div className="space-y-2">
-										<button
-											onClick={() => handleStatusChange("DRAFT")}
-											disabled={updatingStatus}
-											className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
-										>
-											{updatingStatus ? (
-												<ArrowPathIcon className="w-4 h-4 inline mr-2 animate-spin" />
-											) : null}
-											Ubah ke Draft (Sembunyikan)
-										</button>
-										<button
-											onClick={() => handleStatusChange("CANCELLED")}
-											disabled={updatingStatus}
-											className="w-full px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors disabled:opacity-50"
-										>
-											{updatingStatus ? (
-												<ArrowPathIcon className="w-4 h-4 inline mr-2 animate-spin" />
-											) : null}
-											Batalkan Event
-										</button>
-									</div>
-								)}
-
-								{/* Restore from DRAFT or CANCELLED */}
-								{(event.status === "DRAFT" || event.status === "CANCELLED") && (
-									<button
-										onClick={() => handleStatusChange("PUBLISHED")}
-										disabled={updatingStatus}
-										className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
-									>
-										{updatingStatus ? (
-											<ArrowPathIcon className="w-4 h-4 inline mr-2 animate-spin" />
-										) : null}
-										{event.status === "DRAFT" ? "Publish Event" : "Aktifkan Kembali"}
-									</button>
-								)}
-							</div>
-
-							{/* Management Info */}
-							<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-								<div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-									<p className="text-sm text-blue-800 dark:text-blue-200">
-										<span className="font-semibold">💡 Info:</span> Gunakan menu
-										sidebar untuk mengelola berbagai aspek event ini.
-									</p>
-								</div>
 							</div>
 						</div>
 					</div>
 				</div>
-			</div>
+			</header>
+
+			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				<div className="space-y-6">
+
+					{/* Event Thumbnail & Basic Info */}
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl overflow-hidden">
+						<div className="md:flex">
+							{event.thumbnail ? (
+								<div className="md:w-1/3">
+									<img
+										src={getImageUrl(event.thumbnail) || ""}
+										alt={event.title}
+										className="w-full h-64 md:h-full object-cover"
+										onError={(e) => {
+											e.currentTarget.style.display = "none";
+										}}
+									/>
+								</div>
+							) : null}
+							<div className={`p-6 ${event.thumbnail ? "md:w-2/3" : "w-full"}`}>
+								<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Informasi Event</h3>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div className="flex items-start gap-3">
+										<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+											<LuCalendar className="w-4 h-4 text-red-500/80" />
+										</div>
+										<div>
+											<p className="text-xs text-gray-400 dark:text-gray-500">Tanggal</p>
+											<p className="text-sm text-gray-900 dark:text-white">
+												{formatDate(event.startDate)}
+												{event.startDate !== event.endDate && ` - ${formatDate(event.endDate)}`}
+											</p>
+										</div>
+									</div>
+									{event.location && (
+										<div className="flex items-start gap-3">
+											<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+												<LuMapPin className="w-4 h-4 text-red-500/80" />
+											</div>
+											<div>
+												<p className="text-xs text-gray-400 dark:text-gray-500">Lokasi</p>
+												<p className="text-sm text-gray-900 dark:text-white">{event.location}</p>
+												{event.venue && (
+													<p className="text-xs text-gray-500 dark:text-gray-500">{event.venue}</p>
+												)}
+											</div>
+										</div>
+									)}
+									<div className="flex items-start gap-3">
+										<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+											<LuUsers className="w-4 h-4 text-red-500/80" />
+										</div>
+										<div>
+											<p className="text-xs text-gray-400 dark:text-gray-500">Peserta</p>
+											<p className="text-sm text-gray-900 dark:text-white">
+												{event.currentParticipants} / {event.maxParticipants || "∞"}
+											</p>
+										</div>
+									</div>
+									<div className="flex items-start gap-3">
+										<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+											<LuBadgeDollarSign className="w-4 h-4 text-red-500/80" />
+										</div>
+										<div>
+											<p className="text-xs text-gray-400 dark:text-gray-500">Biaya Registrasi</p>
+											<p className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(event.registrationFee)}</p>
+										</div>
+									</div>
+									{event.registrationDeadline && (
+										<div className="flex items-start gap-3">
+											<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+												<LuClock className="w-4 h-4 text-red-500/80" />
+											</div>
+											<div>
+												<p className="text-xs text-gray-400 dark:text-gray-500">Batas Registrasi</p>
+												<p className="text-sm text-gray-900 dark:text-white">{formatDate(event.registrationDeadline)}</p>
+											</div>
+										</div>
+									)}
+								</div>
+								{event.description && (
+									<div className="mt-4 pt-4 border-t border-gray-200/30 dark:border-white/[0.06]">
+										<h4 className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-2">Deskripsi</h4>
+										<p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{event.description}</p>
+									</div>
+								)}
+								{(event.organizer || event.organizerEmail) && (
+									<div className="mt-4 pt-4 border-t border-gray-200/30 dark:border-white/[0.06]">
+										<h4 className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-2">Penyelenggara</h4>
+										<div className="flex items-center gap-3">
+											<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+												<LuUserCog className="w-4 h-4 text-red-500/80" />
+											</div>
+											<div>
+												{event.organizer && (
+													<p className="text-sm text-gray-900 dark:text-white">{event.organizer}</p>
+												)}
+												{event.organizerEmail && (
+													<a
+														href={`mailto:${event.organizerEmail}`}
+														className="text-xs text-red-500 hover:text-red-400 transition-colors"
+													>
+														{event.organizerEmail}
+													</a>
+												)}
+											</div>
+										</div>
+									</div>
+								)}
+							</div>
+						</div>
+					</div>
+
+					{/* Status Management */}
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+						<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+							<LuCircleCheck className="w-4 h-4 text-red-500/80" />
+							Status Event
+						</h3>
+						<div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+							<span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.color}`}>
+								{statusConfig.icon}
+								{statusConfig.label}
+							</span>
+							<p className="text-xs text-gray-500 dark:text-gray-500">{statusConfig.description}</p>
+						</div>
+						<div className="bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl p-3 mb-4">
+							<p className="text-xs text-gray-600 dark:text-gray-400">
+								<strong>ℹ️ Status otomatis:</strong> Status dihitung berdasarkan tanggal event.
+								<br />• <strong>Published</strong> = Pendaftaran masih buka
+								<br />• <strong>Ongoing</strong> = Batas pendaftaran lewat / event berlangsung
+								<br />• <strong>Completed</strong> = Event sudah selesai
+							</p>
+						</div>
+						<div className="flex flex-wrap gap-2">
+							{event.status !== "CANCELLED" && event.status !== "DRAFT" && (
+								<>
+									<button
+										onClick={() => handleStatusChange("DRAFT")}
+										disabled={updatingStatus}
+										className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] hover:bg-gray-200 dark:hover:bg-white/[0.1] rounded-xl transition-colors disabled:opacity-50"
+									>
+										{updatingStatus && <LuLoader className="w-3.5 h-3.5 animate-spin" />}
+										Ubah ke Draft
+									</button>
+									<button
+										onClick={() => handleStatusChange("CANCELLED")}
+										disabled={updatingStatus}
+										className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 rounded-xl transition-colors disabled:opacity-50"
+									>
+										{updatingStatus && <LuLoader className="w-3.5 h-3.5 animate-spin" />}
+										Batalkan Event
+									</button>
+								</>
+							)}
+							{(event.status === "DRAFT" || event.status === "CANCELLED") && (
+								<button
+									onClick={() => handleStatusChange("PUBLISHED")}
+									disabled={updatingStatus}
+									className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors disabled:opacity-50 shadow-lg shadow-green-500/20"
+								>
+									{updatingStatus && <LuLoader className="w-3.5 h-3.5 animate-spin" />}
+									{event.status === "DRAFT" ? "Publish Event" : "Aktifkan Kembali"}
+								</button>
+							)}
+						</div>
+					</div>
+
+					{/* Assessment Categories */}
+					{event.assessmentCategories && event.assessmentCategories.length > 0 && (
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+							<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Kategori Penilaian</h3>
+							<div className="flex flex-wrap gap-2">
+								{event.assessmentCategories
+									.sort((a, b) => a.assessmentCategory.order - b.assessmentCategory.order)
+									.map((category) => (
+										<span
+											key={category.id}
+											className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-xs font-medium"
+											title={category.assessmentCategory.description || undefined}
+										>
+											{category.assessmentCategory.name}
+											{category.customWeight !== null && (
+												<span className="ml-1 opacity-70">({category.customWeight}%)</span>
+											)}
+										</span>
+									))
+								}
+							</div>
+						</div>
+					)}
+
+					{/* School Category Limits */}
+					{event.schoolCategoryLimits && event.schoolCategoryLimits.length > 0 && (
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+							<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Kuota per Kategori Sekolah</h3>
+							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+								{event.schoolCategoryLimits.map((limit) => {
+									const current = limit.currentParticipants || 0;
+									const max = limit.maxParticipants;
+									const percentage = (current / max) * 100;
+									const isFull = current >= max;
+
+									return (
+										<div key={limit.id} className="bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl p-4">
+											<div className="flex justify-between items-center mb-2">
+												<p className="text-sm font-medium text-gray-900 dark:text-white">{limit.schoolCategory.name}</p>
+												<span className={`text-xs font-semibold ${isFull ? "text-red-400" : "text-gray-500 dark:text-gray-400"}`}>
+													{current} / {max}
+												</span>
+											</div>
+											<div className="w-full bg-gray-200/60 dark:bg-white/[0.06] rounded-full h-1.5">
+												<div
+													className={`h-1.5 rounded-full transition-all ${
+														isFull ? "bg-red-500" : percentage > 75 ? "bg-yellow-500" : "bg-green-500"
+													}`}
+													style={{ width: `${Math.min(percentage, 100)}%` }}
+												/>
+											</div>
+											<p className={`text-[10px] mt-1.5 ${isFull ? "text-red-400" : "text-green-500"}`}>
+												{isFull ? "Penuh" : `${max - current} slot tersisa`}
+											</p>
+										</div>
+									);
+								})}
+							</div>
+						</div>
+					)}
+
+					{/* Confirmed Juries */}
+					{event.juryAssignments && event.juryAssignments.length > 0 && (
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+							<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+								Dewan Juri ({event.juryAssignments.length})
+							</h3>
+							<div className="space-y-3">
+								{event.juryAssignments.map((juryAssignment) => (
+									<div key={juryAssignment.id} className="flex items-start gap-4 p-4 bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl">
+										<div className="relative flex-shrink-0">
+											{juryAssignment.jury.profile?.avatar ? (
+												<img
+													src={getImageUrl(juryAssignment.jury.profile.avatar) || ""}
+													alt={juryAssignment.jury.name}
+													className="w-11 h-11 rounded-xl object-cover border border-gray-200/50 dark:border-white/[0.08]"
+												/>
+											) : (
+												<div className="w-11 h-11 bg-amber-500/15 rounded-xl flex items-center justify-center border border-amber-500/20">
+													<span className="text-amber-500 font-semibold text-lg">
+														{juryAssignment.jury.name.charAt(0).toUpperCase()}
+													</span>
+												</div>
+											)}
+											<div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-900">
+												<LuCircleCheck className="w-2.5 h-2.5 text-white" />
+											</div>
+										</div>
+										<div className="flex-1 min-w-0">
+											<p className="text-sm font-medium text-gray-900 dark:text-white">{juryAssignment.jury.name}</p>
+											{juryAssignment.jury.profile?.institution && (
+												<p className="text-xs text-gray-500 dark:text-gray-500">{juryAssignment.jury.profile.institution}</p>
+											)}
+											{juryAssignment.assignedCategories.length > 0 && (
+												<div className="flex flex-wrap gap-1 mt-2">
+													{juryAssignment.assignedCategories.map((cat, idx) => (
+														<span
+															key={idx}
+															className="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-[10px] font-medium"
+														>
+															{cat.assessmentCategory.name}
+														</span>
+													))}
+												</div>
+											)}
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
+					{/* Registered Participants Summary */}
+					{participantsSummary.length > 0 && (
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+							<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+								Peserta Terdaftar ({participantsSummary.reduce((acc, p) => acc + p.teamCount, 0)} Tim)
+							</h3>
+							<div className="space-y-3">
+								{participantsSummary.map((participant, idx) => (
+									<div
+										key={idx}
+										className="p-4 bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl"
+									>
+										<div className="flex items-center justify-between mb-2">
+											<div className="flex items-center gap-3">
+												<div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+													<LuSchool className="w-4 h-4 text-blue-400" />
+												</div>
+												<span className="text-sm font-medium text-gray-900 dark:text-white">{participant.schoolName}</span>
+											</div>
+											<span className="text-xs text-gray-500 dark:text-gray-500">{participant.teamCount} tim</span>
+										</div>
+										<div className="flex flex-wrap gap-1.5 ml-11">
+											{participant.teams.map((team, tidx) => (
+												<span
+													key={tidx}
+													className="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-[10px] font-medium"
+												>
+													{team.name}
+													{team.category && (
+														<span className="opacity-70 ml-1">({team.category})</span>
+													)}
+												</span>
+											))}
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
+					{/* Juknis Download */}
+					{event.juknisUrl && (
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+							<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Petunjuk Teknis (Juknis)</h3>
+							<p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
+								Dokumen petunjuk teknis berisi informasi lengkap mengenai tata cara, peraturan, dan ketentuan event ini.
+							</p>
+							<div className="flex flex-wrap gap-2 mb-4">
+								<a
+									href={getImageUrl(event.juknisUrl) || ""}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
+								>
+									<LuExternalLink className="w-4 h-4" />
+									Buka di Tab Baru
+								</a>
+								<a
+									href={getImageUrl(event.juknisUrl) || ""}
+									download
+									className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1] rounded-xl text-sm font-medium transition-colors"
+								>
+									<LuFileDown className="w-4 h-4" />
+									Download PDF
+								</a>
+							</div>
+							<div className="border border-gray-200/30 dark:border-white/[0.06] rounded-xl overflow-hidden">
+								<iframe
+									src={getImageUrl(event.juknisUrl) || ""}
+									className="w-full bg-white dark:bg-gray-900"
+									style={{ height: "70vh", minHeight: "500px" }}
+									title="Juknis PDF Viewer"
+								/>
+							</div>
+						</div>
+					)}
+
+					
+				</div>
+			</main>
 		</div>
 	);
 };

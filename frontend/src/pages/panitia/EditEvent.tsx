@@ -475,9 +475,9 @@ const EditEventForm: React.FC = () => {
 
 	if (loadingData) {
 		return (
-			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
 					<p className="mt-4 text-gray-600">Memuat data event...</p>
 				</div>
 			</div>
@@ -485,7 +485,7 @@ const EditEventForm: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="min-h-screen">
 			{/* Header */}
 			<div className="bg-white shadow-sm border-b sticky top-0 z-10">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -559,7 +559,7 @@ const EditEventForm: React.FC = () => {
 									onChange={(e) =>
 										setFormData((prev) => ({ ...prev, title: e.target.value }))
 									}
-									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
 										errors.title ? "border-red-500" : "border-gray-300"
 									}`}
 									placeholder="Contoh: Lomba Paskibra Tingkat Nasional 2024"
@@ -583,7 +583,7 @@ const EditEventForm: React.FC = () => {
 										}))
 									}
 									rows={4}
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Jelaskan detail tentang event..."
 								/>
 							</div>
@@ -609,7 +609,7 @@ const EditEventForm: React.FC = () => {
 										</button>
 									</div>
 								) : (
-									<div className="flex items-center justify-center w-48 h-60 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 cursor-pointer relative">
+									<div className="flex items-center justify-center w-48 h-60 border-2 border-dashed border-gray-300 rounded-lg hover:border-red-500 cursor-pointer relative">
 										<input
 											type="file"
 											accept="image/*"
@@ -619,7 +619,7 @@ const EditEventForm: React.FC = () => {
 										/>
 										<div className="text-center">
 											{uploadingThumbnail ? (
-												<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+												<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
 											) : (
 												<>
 													<PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -666,7 +666,7 @@ const EditEventForm: React.FC = () => {
 													category.id
 												)}
 												onChange={() => toggleAssessmentCategory(category.id)}
-												className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+												className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
 											/>
 											<div className="ml-3 flex-1">
 												<div className="font-medium text-gray-900">
@@ -702,7 +702,7 @@ const EditEventForm: React.FC = () => {
 													category.id
 												)}
 												onChange={() => toggleAssessmentCategory(category.id)}
-												className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+												className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
 											/>
 											<div className="ml-3 flex-1">
 												<div className="font-medium text-gray-900">
@@ -752,7 +752,7 @@ const EditEventForm: React.FC = () => {
 												type="checkbox"
 												checked={isSelected}
 												onChange={() => toggleSchoolCategory(category.id)}
-												className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+												className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
 											/>
 											<div className="ml-3 flex-1">
 												<div className="font-medium text-gray-900">
@@ -794,7 +794,7 @@ const EditEventForm: React.FC = () => {
 															updateSchoolCategoryLimit(category.id, 20);
 														}
 													}}
-													className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+													className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 													placeholder="Minimal 20 peserta"
 												/>
 												<p className="text-xs text-gray-500 mt-1">
@@ -836,7 +836,7 @@ const EditEventForm: React.FC = () => {
 											startDate: e.target.value,
 										}))
 									}
-									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
 										errors.startDate ? "border-red-500" : "border-gray-300"
 									}`}
 								/>
@@ -861,7 +861,7 @@ const EditEventForm: React.FC = () => {
 											endDate: e.target.value,
 										}))
 									}
-									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
 										errors.endDate ? "border-red-500" : "border-gray-300"
 									}`}
 								/>
@@ -884,7 +884,7 @@ const EditEventForm: React.FC = () => {
 											registrationDeadline: e.target.value,
 										}))
 									}
-									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+									className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
 										errors.registrationDeadline
 											? "border-red-500"
 											: "border-gray-300"
@@ -920,7 +920,7 @@ const EditEventForm: React.FC = () => {
 											location: e.target.value,
 										}))
 									}
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Contoh: Jakarta Selatan"
 								/>
 							</div>
@@ -935,7 +935,7 @@ const EditEventForm: React.FC = () => {
 									onChange={(e) =>
 										setFormData((prev) => ({ ...prev, venue: e.target.value }))
 									}
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Contoh: Gedung Serbaguna XYZ"
 								/>
 							</div>
@@ -985,7 +985,7 @@ const EditEventForm: React.FC = () => {
 										setRegistrationFeeDisplay(formatted);
 									}}
 									placeholder="0 untuk gratis"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 								<p className="text-xs text-gray-500 mt-1">
 									Contoh: 100.000 atau 250.000
@@ -1006,7 +1006,7 @@ const EditEventForm: React.FC = () => {
 											organizer: e.target.value,
 										}))
 									}
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Nama organisasi atau institusi"
 								/>
 							</div>
@@ -1029,7 +1029,7 @@ const EditEventForm: React.FC = () => {
 												contactEmail: e.target.value,
 											}))
 										}
-										className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+										className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent ${
 											errors.contactEmail ? "border-red-500" : "border-gray-300"
 										}`}
 										placeholder="contact@example.com"
@@ -1060,7 +1060,7 @@ const EditEventForm: React.FC = () => {
 												contactPhone: e.target.value,
 											}))
 										}
-										className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+										className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 										placeholder="08123456789"
 									/>
 								</div>
@@ -1082,7 +1082,7 @@ const EditEventForm: React.FC = () => {
 									onChange={(e) =>
 										setFormData((prev) => ({ ...prev, status: e.target.value }))
 									}
-									className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+									className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
 								/>
 								<span className="ml-2">
 									<span className="font-medium">Draft</span>
@@ -1101,7 +1101,7 @@ const EditEventForm: React.FC = () => {
 									onChange={(e) =>
 										setFormData((prev) => ({ ...prev, status: e.target.value }))
 									}
-									className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+									className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
 								/>
 								<span className="ml-2">
 									<span className="font-medium">Published</span>
@@ -1121,7 +1121,7 @@ const EditEventForm: React.FC = () => {
 							className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
 								couponExpired.isExpired 
 									? "bg-gray-400 text-gray-600 cursor-not-allowed"
-									: "bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+									: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
 							}`}
 						>
 							{loading ? "Menyimpan..." : couponExpired.isExpired ? "Kupon Kadaluarsa" : "Simpan Perubahan"}

@@ -92,7 +92,7 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 
 	if (loading) {
 		return (
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="animate-pulse flex items-center gap-4">
 					<div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded"></div>
 					<div className="flex-1">
@@ -109,7 +109,7 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 	}
 
 	return (
-		<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 transition-colors">
+		<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 transition-colors">
 			<div className="p-4 border-b border-gray-200 dark:border-gray-700">
 				<div className="flex items-center gap-3">
 					<DocumentTextIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
@@ -150,7 +150,7 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 									</div>
 									<div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
 										<div
-											className="bg-indigo-600 dark:bg-indigo-400 h-2 rounded-full transition-all"
+											className="bg-red-600 dark:bg-red-400 h-2 rounded-full transition-all"
 											style={{ width: `${getProgressPercent(draft.wizardStep)}%` }}
 										></div>
 									</div>
@@ -160,7 +160,7 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 							<div className="flex items-center gap-2 ml-4">
 								<Link
 									to={`/panitia/events/create/${draft.id}`}
-									className="flex items-center gap-2 px-3 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors text-sm"
+									className="flex items-center gap-2 px-3 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors text-sm"
 								>
 									<PencilSquareIcon className="w-4 h-4" />
 									Lanjutkan

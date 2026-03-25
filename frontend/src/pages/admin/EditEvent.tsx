@@ -387,7 +387,7 @@ const AdminEditEvent: React.FC = () => {
 
 	if (loadingData) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-center">
 					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
 					<p className="mt-4 text-gray-600 dark:text-gray-400">Memuat data event...</p>
@@ -397,9 +397,9 @@ const AdminEditEvent: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			{/* Header */}
-			<header className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50 sticky top-0 z-10">
+			<header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow dark:shadow-gray-900/50 sticky top-0 z-10">
 				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex items-center justify-between py-4">
 						<div className="flex items-center gap-4">
@@ -434,7 +434,7 @@ const AdminEditEvent: React.FC = () => {
 			<main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				<form id="event-form" onSubmit={handleSubmit} className="space-y-6">
 					{/* Basic Information */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 							<DocumentTextIcon className="w-5 h-5" />
 							Informasi Dasar
@@ -448,7 +448,7 @@ const AdminEditEvent: React.FC = () => {
 									type="text"
 									value={formData.title}
 									onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-									className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+									className={`w-full px-4 py-2 border rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white ${
 										errors.title ? "border-red-500" : "border-gray-300 dark:border-gray-600"
 									} focus:ring-2 focus:ring-red-500 focus:border-transparent`}
 									placeholder="Masukkan judul event"
@@ -464,7 +464,7 @@ const AdminEditEvent: React.FC = () => {
 									value={formData.description}
 									onChange={(e) => setFormData({ ...formData, description: e.target.value })}
 									rows={4}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Deskripsi event"
 								/>
 							</div>
@@ -477,7 +477,7 @@ const AdminEditEvent: React.FC = () => {
 									type="text"
 									value={formData.organizer}
 									onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Nama penyelenggara"
 								/>
 							</div>
@@ -485,7 +485,7 @@ const AdminEditEvent: React.FC = () => {
 					</div>
 
 					{/* Date & Time */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 							<CalendarIcon className="w-5 h-5" />
 							Tanggal & Waktu
@@ -499,7 +499,7 @@ const AdminEditEvent: React.FC = () => {
 									type="datetime-local"
 									value={formData.startDate}
 									onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-									className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+									className={`w-full px-4 py-2 border rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white ${
 										errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
 									} focus:ring-2 focus:ring-red-500 focus:border-transparent`}
 								/>
@@ -514,7 +514,7 @@ const AdminEditEvent: React.FC = () => {
 									type="datetime-local"
 									value={formData.endDate}
 									onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-									className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+									className={`w-full px-4 py-2 border rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white ${
 										errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
 									} focus:ring-2 focus:ring-red-500 focus:border-transparent`}
 								/>
@@ -529,7 +529,7 @@ const AdminEditEvent: React.FC = () => {
 									type="datetime-local"
 									value={formData.registrationDeadline}
 									onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
-									className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+									className={`w-full px-4 py-2 border rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white ${
 										errors.registrationDeadline ? "border-red-500" : "border-gray-300 dark:border-gray-600"
 									} focus:ring-2 focus:ring-red-500 focus:border-transparent`}
 								/>
@@ -539,7 +539,7 @@ const AdminEditEvent: React.FC = () => {
 					</div>
 
 					{/* Location */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 							<MapPinIcon className="w-5 h-5" />
 							Lokasi
@@ -553,7 +553,7 @@ const AdminEditEvent: React.FC = () => {
 									type="text"
 									value={formData.location}
 									onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Contoh: Jakarta Selatan"
 								/>
 							</div>
@@ -566,7 +566,7 @@ const AdminEditEvent: React.FC = () => {
 									type="text"
 									value={formData.venue}
 									onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="Contoh: Gedung Serbaguna"
 								/>
 							</div>
@@ -574,7 +574,7 @@ const AdminEditEvent: React.FC = () => {
 					</div>
 
 					{/* Contact & Fee */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 							<CurrencyDollarIcon className="w-5 h-5" />
 							Kontak & Biaya
@@ -589,7 +589,7 @@ const AdminEditEvent: React.FC = () => {
 									type="email"
 									value={formData.contactEmail}
 									onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="email@example.com"
 								/>
 							</div>
@@ -603,7 +603,7 @@ const AdminEditEvent: React.FC = () => {
 									type="tel"
 									value={formData.contactPhone}
 									onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="08xxxxxxxxxx"
 								/>
 							</div>
@@ -621,7 +621,7 @@ const AdminEditEvent: React.FC = () => {
 										setFormData({ ...formData, registrationFee: num });
 										setRegistrationFeeDisplay(formatNumber(num));
 									}}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									placeholder="0"
 								/>
 							</div>
@@ -629,7 +629,7 @@ const AdminEditEvent: React.FC = () => {
 					</div>
 
 					{/* Thumbnail */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 							<PhotoIcon className="w-5 h-5" />
 							Poster / Thumbnail
@@ -678,7 +678,7 @@ const AdminEditEvent: React.FC = () => {
 					</div>
 
 					{/* Assessment Categories */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
 							Kategori Penilaian *
 						</h2>
@@ -715,7 +715,7 @@ const AdminEditEvent: React.FC = () => {
 					</div>
 
 					{/* School Categories */}
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
 							Kategori Sekolah & Kuota *
 						</h2>
@@ -761,7 +761,7 @@ const AdminEditEvent: React.FC = () => {
 												onChange={(e) =>
 													updateSchoolCategoryLimit(category.id, parseInt(e.target.value) || 1)
 												}
-												className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
+												className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
 											/>
 										</div>
 									)}

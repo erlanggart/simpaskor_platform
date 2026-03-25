@@ -223,7 +223,7 @@ const CouponManagement: React.FC = () => {
 						<select
 							value={itemsPerPage}
 							onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-							className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+							className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 						>
 							<option value={5}>5</option>
 							<option value={10}>10</option>
@@ -244,7 +244,7 @@ const CouponManagement: React.FC = () => {
 
 			{/* Stats */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-4">
 					<div className="text-sm text-gray-600 dark:text-gray-400">
 						Total Kupon
 					</div>
@@ -252,7 +252,7 @@ const CouponManagement: React.FC = () => {
 						{stats.total}
 					</div>
 				</div>
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-4">
 					<div className="text-sm text-gray-600 dark:text-gray-400">
 						Terpakai
 					</div>
@@ -260,7 +260,7 @@ const CouponManagement: React.FC = () => {
 						{stats.used}
 					</div>
 				</div>
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-4">
 					<div className="text-sm text-gray-600 dark:text-gray-400">
 						Tersedia
 					</div>
@@ -271,7 +271,7 @@ const CouponManagement: React.FC = () => {
 			</div>
 
 			{/* Filters */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-4">
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div className="relative">
 						<MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -280,14 +280,14 @@ const CouponManagement: React.FC = () => {
 							placeholder="Cari kode kupon..."
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+							className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 						/>
 					</div>
 					<div>
 						<select
 							value={filterStatus}
 							onChange={(e) => setFilterStatus(e.target.value)}
-							className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent appearance-none"
+							className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent appearance-none"
 						>
 							<option value="ALL">Semua Status</option>
 							<option value="USED">Terpakai</option>
@@ -299,7 +299,7 @@ const CouponManagement: React.FC = () => {
 			</div>
 
 			{/* Coupons Table */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
 				<div className="overflow-x-auto">
 					<table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 						<thead className="bg-gray-50 dark:bg-gray-700">
@@ -324,7 +324,7 @@ const CouponManagement: React.FC = () => {
 								</th>
 							</tr>
 						</thead>
-						<tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+						<tbody className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm divide-y divide-gray-200 dark:divide-gray-700">
 							{filteredCoupons.length === 0 ? (
 								<tr>
 									<td colSpan={6} className="px-6 py-12 text-center">
@@ -428,7 +428,7 @@ const CouponManagement: React.FC = () => {
 
 				{/* Pagination */}
 				{filteredCoupons.length > 0 && totalPages > 1 && (
-					<div className="bg-white dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm px-6 py-4 border-t border-gray-200/60 dark:border-gray-700/40">
 						<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 							{/* Info */}
 							<div className="text-sm text-gray-600 dark:text-gray-400">
@@ -501,7 +501,7 @@ const CouponManagement: React.FC = () => {
 			{/* Create Coupon Modal */}
 			{showCreateModal && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl max-w-md w-full p-6">
 						<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
 							Buat Kupon Baru
 						</h3>
@@ -519,7 +519,7 @@ const CouponManagement: React.FC = () => {
 											code: e.target.value.toUpperCase(),
 										})
 									}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent font-mono"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent font-mono"
 									placeholder="EVENT2025-001"
 									required
 								/>
@@ -534,7 +534,7 @@ const CouponManagement: React.FC = () => {
 										setFormData({ ...formData, description: e.target.value })
 									}
 									rows={2}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 									placeholder="Kupon untuk Lakaraja"
 								/>
 							</div>
@@ -548,7 +548,7 @@ const CouponManagement: React.FC = () => {
 									onChange={(e) =>
 										setFormData({ ...formData, expiresAt: e.target.value })
 									}
-									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 								/>
 								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
 									Event yang menggunakan kupon kadaluarsa tidak dapat diubah pengaturannya

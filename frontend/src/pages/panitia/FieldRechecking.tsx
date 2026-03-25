@@ -627,7 +627,7 @@ const FieldRechecking: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center min-h-[400px] bg-gray-50 dark:bg-gray-900">
+			<div className="flex items-center justify-center min-h-[400px]">
 				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 dark:border-red-500"></div>
 			</div>
 		);
@@ -636,18 +636,10 @@ const FieldRechecking: React.FC = () => {
 	// Field Selection View
 	if (!activeField) {
 		return (
-			<div className="p-4 md:p-6 max-w-4xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen">
+			<div className="p-4 md:p-6 max-w-4xl mx-auto min-h-screen">
 				{/* Header */}
 				<div className="mb-6">
-					<Link
-						to={`${basePath}/events/${eventSlug}/manage`}
-						className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 flex items-center gap-1 mb-4 text-sm"
-					>
-						<ArrowLeftIcon className="h-4 w-4" />
-						<span className="hidden sm:inline">Kembali ke Kelola Event</span>
-						<span className="sm:hidden">Kembali</span>
-					</Link>
-
+					
 					{/* Title Section */}
 					<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
 						<div>
@@ -692,7 +684,7 @@ const FieldRechecking: React.FC = () => {
 				{/* Field Form Modal */}
 				{showFieldForm && (
 					<div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl max-w-md w-full p-6 border border-gray-200/60 dark:border-gray-700/40">
 							<h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
 								{editingField ? "Edit Lapangan" : "Tambah Lapangan Baru"}
 							</h2>
@@ -708,7 +700,7 @@ const FieldRechecking: React.FC = () => {
 										onChange={(e) =>
 											setFieldFormData({ ...fieldFormData, name: e.target.value })
 										}
-										className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:ring-red-500 focus:border-red-500"
+										className="w-full px-3 py-2 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:ring-red-500 focus:border-red-500"
 										placeholder="Contoh: Lapangan A, Stage 1, dll."
 									/>
 								</div>
@@ -722,7 +714,7 @@ const FieldRechecking: React.FC = () => {
 										onChange={(e) =>
 											setFieldFormData({ ...fieldFormData, description: e.target.value })
 										}
-										className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:ring-red-500 focus:border-red-500"
+										className="w-full px-3 py-2 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:ring-red-500 focus:border-red-500"
 										rows={3}
 										placeholder="Deskripsi opsional tentang lapangan ini..."
 									/>
@@ -749,7 +741,7 @@ const FieldRechecking: React.FC = () => {
 				)}
 
 				{fields.length === 0 ? (
-					<div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+					<div className="text-center py-12 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
 						<MapPinIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
 						<h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
 							Belum Ada Lapangan
@@ -771,8 +763,8 @@ const FieldRechecking: React.FC = () => {
 								key={field.id}
 								className={`p-4 sm:p-6 rounded-xl border transition-all hover:shadow-lg active:scale-[0.98] ${
 									field.currentPerformer
-										? "border-green-500 bg-white dark:bg-gray-800"
-										: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-red-500"
+										? "border-green-500 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm"
+										: "border-gray-200/60 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm hover:border-red-500"
 								}`}
 							>
 								<div className="flex items-start justify-between mb-3">
@@ -853,7 +845,7 @@ const FieldRechecking: React.FC = () => {
 
 	// Field View (Inside a Field)
 	return (
-		<div className="p-4 md:p-6 max-w-6xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen">
+		<div className="p-4 md:p-6 max-w-6xl mx-auto min-h-screen">
 			{/* Header */}
 			<div className="mb-4 md:mb-6">
 				<button
@@ -903,7 +895,7 @@ const FieldRechecking: React.FC = () => {
 				<div className="order-first md:order-last space-y-4">
 					{/* Time Input Card */}
 					{isPerforming && (
-						<div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-md border border-gray-200 dark:border-gray-700">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 md:p-6 shadow-md border border-gray-200/60 dark:border-gray-700/40">
 							<div className="flex items-center justify-between mb-3 md:mb-4">
 								<h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
 									<ClockIcon className="h-5 w-5 md:h-6 md:w-6 text-orange-600 dark:text-orange-400" />
@@ -1072,7 +1064,7 @@ const FieldRechecking: React.FC = () => {
 					{/* Quick Stats - Desktop only (mobile shows below materials) */}
 					<div className="hidden md:block">
 						{isPerforming && useMaterialCheck && materialChecks.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-md border border-gray-200/60 dark:border-gray-700/40">
 								<h4 className="text-sm font-medium text-gray-700 dark:text-gray-400 mb-3">Progress Materi</h4>
 								<div className="flex items-center gap-4">
 									<div className="text-3xl font-bold text-green-600 dark:text-green-400">
@@ -1148,7 +1140,7 @@ const FieldRechecking: React.FC = () => {
 						)
 					) : (
 						/* Participant Selection Card */
-						<div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 shadow-md border border-gray-200/60 dark:border-gray-700/40">
 							<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 								<UserGroupIcon className="h-6 w-6 text-red-600 dark:text-red-500" />
 								Pilih Peserta untuk Tampil
@@ -1156,7 +1148,7 @@ const FieldRechecking: React.FC = () => {
 
 							{/* School Category Tabs */}
 							{schoolCategories.length > 0 && (
-								<div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-4 overflow-x-auto">
+								<div className="flex gap-2 mb-4 border-b border-gray-200/60 dark:border-gray-700/40 pb-4 overflow-x-auto">
 									{schoolCategories.map((cat, index) => {
 										const categoryParticipants = participants.filter(
 											p => p.schoolCategory?.id === cat.id
@@ -1292,7 +1284,7 @@ const FieldRechecking: React.FC = () => {
 
 					{/* Optional: Material Checklist */}
 					{isPerforming && (
-						<div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-md border border-gray-200 dark:border-gray-700">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 md:p-6 shadow-md border border-gray-200/60 dark:border-gray-700/40">
 							<div className="flex items-center justify-between mb-3 md:mb-4">
 								<h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
 									<CheckIcon className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
@@ -1341,7 +1333,7 @@ const FieldRechecking: React.FC = () => {
 											<>
 												{/* Material Category Tabs */}
 												{categories.length > 1 && (
-													<div className="flex gap-2 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+													<div className="flex gap-2 mb-4 pb-3 border-b border-gray-200/60 dark:border-gray-700/40 overflow-x-auto">
 														{categories.map((cat) => {
 															const checkedCount = cat.items.filter(i => i.isChecked).length;
 															const isActive = cat.id === (activeCategory?.id);
@@ -1374,7 +1366,7 @@ const FieldRechecking: React.FC = () => {
 													<div className="space-y-2 max-h-[350px] md:max-h-[400px] overflow-y-auto pr-1">
 														{/* Single category header on desktop when no tabs */}
 														{categories.length === 1 && (
-															<h4 className="hidden md:flex font-medium text-gray-700 dark:text-gray-300 text-sm items-center gap-2 sticky top-0 bg-white dark:bg-gray-800 py-1 z-10">
+															<h4 className="hidden md:flex font-medium text-gray-700 dark:text-gray-300 text-sm items-center gap-2 sticky top-0 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm py-1 z-10">
 																<span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-full text-xs border border-blue-200 dark:border-blue-500/30">
 																	{activeCategory.name}
 																</span>
@@ -1438,7 +1430,7 @@ const FieldRechecking: React.FC = () => {
 
 					{/* Mobile-only: Quick Stats Progress Bar */}
 					{isPerforming && useMaterialCheck && materialChecks.length > 0 && (
-						<div className="md:hidden bg-white dark:bg-gray-800 rounded-xl p-4 shadow-md border border-gray-200 dark:border-gray-700">
+						<div className="md:hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 shadow-md border border-gray-200/60 dark:border-gray-700/40">
 							<div className="flex items-center justify-between mb-2">
 								<h4 className="text-sm font-medium text-gray-700 dark:text-gray-400">Progress Materi</h4>
 								<span className="text-sm font-bold text-green-600 dark:text-green-400">

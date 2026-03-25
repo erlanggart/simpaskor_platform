@@ -1,32 +1,31 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
-import { Logo } from "../components/Logo";
 import { api } from "../utils/api";
 import Swal from "sweetalert2";
 import {
-	HomeIcon,
-	CalendarIcon,
-	TrophyIcon,
-	UsersIcon,
-	ChartBarIcon,
-	Cog6ToothIcon,
-	UserCircleIcon,
-	ArrowRightOnRectangleIcon,
-	EllipsisHorizontalIcon,
-	TicketIcon,
-	ScaleIcon,
-	SunIcon,
-	MoonIcon,
-	ChevronDoubleLeftIcon,
-	ChevronDoubleRightIcon,
-	AcademicCapIcon,
-	MapPinIcon,
-	ShoppingBagIcon,
-	ClipboardDocumentListIcon,
-	HandThumbUpIcon,
-} from "@heroicons/react/24/outline";
+	LuHouse,
+	LuUsers,
+	LuTicket,
+	LuScale,
+	LuCalendar,
+	LuChartBar,
+	LuSettings,
+	LuUser,
+	LuLogOut,
+	LuSun,
+	LuMoon,
+	LuGraduationCap,
+	LuMapPin,
+	LuTrophy,
+	LuShoppingBag,
+	LuClipboardList,
+	LuThumbsUp,
+	LuArrowRightFromLine,
+	LuEllipsis,
+} from "react-icons/lu";
+import "../components/landing/LandingPage.css";
 
 interface MenuItem {
 	name: string;
@@ -40,12 +39,9 @@ export const DashboardLayout: React.FC = () => {
 	const { theme, toggleTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const [showUserMenu, setShowUserMenu] = useState(false);
 	const [showMoreMenu, setShowMoreMenu] = useState(false);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
 	const [activeJuryEvent, setActiveJuryEvent] = useState<any>(null);
-	const userButtonRef = useRef<HTMLButtonElement>(null);
 
 	// Extract eventSlug from URL for Juri
 	const juryEventSlugMatch = location.pathname.match(/\/juri\/events\/([^/]+)/);
@@ -55,11 +51,8 @@ export const DashboardLayout: React.FC = () => {
 	const panitiaEventSlugMatch = location.pathname.match(/\/panitia\/events\/([^/]+)/);
 	const panitiaEventSlug = panitiaEventSlugMatch ? panitiaEventSlugMatch[1] : null;
 
-	// Check for active event assignment (for PANITIA role)
-	// Re-check when navigating to event routes to ensure sidebar updates
 	useEffect(() => {
 		if (user?.role === "PANITIA") {
-			// If we're on an event route but don't have activeEvent loaded, fetch it
 			if (panitiaEventSlug && !activeEvent) {
 				checkActiveEvent();
 			} else if (!panitiaEventSlug && !activeEvent) {
@@ -68,14 +61,12 @@ export const DashboardLayout: React.FC = () => {
 		}
 	}, [user, panitiaEventSlug]);
 
-	// Also check on initial mount
 	useEffect(() => {
 		if (user?.role === "PANITIA") {
 			checkActiveEvent();
 		}
 	}, [user]);
 
-	// Check for juri event (for JURI role)
 	useEffect(() => {
 		if (user?.role === "JURI" && juryEventSlug) {
 			fetchJuryEvent(juryEventSlug);
@@ -84,21 +75,16 @@ export const DashboardLayout: React.FC = () => {
 		}
 	}, [user, juryEventSlug]);
 
-	// Note: Removed auto-redirect to event - now handled explicitly via "Kelola" button in Dashboard
-
 	const checkActiveEvent = () => {
-		// Read from localStorage instead of API
 		try {
 			const stored = localStorage.getItem("panitia_active_event");
 			if (stored) {
 				const eventData = JSON.parse(stored);
-				// Wrap in { event: {...} } structure for compatibility
 				setActiveEvent({ event: eventData });
 			} else {
 				setActiveEvent(null);
 			}
 		} catch (error) {
-			// Invalid data in localStorage
 			localStorage.removeItem("panitia_active_event");
 			setActiveEvent(null);
 		}
@@ -108,10 +94,8 @@ export const DashboardLayout: React.FC = () => {
 		try {
 			const response = await api.get(`/juries/events/${eventId}`);
 			if (response.data && response.data.event) {
-				// Clear the exit flag since user is entering an event
 				sessionStorage.removeItem("juri_exited_event");
 				setActiveJuryEvent(response.data);
-				// Store active event in localStorage for MainLayout redirect
 				localStorage.setItem("juri_active_event", JSON.stringify({
 					slug: response.data.event.slug,
 					title: response.data.event.title,
@@ -119,13 +103,11 @@ export const DashboardLayout: React.FC = () => {
 				}));
 			}
 		} catch (error) {
-			// Not assigned to this event
 			setActiveJuryEvent(null);
 		}
 	};
 
 	const handleLeaveJuryEvent = () => {
-		// Set flag to prevent auto-redirect until browser session ends
 		sessionStorage.setItem("juri_exited_event", "true");
 		localStorage.removeItem("juri_active_event");
 		setActiveJuryEvent(null);
@@ -146,7 +128,6 @@ export const DashboardLayout: React.FC = () => {
 		});
 
 		if (result.isConfirmed) {
-			// Remove from localStorage
 			localStorage.removeItem("panitia_active_event");
 			setActiveEvent(null);
 
@@ -162,13 +143,12 @@ export const DashboardLayout: React.FC = () => {
 		}
 	};
 
-	// Menu items berdasarkan role
 	const getMenuItems = (): MenuItem[] => {
 		const isInEventMode = (activeEvent && user?.role === "PANITIA") || (activeJuryEvent && user?.role === "JURI");
 		const baseItems: MenuItem[] = [
 			{
 				name: isInEventMode ? "Event" : "Dashboard",
-				icon: HomeIcon,
+				icon: LuHouse,
 				path: getDashboardPath(),
 			},
 		];
@@ -178,117 +158,51 @@ export const DashboardLayout: React.FC = () => {
 		switch (user?.role) {
 			case "SUPERADMIN":
 				roleSpecificItems.push(
-					{ name: "Kelola Pengguna", icon: UsersIcon, path: "/admin/users" },
-					{ name: "Kelola Kupon", icon: TicketIcon, path: "/admin/coupons" },
-					{
-						name: "Kategori Penilaian",
-						icon: ScaleIcon,
-						path: "/admin/assessment-categories",
-					},
-					{ name: "Kelola Event", icon: CalendarIcon, path: "/admin/events" },
-					{ name: "Produk", icon: ShoppingBagIcon, path: "/admin/products" },
-					{ name: "Pesanan", icon: ClipboardDocumentListIcon, path: "/admin/orders" },
-					{ name: "Statistik", icon: ChartBarIcon, path: "/admin/statistics" },
-					{ name: "Pengaturan", icon: Cog6ToothIcon, path: "/admin/settings" }
+					{ name: "Pengguna", icon: LuUsers, path: "/admin/users" },
+					{ name: "Kupon", icon: LuTicket, path: "/admin/coupons" },
+					{ name: "Penilaian", icon: LuScale, path: "/admin/assessment-categories" },
+					{ name: "Event", icon: LuCalendar, path: "/admin/events" },
+					{ name: "Produk", icon: LuShoppingBag, path: "/admin/products" },
+					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
+					{ name: "Statistik", icon: LuChartBar, path: "/admin/statistics" },
+					{ name: "Setting", icon: LuSettings, path: "/admin/settings" }
 				);
 				break;
 			case "PANITIA":
-				// DashboardLayout is now only used when in event mode
-				// Dashboard page uses PreAssignLayout
 				if (activeEvent && activeEvent.event) {
 					roleSpecificItems.push(
-						{
-							name: "Peserta",
-							icon: UsersIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/peserta`,
-						},
-						{
-							name: "Juri",
-							icon: ScaleIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/juri`,
-						},
-						{
-							name: "Materi",
-							icon: AcademicCapIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/materi`,
-						},
-						{
-							name: "Kategori Juara",
-							icon: TrophyIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/juara`,
-						},
-						{
-							name: "Perform",
-							icon: MapPinIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/field-rechecking`,
-						},
-						{
-							name: "Rekapitulasi",
-							icon: ChartBarIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/rekapitulasi`,
-						},
-						{
-							name: "E-Ticketing",
-							icon: TicketIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/ticketing`,
-						},
-						{
-							name: "E-Voting",
-							icon: HandThumbUpIcon,
-							path: `/panitia/events/${activeEvent.event.slug}/voting`,
-						}
+						{ name: "Peserta", icon: LuUsers, path: `/panitia/events/${activeEvent.event.slug}/peserta` },
+						{ name: "Juri", icon: LuScale, path: `/panitia/events/${activeEvent.event.slug}/juri` },
+						{ name: "Materi", icon: LuGraduationCap, path: `/panitia/events/${activeEvent.event.slug}/materi` },
+						{ name: "Juara", icon: LuTrophy, path: `/panitia/events/${activeEvent.event.slug}/juara` },
+						{ name: "Perform", icon: LuMapPin, path: `/panitia/events/${activeEvent.event.slug}/field-rechecking` },
+						{ name: "Rekap", icon: LuChartBar, path: `/panitia/events/${activeEvent.event.slug}/rekapitulasi` },
+						{ name: "Tiket", icon: LuTicket, path: `/panitia/events/${activeEvent.event.slug}/ticketing` },
+						{ name: "Voting", icon: LuThumbsUp, path: `/panitia/events/${activeEvent.event.slug}/voting` }
 					);
 				}
-				// Note: If no activeEvent, menu will be empty (loading state)
 				break;
 			case "PESERTA":
 				roleSpecificItems.push(
-					{
-						name: "Event Tersedia",
-						icon: CalendarIcon,
-						path: "/peserta/events",
-					},
-					{
-						name: "Pendaftaran Saya",
-						icon: TrophyIcon,
-						path: "/peserta/registrations",
-					},
-					{ name: "Riwayat Penilaian", icon: ChartBarIcon, path: "/peserta/assessment-history" }
+					{ name: "Event", icon: LuCalendar, path: "/peserta/events" },
+					{ name: "Pendaftaran", icon: LuTrophy, path: "/peserta/registrations" },
+					{ name: "Riwayat", icon: LuChartBar, path: "/peserta/assessment-history" }
 				);
 				break;
 			case "JURI":
-				// DashboardLayout is now only used when in event mode
-				// Dashboard page uses PreAssignLayout
 				if (activeJuryEvent && activeJuryEvent.event) {
 					roleSpecificItems.push(
-						{
-							name: "Materi",
-							icon: AcademicCapIcon,
-							path: `/juri/events/${activeJuryEvent.event.slug}/materi`,
-						},
-						{
-							name: "Peserta",
-							icon: UsersIcon,
-							path: `/juri/events/${activeJuryEvent.event.slug}/peserta`,
-						},
-						{
-							name: "Penilaian",
-							icon: TrophyIcon,
-							path: `/juri/events/${activeJuryEvent.event.slug}/penilaian`,
-						}
+						{ name: "Materi", icon: LuGraduationCap, path: `/juri/events/${activeJuryEvent.event.slug}/materi` },
+						{ name: "Peserta", icon: LuUsers, path: `/juri/events/${activeJuryEvent.event.slug}/peserta` },
+						{ name: "Penilaian", icon: LuTrophy, path: `/juri/events/${activeJuryEvent.event.slug}/penilaian` }
 					);
 				}
-				// Note: If no activeJuryEvent, menu will be empty (loading state)
 				break;
 			case "PELATIH":
 				roleSpecificItems.push(
-					{ name: "Atlet Saya", icon: UsersIcon, path: "/pelatih/athletes" },
-					{ name: "Event", icon: CalendarIcon, path: "/pelatih/events" },
-					{
-						name: "Performa",
-						icon: ChartBarIcon,
-						path: "/pelatih/performance",
-					}
+					{ name: "Atlet", icon: LuUsers, path: "/pelatih/athletes" },
+					{ name: "Event", icon: LuCalendar, path: "/pelatih/events" },
+					{ name: "Performa", icon: LuChartBar, path: "/pelatih/performance" }
 				);
 				break;
 		}
@@ -301,7 +215,6 @@ export const DashboardLayout: React.FC = () => {
 			case "SUPERADMIN":
 				return "/admin/dashboard";
 			case "PANITIA":
-				// If panitia has active event assignment, go to manage event page
 				if (activeEvent && activeEvent.event) {
 					return `/panitia/events/${activeEvent.event.slug}/manage`;
 				}
@@ -309,7 +222,6 @@ export const DashboardLayout: React.FC = () => {
 			case "PESERTA":
 				return "/peserta/dashboard";
 			case "JURI":
-				// If juri is viewing an event, go to event info page
 				if (activeJuryEvent && activeJuryEvent.event) {
 					return `/juri/events/${activeJuryEvent.event.slug}/info`;
 				}
@@ -321,13 +233,24 @@ export const DashboardLayout: React.FC = () => {
 		}
 	};
 
+	const getProfilePath = () => {
+		switch (user?.role) {
+			case "SUPERADMIN": return "/admin/profile";
+			case "PANITIA": return "/panitia/profile";
+			case "PESERTA": return "/peserta/profile";
+			case "JURI": return "/juri/profile";
+			case "PELATIH": return "/pelatih/profile";
+			default: return "/profile";
+		}
+	};
+
 	const handleLogout = async () => {
 		const result = await Swal.fire({
 			title: "Logout?",
 			text: "Yakin ingin keluar dari aplikasi?",
 			icon: "question",
 			showCancelButton: true,
-			confirmButtonColor: "#6366F1",
+			confirmButtonColor: "#ef4444",
 			cancelButtonColor: "#6B7280",
 			confirmButtonText: "Ya, Logout",
 			cancelButtonText: "Batal",
@@ -340,356 +263,326 @@ export const DashboardLayout: React.FC = () => {
 		}
 	};
 
-	const isActive = (path: string) => {
-		return location.pathname === path;
-	};
+	const isActive = (path: string) => location.pathname === path;
 
-	// Mobile bottom navigation config per role
-	const getMobileNavConfig = (): { primaryItems: MenuItem[]; moreItems: MenuItem[] } => {
-		const allItems = getMenuItems();
+	const menuItems = getMenuItems();
+	const profilePath = getProfilePath();
 
-		if (user?.role === "PANITIA" && activeEvent?.event) {
-			const primaryPaths = new Set(
-				allItems
-					.filter(
-						(i) =>
-							i.path.endsWith("/manage") ||
-							i.path.endsWith("/field-rechecking") ||
-							i.path.endsWith("/ticketing")
-					)
-					.map((i) => i.path)
-			);
-			const primaryItems = allItems.filter((i) => primaryPaths.has(i.path));
-			const moreItems = allItems.filter((i) => !primaryPaths.has(i.path));
-			return { primaryItems, moreItems };
-		}
-
-		if (user?.role === "SUPERADMIN") {
-			const primaryPaths = new Set(["/admin/dashboard", "/admin/users", "/admin/events"]);
-			const primaryItems = allItems.filter((i) => primaryPaths.has(i.path));
-			const moreItems = allItems.filter((i) => !primaryPaths.has(i.path));
-			return { primaryItems, moreItems };
-		}
-
-		// PESERTA, JURI, PELATIH, or PANITIA without event
-		return { primaryItems: allItems.slice(0, 4), moreItems: allItems.slice(4) };
-	};
-
-	const { primaryItems: mobilePrimaryItems, moreItems: mobileMoreItems } = getMobileNavConfig();
+	// For mobile: show first 4 items as primary, rest in "More"
+	const mobilePrimaryItems = menuItems.slice(0, 4);
+	const mobileMoreItems = menuItems.slice(4);
 	const mobileHasMore = mobileMoreItems.length > 0;
 
-	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-			{/* Sidebar untuk Desktop */}
-			<aside
-				className={`hidden md:fixed md:inset-y-0 md:flex md:flex-col transition-all duration-300 z-30 ${
-					sidebarCollapsed ? "md:w-20" : "md:w-64"
-				}`}
-			>
-				{/* Tombol Collapse - Mencuat keluar sejajar dengan logo */}
-				<button
-					onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-					className="absolute -right-3 top-[3.25rem] z-50 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg hover:shadow-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/50 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all duration-200"
-					title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-				>
-					{sidebarCollapsed ? (
-						<ChevronDoubleRightIcon className="w-4 h-4" />
-					) : (
-						<ChevronDoubleLeftIcon className="w-4 h-4" />
-					)}
-				</button>
+	// Active event info for display
+	const activeEventTitle = activeEvent?.event?.title || activeJuryEvent?.event?.title || null;
+	const hasActiveEvent = !!(activeEvent || activeJuryEvent);
 
-				<div className="flex flex-col flex-grow bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-					{/* Logo */}
-					<div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
+	return (
+		<div className="h-screen w-screen overflow-hidden relative">
+			{/* Fixed background with grid + gradient */}
+			<div className="main-layout-bg" />
+			<div className="neon-red-lines" />
+
+			{/* ===== Left Sidebar Navigation (desktop) ===== */}
+			<nav className="fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center gap-2 border-r border-gray-200/10 dark:border-white/5">
+				{/* Logo at top */}
+				<div className="mt-4 mb-4">
+					<Link to="/">
+						<div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
+							<img
+								src="/simpaskor.webp"
+								alt="Logo"
+								className="w-7 h-7 object-contain"
+							/>
+						</div>
+					</Link>
+				</div>
+
+				{/* Active event indicator */}
+				{activeEventTitle && (
+					<div className="w-10 mb-2">
+						<div className="w-full h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent" />
+					</div>
+				)}
+
+				{/* Navigation Items (centered) */}
+				<div className="flex-1 flex flex-col items-center justify-center gap-1 overflow-y-auto py-2 scrollbar-hide">
+					{menuItems.map((item) => {
+						const active = isActive(item.path);
+						const Icon = item.icon;
+
+						return (
+							<Link
+								key={item.path}
+								to={item.path}
+								className="group relative flex flex-col items-center gap-0.5 outline-none"
+								aria-label={item.name}
+							>
+								{active && (
+									<div className="absolute -left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full transition-all" />
+								)}
+
+								<div
+									className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
+										active
+											? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110 shadow-lg shadow-red-500/10"
+											: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
+									}`}
+								>
+									<Icon className="w-5 h-5" />
+								</div>
+
+								<span
+									className={`text-[9px] font-medium transition-all duration-300 leading-tight ${
+										active
+											? "text-red-500 dark:text-red-400 opacity-100"
+											: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
+									}`}
+								>
+									{item.name}
+								</span>
+
+								{/* Tooltip */}
+								<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+									{item.name}
+									<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+								</div>
+							</Link>
+						);
+					})}
+
+					{/* Profile nav item */}
+					{/* <Link
+						to={profilePath}
+						className="group relative flex flex-col items-center gap-0.5 outline-none mt-1"
+						aria-label="Profile"
+					>
+						{isActive(profilePath) && (
+							<div className="absolute -left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full transition-all" />
+						)}
 						<div
-							className={`flex items-center ${
-								sidebarCollapsed ? "justify-center py-4" : "px-4 py-4"
+							className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
+								isActive(profilePath)
+									? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110 shadow-lg shadow-red-500/10"
+									: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
 							}`}
 						>
-							<Logo size="sm" showText={!sidebarCollapsed} variant="auto" />
+							<LuUser className="w-5 h-5" />
 						</div>
-					</div>
+						<span
+							className={`text-[9px] font-medium transition-all duration-300 leading-tight ${
+								isActive(profilePath)
+									? "text-red-500 dark:text-red-400 opacity-100"
+									: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
+							}`}
+						>
+							Profile
+						</span>
+						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+							Profile
+							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+						</div>
+					</Link> */}
+				</div>
 
-					{/* Navigation */}
-					<nav className="flex-1 px-3 py-4 space-y-1">
-						{getMenuItems().map((item) => {
+				{/* Bottom: Leave Event / Theme Toggle / Logout */}
+				<div className="mb-6 flex flex-col items-center gap-1.5">
+					{/* Leave Event */}
+					{hasActiveEvent && (
+						<button
+							onClick={activeJuryEvent ? handleLeaveJuryEvent : handleLeaveEvent}
+							className="group relative flex flex-col items-center gap-0.5 outline-none"
+							aria-label="Keluar Event"
+						>
+							<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20">
+								<LuArrowRightFromLine className="w-5 h-5" />
+							</div>
+							<span className="text-[9px] font-medium text-red-500 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+								Keluar
+							</span>
+							<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+								Keluar Event
+								<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+							</div>
+						</button>
+					)}
+
+					{/* Theme Toggle */}
+					<button
+						onClick={toggleTheme}
+						className="group relative flex flex-col items-center gap-0.5 outline-none"
+						aria-label="Toggle theme"
+					>
+						<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300">
+							{theme === "light" ? (
+								<LuMoon className="w-5 h-5" />
+							) : (
+								<LuSun className="w-5 h-5" />
+							)}
+						</div>
+						<span className="text-[9px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+							Theme
+						</span>
+						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+							{theme === "light" ? "Dark Mode" : "Light Mode"}
+							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+						</div>
+					</button>
+
+					{/* Logout */}
+					<button
+						onClick={handleLogout}
+						className="group relative flex flex-col items-center gap-0.5 outline-none"
+						aria-label="Logout"
+					>
+						<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400">
+							<LuLogOut className="w-5 h-5" />
+						</div>
+						<span className="text-[9px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+							Logout
+						</span>
+						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+							Logout
+							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+						</div>
+					</button>
+				</div>
+			</nav>
+
+			{/* ===== Main Content Area ===== */}
+			<main className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-[72px] pb-20 md:pb-6">
+				<Outlet />
+			</main>
+
+			{/* ===== Mobile Bottom Navigation ===== */}
+			<nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+				<div className="mx-3 mb-3 px-2 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.06] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.08] shadow-lg shadow-black/5 dark:shadow-black/20">
+					<div className="flex items-center justify-around">
+						{mobilePrimaryItems.map((item) => {
+							const active = isActive(item.path);
 							const Icon = item.icon;
 							return (
 								<Link
 									key={item.path}
 									to={item.path}
-									className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-										isActive(item.path)
-											? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
-											: "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-									} ${sidebarCollapsed ? "justify-center" : ""}`}
-									title={sidebarCollapsed ? item.name : ""}
+									className="group relative flex flex-col items-center gap-0.5 outline-none"
+									aria-label={item.name}
 								>
-									<Icon className="w-5 h-5 flex-shrink-0" />
-									{!sidebarCollapsed && <span>{item.name}</span>}
+									{active && (
+										<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
+									)}
+									<div
+										className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+											active
+												? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110"
+												: "text-gray-400 dark:text-gray-500"
+										}`}
+									>
+										<Icon className="w-[18px] h-[18px]" />
+									</div>
+									<span
+										className={`text-[8px] font-medium leading-tight ${
+											active
+												? "text-red-500 dark:text-red-400"
+												: "text-gray-400 dark:text-gray-500"
+										}`}
+									>
+										{item.name}
+									</span>
 								</Link>
 							);
 						})}
-					</nav>
-
-					{/* User Profile */}
-					<div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-3">
-						<div className="relative">
+						{mobileHasMore ? (
 							<button
-								ref={userButtonRef}
-								onClick={() => setShowUserMenu(!showUserMenu)}
-								className={`flex items-center w-full gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-									sidebarCollapsed ? "justify-center" : ""
-								}`}
-								title={sidebarCollapsed ? user?.name : ""}
+								onClick={() => setShowMoreMenu(!showMoreMenu)}
+								className="group relative flex flex-col items-center gap-0.5 outline-none"
+								aria-label="Lainnya"
 							>
-								<div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-xs flex-shrink-0">
-									{user?.name
-										?.split(" ")
-										.map((n) => n[0])
-										.join("")
-										.substring(0, 2)
-										.toUpperCase()}
+								<div
+									className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+										showMoreMenu
+											? "bg-red-500/15 text-red-500 dark:text-red-400"
+											: "text-gray-400 dark:text-gray-500"
+									}`}
+								>
+									<LuEllipsis className="w-[18px] h-[18px]" />
 								</div>
-								{!sidebarCollapsed && (
-									<div className="flex-1 text-left">
-										<div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-											{user?.name}
-										</div>
-										<div className="text-xs text-gray-500 dark:text-gray-400">
-											{user?.role}
-										</div>
-									</div>
-								)}
+								<span
+									className={`text-[8px] font-medium leading-tight ${
+										showMoreMenu
+											? "text-red-500 dark:text-red-400"
+											: "text-gray-400 dark:text-gray-500"
+									}`}
+								>
+									Lainnya
+								</span>
 							</button>
-
-							{/* Desktop User Dropdown */}
-							{showUserMenu && (
-								<>
-									<div
-										className="fixed inset-0 z-40 hidden md:block"
-										onClick={() => setShowUserMenu(false)}
-									/>
-									<div
-										className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50 hidden md:block"
-										style={{
-											minWidth: sidebarCollapsed ? "240px" : "auto",
-										}}
-									>
-										<Link
-											to="/profile"
-											className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-											onClick={() => setShowUserMenu(false)}
-										>
-											<UserCircleIcon className="w-5 h-5" />
-											Profil Saya
-										</Link>
-										<button
-											onClick={toggleTheme}
-											className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-										>
-											{theme === "dark" ? (
-												<>
-													<SunIcon className="w-5 h-5" />
-													Mode Terang
-												</>
-											) : (
-												<>
-													<MoonIcon className="w-5 h-5" />
-													Mode Gelap
-												</>
-											)}
-										</button>
-										{activeEvent && (
-											<>
-												<hr className="my-1 border-gray-200 dark:border-gray-700" />
-												<div className="px-4 py-2">
-													<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-														Mengelola Event:
-													</div>
-													<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-														{activeEvent.event.title}
-													</div>
-													<button
-														onClick={() => {
-															setShowUserMenu(false);
-															handleLeaveEvent();
-														}}
-														className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
-													>
-														<ArrowRightOnRectangleIcon className="w-4 h-4" />
-														Events Dashboard
-													</button>
-												</div>
-											</>
-										)}
-										{activeJuryEvent && (
-											<>
-												<hr className="my-1 border-gray-200 dark:border-gray-700" />
-												<div className="px-4 py-2">
-													<div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-														Menilai Event:
-													</div>
-													<div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-														{activeJuryEvent.event.title}
-													</div>
-													<button
-														onClick={() => {
-															setShowUserMenu(false);
-															handleLeaveJuryEvent();
-														}}
-														className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
-													>
-														<ArrowRightOnRectangleIcon className="w-4 h-4" />
-														Keluar Event
-													</button>
-												</div>
-											</>
-										)}
-										<hr className="my-1 border-gray-200 dark:border-gray-700" />
-										<button
-											onClick={handleLogout}
-											className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-										>
-											<ArrowRightOnRectangleIcon className="w-5 h-5" />
-											Sign Out
-										</button>
-									</div>
-								</>
-							)}
-						</div>
-					</div>
-				</div>
-			</aside>
-
-
-
-			{/* Main Content */}
-			<div
-				className={`md:flex md:flex-col md:flex-1 transition-all duration-300 ${
-					sidebarCollapsed ? "md:pl-20" : "md:pl-64"
-				}`}
-			>
-
-
-				{/* Page Content */}
-				<main className="flex-1 pb-16 md:pb-0">
-					<div className="">
-						<Outlet />
-					</div>
-				</main>
-			</div>
-
-			{/* Mobile Bottom Navigation */}
-			<nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
-				<div className="flex items-center justify-around h-16">
-					{mobilePrimaryItems.map((item) => {
-						const Icon = item.icon;
-						return (
+						) : (
 							<Link
-								key={item.path}
-								to={item.path}
-								className={`flex flex-col items-center justify-center flex-1 h-full ${isActive(item.path) ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"}`}
+								to={profilePath}
+								className="group relative flex flex-col items-center gap-0.5 outline-none"
+								aria-label="Profile"
 							>
-								<Icon className="w-6 h-6" />
-								<span className="text-xs mt-1">{item.name}</span>
+								{isActive(profilePath) && (
+									<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
+								)}
+								<div
+									className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+										isActive(profilePath)
+											? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110"
+											: "text-gray-400 dark:text-gray-500"
+									}`}
+								>
+									<LuUser className="w-[18px] h-[18px]" />
+								</div>
+								<span
+									className={`text-[8px] font-medium leading-tight ${
+										isActive(profilePath)
+											? "text-red-500 dark:text-red-400"
+											: "text-gray-400 dark:text-gray-500"
+									}`}
+								>
+									Profile
+								</span>
 							</Link>
-						);
-					})}
-					{mobileHasMore ? (
-						<button
-							onClick={() => setShowMoreMenu(!showMoreMenu)}
-							className={`flex flex-col items-center justify-center flex-1 h-full ${showMoreMenu ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"}`}
-						>
-							<EllipsisHorizontalIcon className="w-6 h-6" />
-							<span className="text-xs mt-1">Lainnya</span>
-						</button>
-					) : (
-						<Link
-							to="/profile"
-							className={`flex flex-col items-center justify-center flex-1 h-full ${isActive("/profile") ? "text-indigo-600 dark:text-indigo-400" : "text-gray-500 dark:text-gray-400"}`}
-						>
-							<UserCircleIcon className="w-6 h-6" />
-							<span className="text-xs mt-1">Profil</span>
-						</Link>
-					)}
+						)}
+					</div>
 				</div>
 			</nav>
 
-			{/* Mobile "Lainnya" Slide-up Panel */}
+			{/* ===== Mobile "Lainnya" Slide-up Panel ===== */}
 			{showMoreMenu && (
 				<>
 					<div
-						className="fixed inset-0 bg-black/50 z-40 md:hidden"
+						className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
 						onClick={() => setShowMoreMenu(false)}
 					/>
-					<div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl z-50 md:hidden max-h-[70vh] flex flex-col">
+					<div className="fixed bottom-[76px] left-3 right-3 z-50 md:hidden max-h-[60vh] flex flex-col rounded-2xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.08] shadow-2xl shadow-black/10 dark:shadow-black/40 overflow-hidden">
 						{/* Handle bar */}
 						<div className="flex justify-center pt-3 pb-1">
 							<div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
 						</div>
 
-						{/* Profile & Event Info */}
-						<div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
-							<div className="flex items-center gap-3">
-								<div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-sm">
-									{user?.name
-										?.split(" ")
-										.map((n) => n[0])
-										.join("")
-										.substring(0, 2)
-										.toUpperCase()}
-								</div>
-								<div className="flex-1">
-									<div className="text-sm font-semibold text-gray-900 dark:text-white">
-										{user?.name}
-									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
-										{user?.role}
-									</div>
-								</div>
+						{/* Active Event Info */}
+						{activeEventTitle && (
+							<div className="mx-4 mb-2 px-3 py-2 rounded-xl bg-red-500/5 dark:bg-red-500/10 border border-red-500/10 dark:border-red-500/20">
+								<p className="text-[10px] text-gray-500 dark:text-gray-500 mb-0.5">Mengelola Event:</p>
+								<p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{activeEventTitle}</p>
+								<button
+									onClick={() => {
+										setShowMoreMenu(false);
+										activeJuryEvent ? handleLeaveJuryEvent() : handleLeaveEvent();
+									}}
+									className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+								>
+									<LuArrowRightFromLine className="w-3.5 h-3.5" />
+									Keluar Event
+								</button>
 							</div>
-							{activeEvent && (
-								<div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-									<div className="text-xs text-gray-500 dark:text-gray-400">Mengelola Event:</div>
-									<div className="text-sm font-medium text-gray-900 dark:text-white mt-0.5 mb-2">
-										{activeEvent.event.title}
-									</div>
-									<button
-										onClick={() => {
-											setShowMoreMenu(false);
-											handleLeaveEvent();
-										}}
-										className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
-									>
-										<ArrowRightOnRectangleIcon className="w-4 h-4" />
-										Keluar Event
-									</button>
-								</div>
-							)}
-							{activeJuryEvent && (
-								<div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-									<div className="text-xs text-gray-500 dark:text-gray-400">Menilai Event:</div>
-									<div className="text-sm font-medium text-gray-900 dark:text-white mt-0.5 mb-2">
-										{activeJuryEvent.event.title}
-									</div>
-									<button
-										onClick={() => {
-											setShowMoreMenu(false);
-											handleLeaveJuryEvent();
-										}}
-										className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/40"
-									>
-										<ArrowRightOnRectangleIcon className="w-4 h-4" />
-										Keluar Event
-									</button>
-								</div>
-							)}
-						</div>
+						)}
 
 						{/* Menu Items */}
-						<div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+						<div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
 							{mobileMoreItems.map((item) => {
 								const Icon = item.icon;
 								return (
@@ -697,10 +590,10 @@ export const DashboardLayout: React.FC = () => {
 										key={item.path}
 										to={item.path}
 										onClick={() => setShowMoreMenu(false)}
-										className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+										className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
 											isActive(item.path)
-												? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
-												: "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+												? "bg-red-500/10 text-red-500 dark:text-red-400"
+												: "text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-white/[0.05]"
 										}`}
 									>
 										<Icon className="w-5 h-5" />
@@ -708,49 +601,44 @@ export const DashboardLayout: React.FC = () => {
 									</Link>
 								);
 							})}
+
+							{/* Profile link */}
 							<Link
-								to="/profile"
+								to={profilePath}
 								onClick={() => setShowMoreMenu(false)}
-								className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-									isActive("/profile")
-										? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
-										: "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+								className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
+									isActive(profilePath)
+										? "bg-red-500/10 text-red-500 dark:text-red-400"
+										: "text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-white/[0.05]"
 								}`}
 							>
-								<UserCircleIcon className="w-5 h-5" />
-								Profil Saya
+								<LuUser className="w-5 h-5" />
+								Profile
 							</Link>
+
+							{/* Theme Toggle */}
 							<button
 								onClick={() => {
 									toggleTheme();
 									setShowMoreMenu(false);
 								}}
-								className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+								className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-white/[0.05] rounded-xl transition-all"
 							>
-								{theme === "dark" ? (
-									<>
-										<SunIcon className="w-5 h-5" />
-										Mode Terang
-									</>
-								) : (
-									<>
-										<MoonIcon className="w-5 h-5" />
-										Mode Gelap
-									</>
-								)}
+								{theme === "light" ? <LuMoon className="w-5 h-5" /> : <LuSun className="w-5 h-5" />}
+								{theme === "light" ? "Mode Gelap" : "Mode Terang"}
 							</button>
 						</div>
 
 						{/* Logout */}
-						<div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-3 py-2">
+						<div className="flex-shrink-0 border-t border-gray-200/30 dark:border-white/[0.06] px-3 py-2">
 							<button
 								onClick={() => {
 									setShowMoreMenu(false);
 									handleLogout();
 								}}
-								className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+								className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-500 dark:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
 							>
-								<ArrowRightOnRectangleIcon className="w-5 h-5" />
+								<LuLogOut className="w-5 h-5" />
 								Keluar
 							</button>
 						</div>

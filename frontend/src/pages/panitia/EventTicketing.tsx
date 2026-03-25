@@ -379,7 +379,7 @@ const EventTicketing: React.FC = () => {
 			</div>
 
 			{/* Stats Summary */}
-			<div className="flex items-center gap-3 mb-4 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 shadow-sm">
+			<div className="flex items-center gap-3 mb-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm">
 				<span className={`w-3 h-3 rounded-full flex-shrink-0 ${config.enabled ? "bg-green-500" : "bg-red-500"}`} title={config.enabled ? "Aktif" : "Nonaktif"} />
 				<span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-300">
 					{config.enabled ? "Aktif" : "Nonaktif"}
@@ -442,7 +442,7 @@ const EventTicketing: React.FC = () => {
 					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
 						activeTab === "scan"
 							? "bg-red-600 text-white shadow-sm"
-							: "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
+							: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
 					}`}
 				>
 					<QrCodeIcon className="w-5 h-5" />
@@ -453,7 +453,7 @@ const EventTicketing: React.FC = () => {
 					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
 						activeTab === "config"
 							? "bg-red-600 text-white shadow-sm"
-							: "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
+							: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
 					}`}
 				>
 					<Cog6ToothIcon className="w-5 h-5" />
@@ -464,7 +464,7 @@ const EventTicketing: React.FC = () => {
 					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
 						activeTab === "purchases"
 							? "bg-red-600 text-white shadow-sm"
-							: "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
+							: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
 					}`}
 				>
 					<ClipboardDocumentListIcon className="w-5 h-5" />
@@ -477,7 +477,7 @@ const EventTicketing: React.FC = () => {
 
 			{/* Config Tab */}
 			{activeTab === "config" && (
-				<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
 					<div className="space-y-6">
 						{/* Enable Toggle */}
 						<div className="flex items-center justify-between">
@@ -620,7 +620,7 @@ const EventTicketing: React.FC = () => {
 									setSearch(e.target.value);
 									setPage(1);
 								}}
-								className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+								className="w-full pl-10 pr-4 py-2.5 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
 							/>
 						</div>
 						<select
@@ -629,7 +629,7 @@ const EventTicketing: React.FC = () => {
 								setStatusFilter(e.target.value);
 								setPage(1);
 							}}
-							className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+							className="px-4 py-2.5 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 						>
 							<option value="">Semua Status</option>
 							<option value="PENDING">Pending</option>
@@ -646,12 +646,12 @@ const EventTicketing: React.FC = () => {
 							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
 						</div>
 					) : purchases.length === 0 ? (
-						<div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl">
+						<div className="text-center py-12 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl">
 							<TicketIcon className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
 							<p className="text-gray-500 dark:text-gray-400">Belum ada pembelian tiket</p>
 						</div>
 					) : (
-						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden">
 							<div className="overflow-x-auto">
 								<table className="w-full">
 									<thead className="bg-gray-50 dark:bg-gray-900/50">
@@ -774,7 +774,7 @@ const EventTicketing: React.FC = () => {
 				<div className="max-w-lg mx-auto">
 					{/* Scanner Area - hidden when result is shown */}
 					{!scanResult && !scanProcessing && (
-					<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden mb-6">
 						<div className="p-4">
 							<div className="flex items-center justify-between mb-4">
 								<h3 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">

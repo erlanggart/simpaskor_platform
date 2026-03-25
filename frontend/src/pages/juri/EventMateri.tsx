@@ -118,7 +118,7 @@ const JuriEventMateri: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -132,7 +132,7 @@ const JuriEventMateri: React.FC = () => {
 					</h2>
 					<Link
 						to="/juri/events"
-						className="mt-4 inline-block text-indigo-600 hover:text-indigo-500"
+						className="mt-4 inline-block text-red-600 hover:text-red-500"
 					>
 						Kembali ke Event Saya
 					</Link>
@@ -142,7 +142,7 @@ const JuriEventMateri: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
@@ -156,7 +156,7 @@ const JuriEventMateri: React.FC = () => {
 				</div>
 
 				{/* Categories assigned */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow mb-6 p-6">
 					<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
 						Kategori Penilaian Anda
 					</h2>
@@ -164,7 +164,7 @@ const JuriEventMateri: React.FC = () => {
 						{assignment.assignedCategories.map((cat) => (
 							<span
 								key={cat.id}
-								className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full text-sm"
+								className="px-3 py-1.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-full text-sm"
 							>
 								{cat.assessmentCategory.name}
 							</span>
@@ -174,7 +174,7 @@ const JuriEventMateri: React.FC = () => {
 
 				{/* Materials by Category - Tabs */}
 				{materialCategories.length === 0 ? (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-12 text-center">
 						<FolderIcon className="mx-auto h-12 w-12 text-gray-400" />
 						<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 							Belum Ada Materi
@@ -184,9 +184,9 @@ const JuriEventMateri: React.FC = () => {
 						</p>
 					</div>
 				) : (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
 						{/* Category Tabs */}
-						<div className="border-b border-gray-200 dark:border-gray-700">
+						<div className="border-b border-gray-200/60 dark:border-gray-700/40">
 							<nav className="flex overflow-x-auto px-4">
 								{materialCategories.map((category) => {
 									const isActive = activeTab === category.id;
@@ -196,7 +196,7 @@ const JuriEventMateri: React.FC = () => {
 											onClick={() => setActiveTab(category.id)}
 											className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
 												isActive
-													? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+													? "border-red-600 text-red-600 dark:text-red-400 dark:border-red-400"
 													: "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
 											}`}
 										>
@@ -204,7 +204,7 @@ const JuriEventMateri: React.FC = () => {
 											<span>{category.categoryName}</span>
 											<span className={`px-2 py-0.5 rounded-full text-xs ${
 												isActive
-													? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
+													? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
 													: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
 											}`}>
 												{category.materials.length}
@@ -224,7 +224,7 @@ const JuriEventMateri: React.FC = () => {
 								<div>
 									{/* Category Description */}
 									{activeCategory.categoryDescription && (
-										<div className="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+										<div className="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200/60 dark:border-gray-700/40">
 											<p className="text-sm text-gray-600 dark:text-gray-400">
 												{activeCategory.categoryDescription}
 											</p>
@@ -244,7 +244,7 @@ const JuriEventMateri: React.FC = () => {
 												>
 													<div className="flex items-start justify-between">
 														<div className="flex items-start gap-4">
-															<span className="flex items-center justify-center w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg text-indigo-600 dark:text-indigo-400 font-bold">
+															<span className="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900/50 rounded-lg text-red-600 dark:text-red-400 font-bold">
 																{material.number}
 															</span>
 															<div>

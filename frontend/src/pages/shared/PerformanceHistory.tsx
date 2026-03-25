@@ -276,7 +276,7 @@ const PerformanceHistory: React.FC = () => {
 
 			{/* School Category Tabs */}
 			{schoolCategories.length > 0 && (
-				<div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-4 overflow-x-auto">
+				<div className="flex gap-2 mb-4 border-b border-gray-200/60 dark:border-gray-700/40 pb-4 overflow-x-auto">
 					<button
 						onClick={() => setSelectedSchoolCategoryId(null)}
 						className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors whitespace-nowrap ${
@@ -324,7 +324,7 @@ const PerformanceHistory: React.FC = () => {
 				<select
 					value={filterStatus}
 					onChange={(e) => setFilterStatus(e.target.value)}
-					className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-200 focus:border-red-500 focus:ring-red-500"
+					className="px-4 py-2 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-200 focus:border-red-500 focus:ring-red-500"
 				>
 					<option value="all">Semua Status</option>
 					<option value="COMPLETED">Selesai</option>
@@ -334,7 +334,7 @@ const PerformanceHistory: React.FC = () => {
 			</div>
 
 			{filteredSessions.length === 0 ? (
-				<div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+				<div className="text-center py-12 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
 					<ClockIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
 					<h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
 						Belum Ada Riwayat
@@ -355,7 +355,7 @@ const PerformanceHistory: React.FC = () => {
 						return (
 							<div
 								key={session.id}
-							className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden"
+							className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md border border-gray-200/60 dark:border-gray-700/40 overflow-hidden"
 						>
 							{/* Session Header */}
 							<button
@@ -413,7 +413,7 @@ const PerformanceHistory: React.FC = () => {
 
 							{/* Expanded Details */}
 							{isExpanded && (
-								<div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+								<div className="border-t border-gray-200/60 dark:border-gray-700/40 p-4 bg-gray-50 dark:bg-gray-800/50">
 									<div className="grid md:grid-cols-2 gap-6">
 										{/* Time Details */}
 										<div>
@@ -430,7 +430,7 @@ const PerformanceHistory: React.FC = () => {
 													<span className="text-gray-500">Selesai:</span>
 													<span className="font-medium text-gray-700 dark:text-gray-300">{formatDateTime(session.endTime)}</span>
 												</div>
-												<div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
+												<div className="flex justify-between border-t border-gray-200/60 dark:border-gray-700/40 pt-2">
 													<span className="text-gray-500">Durasi:</span>
 													<span className="font-mono font-bold text-lg text-gray-900 dark:text-white">
 														{formatDuration(session.duration)}
@@ -505,7 +505,7 @@ const PerformanceHistory: React.FC = () => {
 
 									{/* Delete Button */}
 									{canDelete && session.status !== "PERFORMING" && (
-										<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+										<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40 flex justify-end">
 											<button
 												onClick={(e) => {
 													e.stopPropagation();

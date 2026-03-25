@@ -72,18 +72,18 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 			{/* Stats Cards */}
 			<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
 				{/* Juri Count */}
-				<div className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-100 dark:hover:shadow-indigo-900/20">
-					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
+				<div className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800 transition-all duration-300 hover:shadow-lg hover:shadow-red-100 dark:hover:shadow-red-900/20">
+					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
 					<div className="relative flex items-center justify-between">
 						<div className="flex-1">
 							<div className="flex items-center gap-2 mb-1">
-								<div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+								<div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
 								<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 									Total Juri
 								</p>
 							</div>
 							<div className="flex items-baseline gap-2">
-								<p className="text-4xl font-bold bg-gradient-to-br from-indigo-600 to-indigo-400 dark:from-indigo-400 dark:to-indigo-300 bg-clip-text text-transparent">
+								<p className="text-4xl font-bold bg-gradient-to-br from-red-600 to-red-400 dark:from-red-400 dark:to-red-300 bg-clip-text text-transparent">
 									{stats.juriCount}
 								</p>
 								<span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
@@ -91,9 +91,9 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 								</span>
 							</div>
 						</div>
-						<div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+						<div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
 							<svg
-								className="w-5 h-5 text-indigo-500 dark:text-indigo-400"
+								className="w-5 h-5 text-red-500 dark:text-red-400"
 								fill="none"
 								stroke="currentColor"
 								viewBox="0 0 24 24"
@@ -110,7 +110,7 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 				</div>
 
 				{/* Peserta Count */}
-				<div className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-emerald-200 dark:hover:border-emerald-800 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-100 dark:hover:shadow-emerald-900/20">
+				<div className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-emerald-200 dark:hover:border-emerald-800 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-100 dark:hover:shadow-emerald-900/20">
 					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
 					<div className="relative flex items-center justify-between">
 						<div className="flex-1">
@@ -148,7 +148,7 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 				</div>
 
 				{/* Available Events Count */}
-				<div className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-800 transition-all duration-300 hover:shadow-lg hover:shadow-amber-100 dark:hover:shadow-amber-900/20">
+				<div className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-800 transition-all duration-300 hover:shadow-lg hover:shadow-amber-100 dark:hover:shadow-amber-900/20">
 					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
 					<div className="relative flex items-center justify-between">
 						<div className="flex-1">
@@ -186,7 +186,7 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 				</div>
 
 				{/* Completed Events Count */}
-				<div className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-800 transition-all duration-300 hover:shadow-lg hover:shadow-purple-100 dark:hover:shadow-purple-900/20">
+				<div className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-800 transition-all duration-300 hover:shadow-lg hover:shadow-purple-100 dark:hover:shadow-purple-900/20">
 					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
 					<div className="relative flex items-center justify-between">
 						<div className="flex-1">
@@ -234,7 +234,7 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 						{juries.map((juri) => (
 							<div
 								key={juri.id}
-								className="group flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+								className="group flex flex-col items-center p-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
 							>
 								{/* Avatar */}
 								<div className="relative mb-3">
@@ -242,17 +242,17 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 										<img
 											src={juri.avatar}
 											alt={juri.name}
-											className="w-16 h-16 rounded-full object-cover ring-2 ring-indigo-100 dark:ring-indigo-900 group-hover:ring-indigo-300 dark:group-hover:ring-indigo-700 transition-all duration-300"
+											className="w-16 h-16 rounded-full object-cover ring-2 ring-red-100 dark:ring-red-900 group-hover:ring-red-300 dark:group-hover:ring-red-700 transition-all duration-300"
 										/>
 									) : (
-										<div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center ring-2 ring-indigo-100 dark:ring-indigo-900 group-hover:ring-indigo-300 dark:group-hover:ring-indigo-700 transition-all duration-300">
+										<div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500 to-purple-600 flex items-center justify-center ring-2 ring-red-100 dark:ring-red-900 group-hover:ring-red-300 dark:group-hover:ring-red-700 transition-all duration-300">
 											<span className="text-white font-semibold text-lg">
 												{getInitials(juri.name)}
 											</span>
 										</div>
 									)}
 									{/* Verified badge */}
-									<div className="absolute -bottom-1 -right-1 w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-800">
+									<div className="absolute -bottom-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-800">
 										<svg
 											className="w-3 h-3 text-white"
 											fill="currentColor"
@@ -284,7 +284,7 @@ const JuryShowcase: React.FC<JuryShowcaseProps> = ({
 					<div className="text-center mt-8">
 						<Link
 							to="/juries"
-							className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300"
+							className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all duration-300"
 						>
 							Lihat Semua Juri
 							<svg

@@ -355,13 +355,13 @@ const ManageJury: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
@@ -375,13 +375,13 @@ const ManageJury: React.FC = () => {
 
 				{/* Tabs */}
 				<div className="mb-6">
-					<div className="border-b border-gray-200 dark:border-gray-700">
+					<div className="border-b border-gray-200/60 dark:border-gray-700/40">
 						<nav className="flex gap-4">
 							<button
 								onClick={() => setActiveTab("confirmed")}
 								className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
 									activeTab === "confirmed"
-										? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+										? "border-red-600 text-red-600 dark:text-red-400"
 										: "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
 								}`}
 							>
@@ -394,7 +394,7 @@ const ManageJury: React.FC = () => {
 								onClick={() => setActiveTab("search")}
 								className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
 									activeTab === "search"
-										? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+										? "border-red-600 text-red-600 dark:text-red-400"
 										: "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
 								}`}
 							>
@@ -478,7 +478,7 @@ const ConfirmedJuriesTab: React.FC<ConfirmedJuriesTabProps> = ({
 }) => {
 	if (assignments.length === 0) {
 		return (
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-12 text-center">
 				<UserGroupIcon className="mx-auto h-16 w-16 text-gray-400" />
 				<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 					Belum Ada Juri Terkonfirmasi
@@ -491,8 +491,8 @@ const ConfirmedJuriesTab: React.FC<ConfirmedJuriesTabProps> = ({
 	}
 
 	return (
-		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-			<div className="p-6 border-b border-gray-200 dark:border-gray-700">
+		<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg">
+			<div className="p-6 border-b border-gray-200/60 dark:border-gray-700/40">
 				<h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
 					<UserGroupIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
 					Juri yang Sudah Terkonfirmasi
@@ -547,7 +547,7 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 			{/* Left: Search and Available Juries */}
 			<div className="lg:col-span-2 space-y-6">
 				{/* Search Box */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-6">
 					<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
 						Cari Juri
 					</h2>
@@ -559,12 +559,12 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 								placeholder="Cari berdasarkan nama, email, atau institusi..."
 								value={searchInput}
 								onChange={(e) => onSearchInputChange(e.target.value)}
-								className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+								className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 							/>
 						</div>
 						<button
 							type="submit"
-							className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+							className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
 						>
 							Cari
 						</button>
@@ -572,8 +572,8 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 				</div>
 
 				{/* Available Juries List */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-					<div className="p-6 border-b border-gray-200 dark:border-gray-700">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg">
+					<div className="p-6 border-b border-gray-200/60 dark:border-gray-700/40">
 						<h2 className="text-lg font-bold text-gray-900 dark:text-white">
 							Daftar Juri Tersedia ({pagination.total})
 						</h2>
@@ -581,7 +581,7 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 
 					{loading ? (
 						<div className="p-12 text-center">
-							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
 						</div>
 					) : availableJuries.length === 0 ? (
 						<div className="p-12 text-center">
@@ -627,7 +627,7 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 										</div>
 										<button
 											onClick={() => onInvite(jury)}
-											className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+											className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
 										>
 											<UserPlusIcon className="h-5 w-5" />
 											Undang
@@ -638,7 +638,7 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 
 							{/* Pagination */}
 							{pagination.totalPages > 1 && (
-								<div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+								<div className="p-4 border-t border-gray-200/60 dark:border-gray-700/40 flex items-center justify-between">
 									<p className="text-sm text-gray-600 dark:text-gray-400">
 										Halaman {pagination.page} dari {pagination.totalPages}
 									</p>
@@ -668,7 +668,7 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 													onClick={() => onPageChange(pageNum)}
 													className={`px-3 py-1 rounded-lg text-sm transition-colors ${
 														pageNum === pagination.page
-															? "bg-indigo-600 text-white"
+															? "bg-red-600 text-white"
 															: "border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
 													}`}
 												>
@@ -694,8 +694,8 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 			{/* Right: Pending & Rejected Invitations */}
 			<div className="lg:col-span-1 space-y-6">
 				{/* Pending Invitations */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-					<div className="p-4 border-b border-gray-200 dark:border-gray-700">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg">
+					<div className="p-4 border-b border-gray-200/60 dark:border-gray-700/40">
 						<h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
 							<ClockIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
 							Menunggu Konfirmasi ({pendingAssignments.length})
@@ -761,8 +761,8 @@ const SearchJuriesTab: React.FC<SearchJuriesTabProps> = ({
 
 				{/* Rejected Invitations */}
 				{rejectedAssignments.length > 0 && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-						<div className="p-4 border-b border-gray-200 dark:border-gray-700">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg">
+						<div className="p-4 border-b border-gray-200/60 dark:border-gray-700/40">
 							<h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
 								<XCircleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
 								Ditolak ({rejectedAssignments.length})
@@ -869,7 +869,7 @@ const JuryAssignmentCard: React.FC<JuryAssignmentCardProps> = ({
 			</div>
 
 			{/* Categories */}
-			<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+			<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
 				<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
 					Kategori Penilaian:
 				</p>
@@ -877,7 +877,7 @@ const JuryAssignmentCard: React.FC<JuryAssignmentCardProps> = ({
 					{assignment.assignedCategories.map((cat) => (
 						<span
 							key={cat.id}
-							className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm rounded-full"
+							className="px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-sm rounded-full"
 						>
 							{cat.assessmentCategory.name}
 						</span>
@@ -915,7 +915,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
 }) => {
 	return (
 		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl max-w-md w-full p-6">
 				<h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
 					Undang Juri
 				</h3>
@@ -929,8 +929,8 @@ const InviteModal: React.FC<InviteModalProps> = ({
 								className="w-12 h-12 rounded-full object-cover"
 							/>
 						) : (
-							<div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
-								<span className="text-indigo-600 dark:text-indigo-400 font-bold text-lg">
+							<div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
+								<span className="text-red-600 dark:text-red-400 font-bold text-lg">
 									{jury.name.charAt(0).toUpperCase()}
 								</span>
 							</div>
@@ -960,7 +960,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
 									type="checkbox"
 									checked={selectedCategories.includes(cat.assessmentCategoryId)}
 									onChange={() => onToggleCategory(cat.assessmentCategoryId)}
-									className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+									className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
 								/>
 								<span className="ml-3 text-gray-900 dark:text-white">
 									{cat.assessmentCategory.name}
@@ -979,7 +979,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
 						onChange={(e) => onNotesChange(e.target.value)}
 						placeholder="Tambahkan catatan untuk juri..."
 						rows={3}
-						className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+						className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 					/>
 				</div>
 
@@ -993,7 +993,7 @@ const InviteModal: React.FC<InviteModalProps> = ({
 					<button
 						onClick={onSubmit}
 						disabled={submitting || selectedCategories.length === 0}
-						className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+						className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
 						{submitting ? "Mengirim..." : "Kirim Undangan"}
 					</button>

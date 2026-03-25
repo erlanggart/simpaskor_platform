@@ -50,7 +50,7 @@ const QuickActions: React.FC = () => {
 
 	return (
 		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10">
-			<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-6">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-lg p-4 sm:p-6">
 				<div className="grid grid-cols-4 gap-3 sm:gap-6">
 					{actions.map((action) => (
 						<Link

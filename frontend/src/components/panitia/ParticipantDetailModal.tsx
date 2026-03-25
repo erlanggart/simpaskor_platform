@@ -336,15 +336,15 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 
 	return (
 		<div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-			<div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col shadow-xl">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col shadow-xl">
 				{/* Modal Header */}
-				<div className="bg-indigo-600 dark:bg-gray-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
+				<div className="bg-red-600 dark:bg-gray-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
 					<div>
 						<h2 className="text-xl font-bold text-white">
 							Detail Nilai Peserta
 						</h2>
 						{participantDetail && (
-							<p className="text-indigo-100 dark:text-gray-400">
+							<p className="text-red-100 dark:text-gray-400">
 								{participantDetail.participant.teamName}
 								{participantDetail.participant.orderNumber && 
 									` - Nomor Urut: ${participantDetail.participant.orderNumber}`
@@ -364,12 +364,12 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 				<div className="flex-1 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-800">
 					{loading ? (
 						<div className="flex items-center justify-center py-12 flex-1">
-							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
 						</div>
 					) : participantDetail ? (
 						<>
 							{/* Category Tabs */}
-							<div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+							<div className="border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm flex-shrink-0">
 								<nav className="flex overflow-x-auto px-4">
 									{participantDetail.categories.map(categoryDetail => {
 										const isActive = activeTab === categoryDetail.categoryId;
@@ -381,14 +381,14 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 												onClick={() => setActiveTab(categoryDetail.categoryId)}
 												className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
 													isActive
-														? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+														? "border-red-600 text-red-600 dark:text-red-400 dark:border-red-400"
 														: "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
 												}`}
 											>
 												<span>{categoryDetail.categoryName}</span>
 												<span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
 													isActive
-														? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
+														? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
 														: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
 												}`}>
 													{totalScore.toFixed(1)}
@@ -485,7 +485,7 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 																					<select
 																						value={editScore === 0 && editSkipReason ? "skip" : `${editScore}|${editScoreCategoryName}`}
 																						onChange={(e) => handleScoreChange(e.target.value, material)}
-																						className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500"
+																						className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500"
 																					>
 																						<option value="">-- Pilih Nilai --</option>
 																						{buildDropdownOptions(material).map((opt, idx) => (
@@ -501,7 +501,7 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 																						<select
 																							value={editSkipReason}
 																							onChange={(e) => setEditSkipReason(e.target.value)}
-																							className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500"
+																							className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500"
 																						>
 																							<option value="">-- Alasan Tidak Menilai --</option>
 																							<option value="TIDAK_SESUAI">Tidak Sesuai</option>
@@ -556,7 +556,7 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 																					</div>
 																					<button
 																						onClick={() => startEditing(material, evaluation || null, jury.id)}
-																						className="p-1.5 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors flex-shrink-0"
+																						className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors flex-shrink-0"
 																						title="Edit nilai"
 																					>
 																						<PencilIcon className="w-4 h-4" />

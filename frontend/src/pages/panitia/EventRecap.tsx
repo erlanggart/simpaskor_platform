@@ -724,7 +724,7 @@ const PanitiaEventRecap: React.FC = () => {
           <p className="text-red-500 dark:text-red-400 mb-4">{error}</p>
           <Link
             to={`${basePath}/events/${eventSlug}/manage`}
-            className="text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="text-red-600 dark:text-red-400 hover:underline"
           >
             Kembali ke Kelola Event
           </Link>
@@ -743,21 +743,12 @@ const PanitiaEventRecap: React.FC = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      <div className="min-h-screen flex">
         {/* Main Content Area */}
         <div className="flex-1 overflow-auto transition-all duration-300">
           <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
             {/* Header */}
-            <div className="mb-4">
-              <Link
-                to={`${basePath}/events/${eventSlug}/manage`}
-                className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 text-sm"
-              >
-                <ArrowLeftIcon className="w-4 h-4 mr-1" />
-                <span className="hidden sm:inline">Kembali ke Kelola Event</span>
-                <span className="sm:hidden">Kembali</span>
-              </Link>
-            </div>
+            
 
             {/* Action Buttons - Responsive */}
             <div className="flex flex-wrap gap-2 sm:gap-4 justify-center sm:justify-end mb-6">
@@ -779,7 +770,7 @@ const PanitiaEventRecap: React.FC = () => {
               </button>
               <button
                 onClick={fetchRecap}
-                className="inline-flex items-center px-3 py-2 sm:px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base active:scale-95"
+                className="inline-flex items-center px-3 py-2 sm:px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors text-sm sm:text-base active:scale-95"
               >
                 <ArrowPathIcon className="w-5 h-5 sm:mr-2" />
                 <span className="hidden sm:inline">Refresh Data</span>
@@ -808,7 +799,7 @@ const PanitiaEventRecap: React.FC = () => {
 
             {/* School Category Sections */}
             {schoolCategoryGroups.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center shadow">
+              <div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg p-8 text-center shadow">
                 <p className="text-gray-500 dark:text-gray-400">
                   Belum ada peserta terdaftar
                 </p>
@@ -827,14 +818,14 @@ const PanitiaEventRecap: React.FC = () => {
                         onClick={() => setActiveSchoolCategoryTab(group.id)}
                         className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm sm:text-base active:scale-95 flex-shrink-0 ${
                           isActive
-                            ? "bg-indigo-600 text-white"
-                            : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600"
+                            ? "bg-red-600 text-white"
+                            : "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600"
                         }`}
                       >
                         {group.name}
                         <span className={`ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${
                           isActive
-                            ? "bg-indigo-500 text-white"
+                            ? "bg-red-500 text-white"
                             : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         }`}>
                           {group.participants.length}
@@ -850,9 +841,9 @@ const PanitiaEventRecap: React.FC = () => {
                   if (!activeGroup) return null;
                   
                   return (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow">
+                    <div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg overflow-hidden shadow">
                       {/* Section Header */}
-                      <div className="bg-indigo-600 dark:bg-gray-700 px-4 py-3">
+                      <div className="bg-red-600 dark:bg-gray-700 px-4 py-3">
                         <h2 className="text-lg font-semibold text-white">
                           Kategori Sekolah: {activeGroup.name}
                           {selectedJuara && (
@@ -861,7 +852,7 @@ const PanitiaEventRecap: React.FC = () => {
                             </span>
                           )}
                         </h2>
-                        <p className="text-sm text-indigo-100 dark:text-gray-400">
+                        <p className="text-sm text-red-100 dark:text-gray-400">
                           Kategori Penilaian:{" "}
                           {filteredCategories.length ===
                           recapData.categories.length
@@ -878,7 +869,7 @@ const PanitiaEventRecap: React.FC = () => {
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
-                            <tr className="bg-indigo-700 dark:bg-indigo-900 text-white">
+                            <tr className="bg-red-700 dark:bg-red-900 text-white">
                               <th className="px-3 py-3 text-left text-sm font-semibold w-16">
                                 No
                               </th>
@@ -906,7 +897,7 @@ const PanitiaEventRecap: React.FC = () => {
                                   </th>
                                 </>
                               )}
-                              <th className="px-3 py-3 text-center text-sm font-semibold w-24 bg-indigo-800 dark:bg-indigo-950">
+                              <th className="px-3 py-3 text-center text-sm font-semibold w-24 bg-red-800 dark:bg-red-950">
                                 Total
                               </th>
                               {selectedJuara && (
@@ -927,9 +918,9 @@ const PanitiaEventRecap: React.FC = () => {
                               return (
                                 <tr
                                   key={item.participant.id}
-                                  className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
+                                  className={`border-b border-gray-200/60 dark:border-gray-700/40 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
                                     index % 2 === 0
-                                      ? "bg-white dark:bg-gray-800"
+                                      ? "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm"
                                       : "bg-gray-50 dark:bg-gray-800/70"
                                   }`}
                                   onClick={() =>
@@ -939,7 +930,7 @@ const PanitiaEventRecap: React.FC = () => {
                                   <td className="px-3 py-3 text-gray-700 dark:text-gray-300 text-sm">
                                     {index + 1}
                                   </td>
-                                  <td className="px-3 py-3 text-gray-900 dark:text-white text-sm font-medium hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                  <td className="px-3 py-3 text-gray-900 dark:text-white text-sm font-medium hover:text-red-600 dark:hover:text-red-400 transition-colors">
                                     <div>{item.participant.teamName}</div>
                                     {item.participant.registrant.institution && (
                                       <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
@@ -1018,7 +1009,7 @@ const PanitiaEventRecap: React.FC = () => {
             )}
 
             {/* Summary */}
-            <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+            <div className="mt-6 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 shadow">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-center">
                 <div>
                   <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
@@ -1069,9 +1060,9 @@ const PanitiaEventRecap: React.FC = () => {
             showSettings ? "w-[85vw] sm:w-80 translate-x-0" : "w-0 translate-x-full sm:translate-x-0"
           }`}
         >
-            <div className="w-[85vw] sm:w-80 h-full sm:h-screen sticky top-0 bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+            <div className="w-[85vw] sm:w-80 h-full sm:h-screen sticky top-0 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-2xl flex flex-col">
               {/* Sidebar Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200/60 dark:border-gray-700/40">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Pengaturan
                 </h3>
@@ -1109,7 +1100,7 @@ const PanitiaEventRecap: React.FC = () => {
                             onClick={() => handleJuaraPresetSelect(juara.id)}
                             className={`w-full px-3 py-2 text-sm rounded-lg text-left transition-colors ${
                               selectedJuaraPreset === juara.id
-                                ? "bg-indigo-600 text-white"
+                                ? "bg-red-600 text-white"
                                 : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                             }`}
                           >
@@ -1122,7 +1113,7 @@ const PanitiaEventRecap: React.FC = () => {
                             </div>
                             {juara.description && (
                               <p className={`text-xs mt-0.5 ${
-                                selectedJuaraPreset === juara.id ? "text-indigo-200" : "text-gray-500 dark:text-gray-400"
+                                selectedJuaraPreset === juara.id ? "text-red-200" : "text-gray-500 dark:text-gray-400"
                               }`}>
                                 {juara.description}
                               </p>
@@ -1138,7 +1129,7 @@ const PanitiaEventRecap: React.FC = () => {
 
                   {/* Divider between Juara Preset and Kategori Penilaian */}
                   {juaraCategories.length > 0 && (
-                    <div className="border-t border-gray-200 dark:border-gray-700" />
+                    <div className="border-t border-gray-200/60 dark:border-gray-700/40" />
                   )}
 
                   <div>
@@ -1148,7 +1139,7 @@ const PanitiaEventRecap: React.FC = () => {
                     <div className="flex gap-2 mb-3">
                       <button
                         onClick={selectAllCategories}
-                        className="flex-1 px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                        className="flex-1 px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
                       >
                         Pilih Semua
                       </button>
@@ -1165,7 +1156,7 @@ const PanitiaEventRecap: React.FC = () => {
                           key={cat.id}
                           className={`flex items-center w-full px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                             selectedCategories.has(cat.id)
-                              ? "bg-indigo-600 text-white"
+                              ? "bg-red-600 text-white"
                               : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                           }`}
                         >
@@ -1182,10 +1173,10 @@ const PanitiaEventRecap: React.FC = () => {
                   </div>
 
                   {/* Selected Count */}
-                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Terpilih:{" "}
-                      <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                      <span className="font-medium text-red-600 dark:text-red-400">
                         {selectedCategories.size}
                       </span>{" "}
                       dari {recapData.categories.length} kategori
@@ -1193,7 +1184,7 @@ const PanitiaEventRecap: React.FC = () => {
                   </div>
 
                   {/* Extra Nilai Toggle */}
-                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
                     {/* Show/Hide Toggle */}
                     <div className="flex items-center justify-between mb-3">
                       <div>
@@ -1208,7 +1199,7 @@ const PanitiaEventRecap: React.FC = () => {
                         onClick={() => setShowExtraNilai(!showExtraNilai)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                           showExtraNilai
-                            ? "bg-indigo-600"
+                            ? "bg-red-600"
                             : "bg-gray-300 dark:bg-gray-600"
                         }`}
                       >

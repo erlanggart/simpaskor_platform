@@ -186,7 +186,7 @@ const JuriEventPeserta: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -200,7 +200,7 @@ const JuriEventPeserta: React.FC = () => {
 					</h2>
 					<Link
 						to="/juri/events"
-						className="mt-4 inline-block text-indigo-600 hover:text-indigo-500"
+						className="mt-4 inline-block text-red-600 hover:text-red-500"
 					>
 						Kembali ke Event Saya
 					</Link>
@@ -210,7 +210,7 @@ const JuriEventPeserta: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
@@ -224,7 +224,7 @@ const JuriEventPeserta: React.FC = () => {
 				</div>
 
 				{/* Search */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-4">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow mb-6 p-4">
 					<div className="relative">
 						<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
 						<input
@@ -232,7 +232,7 @@ const JuriEventPeserta: React.FC = () => {
 							placeholder="Cari peserta, tim, atau sekolah..."
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+							className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 						/>
 					</div>
 				</div>
@@ -240,8 +240,8 @@ const JuriEventPeserta: React.FC = () => {
 				
 
 				{/* Participants List */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-					<div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
+					<div className="px-6 py-4 border-b border-gray-200/60 dark:border-gray-700/40">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
 							Daftar Peserta ({filteredParticipants.length})
 						</h2>
@@ -276,8 +276,8 @@ const JuriEventPeserta: React.FC = () => {
 									<div className="flex items-start justify-between">
 										<div className="flex items-start gap-4">
 											<div className="flex-shrink-0">
-												<div className="h-12 w-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-													<span className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">
+												<div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+													<span className="text-lg font-semibold text-red-600 dark:text-red-400">
 														{participant.teamName?.charAt(0).toUpperCase() || "?"}
 													</span>
 												</div>
@@ -288,7 +288,7 @@ const JuriEventPeserta: React.FC = () => {
 														{participant.teamName}
 													</h3>
 													{participant.schoolCategory && (
-														<span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
+														<span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300">
 															{participant.schoolCategory.name}
 														</span>
 													)}

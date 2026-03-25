@@ -407,7 +407,7 @@ const ManageJuara: React.FC = () => {
   const getCategoryTypeLabel = (type: JuaraCategory["type"]) => {
     switch (type) {
       case "UTAMA":
-        return { label: "Juara Utama", color: "bg-indigo-600" };
+        return { label: "Juara Utama", color: "bg-red-600" };
       case "UMUM":
         return { label: "Juara Umum", color: "bg-purple-600" };
       case "CUSTOM":
@@ -418,28 +418,22 @@ const ManageJuara: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-6">
-          <Link
-            to={`${basePath}/events/${eventSlug}/manage`}
-            className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4"
-          >
-            <ArrowLeftIcon className="w-4 h-4 mr-1" />
-            Kembali ke Kelola Event
-          </Link>
+         
           
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                <TrophyIcon className="w-7 h-7 mr-2 text-indigo-600" />
+                <TrophyIcon className="w-7 h-7 mr-2 text-red-600" />
                 Pengaturan Kategori Juara
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
@@ -452,7 +446,7 @@ const ManageJuara: React.FC = () => {
               disabled={saving || !hasChanges}
               className={`inline-flex items-center px-5 py-2.5 rounded-lg font-medium transition-colors ${
                 hasChanges
-                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  ? "bg-red-600 hover:bg-red-700 text-white"
                   : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
               }`}
             >
@@ -490,7 +484,7 @@ const ManageJuara: React.FC = () => {
             return (
               <div
                 key={juara.id || `${juara.type}-${index}`}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden"
+                className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden"
               >
                 {/* Category Header */}
                 <div className={`${typeInfo.color} px-4 py-3 flex items-center justify-between`}>
@@ -521,7 +515,7 @@ const ManageJuara: React.FC = () => {
                         type="text"
                         value={juara.name}
                         onChange={(e) => updateJuaraName(index, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
                         placeholder="Nama kategori"
                       />
                     </div>
@@ -533,7 +527,7 @@ const ManageJuara: React.FC = () => {
                         type="text"
                         value={juara.description}
                         onChange={(e) => updateJuaraDescription(index, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
                         placeholder="Deskripsi singkat"
                       />
                     </div>
@@ -548,7 +542,7 @@ const ManageJuara: React.FC = () => {
                       <div className="flex gap-2">
                         <button
                           onClick={() => selectAllCategories(index)}
-                          className="px-2 py-1 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900 rounded transition-colors"
+                          className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900 rounded transition-colors"
                         >
                           Pilih Semua
                         </button>
@@ -570,7 +564,7 @@ const ManageJuara: React.FC = () => {
                             onClick={() => toggleAssessmentCategory(index, category.id)}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                               isSelected
-                                ? "bg-indigo-600 text-white"
+                                ? "bg-red-600 text-white"
                                 : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                             }`}
                           >
@@ -588,7 +582,7 @@ const ManageJuara: React.FC = () => {
                   </div>
 
                   {/* Rank Configuration */}
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className="border-t border-gray-200/60 dark:border-gray-700/40 pt-4">
                     <div className="flex items-center justify-between mb-3">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Pengaturan Peringkat
@@ -596,7 +590,7 @@ const ManageJuara: React.FC = () => {
                       <div className="flex gap-2">
                         <button
                           onClick={() => applySimpaskorTemplate(index)}
-                          className="px-2 py-1 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-900 rounded transition-colors flex items-center gap-1"
+                          className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900 rounded transition-colors flex items-center gap-1"
                           title="Gunakan template Simpaskor (11 tingkatan)"
                         >
                           <TrophyIcon className="w-3 h-3" />
@@ -631,7 +625,7 @@ const ManageJuara: React.FC = () => {
                                 min="1"
                                 value={rank.startRank}
                                 onChange={(e) => updateRank(index, rankIndex, "startRank", e.target.value)}
-                                className="w-14 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
+                                className="w-14 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
                               />
                               <span className="text-gray-500 dark:text-gray-400">-</span>
                               <input
@@ -639,7 +633,7 @@ const ManageJuara: React.FC = () => {
                                 min="1"
                                 value={rank.endRank}
                                 onChange={(e) => updateRank(index, rankIndex, "endRank", e.target.value)}
-                                className="w-14 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
+                                className="w-14 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
                               />
                             </div>
 
@@ -651,7 +645,7 @@ const ManageJuara: React.FC = () => {
                               type="text"
                               value={rank.label}
                               onChange={(e) => updateRank(index, rankIndex, "label", e.target.value)}
-                              className="flex-1 px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              className="flex-1 px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
                               placeholder="Label peringkat"
                             />
 
@@ -670,8 +664,8 @@ const ManageJuara: React.FC = () => {
 
                     {/* Rank Preview */}
                     {juara.ranks && juara.ranks.length > 0 && (
-                      <div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                        <p className="text-xs text-indigo-700 dark:text-indigo-300 font-medium mb-2">
+                      <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                        <p className="text-xs text-red-700 dark:text-red-300 font-medium mb-2">
                           Preview Hasil Peringkat:
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -682,7 +676,7 @@ const ManageJuara: React.FC = () => {
                               rankLabels.push(
                                 <span
                                   key={`${rankIndex}-${i}`}
-                                  className="inline-block px-2 py-0.5 text-xs bg-white dark:bg-gray-800 rounded border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300"
+                                  className="inline-block px-2 py-0.5 text-xs bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300"
                                 >
                                   #{i}: {rank.label} {subRank}
                                 </span>
@@ -704,7 +698,7 @@ const ManageJuara: React.FC = () => {
         <div className="mt-6">
           <button
             onClick={addCustomCategory}
-            className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-colors flex items-center justify-center"
+            className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-red-400 hover:text-red-600 dark:hover:border-red-500 dark:hover:text-red-400 transition-colors flex items-center justify-center"
           >
             <PlusIcon className="w-5 h-5 mr-2" />
             Tambah Kategori Juara Custom

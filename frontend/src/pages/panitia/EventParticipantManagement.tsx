@@ -334,19 +334,19 @@ const EventParticipantManagement: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
 					<Link
 						to={`${basePath}/events/${eventSlug}/manage`}
-						className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4"
+						className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 mb-4"
 					>
 						<ArrowLeftIcon className="h-4 w-4 mr-1" />
 						Kembali ke Event
@@ -366,7 +366,7 @@ const EventParticipantManagement: React.FC = () => {
 						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
 							statusFilter === "CONFIRMED"
 								? "border-green-500 bg-green-50 dark:bg-green-900/20"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-green-300"
+								: "border-gray-200/60 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm hover:border-green-300"
 						}`}
 					>
 						<p className="text-sm text-green-600 dark:text-green-400">Dikonfirmasi</p>
@@ -377,7 +377,7 @@ const EventParticipantManagement: React.FC = () => {
 						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
 							statusFilter === "REGISTERED"
 								? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-yellow-300"
+								: "border-gray-200/60 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm hover:border-yellow-300"
 						}`}
 					>
 						<p className="text-sm text-yellow-600 dark:text-yellow-400">Menunggu</p>
@@ -388,7 +388,7 @@ const EventParticipantManagement: React.FC = () => {
 						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
 							statusFilter === "CANCELLED"
 								? "border-red-500 bg-red-50 dark:bg-red-900/20"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-red-300"
+								: "border-gray-200/60 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm hover:border-red-300"
 						}`}
 					>
 						<p className="text-sm text-red-600 dark:text-red-400">Dibatalkan</p>
@@ -398,8 +398,8 @@ const EventParticipantManagement: React.FC = () => {
 						onClick={() => setStatusFilter("all")}
 						className={`cursor-pointer p-4 rounded-lg border-2 transition-colors ${
 							statusFilter === "all"
-								? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-300"
+								? "border-red-500 bg-red-50 dark:bg-red-900/20"
+								: "border-gray-200/60 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm hover:border-red-300"
 						}`}
 					>
 						<p className="text-sm text-gray-600 dark:text-gray-400">Semua</p>
@@ -416,14 +416,14 @@ const EventParticipantManagement: React.FC = () => {
 							placeholder="Cari nama peserta, email, sekolah, atau tim..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+							className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 						/>
 					</div>
 				</div>
 
 				{/* Registrations List */}
 				{filteredRegistrations.length === 0 ? (
-					<div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+					<div className="text-center py-12 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow">
 						<UserGroupIcon className="mx-auto h-16 w-16 text-gray-400" />
 						<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 							{registrations.length === 0 ? "Belum Ada Pendaftaran" : "Tidak Ada Hasil"}
@@ -442,7 +442,7 @@ const EventParticipantManagement: React.FC = () => {
 							return (
 								<div
 									key={registration.id}
-									className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
+									className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md overflow-hidden"
 								>
 									{/* Registration Header */}
 									<div className="p-6">
@@ -523,7 +523,7 @@ const EventParticipantManagement: React.FC = () => {
 											</div>
 											<button
 												onClick={() => setExpandedId(isExpanded ? null : registration.id)}
-												className="inline-flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+												className="inline-flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:underline"
 											>
 												{isExpanded ? (
 													<>
@@ -542,7 +542,7 @@ const EventParticipantManagement: React.FC = () => {
 
 									{/* Expanded Groups */}
 									{isExpanded && (
-										<div className="border-t border-gray-200 dark:border-gray-700 p-6 bg-gray-50 dark:bg-gray-800/50">
+										<div className="border-t border-gray-200/60 dark:border-gray-700/40 p-6 bg-gray-50 dark:bg-gray-800/50">
 											<h4 className="font-semibold text-gray-900 dark:text-white mb-4">
 												Detail Tim
 											</h4>
@@ -572,14 +572,14 @@ const EventParticipantManagement: React.FC = () => {
 																			<button
 																				onClick={() => handleUpdateOrderNumber(group.id, group.orderNumber, group.schoolCategory.name)}
 																				disabled={processingId === group.id}
-																				className="flex items-center gap-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-md text-sm font-bold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors disabled:opacity-50"
+																				className="flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-md text-sm font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
 																				title="Klik untuk mengubah nomor urut"
 																			>
 																				<HashtagIcon className="h-4 w-4" />
 																				{group.orderNumber}
 																			</button>
 																		)}
-																		<UserGroupIcon className="h-5 w-5 text-indigo-600" />
+																		<UserGroupIcon className="h-5 w-5 text-red-600" />
 																		<span className={`font-semibold ${group.status === "CANCELLED" ? "line-through text-gray-400" : "text-gray-900 dark:text-white"}`}>
 																			{group.groupName}
 																		</span>
@@ -598,7 +598,7 @@ const EventParticipantManagement: React.FC = () => {
 																			<button
 																				onClick={() => handleUpdateOrderNumber(group.id, null, group.schoolCategory.name)}
 																				disabled={processingId === group.id}
-																				className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+																				className="text-sm text-red-600 dark:text-red-400 hover:underline flex items-center gap-1 disabled:opacity-50"
 																			>
 																				<ArrowsUpDownIcon className="h-4 w-4" />
 																				Set Nomor Urut
@@ -607,7 +607,7 @@ const EventParticipantManagement: React.FC = () => {
 																		{members.length > 0 && group.status !== "CANCELLED" && (
 																			<button
 																				onClick={() => setExpandedGroupId(isGroupExpanded ? null : group.id)}
-																				className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+																				className="text-sm text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
 																			>
 																				{isGroupExpanded ? (
 																					<>
@@ -671,7 +671,7 @@ const EventParticipantManagement: React.FC = () => {
 																	{pasukan.length > 0 && (
 																		<div className="mb-4">
 																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-																				<span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
+																				<span className="w-2 h-2 bg-red-500 rounded-full"></span>
 																				Pasukan ({pasukan.length} orang)
 																			</h5>
 																			<div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -681,14 +681,14 @@ const EventParticipantManagement: React.FC = () => {
 																							<img
 																								src={getImageUrl(member.photo) || ""}
 																								alt={member.name}
-																								className="w-12 h-12 rounded-full object-cover border-2 border-indigo-400 mb-1"
+																								className="w-12 h-12 rounded-full object-cover border-2 border-red-400 mb-1"
 																								onError={(e) => {
 																									e.currentTarget.style.display = "none";
 																								}}
 																							/>
 																						) : (
-																							<div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center mb-1">
-																								<UserIcon className="w-6 h-6 text-indigo-500" />
+																							<div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mb-1">
+																								<UserIcon className="w-6 h-6 text-red-500" />
 																							</div>
 																						)}
 																						<p className="text-xs font-medium text-gray-900 dark:text-white text-center line-clamp-1">{member.name}</p>

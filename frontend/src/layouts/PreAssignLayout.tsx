@@ -1,22 +1,51 @@
 import React from "react";
-import { Link, Outlet, useNavigate } from "react-router-dom";
-import { Logo } from "../components/Logo";
-import { ThemeToggle } from "../components/ThemeToggle";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useTheme } from "../hooks/useTheme";
 import {
-	ArrowRightOnRectangleIcon,
-	UserCircleIcon,
-} from "@heroicons/react/24/outline";
+	LuCalendar,
+	LuTicket,
+	LuUser,
+	LuLogOut,
+	LuSun,
+	LuMoon,
+	LuMail,
+	LuHouse,
+} from "react-icons/lu";
 import Swal from "sweetalert2";
+import "../components/landing/LandingPage.css";
 
-/**
- * Layout for panitia/juri dashboard pages BEFORE event assignment.
- * Shows header with user info and logout, simple footer.
- * After event assignment, routes will use DashboardLayout instead.
- */
+interface NavItem {
+	to: string;
+	label: string;
+	icon: React.ComponentType<{ className?: string }>;
+}
+
+const getNavItems = (role?: string): NavItem[] => {
+	if (role === "JURI") {
+		return [
+			{ to: "/juri/dashboard", label: "Dashboard", icon: LuHouse },
+			{ to: "/juri/invitations", label: "Undangan", icon: LuMail },
+			{ to: "/juri/events", label: "Event", icon: LuCalendar },
+			{ to: "/juri/profile", label: "Profile", icon: LuUser },
+		];
+	}
+	// PANITIA (default)
+	return [
+		{ to: "/panitia/dashboard", label: "Dashboard", icon: LuHouse },
+		{ to: "/panitia/events-list", label: "Events", icon: LuCalendar },
+		{ to: "/panitia/coupons", label: "Coupons", icon: LuTicket },
+		{ to: "/panitia/profile", label: "Profile", icon: LuUser },
+	];
+};
+
 export const PreAssignLayout: React.FC = () => {
 	const { user, logout } = useAuth();
+	const { theme, toggleTheme } = useTheme();
 	const navigate = useNavigate();
+	const location = useLocation();
+
+	const navItems = getNavItems(user?.role);
 
 	const handleLogout = async () => {
 		const result = await Swal.fire({
@@ -24,7 +53,7 @@ export const PreAssignLayout: React.FC = () => {
 			text: "Yakin ingin keluar dari aplikasi?",
 			icon: "question",
 			showCancelButton: true,
-			confirmButtonColor: "#6366F1",
+			confirmButtonColor: "#ef4444",
 			cancelButtonColor: "#6B7280",
 			confirmButtonText: "Ya, Logout",
 			cancelButtonText: "Batal",
@@ -38,85 +67,163 @@ export const PreAssignLayout: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
-			{/* Header */}
-			<header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow transition-colors">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex justify-between items-center h-16">
-						{/* Logo */}
-						<Logo size="sm" showText variant="auto" />
+		<div className="h-screen w-screen overflow-hidden relative">
+			{/* Fixed background with grid + gradient */}
+			<div className="main-layout-bg" />
+			<div className="neon-red-lines" />
 
-						{/* User Actions */}
-						<div className="flex items-center gap-4">
-							<ThemeToggle />
-
-							{/* User Info */}
-							<Link
-								to="/profile"
-								className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-							>
-								<div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-xs">
-									{user?.name
-										?.split(" ")
-										.map((n) => n[0])
-										.join("")
-										.substring(0, 2)
-										.toUpperCase()}
-								</div>
-								<div className="hidden sm:block">
-									<div className="text-sm font-medium text-gray-900 dark:text-white">
-										{user?.name}
-									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
-										{user?.role}
-									</div>
-								</div>
-								<UserCircleIcon className="w-4 h-4 text-gray-400 hidden sm:block" />
-							</Link>
-
-							{/* Logout Button */}
-							<button
-								onClick={handleLogout}
-								className="flex items-center gap-2 px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-								title="Logout"
-							>
-								<ArrowRightOnRectangleIcon className="w-5 h-5" />
-								<span className="hidden sm:inline text-sm font-medium">Logout</span>
-							</button>
+			{/* ===== Left Sidebar Navigation (desktop) ===== */}
+			<nav className="fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center gap-2 border-r border-gray-200/10 dark:border-white/5">
+				{/* Logo at top */}
+				<div className="mt-4 mb-6">
+					<Link to="/">
+						<div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
+							<img
+								src="/simpaskor.webp"
+								alt="Logo"
+								className="w-7 h-7 object-contain"
+							/>
 						</div>
-					</div>
+					</Link>
 				</div>
-			</header>
 
-			{/* Main Content */}
-			<main className="flex-1">
+				{/* Navigation Items (centered) */}
+				<div className="flex-1 flex flex-col items-center justify-center gap-1.5">
+					{navItems.map((item) => {
+						const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+						const Icon = item.icon;
+
+						return (
+							<Link
+								key={item.to}
+								to={item.to}
+								className="group relative flex flex-col items-center gap-0.5 outline-none"
+								aria-label={item.label}
+							>
+								{isActive && (
+									<div className="absolute -left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full transition-all" />
+								)}
+
+								<div
+									className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
+										isActive
+											? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110 shadow-lg shadow-red-500/10"
+											: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
+									}`}
+								>
+									<Icon className="w-5 h-5" />
+								</div>
+
+								<span
+									className={`text-[9px] font-medium transition-all duration-300 leading-tight ${
+										isActive
+											? "text-red-500 dark:text-red-400 opacity-100"
+											: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
+									}`}
+								>
+									{item.label}
+								</span>
+
+								{/* Tooltip */}
+								<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+									{item.label}
+									<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+								</div>
+							</Link>
+						);
+					})}
+				</div>
+
+				{/* Bottom: Theme Toggle + Logout */}
+				<div className="mb-6 flex flex-col items-center gap-1.5">
+					{/* Theme Toggle */}
+					<button
+						onClick={toggleTheme}
+						className="group relative flex flex-col items-center gap-0.5 outline-none"
+						aria-label="Toggle theme"
+					>
+						<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300">
+							{theme === "light" ? (
+								<LuMoon className="w-5 h-5" />
+							) : (
+								<LuSun className="w-5 h-5" />
+							)}
+						</div>
+						<span className="text-[9px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+							Theme
+						</span>
+						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+							{theme === "light" ? "Dark Mode" : "Light Mode"}
+							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+						</div>
+					</button>
+
+					{/* Logout */}
+					<button
+						onClick={handleLogout}
+						className="group relative flex flex-col items-center gap-0.5 outline-none"
+						aria-label="Logout"
+					>
+						<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400">
+							<LuLogOut className="w-5 h-5" />
+						</div>
+						<span className="text-[9px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+							Logout
+						</span>
+						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+							Logout
+							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+						</div>
+					</button>
+				</div>
+			</nav>
+
+			{/* ===== Main Content Area ===== */}
+			<main className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-[72px] pb-20 md:pb-6">
 				<Outlet />
 			</main>
 
-			{/* Footer */}
-			<footer className="bg-gray-900 text-white py-6">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-						<div className="flex items-center gap-2">
-							<Logo size="sm" variant="white" showText={false} />
-							<span className="text-gray-400 text-sm">
-								© {new Date().getFullYear()} SIMPASKOR. All rights reserved.
-							</span>
-						</div>
-						<div className="flex items-center gap-6 text-sm text-gray-400">
-							<Link to="/about" className="hover:text-white transition-colors">
-								Tentang
-							</Link>
-							<Link to="/contact" className="hover:text-white transition-colors">
-								Kontak
-							</Link>
-							<Link to="/docs/CONTRIBUTING.md" className="hover:text-white transition-colors">
-								Bantuan
-							</Link>
-						</div>
+			{/* ===== Mobile Bottom Navigation ===== */}
+			<nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+				<div className="mx-3 mb-3 px-2 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.06] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.08] shadow-lg shadow-black/5 dark:shadow-black/20">
+					<div className="flex items-center justify-around">
+						{navItems.map((item) => {
+							const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
+							const Icon = item.icon;
+							return (
+								<Link
+									key={item.to}
+									to={item.to}
+									className="group relative flex flex-col items-center gap-0.5 outline-none"
+									aria-label={item.label}
+								>
+									{isActive && (
+										<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
+									)}
+									<div
+										className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+											isActive
+												? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110"
+												: "text-gray-400 dark:text-gray-500"
+										}`}
+									>
+										<Icon className="w-[18px] h-[18px]" />
+									</div>
+									<span
+										className={`text-[8px] font-medium leading-tight ${
+											isActive
+												? "text-red-500 dark:text-red-400"
+												: "text-gray-400 dark:text-gray-500"
+										}`}
+									>
+										{item.label}
+									</span>
+								</Link>
+							);
+						})}
 					</div>
 				</div>
-			</footer>
+			</nav>
 		</div>
 	);
 };

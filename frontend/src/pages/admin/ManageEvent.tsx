@@ -250,7 +250,7 @@ const AdminManageEvent: React.FC = () => {
 	const currentStatusInfo = (EVENT_STATUSES.find(s => s.value === event.status) ?? EVENT_STATUSES[0])!;
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 				{/* Back Button */}
 				<div className="mb-4">
@@ -264,7 +264,7 @@ const AdminManageEvent: React.FC = () => {
 				</div>
 
 				{/* Event Header */}
-				<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden mb-6">
 					<div className="md:flex">
 						{/* Thumbnail */}
 						<div className="md:w-1/3 relative">
@@ -367,7 +367,7 @@ const AdminManageEvent: React.FC = () => {
 					{/* Edit Event */}
 					<Link
 						to={`/admin/events/${event.id}/edit`}
-						className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
 					>
 						<div className="flex items-center gap-4">
 							<div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
@@ -383,7 +383,7 @@ const AdminManageEvent: React.FC = () => {
 					{/* Manage Peserta */}
 					<Link
 						to={`/admin/events/${event.slug}/peserta`}
-						className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
 					>
 						<div className="flex items-center gap-4">
 							<div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors">
@@ -399,7 +399,7 @@ const AdminManageEvent: React.FC = () => {
 					{/* Manage Juri */}
 					<Link
 						to={`/admin/events/${event.slug}/juri`}
-						className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
 					>
 						<div className="flex items-center gap-4">
 							<div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg group-hover:bg-yellow-200 dark:group-hover:bg-yellow-900/50 transition-colors">
@@ -415,7 +415,7 @@ const AdminManageEvent: React.FC = () => {
 					{/* Manage Materi */}
 					<Link
 						to={`/admin/events/${event.slug}/materi`}
-						className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
 					>
 						<div className="flex items-center gap-4">
 							<div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
@@ -431,7 +431,7 @@ const AdminManageEvent: React.FC = () => {
 					{/* View Rekap */}
 					<Link
 						to={`/admin/events/${event.slug}/rekapitulasi`}
-						className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
 					>
 						<div className="flex items-center gap-4">
 							<div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
@@ -448,7 +448,7 @@ const AdminManageEvent: React.FC = () => {
 					<Link
 						to={`/events/${event.slug}`}
 						target="_blank"
-						className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
 					>
 						<div className="flex items-center gap-4">
 							<div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg group-hover:bg-gray-200 dark:group-hover:bg-gray-600 transition-colors">
@@ -466,7 +466,7 @@ const AdminManageEvent: React.FC = () => {
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 					{/* School Categories */}
 					{event.schoolCategoryLimits && event.schoolCategoryLimits.length > 0 && (
-						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
 							<h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 								<UserGroupIcon className="w-5 h-5" />
 								Kuota per Kategori
@@ -494,7 +494,7 @@ const AdminManageEvent: React.FC = () => {
 
 					{/* Juri Assignments */}
 					{event.juryAssignments && event.juryAssignments.length > 0 && (
-						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
 							<h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
 								<TrophyIcon className="w-5 h-5" />
 								Dewan Juri

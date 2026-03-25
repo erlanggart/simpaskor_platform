@@ -238,7 +238,7 @@ const PesertaRegistrations: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center min-h-screen">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -257,7 +257,7 @@ const PesertaRegistrations: React.FC = () => {
 
 			{/* Registrations List */}
 			{registrations.length === 0 ? (
-				<div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+				<div className="text-center py-12 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow">
 					<UserGroupIcon className="mx-auto h-16 w-16 text-gray-400" />
 					<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 						Belum Ada Pendaftaran
@@ -277,7 +277,7 @@ const PesertaRegistrations: React.FC = () => {
 						return (
 							<div
 								key={registration.id}
-								className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
+								className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md overflow-hidden"
 							>
 								{/* Header */}
 								<div className="p-6">
@@ -336,7 +336,7 @@ const PesertaRegistrations: React.FC = () => {
 												onClick={() =>
 													setExpandedId(isExpanded ? null : registration.id)
 												}
-												className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+												className="text-sm text-red-600 dark:text-red-400 hover:underline"
 											>
 												{isExpanded ? "Sembunyikan Detail" : "Lihat Detail"}
 											</button>
@@ -363,7 +363,7 @@ const PesertaRegistrations: React.FC = () => {
 															<div className="p-4 flex items-start justify-between">
 																<div className="flex-1">
 																	<div className="flex items-center gap-2 mb-1">
-																		<UserGroupIcon className="h-5 w-5 text-indigo-600" />
+																		<UserGroupIcon className="h-5 w-5 text-red-600" />
 																		<span className="font-semibold text-gray-900 dark:text-white">
 																			{group.groupName}
 																		</span>
@@ -386,7 +386,7 @@ const PesertaRegistrations: React.FC = () => {
 																	{members.length > 0 && (
 																		<button
 																			onClick={() => setExpandedTeamId(isTeamExpanded ? null : group.id)}
-																			className="flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+																			className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:underline"
 																		>
 																			{isTeamExpanded ? (
 																				<>
@@ -458,7 +458,7 @@ const PesertaRegistrations: React.FC = () => {
 																	{pasukan.length > 0 && (
 																		<div className="mb-4">
 																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-																				<span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
+																				<span className="w-2 h-2 bg-red-500 rounded-full"></span>
 																				Pasukan ({pasukan.length} orang)
 																			</h5>
 																			<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -468,14 +468,14 @@ const PesertaRegistrations: React.FC = () => {
 																							<img
 																								src={getImageUrl(member.photo) || ''}
 																								alt={member.name}
-																								className="w-16 h-16 rounded-full object-cover border-2 border-indigo-400 mb-2"
+																								className="w-16 h-16 rounded-full object-cover border-2 border-red-400 mb-2"
 																								onError={(e) => {
 																									e.currentTarget.style.display = 'none';
 																								}}
 																							/>
 																						) : (
-																							<div className="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center mb-2">
-																								<UserIcon className="w-8 h-8 text-indigo-500" />
+																							<div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mb-2">
+																								<UserIcon className="w-8 h-8 text-red-500" />
 																							</div>
 																						)}
 																						<p className="text-sm font-medium text-gray-900 dark:text-white text-center line-clamp-1">{member.name}</p>
@@ -536,7 +536,7 @@ const PesertaRegistrations: React.FC = () => {
 										{/* Cancelled Groups */}
 										{cancelledGroups.length > 0 && (
 											<div className="space-y-4">
-												<div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+												<div className="pt-2 border-t border-gray-200/60 dark:border-gray-700/40">
 													<h5 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
 														Tim yang Dibatalkan ({cancelledGroups.length})
 													</h5>
@@ -593,7 +593,7 @@ const PesertaRegistrations: React.FC = () => {
 
 						{/* Cancel Registration */}
 						{registration.status === "REGISTERED" && activeGroups.length > 0 && (
-							<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+							<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
 								<button
 									onClick={() =>
 										handleCancelRegistration(
@@ -610,10 +610,10 @@ const PesertaRegistrations: React.FC = () => {
 
 							{/* Re-register button for cancelled registrations */}
 							{registration.status === "CANCELLED" && registration.event && (
-								<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+								<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
 									<Link
 										to={`/peserta/events/${registration.event.slug || registration.event.id}/register`}
-										className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+										className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
 									>
 										Daftar Ulang
 									</Link>

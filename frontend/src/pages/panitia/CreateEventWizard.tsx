@@ -377,9 +377,9 @@ const CreateEventWizard: React.FC = () => {
 	// Loading state
 	if (isFetching) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-colors">
+			<div className="min-h-screen flex items-center justify-center transition-colors">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 dark:border-indigo-400 border-t-transparent mx-auto mb-4"></div>
+					<div className="animate-spin rounded-full h-12 w-12 border-4 border-red-600 dark:border-red-400 border-t-transparent mx-auto mb-4"></div>
 					<p className="text-gray-600 dark:text-gray-400">Memuat data...</p>
 				</div>
 			</div>
@@ -387,9 +387,9 @@ const CreateEventWizard: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+		<div className="min-h-screen transition-colors">
 			{/* Header */}
-			<header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/50 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 transition-colors">
+			<header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-sm dark:shadow-gray-900/50 border-b border-gray-200/60 dark:border-gray-700/40 sticky top-0 z-50 transition-colors">
 				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex items-center justify-between h-16">
 						<div className="flex items-center gap-4">
@@ -422,7 +422,7 @@ const CreateEventWizard: React.FC = () => {
 			</header>
 
 			{/* Progress Steps */}
-			<div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border-b border-gray-200/60 dark:border-gray-700/40 transition-colors">
 				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 					<div className="flex items-center justify-between">
 						{STEPS.map((step, index) => {
@@ -438,7 +438,7 @@ const CreateEventWizard: React.FC = () => {
 												isCompleted
 													? "bg-green-500 dark:bg-green-600 text-white"
 													: isCurrent
-													? "bg-indigo-600 dark:bg-indigo-500 text-white ring-4 ring-indigo-100 dark:ring-indigo-900"
+													? "bg-red-600 dark:bg-red-500 text-white ring-4 ring-red-100 dark:ring-red-900"
 													: "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
 											}`}
 										>
@@ -452,7 +452,7 @@ const CreateEventWizard: React.FC = () => {
 											<p
 												className={`text-sm font-medium ${
 													isCurrent
-														? "text-indigo-600 dark:text-indigo-400"
+														? "text-red-600 dark:text-red-400"
 														: isCompleted
 														? "text-green-600 dark:text-green-400"
 														: "text-gray-500 dark:text-gray-400"
@@ -499,7 +499,7 @@ const CreateEventWizard: React.FC = () => {
 							</p>
 							<Link
 								to="/panitia/dashboard"
-								className="inline-block mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium"
+								className="inline-block mt-2 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
 							>
 								← Kembali ke Dashboard
 							</Link>

@@ -263,16 +263,16 @@ export const PBBTemplateRecommendation: React.FC<PBBTemplateRecommendationProps>
 	};
 
 	return (
-		<div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg max-w-lg mx-auto">
+		<div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg max-w-lg mx-auto">
 			<div className="flex items-start gap-3">
 				<div className="flex-shrink-0">
-					<BookOpenIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+					<BookOpenIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
 				</div>
 				<div className="text-left">
-					<h4 className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">
+					<h4 className="text-sm font-semibold text-red-800 dark:text-red-300">
 						Gunakan Format Simpaskor
 					</h4>
-					<p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+					<p className="text-xs text-red-600 dark:text-red-400 mt-1">
 						Berdasarkan Perpang TNI No. 58
 					</p>
 					<p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
@@ -280,7 +280,7 @@ export const PBBTemplateRecommendation: React.FC<PBBTemplateRecommendationProps>
 					</p>
 					<button
 						onClick={handleImportTemplate}
-						className="mt-3 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+						className="mt-3 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
 					>
 						Gunakan Template PBB Simpaskor
 					</button>

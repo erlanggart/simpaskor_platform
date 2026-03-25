@@ -168,13 +168,13 @@ const JuryInvitations: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
@@ -187,7 +187,7 @@ const JuryInvitations: React.FC = () => {
 				</div>
 
 				{invitations.length === 0 ? (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-12 text-center">
 						<ClockIcon className="mx-auto h-16 w-16 text-gray-400" />
 						<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 							Tidak Ada Undangan
@@ -201,12 +201,12 @@ const JuryInvitations: React.FC = () => {
 						{invitations.map((invitation) => (
 							<div
 								key={invitation.id}
-								className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden"
+								className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden"
 							>
 								<div className="md:flex">
 									{/* Event Image */}
 									<div className="md:w-1/3">
-										<div className="h-48 md:h-full bg-gradient-to-br from-indigo-500 to-purple-600">
+										<div className="h-48 md:h-full bg-gradient-to-br from-red-500 to-purple-600">
 											{invitation.event.thumbnail ? (
 												<img
 													src={getImageUrl(invitation.event.thumbnail) || ""}
@@ -263,7 +263,7 @@ const JuryInvitations: React.FC = () => {
 												{invitation.assignedCategories.map((cat) => (
 													<span
 														key={cat.id}
-														className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm rounded-full"
+														className="px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-sm rounded-full"
 													>
 														{cat.assessmentCategory.name}
 													</span>

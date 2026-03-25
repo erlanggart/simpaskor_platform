@@ -293,7 +293,7 @@ const BannerManagement: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="flex justify-center items-center h-64">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -310,7 +310,7 @@ const BannerManagement: React.FC = () => {
 				</div>
 				<button
 					onClick={() => handleOpenModal()}
-					className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+					className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
 				>
 					<PlusIcon className="w-5 h-5" />
 					Tambah Banner
@@ -328,7 +328,7 @@ const BannerManagement: React.FC = () => {
 								placeholder="Cari banner..."
 								value={searchTerm}
 								onChange={(e) => setSearchTerm(e.target.value)}
-								className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+								className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 							/>
 						</div>
 					</div>
@@ -337,7 +337,7 @@ const BannerManagement: React.FC = () => {
 							onClick={() => setFilterActive("ALL")}
 							className={`px-4 py-2 rounded-lg font-medium transition-colors ${
 								filterActive === "ALL"
-									? "bg-indigo-600 text-white shadow-md"
+									? "bg-red-600 text-white shadow-md"
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
@@ -347,7 +347,7 @@ const BannerManagement: React.FC = () => {
 							onClick={() => setFilterActive("ACTIVE")}
 							className={`px-4 py-2 rounded-lg font-medium transition-colors ${
 								filterActive === "ACTIVE"
-									? "bg-indigo-600 text-white shadow-md"
+									? "bg-red-600 text-white shadow-md"
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
@@ -357,7 +357,7 @@ const BannerManagement: React.FC = () => {
 							onClick={() => setFilterActive("INACTIVE")}
 							className={`px-4 py-2 rounded-lg font-medium transition-colors ${
 								filterActive === "INACTIVE"
-									? "bg-indigo-600 text-white shadow-md"
+									? "bg-red-600 text-white shadow-md"
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
@@ -404,7 +404,7 @@ const BannerManagement: React.FC = () => {
 									>
 										{banner.isActive ? "Aktif" : "Nonaktif"}
 									</span>
-									<span className="px-2 py-1 text-xs font-semibold bg-indigo-100 text-indigo-800 rounded">
+									<span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded">
 										Urutan: {banner.order}
 									</span>
 								</div>
@@ -419,7 +419,7 @@ const BannerManagement: React.FC = () => {
 									</p>
 								)}
 								{banner.linkUrl && (
-									<div className="flex items-center gap-1 text-xs text-indigo-600 mb-3">
+									<div className="flex items-center gap-1 text-xs text-red-600 mb-3">
 										<LinkIcon className="w-4 h-4" />
 										<span className="truncate">{banner.linkUrl}</span>
 									</div>
@@ -463,7 +463,7 @@ const BannerManagement: React.FC = () => {
 									</button>
 									<button
 										onClick={() => handleOpenModal(banner)}
-										className="flex items-center justify-center gap-2 px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-sm font-medium"
+										className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
 									>
 										<PencilIcon className="w-4 h-4" />
 										Edit
@@ -501,7 +501,7 @@ const BannerManagement: React.FC = () => {
 											setFormData({ ...formData, title: e.target.value })
 										}
 										placeholder="Contoh: Pendaftaran Lomba Paskibra 2024"
-										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 										required
 									/>
 								</div>
@@ -517,7 +517,7 @@ const BannerManagement: React.FC = () => {
 										}
 										placeholder="Deskripsi singkat tentang banner"
 										rows={3}
-										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									/>
 								</div>
 
@@ -534,7 +534,7 @@ const BannerManagement: React.FC = () => {
 										onDrop={handleDrop}
 										className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
 											dragActive
-												? "border-indigo-500 bg-indigo-50"
+												? "border-red-500 bg-red-50"
 												: "border-gray-300 bg-gray-50"
 										}`}
 									>
@@ -560,7 +560,7 @@ const BannerManagement: React.FC = () => {
 												<div className="flex gap-2">
 													<label
 														htmlFor="image-upload"
-														className="flex-1 cursor-pointer px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors text-center text-sm font-medium"
+														className="flex-1 cursor-pointer px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-center text-sm font-medium"
 													>
 														Ganti Gambar
 													</label>
@@ -591,7 +591,7 @@ const BannerManagement: React.FC = () => {
 												</p>
 												{uploading && (
 													<div className="mt-3 w-full bg-gray-200 rounded-full h-2">
-														<div className="bg-indigo-600 h-2 rounded-full animate-pulse w-1/2"></div>
+														<div className="bg-red-600 h-2 rounded-full animate-pulse w-1/2"></div>
 													</div>
 												)}
 											</label>
@@ -613,7 +613,7 @@ const BannerManagement: React.FC = () => {
 											setFormData({ ...formData, linkUrl: e.target.value })
 										}
 										placeholder="https://example.com/event"
-										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									/>
 									<p className="text-xs text-gray-500 mt-1">
 										Link yang akan dibuka ketika banner diklik
@@ -631,7 +631,7 @@ const BannerManagement: React.FC = () => {
 											setFormData({ ...formData, buttonText: e.target.value })
 										}
 										placeholder="Contoh: Daftar Sekarang"
-										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+										className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 									/>
 								</div>
 
@@ -650,7 +650,7 @@ const BannerManagement: React.FC = () => {
 												})
 											}
 											min="0"
-											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 										/>
 										<p className="text-xs text-gray-500 mt-1">
 											Urutan tampilan banner (0 = paling awal)
@@ -668,7 +668,7 @@ const BannerManagement: React.FC = () => {
 													isActive: e.target.value === "true",
 												})
 											}
-											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 										>
 											<option value="true">Aktif</option>
 											<option value="false">Nonaktif</option>
@@ -687,7 +687,7 @@ const BannerManagement: React.FC = () => {
 											onChange={(e) =>
 												setFormData({ ...formData, startDate: e.target.value })
 											}
-											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 										/>
 									</div>
 									<div>
@@ -700,7 +700,7 @@ const BannerManagement: React.FC = () => {
 											onChange={(e) =>
 												setFormData({ ...formData, endDate: e.target.value })
 											}
-											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+											className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 										/>
 									</div>
 								</div>
@@ -720,7 +720,7 @@ const BannerManagement: React.FC = () => {
 										className={`px-4 py-2 rounded-lg text-white transition-colors ${
 											submitLoading
 												? "bg-gray-400 cursor-not-allowed"
-												: "bg-indigo-600 hover:bg-indigo-700"
+												: "bg-red-600 hover:bg-red-700"
 										}`}
 									>
 										{submitLoading

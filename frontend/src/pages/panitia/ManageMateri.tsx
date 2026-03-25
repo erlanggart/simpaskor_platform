@@ -376,13 +376,13 @@ const ManageMateri: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="flex items-center justify-between mb-8">
@@ -398,16 +398,16 @@ const ManageMateri: React.FC = () => {
 
 				{/* Event School Categories Info
 				{eventSchoolCategories.length > 0 && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow mb-6 p-6">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-							<AcademicCapIcon className="h-5 w-5 text-indigo-600" />
+							<AcademicCapIcon className="h-5 w-5 text-red-600" />
 							Kategori Sekolah Event
 						</h2>
 						<div className="flex flex-wrap gap-2">
 							{eventSchoolCategories.map((sc) => (
 								<span
 									key={sc.id}
-									className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium"
+									className="px-3 py-1.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium"
 								>
 									{sc.name}
 								</span>
@@ -434,7 +434,7 @@ const ManageMateri: React.FC = () => {
 				{/* Categories and Materials */}
 				<div className="space-y-4">
 					{categories.length === 0 ? (
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-12 text-center">
 							<BookOpenIcon className="mx-auto h-12 w-12 text-gray-400" />
 							<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 								Tidak Ada Kategori Penilaian
@@ -445,13 +445,13 @@ const ManageMateri: React.FC = () => {
 							</p>
 							<Link
 								to={`${basePath}/events/${eventSlug}/manage`}
-								className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
+								className="mt-4 inline-flex items-center text-red-600 hover:text-red-500"
 							>
 								Kembali ke Kelola Event
 							</Link>
 						</div>
 					) : (
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
 							{/* Assessment Category Tabs */}
 							<div className="flex border-b border-gray-200 dark:border-gray-600 overflow-x-auto bg-gray-50 dark:bg-gray-700/50">
 								{categories.map((category) => (
@@ -461,7 +461,7 @@ const ManageMateri: React.FC = () => {
 										onClick={() => setActiveAssessmentCategoryTab(category.id)}
 										className={`flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
 											activeAssessmentCategoryTab === category.id
-												? "border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-800"
+												? "border-red-600 text-red-600 dark:text-red-400 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm"
 												: "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
 										}`}
 									>
@@ -480,7 +480,7 @@ const ManageMateri: React.FC = () => {
 								return (
 									<div className="p-6">
 										{/* Score Summary Section */}
-										<div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
+										<div className="mb-6 p-4 bg-gradient-to-r from-red-50 to-purple-50 dark:from-red-900/20 dark:to-purple-900/20 rounded-lg border border-red-100 dark:border-red-800">
 											<div className="flex items-center justify-between mb-3">
 												<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Maksimal Nilai per Kategori Sekolah</h4>
 												<span className="text-xs text-gray-500 dark:text-gray-400">Juri: {category.juryCount ?? 0}</span>
@@ -500,7 +500,7 @@ const ManageMateri: React.FC = () => {
 															{category.maxScoreBreakdown.map((item) => (
 																<tr key={item.schoolCategoryId}>
 																	<td className="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300">{item.schoolCategoryName}</td>
-																	<td className="py-2 pr-4 text-center text-indigo-600 dark:text-indigo-400 font-semibold">{item.maxScore}</td>
+																	<td className="py-2 pr-4 text-center text-red-600 dark:text-red-400 font-semibold">{item.maxScore}</td>
 																	<td className="py-2 pr-4 text-center text-purple-600 dark:text-purple-400">{item.juryCount}</td>
 																	<td className="py-2 text-center text-green-600 dark:text-green-400 font-bold">{item.totalMaxScore}</td>
 																</tr>
@@ -540,14 +540,14 @@ const ManageMateri: React.FC = () => {
 															<div
 																className={`p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg ${
 																	editingMaterial?.id === material.id 
-																		? "ring-2 ring-indigo-500 dark:ring-indigo-400" 
+																		? "ring-2 ring-red-500 dark:ring-red-400" 
 																		: ""
 																}`}
 															>
 																<div className="flex items-start justify-between">
 																	<div className="flex-1">
 																		<div className="flex items-center gap-3 mb-2">
-																			<span className="flex items-center justify-center w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full font-semibold text-sm">
+																			<span className="flex items-center justify-center w-8 h-8 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-full font-semibold text-sm">
 																				{material.number}
 																			</span>
 																			<p className="font-medium text-lg text-gray-900 dark:text-white">
@@ -617,7 +617,7 @@ const ManageMateri: React.FC = () => {
 																	<div className="flex items-center gap-2">
 																		<button
 																			onClick={() => openEditMaterialForm(material)}
-																			className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+																			className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
 																			title="Edit"
 																		>
 																			<PencilIcon className="h-4 w-4" />
@@ -646,7 +646,7 @@ const ManageMateri: React.FC = () => {
 											eventSchoolCategories.length > 0 && !editingMaterial && (
 												<button
 													onClick={() => openAddMaterialForm(category.id)}
-													className="mt-4 flex items-center gap-2 px-4 py-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+													className="mt-4 flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
 												>
 													<PlusIcon className="h-5 w-5" />
 													Tambah Materi

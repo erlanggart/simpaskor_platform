@@ -274,7 +274,7 @@ const JuriEventPenilaian: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -288,7 +288,7 @@ const JuriEventPenilaian: React.FC = () => {
 					</h2>
 					<Link
 						to="/juri/events"
-						className="mt-4 inline-block text-indigo-600 hover:text-indigo-500"
+						className="mt-4 inline-block text-red-600 hover:text-red-500"
 					>
 						Kembali ke Event Saya
 					</Link>
@@ -298,7 +298,7 @@ const JuriEventPenilaian: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 				{/* Header with Progress */}
 				<div className=" flex items-center justify-between mb-2">
@@ -325,7 +325,7 @@ const JuriEventPenilaian: React.FC = () => {
 				</div>
 
 				{/* Search Filter */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow mb-6">
 					<div className="relative">
 						<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
 						<input
@@ -333,19 +333,19 @@ const JuriEventPenilaian: React.FC = () => {
 							placeholder="Cari tim, peserta, atau sekolah..."
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full pl-10 pr-4 py-3 border-0 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 text-lg"
+							className="w-full pl-10 pr-4 py-3 border-0 rounded-lg bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 text-lg"
 						/>
 					</div>
 				</div>
 
 				{/* Tabs */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 overflow-x-auto">
-					<div className="flex border-b border-gray-200 dark:border-gray-700 min-w-max">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow mb-6 overflow-x-auto">
+					<div className="flex border-b border-gray-200/60 dark:border-gray-700/40 min-w-max">
 						<button
 							onClick={() => setSelectedTab("all")}
 							className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
 								selectedTab === "all"
-									? "border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400"
+									? "border-b-2 border-red-600 text-red-600 dark:text-red-400"
 									: "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
 							}`}
 						>
@@ -359,7 +359,7 @@ const JuriEventPenilaian: React.FC = () => {
 									onClick={() => setSelectedTab(cat.id)}
 									className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
 										selectedTab === cat.id
-											? "border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400"
+											? "border-b-2 border-red-600 text-red-600 dark:text-red-400"
 											: "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
 									}`}
 								>
@@ -372,7 +372,7 @@ const JuriEventPenilaian: React.FC = () => {
 								onClick={() => setSelectedTab("uncategorized")}
 								className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
 									selectedTab === "uncategorized"
-										? "border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400"
+										? "border-b-2 border-red-600 text-red-600 dark:text-red-400"
 										: "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
 								}`}
 							>
@@ -384,7 +384,7 @@ const JuriEventPenilaian: React.FC = () => {
 
 				{/* Participants List */}
 				{filteredParticipants.length === 0 ? (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-12 text-center">
 						<TrophyIcon className="mx-auto h-12 w-12 text-gray-400" />
 						<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 							{participants.length === 0
@@ -398,7 +398,7 @@ const JuriEventPenilaian: React.FC = () => {
 						</p>
 					</div>
 				) : (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
 						<div className="divide-y divide-gray-200 dark:divide-gray-700">
 							{filteredParticipants.map((participant) => {
 								const materialStatus = getParticipantMaterialStatus(participant.id);
@@ -418,7 +418,7 @@ const JuriEventPenilaian: React.FC = () => {
 												<div className="flex items-center gap-2 flex-wrap">
 													{/* Order Number Badge */}
 													{participant.orderNumber && (
-														<span className="flex items-center justify-center w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm font-bold rounded-full">
+														<span className="flex items-center justify-center w-8 h-8 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-sm font-bold rounded-full">
 															{participant.orderNumber}
 														</span>
 													)}
@@ -435,7 +435,7 @@ const JuriEventPenilaian: React.FC = () => {
 														</span>
 													)}
 													{participant.schoolCategory && selectedTab === "all" && (
-														<span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded-full">
+														<span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-xs rounded-full">
 															{participant.schoolCategory.name}
 														</span>
 													)}
@@ -485,7 +485,7 @@ const JuriEventPenilaian: React.FC = () => {
 												) : (
 													<Link
 														to={`/juri/events/${eventSlug}/penilaian/${participant.id}`}
-														className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+														className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
 													>
 														Nilai
 														<ChevronRightIcon className="h-4 w-4" />
@@ -515,9 +515,9 @@ const JuriEventPenilaian: React.FC = () => {
 						</button>
 					) : (
 						/* Expanded State - Show details */
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-80 max-h-96 overflow-hidden">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl border border-gray-200/60 dark:border-gray-700/40 w-80 max-h-96 overflow-hidden">
 							{/* Header */}
-							<div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20">
+							<div className="flex items-center justify-between p-4 border-b border-gray-200/60 dark:border-gray-700/40 bg-yellow-50 dark:bg-yellow-900/20">
 								<div className="flex items-center gap-2">
 									<CloudArrowUpIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
 									<h3 className="font-semibold text-gray-900 dark:text-white">
@@ -552,7 +552,7 @@ const JuriEventPenilaian: React.FC = () => {
 								{offlineData.map((data) => (
 									<div
 										key={data.participantId}
-										className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0"
+										className="px-4 py-3 border-b border-gray-200/60 dark:border-gray-700/40 last:border-0"
 									>
 										<p className="font-medium text-gray-900 dark:text-white text-sm">
 											{data.participantName}
@@ -565,7 +565,7 @@ const JuriEventPenilaian: React.FC = () => {
 							</div>
 
 							{/* Action Button */}
-							<div className="p-4 border-t border-gray-200 dark:border-gray-700">
+							<div className="p-4 border-t border-gray-200/60 dark:border-gray-700/40">
 								<button
 									onClick={syncOfflineData}
 									disabled={!isOnline || syncing}

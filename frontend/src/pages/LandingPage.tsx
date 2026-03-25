@@ -37,7 +37,7 @@ const LandingPage: React.FC = () => {
 		sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth" });
 	}, []);
 
-	// Track which section is visible
+	// Track which section is visible + toggle transition class
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
@@ -45,17 +45,19 @@ const LandingPage: React.FC = () => {
 		const observer = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
+					const target = entry.target as HTMLElement;
 					if (entry.isIntersecting) {
-						const index = sectionRefs.current.indexOf(
-							entry.target as HTMLElement
-						);
+						target.classList.add("section-visible");
+						const index = sectionRefs.current.indexOf(target);
 						if (index !== -1) setActiveSection(index);
+					} else {
+						target.classList.remove("section-visible");
 					}
 				});
 			},
 			{
 				root: container,
-				threshold: 0.6,
+				threshold: 0.3,
 			}
 		);
 
@@ -137,7 +139,7 @@ const LandingPage: React.FC = () => {
 			<div className="landing-scroll-container" ref={containerRef}>
 
 				{/* ===== SECTION 1: HERO ===== */}
-				<section ref={setSectionRef(0)} className="landing-section-inner">
+				<section ref={setSectionRef(0)} className="landing-section-inner section-visible">
 					<HeroSection
 						pinnedEvents={pinnedEvents}
 						stats={stats}

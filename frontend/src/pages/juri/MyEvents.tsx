@@ -96,13 +96,13 @@ const JuryMyEvents: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
@@ -115,7 +115,7 @@ const JuryMyEvents: React.FC = () => {
 				</div>
 
 				{events.length === 0 ? (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-12 text-center">
 						<TrophyIcon className="mx-auto h-16 w-16 text-gray-400" />
 						<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 							Belum Ada Event
@@ -125,7 +125,7 @@ const JuryMyEvents: React.FC = () => {
 						</p>
 						<Link
 							to="/juri/invitations"
-							className="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+							className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
 						>
 							Lihat Undangan
 							<ChevronRightIcon className="h-5 w-5 ml-1" />
@@ -139,10 +139,10 @@ const JuryMyEvents: React.FC = () => {
 								<Link
 									key={juryEvent.id}
 									to={`/juri/events/${juryEvent.event.slug}/info`}
-									className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow group"
+									className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow group"
 								>
 									{/* Event Image */}
-									<div className="relative h-48 bg-gradient-to-br from-indigo-500 to-purple-600">
+									<div className="relative h-48 bg-gradient-to-br from-red-500 to-purple-600">
 										{juryEvent.event.thumbnail ? (
 											<img
 												src={getImageUrl(juryEvent.event.thumbnail) || ""}
@@ -170,7 +170,7 @@ const JuryMyEvents: React.FC = () => {
 
 									{/* Event Details */}
 									<div className="p-5">
-										<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+										<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
 											{juryEvent.event.title}
 										</h3>
 
@@ -192,7 +192,7 @@ const JuryMyEvents: React.FC = () => {
 										</div>
 
 										{/* Categories */}
-										<div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+										<div className="border-t border-gray-200/60 dark:border-gray-700/40 pt-4">
 											<p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
 												Kategori Penilaian:
 											</p>
@@ -200,7 +200,7 @@ const JuryMyEvents: React.FC = () => {
 												{juryEvent.assignedCategories.slice(0, 3).map((cat) => (
 													<span
 														key={cat.id}
-														className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded"
+														className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-xs rounded"
 													>
 														{cat.assessmentCategory.name}
 													</span>

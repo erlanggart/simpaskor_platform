@@ -63,7 +63,7 @@ const Statistics: React.FC<StatisticsProps> = ({ events }) => {
 			{/* Statistics Cards - Minimalist Design */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 				{/* Total Event */}
-				<div className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800 transition-all duration-300 hover:shadow-lg hover:shadow-red-100 dark:hover:shadow-red-900/20">
+				<div className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-red-200 dark:hover:border-red-800 transition-all duration-300 hover:shadow-lg hover:shadow-red-100 dark:hover:shadow-red-900/20">
 					{/* Subtle gradient accent */}
 					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
 
@@ -103,7 +103,7 @@ const Statistics: React.FC<StatisticsProps> = ({ events }) => {
 				</div>
 
 				{/* Pendaftaran Dibuka */}
-				<div className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-green-200 dark:hover:border-green-800 transition-all duration-300 hover:shadow-lg hover:shadow-green-100 dark:hover:shadow-green-900/20">
+				<div className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-green-200 dark:hover:border-green-800 transition-all duration-300 hover:shadow-lg hover:shadow-green-100 dark:hover:shadow-green-900/20">
 					{/* Subtle gradient accent */}
 					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-green-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
 
@@ -143,7 +143,7 @@ const Statistics: React.FC<StatisticsProps> = ({ events }) => {
 				</div>
 
 				{/* Event Selesai */}
-				<div className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-all duration-300 hover:shadow-lg hover:shadow-gray-100 dark:hover:shadow-gray-900/20">
+				<div className="group relative overflow-hidden bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-all duration-300 hover:shadow-lg hover:shadow-gray-100 dark:hover:shadow-gray-900/20">
 					{/* Subtle gradient accent */}
 					<div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-gray-500/5 to-transparent rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-500"></div>
 

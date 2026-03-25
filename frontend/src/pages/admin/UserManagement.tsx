@@ -373,7 +373,7 @@ const UserManagement: React.FC = () => {
 						<select
 							value={itemsPerPage}
 							onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-							className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+							className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 						>
 							<option value={5}>5</option>
 							<option value={10}>10</option>
@@ -386,7 +386,7 @@ const UserManagement: React.FC = () => {
 			</div>
 
 			{/* Filters */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-4">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-4">
 				<div className="space-y-4">
 					{/* Search */}
 					<div className="relative">
@@ -396,7 +396,7 @@ const UserManagement: React.FC = () => {
 							placeholder="Cari nama atau email..."
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+							className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 						/>
 					</div>
 
@@ -425,7 +425,7 @@ const UserManagement: React.FC = () => {
 			</div>
 
 			{/* User Table */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 overflow-hidden">
 				<div className="overflow-x-auto">
 					<table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 						<thead className="bg-gray-50 dark:bg-gray-700">
@@ -450,7 +450,7 @@ const UserManagement: React.FC = () => {
 								</th>
 							</tr>
 						</thead>
-						<tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+						<tbody className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm divide-y divide-gray-200 dark:divide-gray-700">
 							{filteredUsers.length === 0 ? (
 								<tr>
 									<td colSpan={6} className="px-6 py-12 text-center">
@@ -592,7 +592,7 @@ const UserManagement: React.FC = () => {
 
 				{/* Pagination */}
 				{filteredUsers.length > 0 && totalPages > 1 && (
-					<div className="bg-white dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm px-6 py-4 border-t border-gray-200/60 dark:border-gray-700/40">
 						<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 							{/* Info */}
 							<div className="text-sm text-gray-600 dark:text-gray-400">
@@ -665,7 +665,7 @@ const UserManagement: React.FC = () => {
 			{/* Assign Coupon Modal */}
 			{showAssignCouponModal && selectedUser && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl max-w-md w-full p-6">
 						<div className="flex items-center gap-3 mb-4">
 							<TicketIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 							<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -766,7 +766,7 @@ const UserManagement: React.FC = () => {
 			{/* Add User Modal */}
 			{showAddUserModal && (
 				<div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
 						<div className="flex items-center gap-3 mb-6">
 							<PlusIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 							<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -788,7 +788,7 @@ const UserManagement: React.FC = () => {
 											type="text"
 											value={newUserData.name}
 											onChange={(e) => handleNewUserChange("name", e.target.value)}
-											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 											placeholder="John Doe"
 											required
 										/>
@@ -803,7 +803,7 @@ const UserManagement: React.FC = () => {
 											type="email"
 											value={newUserData.email}
 											onChange={(e) => handleNewUserChange("email", e.target.value)}
-											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 											placeholder="john@example.com"
 											required
 										/>
@@ -821,7 +821,7 @@ const UserManagement: React.FC = () => {
 												onChange={(e) =>
 													handleNewUserChange("password", e.target.value)
 												}
-												className="block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+												className="block w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 												placeholder="Minimal 8 karakter"
 												required
 											/>
@@ -854,7 +854,7 @@ const UserManagement: React.FC = () => {
 											type="tel"
 											value={newUserData.phone}
 											onChange={(e) => handleNewUserChange("phone", e.target.value)}
-											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 											placeholder="+62812345678"
 										/>
 									</div>
@@ -870,7 +870,7 @@ const UserManagement: React.FC = () => {
 										<select
 											value={newUserData.role}
 											onChange={(e) => handleNewUserChange("role", e.target.value)}
-											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 											required
 										>
 											<option value="PESERTA">Peserta</option>
@@ -889,7 +889,7 @@ const UserManagement: React.FC = () => {
 										<select
 											value={newUserData.status}
 											onChange={(e) => handleNewUserChange("status", e.target.value)}
-											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 											required
 										>
 											<option value="ACTIVE">Active</option>
@@ -913,7 +913,7 @@ const UserManagement: React.FC = () => {
 											onChange={(e) =>
 												handleNewUserChange("institution", e.target.value)
 											}
-											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+											className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 											placeholder="Nama sekolah/universitas"
 										/>
 									</div>
@@ -930,7 +930,7 @@ const UserManagement: React.FC = () => {
 						</div>
 
 						{/* Action Buttons */}
-						<div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+						<div className="flex gap-3 mt-6 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
 							<button
 								onClick={() => setShowAddUserModal(false)}
 								className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"

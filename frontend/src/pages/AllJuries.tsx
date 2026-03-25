@@ -87,7 +87,7 @@ const AllJuries: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+			<div className="min-h-screen">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 					<div className="animate-pulse space-y-6">
 						<div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
@@ -107,7 +107,7 @@ const AllJuries: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
 				{/* Header */}
 				<div className="mb-8">
@@ -137,7 +137,7 @@ const AllJuries: React.FC = () => {
 						className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all ${
 							activeTab === "ACTIVE"
 								? "bg-green-600 text-white shadow-lg shadow-green-600/25"
-								: "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+								: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700/40 hover:bg-gray-50 dark:hover:bg-gray-700"
 						}`}
 					>
 						Aktif ({activeCount})
@@ -150,7 +150,7 @@ const AllJuries: React.FC = () => {
 						className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all ${
 							activeTab === "INACTIVE"
 								? "bg-gray-600 text-white shadow-lg shadow-gray-600/25"
-								: "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+								: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700/40 hover:bg-gray-50 dark:hover:bg-gray-700"
 						}`}
 					>
 						Non-Aktif ({inactiveCount})
@@ -165,7 +165,7 @@ const AllJuries: React.FC = () => {
 						placeholder="Cari juri berdasarkan nama, institusi, atau kota..."
 						value={searchTerm}
 						onChange={(e) => setSearchTerm(e.target.value)}
-						className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-all"
+						className="w-full pl-12 pr-4 py-3 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/40 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-all"
 					/>
 				</div>
 
@@ -176,7 +176,7 @@ const AllJuries: React.FC = () => {
 						className={`w-9 h-9 rounded-lg font-medium text-sm transition-all ${
 							selectedLetter === null
 								? "bg-red-600 text-white shadow-md"
-								: "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-gray-700"
+								: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700/40 hover:bg-red-50 dark:hover:bg-gray-700"
 						}`}
 					>
 						All
@@ -192,7 +192,7 @@ const AllJuries: React.FC = () => {
 									selectedLetter === letter
 										? "bg-red-600 text-white shadow-md"
 										: hasJuries
-										? "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-gray-700"
+										? "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700/40 hover:bg-red-50 dark:hover:bg-gray-700"
 										: "bg-gray-100 dark:bg-gray-800/50 text-gray-300 dark:text-gray-600 cursor-not-allowed"
 								}`}
 							>
@@ -240,7 +240,7 @@ const AllJuries: React.FC = () => {
 						{filteredJuries.map((juri) => (
 							<div
 								key={juri.id}
-								className="group relative bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-red-200 dark:hover:border-red-800 transition-all duration-300"
+								className="group relative bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-700/40 p-6 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 hover:border-red-200 dark:hover:border-red-800 transition-all duration-300"
 							>
 								{/* Pin Indicator */}
 								{juri.isPinned && (
@@ -258,10 +258,10 @@ const AllJuries: React.FC = () => {
 										<img
 											src={juri.avatar}
 											alt={juri.name}
-											className="w-20 h-20 rounded-full object-cover border-3 border-gray-100 dark:border-gray-700 group-hover:border-red-200 dark:group-hover:border-red-800 transition-colors"
+											className="w-20 h-20 rounded-full object-cover border-3 border-gray-200/60 dark:border-gray-700/40 group-hover:border-red-200 dark:group-hover:border-red-800 transition-colors"
 										/>
 									) : (
-										<div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center border-3 border-gray-100 dark:border-gray-700 group-hover:border-red-200 dark:group-hover:border-red-800 transition-colors">
+										<div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center border-3 border-gray-200/60 dark:border-gray-700/40 group-hover:border-red-200 dark:group-hover:border-red-800 transition-colors">
 											<span className="text-white font-bold text-xl">
 												{getInitials(juri.name)}
 											</span>

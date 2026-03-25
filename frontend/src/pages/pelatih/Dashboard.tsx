@@ -160,7 +160,7 @@ const PelatihDashboard = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="min-h-screen">
 			{/* Header */}
 			<header className="bg-white shadow">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -228,7 +228,7 @@ const PelatihDashboard = () => {
 								onClick={() => setSelectedTab("students")}
 								className={`py-4 px-1 border-b-2 font-medium text-sm ${
 									selectedTab === "students"
-										? "border-indigo-500 text-indigo-600"
+										? "border-red-500 text-red-600"
 										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
 								}`}
 							>
@@ -238,7 +238,7 @@ const PelatihDashboard = () => {
 								onClick={() => setSelectedTab("programs")}
 								className={`py-4 px-1 border-b-2 font-medium text-sm ${
 									selectedTab === "programs"
-										? "border-indigo-500 text-indigo-600"
+										? "border-red-500 text-red-600"
 										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
 								}`}
 							>
@@ -248,7 +248,7 @@ const PelatihDashboard = () => {
 								onClick={() => setSelectedTab("events")}
 								className={`py-4 px-1 border-b-2 font-medium text-sm ${
 									selectedTab === "events"
-										? "border-indigo-500 text-indigo-600"
+										? "border-red-500 text-red-600"
 										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
 								}`}
 							>
@@ -265,7 +265,7 @@ const PelatihDashboard = () => {
 									<h3 className="text-lg font-medium text-gray-900">
 										Daftar Siswa
 									</h3>
-									<button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+									<button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700">
 										<PlusIcon className="h-4 w-4 mr-2" />
 										Tambah Siswa
 									</button>
@@ -325,7 +325,7 @@ const PelatihDashboard = () => {
 														</div>
 														<div className="w-full bg-gray-200 rounded-full h-2">
 															<div
-																className="bg-indigo-600 h-2 rounded-full"
+																className="bg-red-600 h-2 rounded-full"
 																style={{ width: `${student.progress}%` }}
 															></div>
 														</div>
@@ -333,7 +333,7 @@ const PelatihDashboard = () => {
 												</div>
 
 												<div className="ml-6 flex flex-col space-y-2">
-													<button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
+													<button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
 														Lihat Progress
 													</button>
 													<button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
@@ -353,7 +353,7 @@ const PelatihDashboard = () => {
 									<h3 className="text-lg font-medium text-gray-900">
 										Program Latihan
 									</h3>
-									<button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+									<button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700">
 										<PlusIcon className="h-4 w-4 mr-2" />
 										Buat Program Baru
 									</button>
@@ -393,13 +393,13 @@ const PelatihDashboard = () => {
 															<span className="font-medium text-gray-700">
 																Progress Program
 															</span>
-															<span className="font-medium text-indigo-600">
+															<span className="font-medium text-red-600">
 																{program.progress}%
 															</span>
 														</div>
 														<div className="w-full bg-gray-200 rounded-full h-2">
 															<div
-																className="bg-indigo-600 h-2 rounded-full"
+																className="bg-red-600 h-2 rounded-full"
 																style={{ width: `${program.progress}%` }}
 															></div>
 														</div>
@@ -407,7 +407,7 @@ const PelatihDashboard = () => {
 												</div>
 
 												<div className="ml-6 flex flex-col space-y-2">
-													<button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
+													<button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
 														Kelola Program
 													</button>
 													<button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
@@ -470,7 +470,7 @@ const PelatihDashboard = () => {
 												</div>
 
 												<div className="ml-6 flex flex-col space-y-2">
-													<button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
+													<button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
 														Monitor Progress
 													</button>
 													<button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">

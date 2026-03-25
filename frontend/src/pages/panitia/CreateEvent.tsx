@@ -343,7 +343,7 @@ const CreateEventForm: React.FC = () => {
 
 	if (availableCoupons.length === 0) {
 		return (
-			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
 					<TicketIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
 					<h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -355,7 +355,7 @@ const CreateEventForm: React.FC = () => {
 					</p>
 					<Link
 						to="/panitia/dashboard"
-						className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+						className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
 					>
 						<ArrowLeftIcon className="w-5 h-5" />
 						Kembali ke Dashboard
@@ -366,7 +366,7 @@ const CreateEventForm: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="min-h-screen">
 			<header className="bg-white shadow-sm">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex items-center gap-4 py-4">
@@ -381,7 +381,7 @@ const CreateEventForm: React.FC = () => {
 						</div>
 						<Link
 							to="/panitia/dashboard"
-							className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+							className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
 						>
 							<ArrowLeftIcon className="w-5 h-5" />
 							Kembali
@@ -394,7 +394,7 @@ const CreateEventForm: React.FC = () => {
 				<form onSubmit={handleSubmit} className="space-y-6">
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-6">
-							<TicketIcon className="w-6 h-6 text-indigo-600" />
+							<TicketIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Pilih Kupon
 							</h2>
@@ -403,7 +403,7 @@ const CreateEventForm: React.FC = () => {
 							name="coupon"
 							value={selectedCoupon}
 							onChange={(e) => setSelectedCoupon(e.target.value)}
-							className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+							className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 						>
 							<option value="">-- Pilih Kupon --</option>
 							{availableCoupons.map((coupon) => (
@@ -420,7 +420,7 @@ const CreateEventForm: React.FC = () => {
 
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-6">
-							<DocumentTextIcon className="w-6 h-6 text-indigo-600" />
+							<DocumentTextIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Informasi Dasar
 							</h2>
@@ -436,7 +436,7 @@ const CreateEventForm: React.FC = () => {
 									value={formData.title}
 									onChange={handleChange}
 									placeholder="Contoh: Lomba Paskibra Tingkat Nasional 2024"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 								{errors.title && (
 									<p className="mt-1 text-sm text-red-600">{errors.title}</p>
@@ -452,7 +452,7 @@ const CreateEventForm: React.FC = () => {
 									onChange={handleChange}
 									rows={4}
 									placeholder="Deskripsi lengkap tentang event (opsional)"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 							</div>
 
@@ -469,7 +469,7 @@ const CreateEventForm: React.FC = () => {
 								</label>
 
 								{!thumbnailPreview ? (
-									<div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors">
+									<div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-red-400 transition-colors">
 										<input
 											type="file"
 											accept="image/*"
@@ -503,7 +503,7 @@ const CreateEventForm: React.FC = () => {
 											<img
 												src={thumbnailPreview}
 												alt="Thumbnail Preview"
-												className="w-64 h-80 object-cover rounded-lg border-2 border-indigo-200"
+												className="w-64 h-80 object-cover rounded-lg border-2 border-red-200"
 												style={{ aspectRatio: "4/5" }}
 											/>
 											<button
@@ -531,7 +531,7 @@ const CreateEventForm: React.FC = () => {
 
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-4">
-							<CheckIcon className="w-6 h-6 text-indigo-600" />
+							<CheckIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Kategori Penilaian
 							</h2>
@@ -543,7 +543,7 @@ const CreateEventForm: React.FC = () => {
 						{/* Main Categories */}
 						<div className="mb-6">
 							<h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-								<span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded">
+								<span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
 									Utama
 								</span>
 								Kategori Utama
@@ -564,15 +564,15 @@ const CreateEventForm: React.FC = () => {
 												key={category.id}
 												className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
 													isSelected
-														? "bg-indigo-50 border-indigo-300"
-														: "bg-white border-gray-200 hover:border-indigo-200 hover:bg-gray-50"
+														? "bg-red-50 border-red-300"
+														: "bg-white border-gray-200 hover:border-red-200 hover:bg-gray-50"
 												}`}
 											>
 												<input
 													type="checkbox"
 													checked={isSelected}
 													onChange={() => toggleAssessmentCategory(category.id)}
-													className="mt-1 w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+													className="mt-1 w-5 h-5 text-red-600 rounded focus:ring-red-500 cursor-pointer"
 												/>
 												<div className="flex-1">
 													<div className="font-semibold text-gray-900 mb-1">
@@ -638,15 +638,15 @@ const CreateEventForm: React.FC = () => {
 												key={category.id}
 												className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
 													isSelected
-														? "bg-indigo-50 border-indigo-300"
-														: "bg-white border-gray-200 hover:border-indigo-200 hover:bg-gray-50"
+														? "bg-red-50 border-red-300"
+														: "bg-white border-gray-200 hover:border-red-200 hover:bg-gray-50"
 												}`}
 											>
 												<input
 													type="checkbox"
 													checked={isSelected}
 													onChange={() => toggleAssessmentCategory(category.id)}
-													className="mt-1 w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+													className="mt-1 w-5 h-5 text-red-600 rounded focus:ring-red-500 cursor-pointer"
 												/>
 												<div className="flex-1 min-w-0">
 													<div className="font-semibold text-gray-900 mb-1">
@@ -671,7 +671,7 @@ const CreateEventForm: React.FC = () => {
 
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-6">
-							<CalendarIcon className="w-6 h-6 text-indigo-600" />
+							<CalendarIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Jadwal Event
 							</h2>
@@ -686,7 +686,7 @@ const CreateEventForm: React.FC = () => {
 									name="startDate"
 									value={formData.startDate}
 									onChange={handleChange}
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 								{errors.startDate && (
 									<p className="mt-1 text-sm text-red-600">
@@ -703,7 +703,7 @@ const CreateEventForm: React.FC = () => {
 									name="endDate"
 									value={formData.endDate}
 									onChange={handleChange}
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 								{errors.endDate && (
 									<p className="mt-1 text-sm text-red-600">{errors.endDate}</p>
@@ -718,7 +718,7 @@ const CreateEventForm: React.FC = () => {
 									name="registrationDeadline"
 									value={formData.registrationDeadline}
 									onChange={handleChange}
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 							</div>
 						</div>
@@ -726,7 +726,7 @@ const CreateEventForm: React.FC = () => {
 
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-6">
-							<MapPinIcon className="w-6 h-6 text-indigo-600" />
+							<MapPinIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Lokasi Event
 							</h2>
@@ -742,7 +742,7 @@ const CreateEventForm: React.FC = () => {
 									value={formData.location}
 									onChange={handleChange}
 									placeholder="Contoh: Jakarta Pusat"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 								{errors.location && (
 									<p className="mt-1 text-sm text-red-600">{errors.location}</p>
@@ -758,7 +758,7 @@ const CreateEventForm: React.FC = () => {
 									value={formData.venue}
 									onChange={handleChange}
 									placeholder="Contoh: Stadion Utama Gelora Bung Karno"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 							</div>
 						</div>
@@ -766,7 +766,7 @@ const CreateEventForm: React.FC = () => {
 
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-4">
-							<UsersIcon className="w-6 h-6 text-indigo-600" />
+							<UsersIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Kategori Peserta & Kuota
 							</h2>
@@ -843,7 +843,7 @@ const CreateEventForm: React.FC = () => {
 														}}
 														min="20"
 														placeholder="Min. 20"
-														className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+														className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 													/>
 												</div>
 											)}
@@ -860,7 +860,7 @@ const CreateEventForm: React.FC = () => {
 
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-6">
-							<CurrencyDollarIcon className="w-6 h-6 text-indigo-600" />
+							<CurrencyDollarIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Biaya & Kontak
 							</h2>
@@ -900,7 +900,7 @@ const CreateEventForm: React.FC = () => {
 										setRegistrationFeeDisplay(formatted);
 									}}
 									placeholder="0 untuk gratis"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 								<p className="text-xs text-gray-500 mt-1">
 									Contoh: 100.000 atau 250.000
@@ -916,7 +916,7 @@ const CreateEventForm: React.FC = () => {
 									value={formData.organizer}
 									onChange={handleChange}
 									placeholder="Nama organisasi penyelenggara"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 							</div>
 							<div>
@@ -930,7 +930,7 @@ const CreateEventForm: React.FC = () => {
 									value={formData.contactEmail}
 									onChange={handleChange}
 									placeholder="email@example.com"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 								{errors.contactEmail && (
 									<p className="mt-1 text-sm text-red-600">
@@ -949,7 +949,7 @@ const CreateEventForm: React.FC = () => {
 									value={formData.contactPhone}
 									onChange={handleChange}
 									placeholder="08123456789"
-									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+									className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 								/>
 							</div>
 						</div>
@@ -957,7 +957,7 @@ const CreateEventForm: React.FC = () => {
 
 					<div className="bg-white rounded-lg shadow p-6">
 						<div className="flex items-center gap-3 mb-6">
-							<DocumentTextIcon className="w-6 h-6 text-indigo-600" />
+							<DocumentTextIcon className="w-6 h-6 text-red-600" />
 							<h2 className="text-lg font-semibold text-gray-900">
 								Status Publikasi
 							</h2>
@@ -966,7 +966,7 @@ const CreateEventForm: React.FC = () => {
 							name="status"
 							value={formData.status}
 							onChange={handleChange}
-							className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+							className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
 						>
 							<option value="DRAFT">Draft (Tidak ditampilkan)</option>
 							<option value="PUBLISHED">
@@ -988,7 +988,7 @@ const CreateEventForm: React.FC = () => {
 							className={`px-6 py-3 rounded-lg text-white font-medium transition-colors ${
 								loading
 									? "bg-gray-400 cursor-not-allowed"
-									: "bg-indigo-600 hover:bg-indigo-700"
+									: "bg-red-600 hover:bg-red-700"
 							}`}
 						>
 							{loading ? "Membuat Event..." : "Buat Event"}

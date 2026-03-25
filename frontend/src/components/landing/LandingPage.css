@@ -31,6 +31,28 @@
 	overflow: hidden;
 }
 
+/* ===== Section Transition Animations ===== */
+.landing-section-inner > * {
+	opacity: 0;
+	transform: translateY(32px);
+	transition:
+		opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+		transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-section-inner.section-visible > * {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+/* Stagger children inside the visible section */
+.landing-section-inner.section-visible > *:nth-child(2) {
+	transition-delay: 0.1s;
+}
+.landing-section-inner.section-visible > *:nth-child(3) {
+	transition-delay: 0.2s;
+}
+
 /* ===== Mobile: disable snap, allow sections to grow ===== */
 @media (max-width: 767px) {
 	.landing-scroll-container {
@@ -48,6 +70,17 @@
 		align-items: flex-start;
 		padding-top: 2rem;
 		padding-bottom: 2rem;
+	}
+
+	/* On mobile, sections are always visible (no scroll snap) */
+	.landing-section-inner > * {
+		opacity: 0;
+		transform: translateY(24px);
+	}
+
+	.landing-section-inner.section-visible > * {
+		opacity: 1;
+		transform: translateY(0);
 	}
 }
 
@@ -161,7 +194,7 @@ html:not(.dark) .main-layout-bg::after {
 		);
 }
 
-/* ===== Neon Red Lines Overlay ===== */
+/* ===== Animated Red Lines Overlay ===== */
 .neon-red-lines {
 	position: fixed;
 	inset: 0;
@@ -170,81 +203,127 @@ html:not(.dark) .main-layout-bg::after {
 	overflow: hidden;
 }
 
-/* Horizontal neon lines — fading/tapered ends */
+/* Line 1: moves right to left, positioned at ~30% from top */
 .neon-red-lines::before {
 	content: "";
 	position: absolute;
-	inset: 0;
-	background:
-		/* H1: top-left, short — smooth fade both ends */
-		linear-gradient(90deg, transparent 4.5%, rgba(239, 68, 68, 0) 5%, rgba(239, 68, 68, 0.65) 6.5%, rgba(239, 68, 68, 0.8) 7%, rgba(239, 68, 68, 0.65) 8%, rgba(239, 68, 68, 0) 9.5%, transparent 10%) no-repeat 0 12%,
-		/* H2: right side, medium */
-		linear-gradient(90deg, transparent 61%, rgba(220, 38, 38, 0) 61.5%, rgba(220, 38, 38, 0.55) 63.5%, rgba(220, 38, 38, 0.7) 65%, rgba(220, 38, 38, 0.55) 66.5%, rgba(220, 38, 38, 0) 68.5%, transparent 69%) no-repeat 0 28%,
-		/* H3: center-left, long */
-		linear-gradient(90deg, transparent 14%, rgba(248, 113, 113, 0) 14.5%, rgba(248, 113, 113, 0.5) 16.5%, rgba(248, 113, 113, 0.65) 18%, rgba(248, 113, 113, 0.5) 20%, rgba(248, 113, 113, 0) 22.5%, transparent 23%) no-repeat 0 45%,
-		/* H4: far right, short */
-		linear-gradient(90deg, transparent 77%, rgba(239, 68, 68, 0) 77.5%, rgba(239, 68, 68, 0.55) 79%, rgba(239, 68, 68, 0.7) 80%, rgba(239, 68, 68, 0.55) 81%, rgba(239, 68, 68, 0) 82.5%, transparent 83%) no-repeat 0 63%,
-		/* H5: left, medium */
-		linear-gradient(90deg, transparent 2%, rgba(185, 28, 28, 0) 2.5%, rgba(185, 28, 28, 0.4) 4.5%, rgba(185, 28, 28, 0.55) 5.5%, rgba(185, 28, 28, 0.4) 7%, rgba(185, 28, 28, 0) 8.5%, transparent 9%) no-repeat 0 78%,
-		/* H6: center, tiny */
-		linear-gradient(90deg, transparent 41%, rgba(248, 113, 113, 0) 41.5%, rgba(248, 113, 113, 0.5) 42.5%, rgba(248, 113, 113, 0.6) 43%, rgba(248, 113, 113, 0.5) 43.5%, rgba(248, 113, 113, 0) 44.5%, transparent 45%) no-repeat 0 91%;
-	background-size: 100% 2px, 100% 2px, 100% 2px, 100% 2px, 100% 2px, 100% 2px;
-	filter: blur(0px);
+	top: 30%;
+	left: 0;
+	width: 40%;
+	height: 2px;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(239, 68, 68, 0) 5%,
+		rgba(239, 68, 68, 0.6) 30%,
+		rgba(239, 68, 68, 0.8) 50%,
+		rgba(239, 68, 68, 0.6) 70%,
+		rgba(239, 68, 68, 0) 95%,
+		transparent 100%
+	);
+	animation: redLineRTL 12s ease-in-out infinite;
 }
 
-/* Vertical neon lines — fading/tapered ends */
+/* Line 2: moves left to right, positioned at ~68% from top */
 .neon-red-lines::after {
 	content: "";
 	position: absolute;
-	inset: 0;
-	background:
-		/* V1: top-left, medium */
-		linear-gradient(180deg, transparent 2%, rgba(239, 68, 68, 0) 2.5%, rgba(239, 68, 68, 0.6) 4.5%, rgba(239, 68, 68, 0.8) 6%, rgba(239, 68, 68, 0.6) 8%, rgba(239, 68, 68, 0) 9.5%, transparent 10%) no-repeat 8% 0,
-		/* V2: right side, medium */
-		linear-gradient(180deg, transparent 34%, rgba(220, 38, 38, 0) 34.5%, rgba(220, 38, 38, 0.5) 36.5%, rgba(220, 38, 38, 0.65) 37.5%, rgba(220, 38, 38, 0.5) 39%, rgba(220, 38, 38, 0) 40.5%, transparent 41%) no-repeat 72% 0,
-		/* V3: center-left, short */
-		linear-gradient(180deg, transparent 54%, rgba(248, 113, 113, 0) 54.5%, rgba(248, 113, 113, 0.45) 55.5%, rgba(248, 113, 113, 0.6) 56.5%, rgba(248, 113, 113, 0.45) 57.5%, rgba(248, 113, 113, 0) 58.5%, transparent 59%) no-repeat 35% 0,
-		/* V4: far left, long */
-		linear-gradient(180deg, transparent 14%, rgba(239, 68, 68, 0) 14.5%, rgba(239, 68, 68, 0.45) 17%, rgba(239, 68, 68, 0.6) 18.5%, rgba(239, 68, 68, 0.45) 20.5%, rgba(239, 68, 68, 0) 22.5%, transparent 23%) no-repeat 22% 0,
-		/* V5: right-center, tiny */
-		linear-gradient(180deg, transparent 69%, rgba(185, 28, 28, 0) 69.5%, rgba(185, 28, 28, 0.5) 70.5%, rgba(185, 28, 28, 0.6) 71.5%, rgba(185, 28, 28, 0.5) 72.5%, rgba(185, 28, 28, 0) 73.5%, transparent 74%) no-repeat 88% 0,
-		/* V6: mid-bottom, medium */
-		linear-gradient(180deg, transparent 81%, rgba(248, 113, 113, 0) 81.5%, rgba(248, 113, 113, 0.4) 83.5%, rgba(248, 113, 113, 0.55) 85%, rgba(248, 113, 113, 0.4) 86.5%, rgba(248, 113, 113, 0) 87.5%, transparent 88%) no-repeat 55% 0;
-	background-size: 2px 100%, 2px 100%, 2px 100%, 2px 100%, 2px 100%, 2px 100%;
-	filter: blur(0px);
+	top: 68%;
+	right: 0;
+	width: 35%;
+	height: 2px;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(220, 38, 38, 0) 5%,
+		rgba(220, 38, 38, 0.5) 30%,
+		rgba(220, 38, 38, 0.7) 50%,
+		rgba(220, 38, 38, 0.5) 70%,
+		rgba(220, 38, 38, 0) 95%,
+		transparent 100%
+	);
+	animation: redLineLTR 14s ease-in-out infinite;
+	animation-delay: 2s;
 }
 
-/* Dark mode: add neon glow with drop-shadow */
+/* Dark mode: add neon glow */
 .dark .neon-red-lines::before,
 .dark .neon-red-lines::after {
-	filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6))
-		drop-shadow(0 0 12px rgba(239, 68, 68, 0.3))
-		drop-shadow(0 0 24px rgba(220, 38, 38, 0.15));
+	filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.5))
+		drop-shadow(0 0 16px rgba(239, 68, 68, 0.25));
 }
 
-/* Light mode: subtle tapered lines */
+/* Light mode: subtler lines */
 :root:not(.dark) .neon-red-lines::before {
-	background:
-		linear-gradient(90deg, transparent 4.5%, rgba(220, 38, 38, 0) 5%, rgba(220, 38, 38, 0.15) 6.5%, rgba(220, 38, 38, 0.2) 7%, rgba(220, 38, 38, 0.15) 8%, rgba(220, 38, 38, 0) 9.5%, transparent 10%) no-repeat 0 12%,
-		linear-gradient(90deg, transparent 61%, rgba(220, 38, 38, 0) 61.5%, rgba(220, 38, 38, 0.12) 63.5%, rgba(220, 38, 38, 0.18) 65%, rgba(220, 38, 38, 0.12) 66.5%, rgba(220, 38, 38, 0) 68.5%, transparent 69%) no-repeat 0 28%,
-		linear-gradient(90deg, transparent 14%, rgba(220, 38, 38, 0) 14.5%, rgba(220, 38, 38, 0.1) 16.5%, rgba(220, 38, 38, 0.16) 18%, rgba(220, 38, 38, 0.1) 20%, rgba(220, 38, 38, 0) 22.5%, transparent 23%) no-repeat 0 45%,
-		linear-gradient(90deg, transparent 77%, rgba(220, 38, 38, 0) 77.5%, rgba(220, 38, 38, 0.12) 79%, rgba(220, 38, 38, 0.16) 80%, rgba(220, 38, 38, 0.12) 81%, rgba(220, 38, 38, 0) 82.5%, transparent 83%) no-repeat 0 63%,
-		linear-gradient(90deg, transparent 2%, rgba(220, 38, 38, 0) 2.5%, rgba(220, 38, 38, 0.1) 4.5%, rgba(220, 38, 38, 0.14) 5.5%, rgba(220, 38, 38, 0.1) 7%, rgba(220, 38, 38, 0) 8.5%, transparent 9%) no-repeat 0 78%,
-		linear-gradient(90deg, transparent 41%, rgba(220, 38, 38, 0) 41.5%, rgba(220, 38, 38, 0.12) 42.5%, rgba(220, 38, 38, 0.16) 43%, rgba(220, 38, 38, 0.12) 43.5%, rgba(220, 38, 38, 0) 44.5%, transparent 45%) no-repeat 0 91%;
-	background-size: 100% 1px, 100% 1px, 100% 1px, 100% 1px, 100% 1px, 100% 1px;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(220, 38, 38, 0) 5%,
+		rgba(220, 38, 38, 0.18) 30%,
+		rgba(220, 38, 38, 0.25) 50%,
+		rgba(220, 38, 38, 0.18) 70%,
+		rgba(220, 38, 38, 0) 95%,
+		transparent 100%
+	);
 	filter: none;
 }
 
 :root:not(.dark) .neon-red-lines::after {
-	background:
-		linear-gradient(180deg, transparent 2%, rgba(220, 38, 38, 0) 2.5%, rgba(220, 38, 38, 0.14) 4.5%, rgba(220, 38, 38, 0.2) 6%, rgba(220, 38, 38, 0.14) 8%, rgba(220, 38, 38, 0) 9.5%, transparent 10%) no-repeat 8% 0,
-		linear-gradient(180deg, transparent 34%, rgba(220, 38, 38, 0) 34.5%, rgba(220, 38, 38, 0.1) 36.5%, rgba(220, 38, 38, 0.15) 37.5%, rgba(220, 38, 38, 0.1) 39%, rgba(220, 38, 38, 0) 40.5%, transparent 41%) no-repeat 72% 0,
-		linear-gradient(180deg, transparent 54%, rgba(220, 38, 38, 0) 54.5%, rgba(220, 38, 38, 0.08) 55.5%, rgba(220, 38, 38, 0.13) 56.5%, rgba(220, 38, 38, 0.08) 57.5%, rgba(220, 38, 38, 0) 58.5%, transparent 59%) no-repeat 35% 0,
-		linear-gradient(180deg, transparent 14%, rgba(220, 38, 38, 0) 14.5%, rgba(220, 38, 38, 0.08) 17%, rgba(220, 38, 38, 0.14) 18.5%, rgba(220, 38, 38, 0.08) 20.5%, rgba(220, 38, 38, 0) 22.5%, transparent 23%) no-repeat 22% 0,
-		linear-gradient(180deg, transparent 69%, rgba(220, 38, 38, 0) 69.5%, rgba(220, 38, 38, 0.1) 70.5%, rgba(220, 38, 38, 0.14) 71.5%, rgba(220, 38, 38, 0.1) 72.5%, rgba(220, 38, 38, 0) 73.5%, transparent 74%) no-repeat 88% 0,
-		linear-gradient(180deg, transparent 81%, rgba(220, 38, 38, 0) 81.5%, rgba(220, 38, 38, 0.08) 83.5%, rgba(220, 38, 38, 0.12) 85%, rgba(220, 38, 38, 0.08) 86.5%, rgba(220, 38, 38, 0) 87.5%, transparent 88%) no-repeat 55% 0;
-	background-size: 1px 100%, 1px 100%, 1px 100%, 1px 100%, 1px 100%, 1px 100%;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(220, 38, 38, 0) 5%,
+		rgba(220, 38, 38, 0.15) 30%,
+		rgba(220, 38, 38, 0.2) 50%,
+		rgba(220, 38, 38, 0.15) 70%,
+		rgba(220, 38, 38, 0) 95%,
+		transparent 100%
+	);
 	filter: none;
+}
+
+/* Keyframes: right to left with fade */
+@keyframes redLineRTL {
+	0% {
+		transform: translateX(200%);
+		opacity: 0;
+	}
+	10% {
+		opacity: 0.7;
+	}
+	50% {
+		opacity: 1;
+	}
+	90% {
+		opacity: 0.7;
+	}
+	100% {
+		transform: translateX(-50%);
+		opacity: 0;
+	}
+}
+
+/* Keyframes: left to right with fade */
+@keyframes redLineLTR {
+	0% {
+		transform: translateX(-200%);
+		opacity: 0;
+	}
+	10% {
+		opacity: 0.7;
+	}
+	50% {
+		opacity: 1;
+	}
+	90% {
+		opacity: 0.7;
+	}
+	100% {
+		transform: translateX(50%);
+		opacity: 0;
+	}
 }
 
 /* ===== Gradient Title Text ===== */

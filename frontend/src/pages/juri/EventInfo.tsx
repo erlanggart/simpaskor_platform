@@ -137,7 +137,7 @@ const JuriEventInfo: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -151,7 +151,7 @@ const JuriEventInfo: React.FC = () => {
 					</h2>
 					<Link
 						to="/juri/events"
-						className="mt-4 inline-block text-indigo-600 hover:text-indigo-500"
+						className="mt-4 inline-block text-red-600 hover:text-red-500"
 					>
 						Kembali ke Event Saya
 					</Link>
@@ -163,13 +163,13 @@ const JuriEventInfo: React.FC = () => {
 	const event = assignment.event;
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 					{/* Main Content */}
 					<div className="lg:col-span-2">
 						{/* Event Description */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-6 mb-6">
 							<h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
 								{event.title}
 							</h1>
@@ -183,7 +183,7 @@ const JuriEventInfo: React.FC = () => {
 							)}
 
 							{(event.organizer || event.organizerEmail) && (
-								<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-2">
+								<div className="mt-6 pt-6 border-t border-gray-200/60 dark:border-gray-700/40 space-y-2">
 									{event.organizer && (
 										<div className="flex items-center text-gray-600 dark:text-gray-400">
 											<UserGroupIcon className="w-5 h-5 mr-2 flex-shrink-0" />
@@ -209,7 +209,7 @@ const JuriEventInfo: React.FC = () => {
 											<span className="font-medium">Email:</span>
 											<a
 												href={`mailto:${event.organizerEmail}`}
-												className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline"
+												className="ml-2 text-red-600 dark:text-red-400 hover:underline"
 											>
 												{event.organizerEmail}
 											</a>
@@ -220,8 +220,8 @@ const JuriEventInfo: React.FC = () => {
 						</div>
 
 						{/* Event Image */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-6">
-							<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-indigo-500 to-purple-600">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden mb-6">
+							<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-red-500 to-purple-600">
 								{event.thumbnail ? (
 									<img
 										src={getImageUrl(event.thumbnail) || ""}
@@ -275,9 +275,9 @@ const JuriEventInfo: React.FC = () => {
 
 						{/* Kategori Penilaian Anda (Your Assigned Categories) */}
 						{assignment.assignedCategories && assignment.assignedCategories.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-6 mb-6">
 								<div className="flex items-center mb-4">
-									<AcademicCapIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
+									<AcademicCapIcon className="w-6 h-6 text-red-600 dark:text-red-400 mr-2" />
 									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
 										Kategori Penilaian Anda
 									</h2>
@@ -286,7 +286,7 @@ const JuriEventInfo: React.FC = () => {
 									{assignment.assignedCategories.map((cat) => (
 										<span
 											key={cat.id}
-											className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg font-medium"
+											className="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg font-medium"
 										>
 											{cat.assessmentCategory.name}
 										</span>
@@ -309,9 +309,9 @@ const JuriEventInfo: React.FC = () => {
 
 						{/* All Assessment Categories */}
 						{event.assessmentCategories && event.assessmentCategories.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-6 mb-6">
 								<div className="flex items-center mb-4">
-									<TrophyIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
+									<TrophyIcon className="w-6 h-6 text-red-600 dark:text-red-400 mr-2" />
 									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
 										Semua Kriteria Penilaian
 									</h2>
@@ -328,19 +328,19 @@ const JuriEventInfo: React.FC = () => {
 													key={category.id}
 													className={`flex items-center justify-between p-3 rounded-lg ${
 														isAssignedToYou
-															? "bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800"
+															? "bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800"
 															: "bg-gray-50 dark:bg-gray-700/50"
 													}`}
 												>
 													<div className="flex-1">
 														<span className={`font-medium block ${
 															isAssignedToYou 
-																? "text-indigo-700 dark:text-indigo-300" 
+																? "text-red-700 dark:text-red-300" 
 																: "text-gray-900 dark:text-white"
 														}`}>
 															{category.assessmentCategory.name}
 															{isAssignedToYou && (
-																<span className="ml-2 text-xs bg-indigo-600 text-white px-2 py-0.5 rounded">
+																<span className="ml-2 text-xs bg-red-600 text-white px-2 py-0.5 rounded">
 																	Tugas Anda
 																</span>
 															)}
@@ -352,7 +352,7 @@ const JuriEventInfo: React.FC = () => {
 														)}
 													</div>
 													{category.customWeight !== null && (
-														<span className="text-indigo-600 dark:text-indigo-400 font-bold ml-3">
+														<span className="text-red-600 dark:text-red-400 font-bold ml-3">
 															{category.customWeight}%
 														</span>
 													)}
@@ -365,9 +365,9 @@ const JuriEventInfo: React.FC = () => {
 
 						{/* School Category Limits */}
 						{event.schoolCategoryLimits && event.schoolCategoryLimits.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-6">
 								<div className="flex items-center mb-4">
-									<UsersIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mr-2" />
+									<UsersIcon className="w-6 h-6 text-red-600 dark:text-red-400 mr-2" />
 									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
 										Kuota Berdasarkan Kategori Sekolah
 									</h2>
@@ -393,7 +393,7 @@ const JuriEventInfo: React.FC = () => {
 
 					{/* Sidebar - Info Event */}
 					<div className="lg:col-span-1">
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sticky top-0">
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-6 sticky top-0">
 							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
 								Informasi Event
 							</h2>
@@ -477,9 +477,9 @@ const JuriEventInfo: React.FC = () => {
 							</div>
 
 							{/* Info Box */}
-							<div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-								<div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-									<p className="text-sm text-indigo-800 dark:text-indigo-200">
+							<div className="mt-6 pt-6 border-t border-gray-200/60 dark:border-gray-700/40">
+								<div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+									<p className="text-sm text-red-800 dark:text-red-200">
 										<span className="font-semibold">💡 Info:</span> Gunakan menu sidebar untuk melihat materi, daftar peserta, dan melakukan penilaian.
 									</p>
 								</div>

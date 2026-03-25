@@ -443,7 +443,7 @@ const EventVoting: React.FC = () => {
 
 			{/* Config Tab */}
 			{activeTab === "config" && (
-				<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/60 dark:border-gray-700/40 p-6 space-y-6">
 					{/* Enable toggle */}
 					<div className="flex items-center justify-between">
 						<div>
@@ -493,7 +493,7 @@ const EventVoting: React.FC = () => {
 								min="0"
 								value={config.pricePerVote || 0}
 								onChange={(e) => setConfig({ ...config, pricePerVote: Number(e.target.value) })}
-								className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+								className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 							/>
 						</div>
 					)}
@@ -506,7 +506,7 @@ const EventVoting: React.FC = () => {
 								type="datetime-local"
 								value={formatDateForInput(config.startDate || null)}
 								onChange={(e) => setConfig({ ...config, startDate: e.target.value || null })}
-								className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+								className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 							/>
 						</div>
 						<div>
@@ -515,7 +515,7 @@ const EventVoting: React.FC = () => {
 								type="datetime-local"
 								value={formatDateForInput(config.endDate || null)}
 								onChange={(e) => setConfig({ ...config, endDate: e.target.value || null })}
-								className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+								className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 							/>
 						</div>
 					</div>
@@ -530,7 +530,7 @@ const EventVoting: React.FC = () => {
 
 					{/* Close Voting Button */}
 					{config.enabled && (
-						<div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+						<div className="border-t border-gray-200/60 dark:border-gray-700/40 pt-6">
 							<div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4">
 								<div className="flex items-start justify-between gap-4">
 									<div>
@@ -596,7 +596,7 @@ const EventVoting: React.FC = () => {
 					{/* Category Form Modal */}
 					{showCategoryForm && (
 						<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCategoryForm(false)}>
-							<div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
 								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 									{editingCategory ? "Edit Kategori" : "Tambah Kategori"}
 								</h3>
@@ -608,7 +608,7 @@ const EventVoting: React.FC = () => {
 										value={categoryForm.title}
 										onChange={(e) => setCategoryForm({ ...categoryForm, title: e.target.value })}
 										placeholder="contoh: Tim Terfavorit"
-										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 									/>
 								</div>
 
@@ -618,7 +618,7 @@ const EventVoting: React.FC = () => {
 										value={categoryForm.description}
 										onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
 										rows={2}
-										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 									/>
 								</div>
 
@@ -660,7 +660,7 @@ const EventVoting: React.FC = () => {
 											value={categoryForm.position}
 											onChange={(e) => setCategoryForm({ ...categoryForm, position: e.target.value })}
 											placeholder="contoh: Komandan"
-											className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+											className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 										/>
 										<p className="text-xs text-gray-500 mt-1">Kosongkan untuk semua anggota</p>
 									</div>
@@ -699,7 +699,7 @@ const EventVoting: React.FC = () => {
 											min="1"
 											value={categoryForm.maxVotesPerVoter}
 											onChange={(e) => setCategoryForm({ ...categoryForm, maxVotesPerVoter: Number(e.target.value) })}
-											className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+											className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 										/>
 										<p className="text-xs text-gray-500 mt-1">Jumlah vote maksimal per orang di kategori ini</p>
 									</div>
@@ -710,7 +710,7 @@ const EventVoting: React.FC = () => {
 											min="0"
 											value={categoryForm.order}
 											onChange={(e) => setCategoryForm({ ...categoryForm, order: Number(e.target.value) })}
-											className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+											className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 										/>
 										<p className="text-xs text-gray-500 mt-1">Urutan tampil di halaman voting (angka kecil tampil duluan)</p>
 									</div>
@@ -746,10 +746,10 @@ const EventVoting: React.FC = () => {
 							{categories.map((cat) => (
 								<div
 									key={cat.id}
-									className={`bg-white dark:bg-gray-800 rounded-xl border transition-colors cursor-pointer ${
+									className={`bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl border transition-colors cursor-pointer ${
 										selectedCategoryId === cat.id
 											? "border-blue-500 ring-1 ring-blue-500"
-											: "border-gray-200 dark:border-gray-700"
+											: "border-gray-200/60 dark:border-gray-700/40"
 									}`}
 								>
 									<div
@@ -806,7 +806,7 @@ const EventVoting: React.FC = () => {
 
 									{/* Nominees Panel */}
 									{selectedCategoryId === cat.id && (
-										<div className="border-t border-gray-200 dark:border-gray-700 p-4 space-y-3">
+										<div className="border-t border-gray-200/60 dark:border-gray-700/40 p-4 space-y-3">
 											<div className="flex items-center justify-between">
 												<h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Nominee</h4>
 												<button
@@ -880,7 +880,7 @@ const EventVoting: React.FC = () => {
 						</div>
 					) : (
 						results.categories.map((cat) => (
-							<div key={cat.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+							<div key={cat.id} className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-200/60 dark:border-gray-700/40 p-4 space-y-3">
 								<div className="flex items-center justify-between">
 									<h3 className="font-semibold text-gray-900 dark:text-white">{cat.title}</h3>
 									<span className="text-sm text-gray-500">{cat._count.votes} vote</span>
@@ -923,12 +923,12 @@ const EventVoting: React.FC = () => {
 							value={search}
 							onChange={(e) => { setSearch(e.target.value); setPage(1); }}
 							placeholder="Cari nama, email, kode..."
-							className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+							className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm"
 						/>
 						<select
 							value={statusFilter}
 							onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-							className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+							className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm"
 						>
 							<option value="">Semua Status</option>
 							<option value="PENDING">Pending</option>
@@ -950,7 +950,7 @@ const EventVoting: React.FC = () => {
 					) : (
 						<div className="space-y-2">
 							{purchases.map((p) => (
-								<div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+								<div key={p.id} className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-200/60 dark:border-gray-700/40 p-4">
 									<div className="flex items-center justify-between mb-2">
 										<span className="text-xs font-mono text-gray-500 dark:text-gray-400">{p.purchaseCode}</span>
 										{getStatusBadge(p.status)}
@@ -965,7 +965,7 @@ const EventVoting: React.FC = () => {
 											<p className="text-xs text-gray-500">{p.voteCount} vote ({p.usedVotes} terpakai)</p>
 										</div>
 									</div>
-									<div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+									<div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/40">
 										<span className="text-xs text-gray-500">{formatDate(p.createdAt)}</span>
 										<div className="flex gap-2">
 											{p.status === "PENDING" && (

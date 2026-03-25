@@ -167,9 +167,9 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Poster Upload */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
-					<PhotoIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+					<PhotoIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 						Poster Event
 					</h3>
@@ -220,16 +220,16 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 						onClick={() => !isUploadingPoster && posterInputRef.current?.click()}
 						className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors bg-gray-50 dark:bg-gray-900 ${
 							isUploadingPoster 
-								? "border-indigo-400 dark:border-indigo-500 cursor-wait"
+								? "border-red-400 dark:border-red-500 cursor-wait"
 								: posterError 
 									? "border-red-400 dark:border-red-500 hover:border-red-500 dark:hover:border-red-400 cursor-pointer" 
-									: "border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-400 cursor-pointer"
+									: "border-gray-300 dark:border-gray-600 hover:border-red-500 dark:hover:border-red-400 cursor-pointer"
 						}`}
 					>
 						{isUploadingPoster ? (
 							<>
-								<div className="w-12 h-12 mx-auto mb-4 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-								<p className="text-indigo-600 dark:text-indigo-400 font-medium">
+								<div className="w-12 h-12 mx-auto mb-4 border-4 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
+								<p className="text-red-600 dark:text-red-400 font-medium">
 									Mengupload poster...
 								</p>
 							</>
@@ -262,9 +262,9 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Juknis Upload */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
-					<DocumentArrowUpIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+					<DocumentArrowUpIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 						Petunjuk Teknis (Juknis)
 					</h3>
@@ -277,16 +277,16 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 					onClick={() => !isUploadingJuknis && juknisInputRef.current?.click()}
 					className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors bg-gray-50 dark:bg-gray-900 ${
 						isUploadingJuknis
-							? "border-indigo-400 dark:border-indigo-500 cursor-wait"
+							? "border-red-400 dark:border-red-500 cursor-wait"
 							: juknisError 
 								? "border-red-400 dark:border-red-500 hover:border-red-500 dark:hover:border-red-400 cursor-pointer" 
-								: "border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-400 cursor-pointer"
+								: "border-gray-300 dark:border-gray-600 hover:border-red-500 dark:hover:border-red-400 cursor-pointer"
 					}`}
 				>
 					{isUploadingJuknis ? (
 						<>
-							<div className="w-10 h-10 mx-auto mb-3 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-							<p className="text-indigo-600 dark:text-indigo-400 font-medium">
+							<div className="w-10 h-10 mx-auto mb-3 border-4 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
+							<p className="text-red-600 dark:text-red-400 font-medium">
 								Mengupload juknis...
 							</p>
 						</>
@@ -319,7 +319,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 					<div className="mt-3 flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
 						<div className="flex items-center gap-2 truncate">
 							{isUploadingJuknis && (
-								<div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+								<div className="w-4 h-4 border-2 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
 							)}
 							<span className="text-sm text-gray-700 dark:text-gray-300 truncate">
 								{juknisFileName}
@@ -339,9 +339,9 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Contact Person */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
-					<UserIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+					<UserIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 						Contact Person
 					</h3>
@@ -360,7 +360,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 							value={data.contactPersonName}
 							onChange={handleChange}
 							placeholder="Nama lengkap contact person"
-							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
 						/>
 					</div>
 
@@ -376,16 +376,16 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 							value={data.contactPhone}
 							onChange={handleChange}
 							placeholder="08xxxxxxxxxx"
-							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
 						/>
 					</div>
 				</div>
 			</div>
 
 			{/* Fee & Organizer */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
-					<CurrencyDollarIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+					<CurrencyDollarIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 						Biaya & Penyelenggara
 					</h3>
@@ -404,7 +404,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 							onChange={handleChange}
 							min="0"
 							placeholder="0 = Gratis"
-							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
 						/>
 						<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
 							Kosongkan atau 0 jika event gratis
@@ -423,16 +423,16 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 							value={data.organizer}
 							onChange={handleChange}
 							placeholder="Nama penyelenggara"
-							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
 						/>
 					</div>
 				</div>
 			</div>
 
 			{/* Event Status */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
-					<PlayCircleIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+					<PlayCircleIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 						Status Event
 					</h3>
@@ -447,8 +447,8 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 						<label
 							className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all ${
 								data.status === "DRAFT"
-									? "border-indigo-600 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-900/30"
-									: "border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600"
+									? "border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-900/30"
+									: "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600"
 							}`}
 						>
 							<div className="flex items-center gap-3 mb-2">
@@ -458,7 +458,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 									value="DRAFT"
 									checked={data.status === "DRAFT"}
 									onChange={handleChange}
-									className="w-4 h-4 text-indigo-600 dark:text-indigo-400"
+									className="w-4 h-4 text-red-600 dark:text-red-400"
 								/>
 								<span className="font-medium text-gray-900 dark:text-white">Draft</span>
 							</div>
@@ -470,8 +470,8 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 						<label
 							className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all ${
 								data.status === "PUBLISHED"
-									? "border-indigo-600 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-900/30"
-									: "border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600"
+									? "border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-900/30"
+									: "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600"
 							}`}
 						>
 							<div className="flex items-center gap-3 mb-2">
@@ -481,7 +481,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 									value="PUBLISHED"
 									checked={data.status === "PUBLISHED"}
 									onChange={handleChange}
-									className="w-4 h-4 text-indigo-600 dark:text-indigo-400"
+									className="w-4 h-4 text-red-600 dark:text-red-400"
 								/>
 								<span className="font-medium text-gray-900 dark:text-white">
 									Publish (Publikasikan)

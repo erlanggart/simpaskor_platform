@@ -10,7 +10,7 @@ const NotFound: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+		<div className="min-h-screen  flex items-center justify-center px-4 sm:px-6 lg:px-8">
 			<div className="max-w-lg w-full text-center">
 				{/* Animated Icon */}
 				<div className="flex justify-center mb-8">
@@ -41,7 +41,7 @@ const NotFound: React.FC = () => {
 				</p>
 
 				{/* Illustration */}
-				<div className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+				<div className="mb-8 p-6 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/60 dark:border-gray-700/40">
 					<div className="flex items-center justify-center gap-4 text-gray-400 dark:text-gray-500">
 						<div className="h-3 w-3 rounded-full bg-red-400"></div>
 						<div className="h-3 w-3 rounded-full bg-yellow-400"></div>
@@ -65,7 +65,7 @@ const NotFound: React.FC = () => {
 					</button>
 					<Link
 						to="/"
-						className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg shadow-indigo-500/25"
+						className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-purple-600 text-white rounded-xl hover:from-red-700 hover:to-purple-700 transition-all font-medium shadow-lg shadow-red-500/25"
 					>
 						<HomeIcon className="w-5 h-5" />
 						Ke Beranda
@@ -73,14 +73,14 @@ const NotFound: React.FC = () => {
 				</div>
 
 				{/* Help Section */}
-				<div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+				<div className="mt-12 pt-8 border-t border-gray-200/60 dark:border-gray-700/40">
 					<p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
 						Butuh bantuan? Hubungi kami:
 					</p>
 					<div className="flex justify-center gap-6 text-sm">
 						<a
 							href="mailto:info@simpaskor.com"
-							className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors font-medium"
+							className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors font-medium"
 						>
 							info@simpaskor.com
 						</a>

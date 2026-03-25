@@ -309,9 +309,9 @@ const EventManagement: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			{/* Header */}
-			<header className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
+			<header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow dark:shadow-gray-900/50">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex justify-between items-center py-6">
 						<div>
@@ -328,7 +328,7 @@ const EventManagement: React.FC = () => {
 
 			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Search and Filters */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-4 mb-6">
 					<div className="space-y-4">
 						{/* Search Bar */}
 						<div className="relative">
@@ -338,7 +338,7 @@ const EventManagement: React.FC = () => {
 								placeholder="Cari event berdasarkan judul, deskripsi, lokasi, atau kategori..."
 								value={searchTerm}
 								onChange={(e) => setSearchTerm(e.target.value)}
-								className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+								className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 							/>
 						</div>
 
@@ -389,7 +389,7 @@ const EventManagement: React.FC = () => {
 									<select
 										value={statusFilter}
 										onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-										className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+										className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 									>
 										<option value="all">Semua Status</option>
 										<option value="PUBLISHED">Published</option>
@@ -412,7 +412,7 @@ const EventManagement: React.FC = () => {
 										onChange={(e) =>
 											handleItemsPerPageChange(Number(e.target.value))
 										}
-										className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+										className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 									>
 										<option value={5}>5</option>
 										<option value={10}>10</option>
@@ -487,7 +487,7 @@ const EventManagement: React.FC = () => {
 
 								{/* Pagination for Unpinned Events */}
 								{totalUnpinnedPages > 1 && (
-									<div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+									<div className="mt-6 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-4">
 										<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 											{/* Info */}
 											<div className="text-sm text-gray-600 dark:text-gray-400">
@@ -599,7 +599,7 @@ const EventCard: React.FC<EventCardProps> = ({
 	getStatusBadge,
 }) => {
 	return (
-		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm dark:shadow-gray-900/50 hover:shadow-md transition-shadow overflow-hidden">
+		<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm dark:shadow-gray-900/50 hover:shadow-md transition-shadow overflow-hidden">
 			<div className="flex">
 				{/* Thumbnail */}
 				<div className="w-48 h-48 flex-shrink-0 bg-gradient-to-br from-red-500 to-orange-600 dark:from-red-600 dark:to-orange-700 relative">
@@ -749,7 +749,7 @@ const EventCard: React.FC<EventCardProps> = ({
 						{/* Kelola Event */}
 						<button
 							onClick={() => onManage(event)}
-							className="flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
+							className="flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
 						>
 							<Cog6ToothIcon className="w-4 h-4" />
 							Kelola

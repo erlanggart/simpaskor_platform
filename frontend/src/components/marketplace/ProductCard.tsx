@@ -29,7 +29,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, isAuthe
 	const isOutOfStock = product.stock <= 0;
 
 	return (
-		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden flex flex-col">
+		<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden flex flex-col">
 			{/* Product Image */}
 			<div className="relative w-full aspect-square bg-gradient-to-br from-blue-100 to-blue-200 dark:from-gray-700 dark:to-gray-600">
 				{product.thumbnail ? (
@@ -64,7 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, isAuthe
 					</p>
 				)}
 				<div className="mt-auto">
-					<p className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-2">
+					<p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">
 						{formatCurrency(product.price)}
 					</p>
 					<p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
@@ -77,7 +77,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, isAuthe
 							className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
 								isOutOfStock
 									? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-									: "bg-indigo-600 hover:bg-indigo-700 text-white"
+									: "bg-red-600 hover:bg-red-700 text-white"
 							}`}
 						>
 							<ShoppingCartIcon className="w-4 h-4" />

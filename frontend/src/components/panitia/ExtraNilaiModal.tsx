@@ -115,7 +115,7 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 
 	return (
 		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
 				{/* Modal Header */}
 				<div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
 					<div>
@@ -186,7 +186,7 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 								}
 								className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
 									form.scope === "GENERAL"
-										? "bg-indigo-600 text-white"
+										? "bg-red-600 text-white"
 										: "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
 								}`}
 							>
@@ -197,7 +197,7 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 								onClick={() => setForm((prev) => ({ ...prev, scope: "CATEGORY" }))}
 								className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
 									form.scope === "CATEGORY"
-										? "bg-indigo-600 text-white"
+										? "bg-red-600 text-white"
 										: "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
 								}`}
 							>
@@ -220,7 +220,7 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 										assessmentCategoryId: e.target.value,
 									}))
 								}
-								className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+								className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 								required
 							>
 								<option value="">Pilih Kategori</option>
@@ -249,7 +249,7 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 									value: parseFloat(e.target.value) || 0,
 								}))
 							}
-							className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+							className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 							required
 						/>
 					</div>
@@ -263,7 +263,7 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 							value={form.reason}
 							onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))}
 							rows={3}
-							className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 resize-none"
+							className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 resize-none"
 							placeholder="Contoh: Pelanggaran aturan, bonus kreativitas, dll."
 						/>
 					</div>

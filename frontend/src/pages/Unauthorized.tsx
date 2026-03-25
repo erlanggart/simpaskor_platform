@@ -48,7 +48,7 @@ const Unauthorized: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+		<div className="min-h-screen  flex items-center justify-center px-4 sm:px-6 lg:px-8">
 			<div className="max-w-lg w-full text-center">
 				{/* Animated Icon */}
 				<div className="flex justify-center mb-8">
@@ -79,10 +79,10 @@ const Unauthorized: React.FC = () => {
 
 				{/* User Info Card */}
 				{user && (
-					<div className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+					<div className="mb-8 p-6 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/60 dark:border-gray-700/40">
 						<div className="flex items-center justify-center gap-4">
-							<div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center">
-								<span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+							<div className="w-12 h-12 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center">
+								<span className="text-xl font-bold text-red-600 dark:text-red-400">
 									{user.name?.charAt(0).toUpperCase() || "U"}
 								</span>
 							</div>
@@ -91,11 +91,11 @@ const Unauthorized: React.FC = () => {
 									{user.name || "User"}
 								</p>
 								<p className="text-sm text-gray-500 dark:text-gray-400">
-									Role: <span className="font-medium text-indigo-600 dark:text-indigo-400">{getRoleLabel(user.role)}</span>
+									Role: <span className="font-medium text-red-600 dark:text-red-400">{getRoleLabel(user.role)}</span>
 								</p>
 							</div>
 						</div>
-						<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+						<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
 							<p className="text-sm text-gray-500 dark:text-gray-400">
 								Halaman ini memerlukan role atau izin yang berbeda dari yang Anda miliki saat ini.
 							</p>
@@ -126,7 +126,7 @@ const Unauthorized: React.FC = () => {
 					{isAuthenticated ? (
 						<Link
 							to={getDashboardPath()}
-							className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg shadow-indigo-500/25"
+							className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-purple-600 text-white rounded-xl hover:from-red-700 hover:to-purple-700 transition-all font-medium shadow-lg shadow-red-500/25"
 						>
 							<HomeIcon className="w-5 h-5" />
 							Dashboard Saya
@@ -134,7 +134,7 @@ const Unauthorized: React.FC = () => {
 					) : (
 						<Link
 							to="/login"
-							className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg shadow-indigo-500/25"
+							className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-purple-600 text-white rounded-xl hover:from-red-700 hover:to-purple-700 transition-all font-medium shadow-lg shadow-red-500/25"
 						>
 							<LockClosedIcon className="w-5 h-5" />
 							Login
@@ -143,14 +143,14 @@ const Unauthorized: React.FC = () => {
 				</div>
 
 				{/* Help Section */}
-				<div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+				<div className="mt-12 pt-8 border-t border-gray-200/60 dark:border-gray-700/40">
 					<p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
 						Jika Anda yakin seharusnya memiliki akses, hubungi administrator.
 					</p>
 					<div className="flex justify-center gap-6 text-sm">
 						<a
 							href="mailto:admin@simpaskor.com"
-							className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors font-medium"
+							className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors font-medium"
 						>
 							admin@simpaskor.com
 						</a>

@@ -179,10 +179,10 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 			</div>
 
 			{/* Assessment Categories */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center justify-between mb-4">
 					<div className="flex items-center gap-3">
-						<ListBulletIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+						<ListBulletIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 						<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 							Kategori Penilaian
 						</h3>
@@ -199,7 +199,7 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 						placeholder="Cari kategori..."
 						value={searchTerm}
 						onChange={(e) => setSearchTerm(e.target.value)}
-						className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+						className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
 					/>
 					<button
 						type="button"
@@ -281,14 +281,14 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 										onClick={() => toggleCategory(category.id)}
 										className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all text-sm ${
 											isSelected
-												? "bg-indigo-100 dark:bg-indigo-900/30 border-indigo-500 dark:border-indigo-400 text-indigo-700 dark:text-indigo-300"
+												? "bg-red-100 dark:bg-red-900/30 border-red-500 dark:border-red-400 text-red-700 dark:text-red-300"
 												: "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
 										}`}
 									>
 										<span
 											className={`w-4 h-4 rounded flex items-center justify-center text-xs ${
 												isSelected
-													? "bg-indigo-500 dark:bg-indigo-400 text-white"
+													? "bg-red-500 dark:bg-red-400 text-white"
 													: "bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500"
 											}`}
 										>
@@ -315,9 +315,9 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 			</div>
 
 			{/* School Categories */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
-					<AcademicCapIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+					<AcademicCapIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 						Jenjang Sekolah & Kuota
 					</h3>
@@ -340,7 +340,7 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 								key={school.id}
 								className={`border rounded-lg p-4 transition-all ${
 									isSelected 
-										? "border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" 
+										? "border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-900/20" 
 										: "border-gray-200 dark:border-gray-700"
 								}`}
 							>
@@ -350,7 +350,7 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 											type="checkbox"
 											checked={isSelected}
 											onChange={() => toggleSchoolCategory(school.id)}
-											className="w-5 h-5 text-indigo-600 dark:text-indigo-400 rounded border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+											className="w-5 h-5 text-red-600 dark:text-red-400 rounded border-gray-300 dark:border-gray-600 focus:ring-red-500 dark:focus:ring-red-400"
 										/>
 										<span className="font-medium text-gray-900 dark:text-white">
 											{school.name}
@@ -383,7 +383,7 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 															parseInt(e.target.value) || 0
 														)
 													}
-													className="w-16 px-2 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors"
+													className="w-16 px-2 py-1 text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
 												/>
 												<button
 													type="button"
@@ -429,7 +429,7 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 					className={`px-8 py-3 rounded-lg text-white font-medium transition-colors ${
 						isLoading
 							? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-							: "bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600"
+							: "bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
 					}`}
 				>
 					{isLoading ? "Menyimpan..." : "Selanjutnya"}

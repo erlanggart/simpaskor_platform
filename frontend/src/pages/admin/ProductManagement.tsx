@@ -191,7 +191,7 @@ const ProductManagement: React.FC = () => {
 			{/* Header */}
 			<div className="flex items-center justify-between mb-6">
 				<div className="flex items-center gap-3">
-					<ShoppingBagIcon className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+					<ShoppingBagIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
 					<div>
 						<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manajemen Produk</h1>
 						<p className="text-sm text-gray-500 dark:text-gray-400">Kelola produk dan stok marketplace</p>
@@ -199,7 +199,7 @@ const ProductManagement: React.FC = () => {
 				</div>
 				<button
 					onClick={openCreateModal}
-					className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+					className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
 				>
 					<PlusIcon className="w-5 h-5" />
 					Tambah Produk
@@ -215,13 +215,13 @@ const ProductManagement: React.FC = () => {
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						placeholder="Cari produk..."
-						className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+						className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 					/>
 				</div>
 				<select
 					value={statusFilter}
 					onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-					className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+					className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white"
 				>
 					<option value="">Semua Status</option>
 					<option value="ACTIVE">Aktif</option>
@@ -233,15 +233,15 @@ const ProductManagement: React.FC = () => {
 			{/* Table */}
 			{loading ? (
 				<div className="flex justify-center py-12">
-					<div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+					<div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600"></div>
 				</div>
 			) : products.length === 0 ? (
-				<div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg">
+				<div className="text-center py-12 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg">
 					<ShoppingBagIcon className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
 					<p className="text-gray-500 dark:text-gray-400">Belum ada produk</p>
 				</div>
 			) : (
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
 					<div className="overflow-x-auto">
 						<table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 							<thead className="bg-gray-50 dark:bg-gray-900">
@@ -300,7 +300,7 @@ const ProductManagement: React.FC = () => {
 														const val = parseInt(e.target.value);
 														if (!isNaN(val) && val >= 0) handleStockUpdate(product.id, val);
 													}}
-													className="w-16 text-center text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+													className="w-16 text-center text-sm border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white"
 													min="0"
 												/>
 												<button
@@ -343,7 +343,7 @@ const ProductManagement: React.FC = () => {
 
 					{/* Pagination */}
 					{totalPages > 1 && (
-						<div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+						<div className="flex items-center justify-between px-4 py-3 border-t border-gray-200/60 dark:border-gray-700/40">
 							<p className="text-sm text-gray-500 dark:text-gray-400">Halaman {page} dari {totalPages}</p>
 							<div className="flex gap-2">
 								<button
@@ -371,10 +371,10 @@ const ProductManagement: React.FC = () => {
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
 					<div className="absolute inset-0 bg-black/50" />
 					<div
-						className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+						className="relative bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+						<div className="p-6 border-b border-gray-200/60 dark:border-gray-700/40 flex items-center justify-between">
 							<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
 								{editingProduct ? "Edit Produk" : "Tambah Produk"}
 							</h2>
@@ -413,7 +413,7 @@ const ProductManagement: React.FC = () => {
 									type="text"
 									value={formData.name}
 									onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-									className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+									className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 									required
 								/>
 							</div>
@@ -427,7 +427,7 @@ const ProductManagement: React.FC = () => {
 									value={formData.description}
 									onChange={(e) => setFormData({ ...formData, description: e.target.value })}
 									rows={3}
-									className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+									className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 								/>
 							</div>
 
@@ -441,7 +441,7 @@ const ProductManagement: React.FC = () => {
 										type="number"
 										value={formData.price}
 										onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-										className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+										className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 										min="0"
 										required
 									/>
@@ -454,7 +454,7 @@ const ProductManagement: React.FC = () => {
 										type="number"
 										value={formData.stock}
 										onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-										className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+										className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500"
 										min="0"
 									/>
 								</div>
@@ -472,7 +472,7 @@ const ProductManagement: React.FC = () => {
 								<button
 									type="submit"
 									disabled={submitting}
-									className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg font-medium transition-colors"
+									className="px-6 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium transition-colors"
 								>
 									{submitting ? "Menyimpan..." : editingProduct ? "Update" : "Simpan"}
 								</button>

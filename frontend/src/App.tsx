@@ -44,6 +44,8 @@ const AdminEditEvent = lazy(() => import("./pages/admin/EditEvent"));
 const ProductManagement = lazy(() => import("./pages/admin/ProductManagement"));
 const OrderManagement = lazy(() => import("./pages/admin/OrderManagement"));
 const PanitiaDashboard = lazy(() => import("./pages/panitia/Dashboard"));
+const PanitiaEventsList = lazy(() => import("./pages/panitia/Events"));
+const PanitiaCoupons = lazy(() => import("./pages/panitia/Coupons"));
 const CreateEventWizard = lazy(() => import("./pages/panitia/CreateEventWizard"));
 const EditEventForm = lazy(() => import("./pages/panitia/EditEvent"));
 const ManageEvent = lazy(() => import("./pages/panitia/ManageEvent"));
@@ -164,7 +166,7 @@ function App() {
 							}
 						/>
 
-						{/* Dashboard page - PreAssign Layout (before event assignment) */}
+						{/* Dashboard + Profile - PreAssign Layout (before event assignment) */}
 						<Route
 							element={
 								<ProtectedRoute allowedRoles={["PANITIA"]}>
@@ -173,6 +175,9 @@ function App() {
 							}
 						>
 							<Route path="dashboard" element={<PanitiaDashboard />} />
+							<Route path="events-list" element={<PanitiaEventsList />} />
+							<Route path="coupons" element={<PanitiaCoupons />} />
+							<Route path="profile" element={<Profile />} />
 						</Route>
 
 						{/* Event management pages - Dashboard Layout (after event assignment) */}
@@ -238,6 +243,7 @@ function App() {
 							<Route path="dashboard" element={<JuriDashboard />} />
 							<Route path="invitations" element={<JuriInvitations />} />
 							<Route path="events" element={<JuriMyEvents />} />
+							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
 					{/* Juri Routes - Dashboard Layout (after event assignment) */}

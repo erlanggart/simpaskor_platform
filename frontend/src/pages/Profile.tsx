@@ -2,6 +2,13 @@ import React, { useState, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
 import { showDeleteConfirm } from "../utils/sweetalert";
+import {
+	LuUser,
+	LuLock,
+	LuCamera,
+	LuArrowLeft,
+} from "react-icons/lu";
+import { useNavigate } from "react-router-dom";
 
 interface ProfileFormData {
 	name: string;
@@ -24,6 +31,7 @@ interface PasswordFormData {
 
 const ProfilePage: React.FC = () => {
 	const { user } = useAuth();
+	const navigate = useNavigate();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [activeTab, setActiveTab] = useState<"profile" | "password" | "avatar">(
@@ -215,15 +223,25 @@ const ProfilePage: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
-			<div className="max-w-4xl mx-auto">
+		<div className="min-h-screen py-6 px-4">
+			<div className="max-w-3xl mx-auto">
+				
+
+				{/* Header */}
+				<div className="mb-6">
+					<h1 className="text-lg font-bold text-gray-900 dark:text-white">Pengaturan Profil</h1>
+					<p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+						Kelola informasi akun dan keamanan Anda
+					</p>
+				</div>
+
 				{/* Message Alert */}
 				{message && (
 					<div
-						className={`mb-6 p-4 rounded-lg ${
+						className={`mb-4 px-4 py-3 rounded-xl text-sm ${
 							message.type === "success"
-								? "bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-400 border border-green-200 dark:border-green-800"
-								: "bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-400 border border-red-200 dark:border-red-800"
+								? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20"
+								: "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
 						}`}
 					>
 						{message.text}
@@ -231,339 +249,324 @@ const ProfilePage: React.FC = () => {
 				)}
 
 				{/* Tabs */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm dark:shadow-gray-900/50">
-					<div className="border-b border-gray-200 dark:border-gray-700">
-						<nav className="flex -mb-px">
+				<div className="flex gap-1 mb-6 p-1 rounded-xl bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm border border-gray-200/50 dark:border-white/[0.06]">
+					{[
+						{ key: "profile" as const, label: "Profil", icon: LuUser },
+						{ key: "password" as const, label: "Password", icon: LuLock },
+						{ key: "avatar" as const, label: "Foto", icon: LuCamera },
+					].map((tab) => {
+						const isActive = activeTab === tab.key;
+						const Icon = tab.icon;
+						return (
 							<button
-								onClick={() => setActiveTab("profile")}
-								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-									activeTab === "profile"
-										? "border-red-600 text-red-600 dark:text-red-400"
-										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+								key={tab.key}
+								onClick={() => setActiveTab(tab.key)}
+								className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+									isActive
+										? "bg-red-600 text-white shadow-sm"
+										: "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-white/[0.05]"
 								}`}
 							>
-								Profil
+								<Icon className="w-3.5 h-3.5" />
+								{tab.label}
 							</button>
-							<button
-								onClick={() => setActiveTab("password")}
-								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-									activeTab === "password"
-										? "border-red-600 text-red-600 dark:text-red-400"
-										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
-								}`}
-							>
-								Ganti Password
-							</button>
-							<button
-								onClick={() => setActiveTab("avatar")}
-								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-									activeTab === "avatar"
-										? "border-red-600 text-red-600 dark:text-red-400"
-										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
-								}`}
-							>
-								Foto Profil
-							</button>
-						</nav>
-					</div>
+						);
+					})}
+				</div>
 
-					<div className="p-6">
-						{/* Profile Tab */}
-						{activeTab === "profile" && (
-							<form onSubmit={handleProfileSubmit} className="space-y-6">
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="md:col-span-2">
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Nama Lengkap
-										</label>
-										<input
-											type="text"
-											name="name"
-											value={profileData.name}
-											onChange={handleProfileChange}
-											placeholder="Contoh: John Doe"
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											required
-										/>
-									</div>
+				{/* Content Card */}
+				<div className="rounded-2xl bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm border border-gray-200/50 dark:border-white/[0.06] p-5 md:p-6">
 
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Email
-										</label>
-										<input
-											type="email"
-											name="email"
-											value={profileData.email}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-											disabled
-										/>
-										<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-											Email tidak dapat diubah
-										</p>
-									</div>
-
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Nomor Telepon
-										</label>
-										<input
-											type="tel"
-											name="phone"
-											value={profileData.phone}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											placeholder="+62"
-										/>
-									</div>
-
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Tanggal Lahir
-										</label>
-										<input
-											type="date"
-											name="birthDate"
-											value={profileData.birthDate}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-										/>
-									</div>
-
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Jenis Kelamin
-										</label>
-										<select
-											name="gender"
-											value={profileData.gender}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-										>
-											<option value="">Pilih</option>
-											<option value="Laki-laki">Laki-laki</option>
-											<option value="Perempuan">Perempuan</option>
-										</select>
-									</div>
-
-									<div className="md:col-span-2">
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Institusi / Organisasi
-										</label>
-										<input
-											type="text"
-											name="institution"
-											value={profileData.institution}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											placeholder="Nama sekolah, universitas, atau organisasi"
-										/>
-									</div>
-
-									<div className="md:col-span-2">
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Bio
-										</label>
-										<textarea
-											name="bio"
-											value={profileData.bio}
-											onChange={handleProfileChange}
-											rows={3}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											placeholder="Ceritakan sedikit tentang diri Anda..."
-										/>
-									</div>
-
-									<div className="md:col-span-2">
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Alamat
-										</label>
-										<input
-											type="text"
-											name="address"
-											value={profileData.address}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											placeholder="Jalan, nomor rumah, RT/RW"
-										/>
-									</div>
-
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Kota
-										</label>
-										<input
-											type="text"
-											name="city"
-											value={profileData.city}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											placeholder="Nama kota"
-										/>
-									</div>
-
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Provinsi
-										</label>
-										<input
-											type="text"
-											name="province"
-											value={profileData.province}
-											onChange={handleProfileChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											placeholder="Nama provinsi"
-										/>
-									</div>
-								</div>
-
-								<div className="flex justify-end">
-									<button
-										type="submit"
-										disabled={isLoading}
-										className="px-6 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:bg-gray-400 dark:disabled:bg-gray-600"
-									>
-										{isLoading ? "Menyimpan..." : "Simpan Perubahan"}
-									</button>
-								</div>
-							</form>
-						)}
-
-						{/* Password Tab */}
-						{activeTab === "password" && (
-							<form onSubmit={handlePasswordSubmit} className="space-y-6">
-								<div className="max-w-md">
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Password Saat Ini
-										</label>
-										<input
-											type="password"
-											name="currentPassword"
-											value={passwordData.currentPassword}
-											onChange={handlePasswordChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											required
-										/>
-									</div>
-
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Password Baru
-										</label>
-										<input
-											type="password"
-											name="newPassword"
-											value={passwordData.newPassword}
-											onChange={handlePasswordChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											required
-											minLength={6}
-										/>
-										<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-											Minimal 6 karakter
-										</p>
-									</div>
-
-									<div>
-										<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-											Konfirmasi Password Baru
-										</label>
-										<input
-											type="password"
-											name="confirmPassword"
-											value={passwordData.confirmPassword}
-											onChange={handlePasswordChange}
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-											required
-										/>
-									</div>
-								</div>
-
-								<div className="flex justify-end">
-									<button
-										type="submit"
-										disabled={isLoading}
-										className="px-6 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:bg-gray-400 dark:disabled:bg-gray-600"
-									>
-										{isLoading ? "Mengubah..." : "Ubah Password"}
-									</button>
-								</div>
-							</form>
-						)}
-
-						{/* Avatar Tab */}
-						{activeTab === "avatar" && (
-							<div className="max-w-md mx-auto">
-								<div className="text-center">
-									<div className="mb-6">
-										{avatarPreview ? (
-											<img
-												src={avatarPreview}
-												alt="Avatar"
-												className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-gray-200 dark:border-gray-600"
-											/>
-										) : (
-											<div className="w-32 h-32 rounded-full mx-auto bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-4xl font-bold text-red-600 dark:text-red-400">
-												{user?.name
-													?.split(" ")
-													.map((n) => n[0])
-													.join("")
-													.substring(0, 2)
-													.toUpperCase()}
-											</div>
-										)}
-									</div>
-
+					{/* Profile Tab */}
+					{activeTab === "profile" && (
+						<form onSubmit={handleProfileSubmit} className="space-y-5">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div className="md:col-span-2">
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Nama Lengkap
+									</label>
 									<input
-										type="file"
-										ref={fileInputRef}
-										onChange={handleAvatarChange}
-										accept="image/*"
-										className="hidden"
+										type="text"
+										name="name"
+										value={profileData.name}
+										onChange={handleProfileChange}
+										placeholder="Contoh: John Doe"
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+										required
 									/>
+								</div>
 
-									<div className="space-y-3">
-										<button
-											type="button"
-											onClick={() => fileInputRef.current?.click()}
-											className="w-full px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
-										>
-											Pilih Foto
-										</button>
-
-										{avatarPreview &&
-											avatarPreview !== user?.profile?.avatar && (
-												<button
-													type="button"
-													onClick={handleAvatarUpload}
-													disabled={isLoading}
-													className="w-full px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors disabled:bg-gray-400 dark:disabled:bg-gray-600"
-												>
-													{isLoading ? "Mengupload..." : "Upload Foto"}
-												</button>
-											)}
-
-										{avatarPreview && (
-											<button
-												type="button"
-												onClick={handleRemoveAvatar}
-												disabled={isLoading}
-												className="w-full px-4 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors disabled:bg-gray-400 dark:disabled:bg-gray-600"
-											>
-												Hapus Foto
-											</button>
-										)}
-									</div>
-
-									<p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-										Format: JPG, PNG, GIF. Maksimal 2MB.
+								<div>
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Email
+									</label>
+									<input
+										type="email"
+										name="email"
+										value={profileData.email}
+										className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-white/5 rounded-lg bg-gray-100/50 dark:bg-white/[0.02] text-gray-400 dark:text-gray-500 cursor-not-allowed"
+										disabled
+									/>
+									<p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1">
+										Email tidak dapat diubah
 									</p>
 								</div>
+
+								<div>
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Nomor Telepon
+									</label>
+									<input
+										type="tel"
+										name="phone"
+										value={profileData.phone}
+										onChange={handleProfileChange}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+										placeholder="+62"
+									/>
+								</div>
+
+								<div>
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Tanggal Lahir
+									</label>
+									<input
+										type="date"
+										name="birthDate"
+										value={profileData.birthDate}
+										onChange={handleProfileChange}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+									/>
+								</div>
+
+								<div>
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Jenis Kelamin
+									</label>
+									<select
+										name="gender"
+										value={profileData.gender}
+										onChange={handleProfileChange}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+									>
+										<option value="">Pilih</option>
+										<option value="Laki-laki">Laki-laki</option>
+										<option value="Perempuan">Perempuan</option>
+									</select>
+								</div>
+
+								<div className="md:col-span-2">
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Institusi / Organisasi
+									</label>
+									<input
+										type="text"
+										name="institution"
+										value={profileData.institution}
+										onChange={handleProfileChange}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+										placeholder="Nama sekolah, universitas, atau organisasi"
+									/>
+								</div>
+
+								<div className="md:col-span-2">
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Bio
+									</label>
+									<textarea
+										name="bio"
+										value={profileData.bio}
+										onChange={handleProfileChange}
+										rows={3}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors resize-none"
+										placeholder="Ceritakan sedikit tentang diri Anda..."
+									/>
+								</div>
+
+								<div className="md:col-span-2">
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Alamat
+									</label>
+									<input
+										type="text"
+										name="address"
+										value={profileData.address}
+										onChange={handleProfileChange}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+										placeholder="Jalan, nomor rumah, RT/RW"
+									/>
+								</div>
+
+								<div>
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Kota
+									</label>
+									<input
+										type="text"
+										name="city"
+										value={profileData.city}
+										onChange={handleProfileChange}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+										placeholder="Nama kota"
+									/>
+								</div>
+
+								<div>
+									<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+										Provinsi
+									</label>
+									<input
+										type="text"
+										name="province"
+										value={profileData.province}
+										onChange={handleProfileChange}
+										className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+										placeholder="Nama provinsi"
+									/>
+								</div>
 							</div>
-						)}
-					</div>
+
+							<div className="flex justify-end pt-2">
+								<button
+									type="submit"
+									disabled={isLoading}
+									className="px-5 py-2 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									{isLoading ? "Menyimpan..." : "Simpan Perubahan"}
+								</button>
+							</div>
+						</form>
+					)}
+
+					{/* Password Tab */}
+					{activeTab === "password" && (
+						<form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
+							<div>
+								<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+									Password Saat Ini
+								</label>
+								<input
+									type="password"
+									name="currentPassword"
+									value={passwordData.currentPassword}
+									onChange={handlePasswordChange}
+									className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+									required
+								/>
+							</div>
+
+							<div>
+								<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+									Password Baru
+								</label>
+								<input
+									type="password"
+									name="newPassword"
+									value={passwordData.newPassword}
+									onChange={handlePasswordChange}
+									className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+									required
+									minLength={6}
+								/>
+								<p className="text-[10px] text-gray-400 dark:text-gray-600 mt-1">
+									Minimal 6 karakter
+								</p>
+							</div>
+
+							<div>
+								<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+									Konfirmasi Password Baru
+								</label>
+								<input
+									type="password"
+									name="confirmPassword"
+									value={passwordData.confirmPassword}
+									onChange={handlePasswordChange}
+									className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-white/10 rounded-lg bg-white/80 dark:bg-white/[0.05] text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500/30 focus:border-red-500 dark:focus:border-red-400 transition-colors"
+									required
+								/>
+							</div>
+
+							<div className="flex justify-end pt-2">
+								<button
+									type="submit"
+									disabled={isLoading}
+									className="px-5 py-2 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									{isLoading ? "Mengubah..." : "Ubah Password"}
+								</button>
+							</div>
+						</form>
+					)}
+
+					{/* Avatar Tab */}
+					{activeTab === "avatar" && (
+						<div className="max-w-sm mx-auto text-center">
+							<div className="mb-6">
+								{avatarPreview ? (
+									<img
+										src={avatarPreview}
+										alt="Avatar"
+										className="w-28 h-28 rounded-full mx-auto object-cover border-4 border-gray-200/50 dark:border-white/10"
+									/>
+								) : (
+									<div className="w-28 h-28 rounded-full mx-auto bg-red-500/10 flex items-center justify-center text-3xl font-bold text-red-500 dark:text-red-400 border-4 border-red-500/20">
+										{user?.name
+											?.split(" ")
+											.map((n) => n[0])
+											.join("")
+											.substring(0, 2)
+											.toUpperCase()}
+									</div>
+								)}
+							</div>
+
+							<input
+								type="file"
+								ref={fileInputRef}
+								onChange={handleAvatarChange}
+								accept="image/*"
+								className="hidden"
+							/>
+
+							<div className="flex flex-col gap-2">
+								<button
+									type="button"
+									onClick={() => fileInputRef.current?.click()}
+									className="w-full px-4 py-2 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25"
+								>
+									Pilih Foto
+								</button>
+
+								{avatarPreview &&
+									avatarPreview !== user?.profile?.avatar && (
+										<button
+											type="button"
+											onClick={handleAvatarUpload}
+											disabled={isLoading}
+											className="w-full px-4 py-2 rounded-full text-xs font-semibold transition-colors bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+										>
+											{isLoading ? "Mengupload..." : "Upload Foto"}
+										</button>
+									)}
+
+								{avatarPreview && (
+									<button
+										type="button"
+										onClick={handleRemoveAvatar}
+										disabled={isLoading}
+										className="w-full px-4 py-2 rounded-full text-xs font-semibold transition-colors bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.12] disabled:opacity-50"
+									>
+										Hapus Foto
+									</button>
+								)}
+							</div>
+
+							<p className="text-[10px] text-gray-400 dark:text-gray-600 mt-4">
+								Format: JPG, PNG, GIF. Maksimal 2MB.
+							</p>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>

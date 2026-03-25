@@ -256,7 +256,7 @@ const AdminDashboard = () => {
 				</div>
 				<button
 					onClick={fetchStats}
-					className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+					className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/40 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
 				>
 					<ArrowPathIcon className="w-4 h-4" />
 					Refresh
@@ -287,7 +287,7 @@ const AdminDashboard = () => {
 			{/* Users by Role + Event Status Distribution */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{/* Users by Role */}
-				<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40 p-6">
 					<div className="flex items-center gap-3 mb-5">
 						<div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
 							<UserGroupIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -315,14 +315,14 @@ const AdminDashboard = () => {
 							);
 						})}
 					</div>
-					<div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+					<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40 flex items-center justify-between">
 						<span className="text-sm text-gray-500 dark:text-gray-400">Pending: {stats.users.byStatus?.PENDING || 0}</span>
 						<Link to="/admin/users" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Lihat Semua →</Link>
 					</div>
 				</div>
 
 				{/* Event Status Distribution */}
-				<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40 p-6">
 					<div className="flex items-center gap-3 mb-5">
 						<div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
 							<CalendarIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -344,7 +344,7 @@ const AdminDashboard = () => {
 							</div>
 						))}
 					</div>
-					<div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+					<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40 flex items-center justify-between">
 						<span className="text-sm text-gray-500 dark:text-gray-400">Total: {stats.events.total} event</span>
 						<Link to="/admin/events" className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline">Lihat Semua →</Link>
 					</div>
@@ -354,7 +354,7 @@ const AdminDashboard = () => {
 			{/* Activity Summary + Coupon Status */}
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 				{/* Activity Summary */}
-				<div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+				<div className="lg:col-span-2 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40 p-6">
 					<div className="flex items-center gap-3 mb-5">
 						<div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-xl">
 							<ChartBarIcon className="w-5 h-5 text-violet-600 dark:text-violet-400" />
@@ -378,7 +378,7 @@ const AdminDashboard = () => {
 				</div>
 
 				{/* Coupon Status */}
-				<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40 p-6">
 					<div className="flex items-center gap-3 mb-5">
 						<div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl">
 							<TicketIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -418,7 +418,7 @@ const AdminDashboard = () => {
 
 			{/* Upcoming Events */}
 			{stats.events.upcoming.length > 0 && (
-				<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40 p-6">
 					<div className="flex items-center gap-3 mb-5">
 						<div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-xl">
 							<ClockIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -465,8 +465,8 @@ const AdminDashboard = () => {
 			{/* Recent Users + Recent Registrations */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{/* Recent Users */}
-				<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-					<div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40">
+					<div className="px-6 py-4 border-b border-gray-200/60 dark:border-gray-700/40 flex items-center gap-3">
 						<div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
 							<UserGroupIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
 						</div>
@@ -494,15 +494,15 @@ const AdminDashboard = () => {
 						)}
 					</div>
 					{stats.users.recent.length > 0 && (
-						<div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700">
+						<div className="px-6 py-3 border-t border-gray-200/60 dark:border-gray-700/40">
 							<Link to="/admin/users" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Lihat semua pengguna →</Link>
 						</div>
 					)}
 				</div>
 
 				{/* Recent Registrations */}
-				<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-					<div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40">
+					<div className="px-6 py-4 border-b border-gray-200/60 dark:border-gray-700/40 flex items-center gap-3">
 						<div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
 							<ClipboardDocumentListIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
 						</div>
@@ -533,8 +533,8 @@ const AdminDashboard = () => {
 			</div>
 
 			{/* Recent Events Table */}
-			<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-				<div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40">
+				<div className="px-6 py-4 border-b border-gray-200/60 dark:border-gray-700/40 flex items-center justify-between">
 					<div className="flex items-center gap-3">
 						<div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
 							<CalendarIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -581,7 +581,7 @@ const AdminDashboard = () => {
 			</div>
 
 			{/* Quick Actions */}
-			<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-700/40 p-6">
 				<div className="flex items-center gap-3 mb-5">
 					<div className="p-2 bg-gray-100 dark:bg-gray-700/50 rounded-xl">
 						<CogIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -596,7 +596,7 @@ const AdminDashboard = () => {
 						{ label: "Kategori Penilaian", icon: AcademicCapIcon, to: "/admin/assessment-categories", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/40" },
 						{ label: "Profil Admin", icon: CogIcon, to: "/admin/profile", color: "text-gray-600 dark:text-gray-400", bg: "bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700" },
 					].map((action) => (
-						<Link key={action.label} to={action.to} className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 dark:border-gray-700 ${action.bg} transition-colors`}>
+						<Link key={action.label} to={action.to} className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200/60 dark:border-gray-700/40 ${action.bg} transition-colors`}>
 							<action.icon className={`w-7 h-7 ${action.color}`} />
 							<span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center">{action.label}</span>
 						</Link>

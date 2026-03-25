@@ -376,7 +376,7 @@ const MaterialScoring: React.FC = () => {
 				text: "text-purple-700 dark:text-purple-300",
 			},
 			gray: {
-				bg: "bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700",
+				bg: "bg-gray-50 dark:bg-gray-900/20 border-gray-200/60 dark:border-gray-700/40",
 				selected: "bg-gray-500 text-white border-gray-600",
 				text: "text-gray-700 dark:text-gray-300",
 			},
@@ -533,7 +533,7 @@ const MaterialScoring: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -542,9 +542,9 @@ const MaterialScoring: React.FC = () => {
 	const activeData = categories.find((c) => c.categoryId === activeCategory);
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			{/* Header */}
-			<div className="sticky top-0 z-10 bg-white dark:bg-gray-800 shadow">
+			<div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-4">
@@ -621,7 +621,7 @@ const MaterialScoring: React.FC = () => {
 					{/* Participant Info */}
 					{participant && (
 						<div className="mt-3 flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-							<UserGroupIcon className="h-6 w-6 text-indigo-500" />
+							<UserGroupIcon className="h-6 w-6 text-red-500" />
 							<div>
 								<p className="font-semibold text-gray-900 dark:text-white">
 									{participant.teamName}
@@ -635,7 +635,7 @@ const MaterialScoring: React.FC = () => {
 				</div>
 
 				{/* Category Tabs */}
-				<div className="border-t border-gray-200 dark:border-gray-700">
+				<div className="border-t border-gray-200/60 dark:border-gray-700/40">
 					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 						<div className="flex gap-1 overflow-x-auto py-2">
 							{categories.map((cat) => {
@@ -652,7 +652,7 @@ const MaterialScoring: React.FC = () => {
 										onClick={() => setActiveCategory(cat.categoryId)}
 										className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
 											activeCategory === cat.categoryId
-												? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300"
+												? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
 												: "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
 										}`}
 									>
@@ -677,7 +677,7 @@ const MaterialScoring: React.FC = () => {
 			{/* Materials Grid */}
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 				{activeData && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
 						{/* Table Header */}
 						<div className="overflow-x-auto">
 							<table className="min-w-full">

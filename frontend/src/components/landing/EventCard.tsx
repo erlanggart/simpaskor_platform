@@ -66,9 +66,9 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 	};
 
 	return (
-		<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden">
+		<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden">
 			{/* Event Thumbnail - 4:5 Aspect Ratio */}
-			<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-indigo-500 to-purple-600">
+			<div className="relative w-full aspect-[4/5] bg-gradient-to-br from-red-500 to-purple-600">
 				{event.thumbnail ? (
 					<img
 						src={getImageUrl(event.thumbnail) || ""}
@@ -109,7 +109,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 						<span>{event.commentsCount || 0}</span>
 					</div>
 					{event.distance !== undefined && event.distance !== Infinity && (
-						<div className="flex items-center gap-1 bg-indigo-600/80 backdrop-blur-sm text-white px-2 py-1 rounded-full text-sm">
+						<div className="flex items-center gap-1 bg-red-600/80 backdrop-blur-sm text-white px-2 py-1 rounded-full text-sm">
 							<MapPinIcon className="w-4 h-4" />
 							<span>{event.distance < 1 ? `${Math.round(event.distance * 1000)} m` : `${event.distance.toFixed(1)} km`}</span>
 						</div>
@@ -121,7 +121,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 			<div className="p-6">
 				{/* Category Badge */}
 				{event.category && (
-					<span className="inline-block px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200 text-sm font-medium rounded-full mb-3">
+					<span className="inline-block px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 text-sm font-medium rounded-full mb-3">
 						{event.category}
 					</span>
 				)}
@@ -203,7 +203,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 						<p className="text-sm text-gray-500 dark:text-gray-400">
 							Biaya Pendaftaran
 						</p>
-						<p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+						<p className="text-lg font-bold text-red-600 dark:text-red-400">
 							{formatCurrency(event.registrationFee)}
 						</p>
 					</div>
@@ -212,7 +212,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 						className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
 							isEventFull()
 								? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-								: "bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white"
+								: "bg-red-600 dark:bg-red-700 hover:bg-red-700 dark:hover:bg-red-600 text-white"
 						}`}
 					>
 						{isEventFull() ? "Penuh" : "Detail"}

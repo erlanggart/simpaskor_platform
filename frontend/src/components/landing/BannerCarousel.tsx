@@ -175,7 +175,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 			{/* Background decoration */}
 			{/* <div className="absolute inset-0 overflow-hidden">
 				<div className="absolute -top-40 -right-40 w-96 h-96 bg-red-400 dark:bg-blue-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse"></div>
-				<div className="absolute -bottom-40 -left-40 w-96 h-96 bg-red-400 dark:bg-indigo-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse delay-1000"></div>
+				<div className="absolute -bottom-40 -left-40 w-96 h-96 bg-red-400 dark:bg-red-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse delay-1000"></div>
 				<div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-300 dark:bg-purple-950 rounded-full mix-blend-overlay filter blur-3xl opacity-20 dark:opacity-15"></div>
 			</div> */}
 
@@ -221,7 +221,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 									{/* Countdown Label - Always Visible on Active Card */}
 									{isActive && (
 										<div className="absolute top-4 left-4 z-20">
-											<div className="bg-gradient-to-r from-blue-500 to-indigo-500 dark:from-blue-600 dark:to-indigo-600 text-white px-4 py-2 rounded-full shadow-lg">
+											<div className="bg-gradient-to-r from-blue-500 to-red-500 dark:from-blue-600 dark:to-red-600 text-white px-4 py-2 rounded-full shadow-lg">
 												<div className="flex items-center gap-2">
 													<svg
 														className="w-4 h-4 animate-pulse"
@@ -241,7 +241,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 									)}
 
 									{/* Full Image Poster */}
-									<div className="relative w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600">
+									<div className="relative w-full h-full bg-gradient-to-br from-red-500 to-purple-600">
 										<img
 											src={getImageUrl(event.thumbnail)}
 											alt={event.title}
@@ -284,7 +284,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 
 													<Link
 														to={`/events/${event.slug || event.id}`}
-														className="inline-block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white text-center font-bold rounded-lg transition-colors shadow-lg"
+														className="inline-block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 dark:bg-red-600 dark:hover:bg-red-700 text-white text-center font-bold rounded-lg transition-colors shadow-lg"
 													>
 														Lihat Detail Event
 													</Link>
@@ -318,8 +318,8 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 										onClick={() => handleDotClick(index)}
 										className={`transition-all rounded-full ${
 											index === currentIndex
-												? "w-8 h-3 bg-blue-600 dark:bg-indigo-500"
-												: "w-3 h-3 bg-gray-400 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-indigo-400"
+												? "w-8 h-3 bg-blue-600 dark:bg-red-500"
+												: "w-3 h-3 bg-gray-400 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-red-400"
 										}`}
 										aria-label={`Go to slide ${index + 1}`}
 									/>

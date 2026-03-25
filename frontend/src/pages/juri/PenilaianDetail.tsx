@@ -219,7 +219,7 @@ const PenilaianDetail: React.FC = () => {
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
@@ -237,7 +237,7 @@ const PenilaianDetail: React.FC = () => {
 					</p>
 					<Link
 						to={`/juri/events/${eventSlug}/penilaian`}
-						className="mt-4 inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-500"
+						className="mt-4 inline-flex items-center gap-2 text-red-600 hover:text-red-500"
 					>
 						<ArrowLeftIcon className="h-4 w-4" />
 						Kembali ke Daftar Penilaian
@@ -248,7 +248,7 @@ const PenilaianDetail: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Back Button */}
 				<Link
@@ -260,14 +260,14 @@ const PenilaianDetail: React.FC = () => {
 				</Link>
 
 				{/* Header */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-6 mb-6">
 					<div className="flex items-start justify-between">
 						<div>
 							<h1 className="text-2xl font-bold text-gray-900 dark:text-white">
 								{participant.teamName}
 							</h1>
 							{participant.schoolCategory && (
-								<span className="inline-flex mt-2 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm rounded-full">
+								<span className="inline-flex mt-2 px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-sm rounded-full">
 									{participant.schoolCategory.name}
 								</span>
 							)}
@@ -286,7 +286,7 @@ const PenilaianDetail: React.FC = () => {
 					</div>
 
 					{/* Team Members */}
-					<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+					<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
 						<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-2">
 							<UserGroupIcon className="h-5 w-5" />
 							<span className="font-medium">Anggota Tim</span>
@@ -311,8 +311,8 @@ const PenilaianDetail: React.FC = () => {
 				</div>
 
 				{/* Scoring Form */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-					<div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
+					<div className="px-6 py-4 border-b border-gray-200/60 dark:border-gray-700/40">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
 							Formulir Penilaian
 						</h2>
@@ -330,7 +330,7 @@ const PenilaianDetail: React.FC = () => {
 							return (
 								<div
 									key={cat.id}
-									className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+									className="p-4 border border-gray-200/60 dark:border-gray-700/40 rounded-lg"
 								>
 									<div className="flex items-start justify-between mb-4">
 										<div>
@@ -371,7 +371,7 @@ const PenilaianDetail: React.FC = () => {
 														)
 													)
 												}
-												className="w-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg font-semibold text-center focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+												className="w-24 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-lg font-semibold text-center focus:ring-2 focus:ring-red-500 focus:border-transparent"
 											/>
 											<div className="flex-1">
 												<input
@@ -386,7 +386,7 @@ const PenilaianDetail: React.FC = () => {
 															parseInt(e.target.value)
 														)
 													}
-													className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+													className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-600"
 												/>
 											</div>
 											<div className="flex items-center gap-1 text-yellow-500">
@@ -416,7 +416,7 @@ const PenilaianDetail: React.FC = () => {
 											}
 											rows={2}
 											placeholder="Tambahkan catatan penilaian..."
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
 										/>
 									</div>
 								</div>
@@ -425,13 +425,13 @@ const PenilaianDetail: React.FC = () => {
 					</div>
 
 					{/* Summary & Submit */}
-					<div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
+					<div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200/60 dark:border-gray-700/40">
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm text-gray-500 dark:text-gray-400">
 									Total Skor
 								</p>
-								<p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+								<p className="text-2xl font-bold text-red-600 dark:text-red-400">
 									{totalScore} / {maxTotalScore}
 								</p>
 							</div>
@@ -445,7 +445,7 @@ const PenilaianDetail: React.FC = () => {
 								<button
 									onClick={handleSubmit}
 									disabled={saving}
-									className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+									className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
 								>
 									{saving ? (
 										<>

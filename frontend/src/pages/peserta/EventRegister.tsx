@@ -498,15 +498,15 @@ const EventRegister: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+			<div className="min-h-screen flex items-center justify-center">
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
 			</div>
 		);
 	}
 
 	if (error || !event) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-center">
 					<ExclamationCircleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
 					<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -514,7 +514,7 @@ const EventRegister: React.FC = () => {
 					</h2>
 					<Link
 						to="/"
-						className="text-indigo-600 dark:text-indigo-400 hover:underline"
+						className="text-red-600 dark:text-red-400 hover:underline"
 					>
 						Kembali ke Beranda
 					</Link>
@@ -524,13 +524,13 @@ const EventRegister: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-8 px-3 sm:px-4">
+		<div className="min-h-screen py-4 sm:py-8 px-3 sm:px-4">
 			<div className="max-w-6xl mx-auto">
 				{/* Header */}
 				<div className="mb-4 sm:mb-6">
 					<button
 						onClick={() => navigate(`/events/${eventSlug}`)}
-						className="flex items-center text-sm sm:text-base text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-3 sm:mb-4"
+						className="flex items-center text-sm sm:text-base text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 mb-3 sm:mb-4"
 					>
 						<ArrowLeftIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
 						Kembali ke Detail Event
@@ -548,7 +548,7 @@ const EventRegister: React.FC = () => {
 						{/* Main Form */}
 						<div className="lg:col-span-2 space-y-4 sm:space-y-6">
 							{/* Event Info Card */}
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md p-4 sm:p-6">
 								<h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
 									Informasi Event
 								</h2>
@@ -582,7 +582,7 @@ const EventRegister: React.FC = () => {
 							</div>
 
 							{/* Organization Info */}
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md p-4 sm:p-6">
 								<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
 									Informasi Organisasi
 								</h2>
@@ -598,7 +598,7 @@ const EventRegister: React.FC = () => {
 											value={schoolName}
 											onChange={(e) => setSchoolName(e.target.value)}
 											placeholder="Contoh: SMAN 1 Jakarta"
-											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+											className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
 											required
 										/>
 										{user?.profile?.institution && (
@@ -647,7 +647,7 @@ const EventRegister: React.FC = () => {
 							</div>
 
 							{/* Teams Section */}
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md p-4 sm:p-6">
 								<div className="flex items-center justify-between mb-4">
 									<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
 										Daftar Tim ({teams.length})
@@ -655,7 +655,7 @@ const EventRegister: React.FC = () => {
 									<button
 										type="button"
 										onClick={addTeam}
-										className="flex items-center px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+										className="flex items-center px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
 									>
 										<PlusIcon className="w-4 h-4 mr-1" />
 										Tambah Tim
@@ -670,7 +670,7 @@ const EventRegister: React.FC = () => {
 									{teams.map((team, teamIndex) => (
 										<div
 											key={team.id}
-											className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4"
+											className="border border-gray-200/60 dark:border-gray-700/40 rounded-lg p-3 sm:p-4"
 										>
 											<div className="flex items-start justify-between mb-4">
 												<h3 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">
@@ -698,7 +698,7 @@ const EventRegister: React.FC = () => {
 												<select
 													value={team.schoolCategoryId}
 													onChange={(e) => updateTeam(team.id, "schoolCategoryId", e.target.value)}
-													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
 													required
 												>
 													<option value="">Pilih Kategori</option>
@@ -735,7 +735,7 @@ const EventRegister: React.FC = () => {
 														updateTeam(team.id, "groupName", e.target.value)
 													}
 													placeholder="Contoh: Tim A"
-													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
 													required
 												/>
 											</div>
@@ -767,7 +767,7 @@ const EventRegister: React.FC = () => {
 																{/* Photo Upload */}
 																<div className="flex justify-center mb-2">
 																	<label className="relative cursor-pointer">
-																		<div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-500 hover:border-indigo-500">
+																		<div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-500 hover:border-red-500">
 																			{member.photoPreview ? (
 																				<img
 																					src={member.photoPreview}
@@ -796,7 +796,7 @@ const EventRegister: React.FC = () => {
 																		updateMember(team.id, "pasukan", member.id, "name", e.target.value)
 																	}
 																	placeholder={`Pasukan ${idx + 1}`}
-																	className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center"
+																	className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
 																/>
 															</div>
 														))}
@@ -814,15 +814,15 @@ const EventRegister: React.FC = () => {
 													{/* Danton - Top on mobile, Right Side on desktop */}
 													<div className="w-full md:w-32 order-1 md:order-2">
 														<div className="text-center mb-2">
-															<span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase">
+															<span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase">
 																Komandan
 															</span>
 														</div>
-														<div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-lg p-3 border-2 border-indigo-200 dark:border-indigo-700 flex md:flex-col items-center md:items-stretch gap-3 md:gap-0">
+														<div className="bg-red-50 dark:bg-red-900/30 rounded-lg p-3 border-2 border-red-200 dark:border-red-700 flex md:flex-col items-center md:items-stretch gap-3 md:gap-0">
 															{/* Photo Upload */}
 															<div className="flex justify-center md:mb-2 flex-shrink-0">
 																<label className="relative cursor-pointer">
-																	<div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-indigo-300 dark:border-indigo-600 hover:border-indigo-500">
+																	<div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-red-100 dark:bg-red-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-red-300 dark:border-red-600 hover:border-red-500">
 																		{team.danton.photoPreview ? (
 																			<img
 																				src={team.danton.photoPreview}
@@ -830,7 +830,7 @@ const EventRegister: React.FC = () => {
 																				className="w-full h-full object-cover"
 																			/>
 																		) : (
-																			<UserIcon className="w-6 h-6 md:w-8 md:h-8 text-indigo-400" />
+																			<UserIcon className="w-6 h-6 md:w-8 md:h-8 text-red-400" />
 																		)}
 																	</div>
 																	<input
@@ -851,7 +851,7 @@ const EventRegister: React.FC = () => {
 																	updateMember(team.id, "danton", team.danton.id, "name", e.target.value)
 																}
 																placeholder="Nama Danton"
-																className="flex-1 md:w-full px-2 py-1 text-xs border border-indigo-300 dark:border-indigo-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center"
+																className="flex-1 md:w-full px-2 py-1 text-xs border border-red-300 dark:border-red-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
 															/>
 														</div>
 													</div>
@@ -910,7 +910,7 @@ const EventRegister: React.FC = () => {
 																	updateMember(team.id, "cadangan", member.id, "name", e.target.value)
 																}
 																placeholder={`Cadangan ${idx + 1}`}
-																className="w-full px-2 py-1 text-xs border border-amber-300 dark:border-amber-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center"
+																className="w-full px-2 py-1 text-xs border border-amber-300 dark:border-amber-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
 															/>
 														</div>
 													))}
@@ -934,7 +934,7 @@ const EventRegister: React.FC = () => {
 													onChange={(e) => updateTeam(team.id, "notes", e.target.value)}
 													placeholder="Catatan tambahan untuk tim ini..."
 													rows={2}
-													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
 												/>
 											</div>
 										</div>
@@ -945,7 +945,7 @@ const EventRegister: React.FC = () => {
 
 						{/* Sidebar */}
 						<div className="lg:col-span-1">
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 sticky top-4">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md p-4 sm:p-6 sticky top-4">
 								<h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4">
 									Ringkasan Pendaftaran
 								</h2>
@@ -1022,13 +1022,13 @@ const EventRegister: React.FC = () => {
 										</span>
 									</div>
 
-									<hr className="border-gray-200 dark:border-gray-700" />
+									<hr className="border-gray-200/60 dark:border-gray-700/40" />
 
 									<div className="flex justify-between text-lg">
 										<span className="font-semibold text-gray-900 dark:text-white">
 											Total Biaya:
 										</span>
-										<span className="font-bold text-indigo-600 dark:text-indigo-400">
+										<span className="font-bold text-red-600 dark:text-red-400">
 											{formatCurrency(getTotalFee())}
 										</span>
 									</div>
@@ -1039,7 +1039,7 @@ const EventRegister: React.FC = () => {
 									disabled={submitting || isRegistrationClosed}
 									className={`w-full mt-6 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center ${isRegistrationClosed
 										? 'bg-gray-400 cursor-not-allowed text-white'
-										: 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+										: 'bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
 									}`}
 								>
 									{isRegistrationClosed ? (

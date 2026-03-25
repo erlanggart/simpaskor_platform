@@ -125,9 +125,9 @@ const JuriDashboard = () => {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
 					<p className="mt-4 text-gray-600 dark:text-gray-400">Memuat data...</p>
 				</div>
 			</div>
@@ -135,7 +135,7 @@ const JuriDashboard = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
@@ -149,19 +149,19 @@ const JuriDashboard = () => {
 
 				{/* Stats Cards */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-6">
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm text-gray-600 dark:text-gray-400">Event Aktif</p>
-								<p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+								<p className="text-3xl font-bold text-red-600 dark:text-red-400">
 									{activeEvents}
 								</p>
 							</div>
-							<TrophyIcon className="w-12 h-12 text-indigo-600 dark:text-indigo-400" />
+							<TrophyIcon className="w-12 h-12 text-red-600 dark:text-red-400" />
 						</div>
 					</div>
 
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-6">
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm text-gray-600 dark:text-gray-400">Event Selesai</p>
@@ -173,7 +173,7 @@ const JuriDashboard = () => {
 						</div>
 					</div>
 
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-6">
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-sm text-gray-600 dark:text-gray-400">Undangan Pending</p>
@@ -187,14 +187,14 @@ const JuriDashboard = () => {
 				</div>
 
 				{/* Tabs */}
-				<div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-					<div className="border-b border-gray-200 dark:border-gray-700">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow mb-6">
+					<div className="border-b border-gray-200/60 dark:border-gray-700/40">
 						<nav className="flex -mb-px">
 							<button
 								onClick={() => setSelectedTab("events")}
 								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
 									selectedTab === "events"
-										? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
+										? "border-red-600 dark:border-red-400 text-red-600 dark:text-red-400"
 										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
 								}`}
 							>
@@ -207,7 +207,7 @@ const JuriDashboard = () => {
 								onClick={() => setSelectedTab("invitations")}
 								className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
 									selectedTab === "invitations"
-										? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
+										? "border-red-600 dark:border-red-400 text-red-600 dark:text-red-400"
 										: "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
 								}`}
 							>
@@ -229,7 +229,7 @@ const JuriDashboard = () => {
 				{selectedTab === "events" && (
 					<div>
 						{events.length === 0 ? (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-12 text-center">
 								<TrophyIcon className="mx-auto h-16 w-16 text-gray-400" />
 								<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 									Belum Ada Event
@@ -240,7 +240,7 @@ const JuriDashboard = () => {
 								{pendingInvitations > 0 && (
 									<button
 										onClick={() => setSelectedTab("invitations")}
-										className="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+										className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
 									>
 										Lihat Undangan
 										<ChevronRightIcon className="h-5 w-5 ml-1" />
@@ -255,10 +255,10 @@ const JuriDashboard = () => {
 										<Link
 											key={juryEvent.id}
 											to={`/juri/events/${juryEvent.event.slug}/info`}
-											className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow group"
+											className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow group"
 										>
 											{/* Event Image */}
-											<div className="relative h-48 bg-gradient-to-br from-indigo-500 to-purple-600">
+											<div className="relative h-48 bg-gradient-to-br from-red-500 to-purple-600">
 												{juryEvent.event.thumbnail ? (
 													<img
 														src={getImageUrl(juryEvent.event.thumbnail) || ""}
@@ -283,7 +283,7 @@ const JuriDashboard = () => {
 
 											{/* Event Details */}
 											<div className="p-5">
-												<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+												<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
 													{juryEvent.event.title}
 												</h3>
 
@@ -305,7 +305,7 @@ const JuriDashboard = () => {
 												</div>
 
 												{/* Categories */}
-												<div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+												<div className="border-t border-gray-200/60 dark:border-gray-700/40 pt-4">
 													<p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
 														Kategori Penilaian:
 													</p>
@@ -313,7 +313,7 @@ const JuriDashboard = () => {
 														{juryEvent.assignedCategories.slice(0, 3).map((cat) => (
 															<span
 																key={cat.id}
-																className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded"
+																className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-xs rounded"
 															>
 																{cat.assessmentCategory.name}
 															</span>
@@ -327,8 +327,8 @@ const JuriDashboard = () => {
 												</div>
 
 												{/* Enter Event Button */}
-												<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-													<span className="inline-flex items-center text-sm font-medium text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">
+												<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
+													<span className="inline-flex items-center text-sm font-medium text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300">
 														Masuk Event
 														<ChevronRightIcon className="ml-1 w-4 h-4" />
 													</span>
@@ -346,7 +346,7 @@ const JuriDashboard = () => {
 				{selectedTab === "invitations" && (
 					<div>
 						{invitations.length === 0 ? (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-12 text-center">
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-lg p-12 text-center">
 								<TicketIcon className="mx-auto h-16 w-16 text-gray-400" />
 								<h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
 									Tidak Ada Undangan
@@ -360,7 +360,7 @@ const JuriDashboard = () => {
 								{invitations.map((invitation) => (
 									<div
 										key={invitation.id}
-										className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-l-4 border-yellow-500"
+										className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow p-6 border-l-4 border-yellow-500"
 									>
 										<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 											<div className="flex-1">
@@ -387,7 +387,7 @@ const JuriDashboard = () => {
 													{invitation.assignedCategories.map((cat) => (
 														<span
 															key={cat.id}
-															className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs rounded"
+															className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-xs rounded"
 														>
 															{cat.assessmentCategory.name}
 														</span>
@@ -397,7 +397,7 @@ const JuriDashboard = () => {
 											<div className="flex gap-2">
 												<Link
 													to="/juri/invitations"
-													className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+													className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
 												>
 													Lihat Detail
 												</Link>
