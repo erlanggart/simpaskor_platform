@@ -1,242 +1,199 @@
 import React from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../hooks/useAuth";
-import { LuHouse, LuStore, LuTicket, LuVote } from "react-icons/lu";
+import { LuHouse, LuStore, LuTicket, LuVote, LuCalendar } from "react-icons/lu";
+import "../components/landing/LandingPage.css";
 
 interface MainLayoutProps {
 	showNavbar?: boolean;
 	showFooter?: boolean;
 }
 
+const featureNav = [
+	{ to: "/", label: "Home", icon: LuHouse },
+	{ to: "/events", label: "Event", icon: LuCalendar },
+	{ to: "/marketplace", label: "Marketplace", icon: LuStore },
+	{ to: "/e-ticketing", label: "E-Ticketing", icon: LuTicket },
+	{ to: "/e-voting", label: "E-Voting", icon: LuVote },
+];
+
 export const MainLayout: React.FC<MainLayoutProps> = ({
 	showNavbar = true,
-	showFooter = true,
 }) => {
 	const { isAuthenticated, user } = useAuth();
 	const location = useLocation();
 
 	return (
-		<div className="min-h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors">
-			{/* Navbar */}
+		<div className="h-screen w-screen overflow-hidden relative">
+			{/* Fixed background with grid + gradient (dark/light aware) */}
+			<div className="main-layout-bg" />
+			<div className="neon-red-lines" />
+
+			{/* ===== Top Header Bar ===== */}
 			{showNavbar && (
-				<nav className="hidden md:block sticky top-0 z-50 bg-white dark:bg-gray-900 transition-colors">
-					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-						<div className="flex justify-between items-center h-16">
-							{/* Logo */}
-							<Logo size="sm" showText variant="auto" />
+				<header className="fixed top-0 left-0 md:left-[72px] right-0 h-14 z-40 flex items-center justify-between md:justify-end px-4 md:px-8">
+					{/* Left: Logo + Brand */}
+					<div className="flex md:hidden items-center gap-3">
+						<img
+							src="/simpaskor.webp"
+							alt="Simpaskor"
+							className="w-7 h-7 object-contain"
+						/>
+						{/* <span className="text-sm font-bold text-gray-800 dark:text-white tracking-wide hidden sm:block">
+							SIMPASKOR
+						</span> */}
+					</div>
 
-							{/* Navigation Links - floating pill */}
-							<div className="flex items-center gap-1 bg-gray-900/80 dark:bg-gray-800/90 backdrop-blur-xl rounded-full px-2 py-1.5 shadow-lg shadow-black/10 border border-white/10">
-								<Link
-									to="/"
-									className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-										location.pathname === "/"
-											? "bg-white/15 text-white"
-											: "text-gray-300 hover:text-white hover:bg-white/10"
-									}`}
-								>
-									Beranda
-								</Link>
-								<Link
-									to="/marketplace"
-									className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-										location.pathname === "/marketplace"
-											? "bg-white/15 text-white"
-											: "text-gray-300 hover:text-white hover:bg-white/10"
-									}`}
-								>
-									Marketplace
-								</Link>
-								<Link
-									to="/e-ticketing"
-									className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-										location.pathname === "/e-ticketing"
-											? "bg-white/15 text-white"
-											: "text-gray-300 hover:text-white hover:bg-white/10"
-									}`}
-								>
-									E-Ticketing
-								</Link>
-								<Link
-									to="/e-voting"
-									className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-										location.pathname === "/e-voting"
-											? "bg-white/15 text-white"
-											: "text-gray-300 hover:text-white hover:bg-white/10"
-									}`}
-								>
-									E-Voting
-								</Link>
-							</div>
+					{/* Right: Theme toggle + Auth */}
+					<div className="flex items-center gap-3">
+						<ThemeToggle />
+						{isAuthenticated ? (
+							<Link
+								to={getDashboardPath(user?.role)}
+								className="px-4 py-1.5 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25"
+							>
+								Dashboard
+							</Link>
+						) : (
+							<Link
+								to="/login"
+								className="px-4 py-1.5 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25"
+							>
+								Masuk
+							</Link>
+						)}
+					</div>
+				</header>
+			)}
 
-							{/* Auth Buttons & Theme Toggle */}
-							<div className="flex items-center gap-3">
-								<ThemeToggle />
-								{isAuthenticated ? (
-									<Link
-										to={getDashboardPath(user?.role)}
-										className="px-4 py-2 bg-red-600 text-white rounded-full text-sm font-medium hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/30"
-									>
-										Dashboard
-									</Link>
-								) : (
-									<Link
-										to="/login"
-										className="px-4 py-2 bg-red-600 text-white rounded-full text-sm font-medium hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/30"
-									>
-										Masuk
-									</Link>
-								)}
+			{/* ===== Left Sidebar Navigation (desktop only) ===== */}
+			{showNavbar && (
+				<nav className="fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center justify-center gap-2 border-r border-gray-200/10 dark:border-white/5">
+					{/* Logo at top */}
+					<div className="absolute top-4 left-1/2 -translate-x-1/2">
+						<Link to="/">
+							<div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
+								<img
+									src="/simpaskor.webp"
+									alt="Logo"
+									className="w-6 h-6 md:w-7 md:h-7 object-contain"
+								/>
 							</div>
-						</div>
+						</Link>
+					</div>
+
+					{/* Navigation Items */}
+					<div className="flex flex-col items-center gap-1.5">
+						{featureNav.map((item) => {
+							const isActive =
+								item.to === "/"
+									? location.pathname === "/"
+									: location.pathname.startsWith(item.to);
+							const Icon = item.icon;
+
+							return (
+								<Link
+									key={item.to}
+									to={item.to}
+									className="group relative flex flex-col items-center gap-0.5 outline-none"
+									aria-label={item.label}
+								>
+									{/* Active indicator line */}
+									{isActive && (
+										<div className="absolute -left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full transition-all" />
+									)}
+
+									<div
+										className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
+											isActive
+												? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110 shadow-lg shadow-red-500/10"
+												: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
+										}`}
+									>
+										<Icon className="w-[18px] h-[18px] md:w-5 md:h-5" />
+									</div>
+
+									<span
+										className={`text-[8px] md:text-[9px] font-medium transition-all duration-300 leading-tight ${
+											isActive
+												? "text-red-500 dark:text-red-400 opacity-100"
+												: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
+										}`}
+									>
+										{item.label}
+									</span>
+
+									{/* Tooltip on hover */}
+									<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+										{item.label}
+										<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+									</div>
+								</Link>
+							);
+						})}
 					</div>
 				</nav>
 			)}
 
-			{/* Main Content */}
-			<main className="flex-1 pb-16 md:pb-0">
+			{/* ===== Main Content Area ===== */}
+			<main
+				className={`h-screen overflow-y-auto relative z-10 ${
+					showNavbar ? "pl-0 md:pl-[72px] pt-14 pb-16 md:pb-0" : ""
+				}`}
+				style={showNavbar ? { height: "100vh" } : undefined}
+			>
 				<Outlet />
 			</main>
 
-			{/* Mobile Bottom Navigation */}
+			{/* ===== Mobile Bottom Navigation ===== */}
 			{showNavbar && (
-				<nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:hidden">
-					<div className="flex justify-around items-center h-16 px-2">
-						<Link
-							to="/"
-							className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-								location.pathname === "/"
-									? "text-red-600 dark:text-red-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<LuHouse className="w-5 h-5" />
-							<span className="text-[10px] mt-0.5 font-medium">Home</span>
-						</Link>
-						<Link
-							to="/marketplace"
-							className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-								location.pathname === "/marketplace"
-									? "text-red-600 dark:text-red-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<LuStore className="w-5 h-5" />
-							<span className="text-[10px] mt-0.5 font-medium">Marketplace</span>
-						</Link>
-						<Link
-							to="/e-ticketing"
-							className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-								location.pathname === "/e-ticketing"
-									? "text-red-600 dark:text-red-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<LuTicket className="w-5 h-5" />
-							<span className="text-[10px] mt-0.5 font-medium">E-Ticketing</span>
-						</Link>
-						<Link
-							to="/e-voting"
-							className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-								location.pathname === "/e-voting"
-									? "text-red-600 dark:text-red-400"
-									: "text-gray-500 dark:text-gray-400"
-							}`}
-						>
-							<LuVote className="w-5 h-5" />
-							<span className="text-[10px] mt-0.5 font-medium">E-Voting</span>
-						</Link>
+				<nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+					<div className="mx-3 mb-3 px-2 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.06] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.08] shadow-lg shadow-black/5 dark:shadow-black/20">
+						<div className="flex items-center justify-around">
+							{featureNav.map((item) => {
+								const isActive =
+									item.to === "/"
+										? location.pathname === "/"
+										: location.pathname.startsWith(item.to);
+								const Icon = item.icon;
+								return (
+									<Link
+										key={item.to}
+										to={item.to}
+										className="group relative flex flex-col items-center gap-0.5 outline-none"
+										aria-label={item.label}
+									>
+										{/* Active indicator dot */}
+										{isActive && (
+											<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
+										)}
+
+										<div
+											className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
+												isActive
+													? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110"
+													: "text-gray-400 dark:text-gray-500"
+											}`}
+										>
+											<Icon className="w-[18px] h-[18px]" />
+										</div>
+
+										<span
+											className={`text-[8px] font-medium leading-tight ${
+												isActive
+													? "text-red-500 dark:text-red-400"
+													: "text-gray-400 dark:text-gray-500"
+											}`}
+										>
+											{item.label}
+										</span>
+									</Link>
+								);
+							})}
+						</div>
 					</div>
 				</nav>
-			)}
-
-			{/* Footer */}
-			{showFooter && (
-				<footer className="bg-gray-900 text-white">
-					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-						<div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-							{/* About */}
-							<div className="col-span-1 md:col-span-2">
-								<Logo size="md" showText variant="white" />
-								<p className="mt-4 text-gray-400 text-sm">
-									Platform Kompetisi Terdepan Indonesia untuk mengelola dan
-									mengikuti berbagai event olahraga dan kompetisi.
-								</p>
-							</div>
-
-							{/* Quick Links */}
-							<div>
-								<h3 className="text-lg font-semibold mb-4">Menu</h3>
-								<ul className="space-y-2">
-									<li>
-										<Link
-											to="/"
-											className="text-gray-400 hover:text-white transition-colors"
-										>
-											Beranda
-										</Link>
-									</li>
-									<li>
-										<Link
-											to="/marketplace"
-											className="text-gray-400 hover:text-white transition-colors"
-										>
-											Marketplace
-										</Link>
-									</li>
-									<li>
-										<Link
-											to="/e-ticketing"
-											className="text-gray-400 hover:text-white transition-colors"
-										>
-											E-Ticketing
-										</Link>
-									</li>
-									<li>
-										<Link
-											to="/events"
-											className="text-gray-400 hover:text-white transition-colors"
-										>
-											Event
-										</Link>
-									</li>
-									<li>
-										<Link
-											to="/about"
-											className="text-gray-400 hover:text-white transition-colors"
-										>
-											Tentang Kami
-										</Link>
-									</li>
-									<li>
-										<Link
-											to="/contact"
-											className="text-gray-400 hover:text-white transition-colors"
-										>
-											Kontak
-										</Link>
-									</li>
-								</ul>
-							</div>
-
-							{/* Contact */}
-							<div>
-								<h3 className="text-lg font-semibold mb-4">Kontak</h3>
-								<ul className="space-y-2 text-gray-400 text-sm">
-									<li>Email: info@simpaskor.com</li>
-									<li>Telp: +62 21 1234 5678</li>
-									<li>Jakarta, Indonesia</li>
-								</ul>
-							</div>
-						</div>
-
-						<div className="mt-8 pt-8 border-t border-gray-800 text-center text-gray-400 text-sm">
-							© 2025 Simpaskor Platform. All rights reserved.
-						</div>
-					</div>
-				</footer>
 			)}
 		</div>
 	);
@@ -256,13 +213,23 @@ const getDashboardPath = (role?: string) => {
 		}
 		return "/panitia/dashboard";
 	}
+	if (role === "JURI") {
+		try {
+			const stored = localStorage.getItem("juri_active_event");
+			if (stored) {
+				const eventData = JSON.parse(stored);
+				if (eventData.slug) return `/juri/events/${eventData.slug}/info`;
+			}
+		} catch {
+			// ignore
+		}
+		return "/juri/dashboard";
+	}
 	switch (role) {
 		case "SUPERADMIN":
 			return "/admin/dashboard";
 		case "PESERTA":
 			return "/peserta/dashboard";
-		case "JURI":
-			return "/juri/dashboard";
 		case "PELATIH":
 			return "/pelatih/dashboard";
 		default:

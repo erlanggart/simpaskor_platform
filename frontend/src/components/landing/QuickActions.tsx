@@ -36,7 +36,7 @@ const QuickActions: React.FC = () => {
 			to: "/e-ticketing",
 			label: "E-Ticketing",
 			icon: LuTicket,
-			color: "bg-orange-500",
+			color: "bg-yellow-500",
 			lightBg: "bg-orange-50 dark:bg-orange-900/20",
 		},
 		{

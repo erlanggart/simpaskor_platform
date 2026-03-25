@@ -1,20 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { TicketedEvent } from "../types/ticket";
-import {
-	CalendarDaysIcon,
-	MapPinIcon,
-	TicketIcon,
-	MagnifyingGlassIcon,
-	UserIcon,
-	EnvelopeIcon,
-	PhoneIcon,
-} from "@heroicons/react/24/outline";
+import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
-import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 
 const ETicketingPage: React.FC = () => {
 	const { user } = useAuth();
@@ -23,6 +14,7 @@ const ETicketingPage: React.FC = () => {
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
+	const [availabilityFilter, setAvailabilityFilter] = useState<"all" | "available" | "limited" | "soldout">("all");
 	const [selectedEvent, setSelectedEvent] = useState<TicketedEvent | null>(null);
 	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 	const [purchasing, setPurchasing] = useState(false);
@@ -44,7 +36,7 @@ const ETicketingPage: React.FC = () => {
 	const fetchEvents = useCallback(async () => {
 		try {
 			setLoading(true);
-			const params: any = { page, limit: 12 };
+			const params: any = { page, limit: 25 };
 			if (search) params.search = search;
 
 			const res = await api.get("/tickets/events", { params });
@@ -92,6 +84,49 @@ const ETicketingPage: React.FC = () => {
 		if (available <= 10) return { available, text: `Sisa ${available} tiket`, color: "amber" };
 		return { available, text: `${available} tiket tersedia`, color: "green" };
 	};
+
+	const getTicketBadge = (event: TicketedEvent): { label: string; className: string } => {
+		if (event.ticketConfig?.price === 0) return { label: "GRATIS", className: "bg-green-500/80 text-white" };
+		if (event.ticketConfig?.price) return { label: formatCurrency(event.ticketConfig.price), className: "bg-red-500/80 text-white" };
+		return { label: "Tiket", className: "bg-gray-500/80 text-white" };
+	};
+
+	const getImageUrl = (imageUrl: string | null): string => {
+		if (!imageUrl) return "";
+		if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
+		return `${config.api.backendUrl}${imageUrl}`;
+	};
+
+	const formatShortDate = (date: string) => {
+		return new Date(date).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+		});
+	};
+
+	const filteredEvents = useMemo(() => {
+		if (availabilityFilter === "all") return events;
+		return events.filter((event) => {
+			const avail = getTicketAvailability(event);
+			switch (availabilityFilter) {
+				case "available":
+					return avail.available > 10;
+				case "limited":
+					return avail.available > 0 && avail.available <= 10;
+				case "soldout":
+					return avail.available <= 0;
+				default:
+					return true;
+			}
+		});
+	}, [events, availabilityFilter]);
+
+	const availabilityOptions = [
+		{ id: "all" as const, label: "Semua" },
+		{ id: "available" as const, label: "Tersedia" },
+		{ id: "limited" as const, label: "Hampir Habis" },
+		{ id: "soldout" as const, label: "Habis" },
+	];
 
 	const openPurchaseModal = (event: TicketedEvent) => {
 		setSelectedEvent(event);
@@ -154,150 +189,203 @@ const ETicketingPage: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div className="min-h-screen transition-colors">
+			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
-				<div className="mb-8">
-					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+				<div className="mb-6">
+					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">
+						BELI TIKET ONLINE
+					</p>
+					<h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-1">
 						E-Ticketing
 					</h1>
-					<p className="mt-2 text-gray-600 dark:text-gray-400">
+					<p className="text-sm text-gray-500 dark:text-gray-400">
 						Beli tiket event secara online
 					</p>
 				</div>
 
-				{/* Search */}
-				<div className="mb-6">
-					<div className="relative max-w-md">
-						<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+				{/* Search + Filters */}
+				<div className="mb-6 space-y-4">
+					{/* Search bar */}
+					<div className="relative">
+						<LuSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
 						<input
 							type="text"
-							placeholder="Cari event..."
 							value={search}
-							onChange={(e) => {
-								setSearch(e.target.value);
-								setPage(1);
-							}}
-							className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+							onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+							placeholder="Cari event tiket berdasarkan nama atau lokasi..."
+							className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 transition-colors"
 						/>
+						{search && (
+							<button
+								onClick={() => { setSearch(""); setPage(1); }}
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+							>
+								<LuX className="w-4 h-4" />
+							</button>
+						)}
+					</div>
+
+					{/* Availability filter pills */}
+					<div className="flex flex-wrap items-center gap-1.5">
+						<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Ketersediaan:</span>
+						{availabilityOptions.map((opt) => (
+							<button
+								key={opt.id}
+								onClick={() => setAvailabilityFilter(opt.id)}
+								className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+									availabilityFilter === opt.id
+										? "bg-red-500 text-white"
+										: "bg-gray-200/60 dark:bg-white/[0.08] text-gray-600 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/[0.14]"
+								}`}
+							>
+								{opt.label}
+							</button>
+						))}
 					</div>
 				</div>
 
+				{/* Result info */}
+				<p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+					{filteredEvents.length > 0
+						? `Menampilkan ${filteredEvents.length} event`
+						: "Tidak ada event yang ditemukan"}
+				</p>
+
 				{/* Events Grid */}
 				{loading ? (
-					<div className="flex justify-center py-20">
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+					<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+						{Array.from({ length: 25 }).map((_, i) => (
+							<div
+								key={i}
+								className="rounded-xl bg-gray-200/50 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.04] animate-pulse"
+							>
+								<div className="aspect-[2/3]" />
+								<div className="p-2 space-y-1.5">
+									<div className="h-2.5 bg-gray-300/50 dark:bg-white/[0.06] rounded w-3/4" />
+									<div className="h-2 bg-gray-300/50 dark:bg-white/[0.06] rounded w-1/2" />
+								</div>
+							</div>
+						))}
 					</div>
-				) : events.length === 0 ? (
-					<div className="text-center py-20">
-						<TicketIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-						<p className="text-gray-500 dark:text-gray-400 text-lg">
-							Belum ada event dengan e-ticketing
-						</p>
+				) : filteredEvents.length === 0 ? (
+					<div className="text-center py-16">
+						<div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center">
+							<LuTicket className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+						</div>
+						<p className="text-gray-500 dark:text-gray-400 text-sm">Tidak ada event tiket yang ditemukan</p>
 					</div>
 				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-						{events.map((event) => {
-							const availability = getTicketAvailability(event);
-							return (
-								<div
-									key={event.id}
-									className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-								>
-									{/* Image */}
-									<div className="relative h-48 bg-gray-200 dark:bg-gray-700">
-										{event.thumbnail ? (
-											<img
-												src={`${config.api.backendUrl}${event.thumbnail}`}
-												alt={event.title}
-												className="w-full h-full object-cover"
-											/>
-										) : (
-											<div className="flex items-center justify-center h-full">
-												<TicketIcon className="w-16 h-16 text-gray-400 dark:text-gray-500" />
+					<>
+						<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+							{filteredEvents.map((event) => {
+								const badge = getTicketBadge(event);
+								const availability = getTicketAvailability(event);
+								return (
+									<div
+										key={event.id}
+										onClick={() => openPurchaseModal(event)}
+										className={`group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-red-400/30 dark:hover:border-red-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer ${availability.available <= 0 ? "opacity-60" : ""}`}
+									>
+										{/* Poster - 2:3 ratio */}
+										<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-red-900/10 to-orange-900/10 overflow-hidden">
+											{event.thumbnail ? (
+												<img
+													src={getImageUrl(event.thumbnail)}
+													alt={event.title}
+													className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+													loading="lazy"
+												/>
+											) : (
+												<div className="w-full h-full flex items-center justify-center">
+													<LuTicket className="w-6 h-6 text-gray-400/40 dark:text-gray-600" />
+												</div>
+											)}
+											<div className="absolute top-1.5 left-1.5">
+												<span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${badge.className}`}>
+													{badge.label}
+												</span>
 											</div>
-										)}
-										{/* Price Badge */}
-										<div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-											{event.ticketConfig?.price === 0
-												? "GRATIS"
-												: formatCurrency(event.ticketConfig?.price || 0)}
-										</div>
-									</div>
-
-									{/* Content */}
-									<div className="p-4">
-										<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
-											{event.title}
-										</h3>
-
-										<div className="space-y-1.5 text-sm text-gray-500 dark:text-gray-400 mb-3">
-											<div className="flex items-center gap-2">
-												<CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
-												<span>{formatDate(event.startDate)}</span>
-											</div>
-											{(event.venue || event.city || event.location) && (
-												<div className="flex items-center gap-2">
-													<MapPinIcon className="w-4 h-4 flex-shrink-0" />
-													<span className="truncate">
-														{event.venue || event.city || event.location}
-													</span>
+											{availability.available <= 0 && (
+												<div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+													<span className="text-white text-xs font-bold bg-red-600/90 px-2 py-1 rounded-full">HABIS</span>
 												</div>
 											)}
 										</div>
 
-										{/* Availability */}
-										<div className="flex items-center justify-between mb-3">
-											<span
-												className={`text-sm font-medium ${
-													availability.color === "green"
-														? "text-green-600 dark:text-green-400"
-														: availability.color === "amber"
-														? "text-amber-600 dark:text-amber-400"
-														: "text-red-600 dark:text-red-400"
-												}`}
-											>
-												{availability.text}
-											</span>
-											{event.ticketConfig && (
-												<span className="text-xs text-gray-400">
-													{event.ticketConfig.soldCount}/{event.ticketConfig.quota}
+										{/* Info */}
+										<div className="p-2">
+											<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
+												{event.title}
+											</h4>
+											<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
+												<LuCalendar className="w-3 h-3 flex-shrink-0" />
+												<span className="text-[8px] lg:text-[9px]">
+													{formatShortDate(event.startDate)}
 												</span>
+											</div>
+											{(event.venue || event.city || event.location) && (
+												<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500 mt-0.5">
+													<LuMapPin className="w-3 h-3 flex-shrink-0" />
+													<span className="text-[8px] lg:text-[9px] line-clamp-1">
+														{event.city || event.venue || event.location}
+													</span>
+												</div>
 											)}
 										</div>
-
-										{/* Buy Button */}
-										<button
-											onClick={() => openPurchaseModal(event)}
-											disabled={availability.available <= 0}
-											className="w-full py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
-										>
-											{availability.available <= 0 ? "Tiket Habis" : "Beli Tiket"}
-										</button>
 									</div>
-								</div>
-							);
-						})}
-					</div>
-				)}
+								);
+							})}
+						</div>
 
-				{/* Pagination */}
-				{totalPages > 1 && (
-					<div className="flex justify-center gap-2 mt-8">
-						{Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-							<button
-								key={p}
-								onClick={() => setPage(p)}
-								className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-									p === page
-										? "bg-red-600 text-white"
-										: "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-								}`}
-							>
-								{p}
-							</button>
-						))}
-					</div>
+						{/* Pagination */}
+						{totalPages > 1 && (
+							<div className="flex items-center justify-center gap-3 mt-8">
+								<button
+									onClick={() => setPage((p) => Math.max(1, p - 1))}
+									disabled={page === 1}
+									className="w-8 h-8 rounded-full bg-gray-200/50 dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-500 dark:text-gray-400 flex items-center justify-center hover:bg-gray-300/50 dark:hover:bg-white/[0.12] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+								>
+									<LuChevronLeft className="w-4 h-4" />
+								</button>
+
+								<div className="flex gap-1.5">
+									{Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+										if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
+											return (
+												<button
+													key={p}
+													onClick={() => setPage(p)}
+													className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
+														p === page
+															? "bg-red-500 text-white"
+															: "bg-gray-200/50 dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-white/[0.12]"
+													}`}
+												>
+													{p}
+												</button>
+											);
+										} else if (p === page - 2 || p === page + 2) {
+											return (
+												<span key={p} className="w-8 h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs">
+													...
+												</span>
+											);
+										}
+										return null;
+									})}
+								</div>
+
+								<button
+									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+									disabled={page === totalPages}
+									className="w-8 h-8 rounded-full bg-gray-200/50 dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-500 dark:text-gray-400 flex items-center justify-center hover:bg-gray-300/50 dark:hover:bg-white/[0.12] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+								>
+									<LuChevronRight className="w-4 h-4" />
+								</button>
+							</div>
+						)}
+					</>
 				)}
 			</div>
 
@@ -308,7 +396,7 @@ const ETicketingPage: React.FC = () => {
 						className="absolute inset-0 bg-black/50"
 						onClick={() => setShowPurchaseModal(false)}
 					/>
-					<div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+					<div className="relative bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
 						<div className="p-6">
 							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
 								Beli Tiket
@@ -318,7 +406,7 @@ const ETicketingPage: React.FC = () => {
 							</p>
 
 							{/* Event Info */}
-							<div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 mb-6">
+							<div className="bg-white/50 dark:bg-white/[0.03] rounded-xl p-4 mb-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<div className="space-y-2 text-sm">
 									<div className="flex justify-between">
 										<span className="text-gray-500 dark:text-gray-400">Tanggal</span>
@@ -348,42 +436,42 @@ const ETicketingPage: React.FC = () => {
 							<div className="space-y-4">
 								<div>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<UserIcon className="w-4 h-4 inline mr-1" />
+										<LuUser className="w-4 h-4 inline mr-1" />
 										Nama Lengkap *
 									</label>
 									<input
 										type="text"
 										value={buyerName}
 										onChange={(e) => setBuyerName(e.target.value)}
-										className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+										className="w-full px-4 py-2.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 										placeholder="Nama lengkap"
 									/>
 								</div>
 
 								<div>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<EnvelopeIcon className="w-4 h-4 inline mr-1" />
+										<LuMail className="w-4 h-4 inline mr-1" />
 										Email *
 									</label>
 									<input
 										type="email"
 										value={buyerEmail}
 										onChange={(e) => setBuyerEmail(e.target.value)}
-										className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+										className="w-full px-4 py-2.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 										placeholder="email@example.com"
 									/>
 								</div>
 
 								<div>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<PhoneIcon className="w-4 h-4 inline mr-1" />
+										<LuPhone className="w-4 h-4 inline mr-1" />
 										No. Telepon <span className="text-gray-400">(Opsional)</span>
 									</label>
 									<input
 										type="tel"
 										value={buyerPhone}
 										onChange={(e) => setBuyerPhone(e.target.value)}
-										className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+										className="w-full px-4 py-2.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 										placeholder="+6281234567890"
 									/>
 								</div>
@@ -395,7 +483,7 @@ const ETicketingPage: React.FC = () => {
 									<div className="flex items-center gap-3">
 										<button
 											onClick={() => setQuantity(Math.max(1, quantity - 1))}
-											className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-gray-600"
+											className="w-10 h-10 rounded-lg bg-white/60 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 font-bold hover:bg-white/80 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06]"
 										>
 											-
 										</button>
@@ -415,7 +503,7 @@ const ETicketingPage: React.FC = () => {
 													)
 												)
 											}
-											className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-gray-600"
+											className="w-10 h-10 rounded-lg bg-white/60 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 font-bold hover:bg-white/80 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06]"
 										>
 											+
 										</button>
@@ -423,7 +511,7 @@ const ETicketingPage: React.FC = () => {
 								</div>
 
 								{/* Total */}
-								<div className="border-t dark:border-gray-600 pt-4">
+								<div className="border-t border-gray-200/50 dark:border-white/[0.06] pt-4">
 									<div className="flex justify-between text-lg font-bold">
 										<span className="text-gray-900 dark:text-white">Total</span>
 										<span className="text-red-600">
@@ -440,7 +528,7 @@ const ETicketingPage: React.FC = () => {
 								<div className="flex gap-3 pt-2">
 									<button
 										onClick={() => setShowPurchaseModal(false)}
-										className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+										className="flex-1 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-xl hover:bg-white/50 dark:hover:bg-white/[0.06] font-medium transition-colors"
 									>
 										Batal
 									</button>
@@ -462,11 +550,11 @@ const ETicketingPage: React.FC = () => {
 			{ticketResult && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
 					<div className="absolute inset-0 bg-black/50" />
-					<div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+					<div className="relative bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-xl w-full max-w-md overflow-hidden">
 						<div className="p-6 text-center" id="ticket-content">
 							{/* Success Icon */}
 							<div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-								<TicketIcon className="w-8 h-8 text-green-600 dark:text-green-400" />
+								<LuTicket className="w-8 h-8 text-green-600 dark:text-green-400" />
 							</div>
 
 							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
@@ -502,7 +590,7 @@ const ETicketingPage: React.FC = () => {
 							</p>
 
 							{/* Ticket Details */}
-							<div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 mb-5 text-sm text-left space-y-1.5">
+							<div className="bg-white/50 dark:bg-white/[0.03] rounded-xl p-3 mb-5 text-sm text-left space-y-1.5 border border-gray-200/50 dark:border-white/[0.06]">
 								<div className="flex justify-between">
 									<span className="text-gray-500 dark:text-gray-400">Event</span>
 									<span className="text-gray-900 dark:text-white font-medium text-right max-w-[60%]">
@@ -640,7 +728,7 @@ const ETicketingPage: React.FC = () => {
 								}}
 								className="w-full flex items-center justify-center gap-2 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors"
 							>
-								<ArrowDownTrayIcon className="w-5 h-5" />
+								<LuDownload className="w-5 h-5" />
 								Unduh Tiket
 							</button>
 						</div>

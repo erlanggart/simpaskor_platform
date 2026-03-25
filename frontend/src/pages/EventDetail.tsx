@@ -1,27 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
-	CalendarIcon,
-	MapPinIcon,
-	UsersIcon,
-	ClockIcon,
-	CurrencyDollarIcon,
-	UserGroupIcon,
-	CheckCircleIcon,
-	XCircleIcon,
-	ArrowLeftIcon,
-	TrophyIcon,
-	DocumentArrowDownIcon,
-	EyeIcon,
-	ChatBubbleLeftIcon,
-	TrashIcon,
-	InformationCircleIcon,
-	PhoneIcon,
-	UserIcon,
-	ShareIcon,
-} from "@heroicons/react/24/outline";
-import { HeartIcon as HeartIconSolid } from "@heroicons/react/24/solid";
-import { HeartIcon as HeartIconOutline } from "@heroicons/react/24/outline";
+	LuCalendar,
+	LuMapPin,
+	LuUsers,
+	LuClock,
+	LuBadgeDollarSign,
+	LuCircleCheck,
+	LuCircleX,
+	LuArrowLeft,
+	LuTrophy,
+	LuFileDown,
+	LuEye,
+	LuMessageCircle,
+	LuTrash2,
+	LuInfo,
+	LuPhone,
+	LuUser,
+	LuShare2,
+	LuHeart,
+} from "react-icons/lu";
 import api from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
 // Registration is handled via dedicated page /peserta/events/:id/register
@@ -410,10 +408,10 @@ const EventDetail: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 dark:border-cyan-400 mx-auto"></div>
-					<p className="mt-4 text-gray-600 dark:text-gray-400">
+					<div className="animate-spin rounded-full h-10 w-10 border-2 border-red-500/30 border-t-red-500 mx-auto"></div>
+					<p className="mt-4 text-sm text-gray-500 dark:text-gray-500">
 						Memuat detail event...
 					</p>
 				</div>
@@ -423,20 +421,20 @@ const EventDetail: React.FC = () => {
 
 	if (error || !event) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+			<div className="min-h-screen flex items-center justify-center px-4">
 				<div className="text-center max-w-md">
-					<XCircleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
-					<h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+					<LuCircleX className="w-12 h-12 text-red-500/60 mx-auto mb-4" />
+					<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
 						Event Tidak Ditemukan
 					</h2>
-					<p className="text-gray-600 dark:text-gray-400 mb-6">
+					<p className="text-sm text-gray-500 dark:text-gray-500 mb-6">
 						{error || "Event yang Anda cari tidak tersedia"}
 					</p>
 					<button
 						onClick={() => navigate(-1)}
-						className="inline-flex items-center px-6 py-3 bg-red-600 hover:bg-red-700 dark:bg-cyan-700 dark:hover:bg-cyan-600 text-white rounded-lg transition-colors"
+						className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
 					>
-						<ArrowLeftIcon className="w-5 h-5 mr-2" />
+						<LuArrowLeft className="w-4 h-4" />
 						Kembali
 					</button>
 				</div>
@@ -446,11 +444,11 @@ const EventDetail: React.FC = () => {
 
 	// Determine tabs for the event
 	const tabs = [
-		{ id: "info", label: "Informasi Event", icon: InformationCircleIcon },
-		{ id: "jury", label: "Juri & Penilaian", icon: TrophyIcon },
-		{ id: "peserta", label: "Peserta", icon: UserGroupIcon },
+		{ id: "info", label: "Informasi Event", icon: LuInfo },
+		{ id: "jury", label: "Juri & Penilaian", icon: LuTrophy },
+		{ id: "peserta", label: "Peserta", icon: LuUsers },
 		...(event.status === "COMPLETED"
-			? [{ id: "leaderboard", label: "Hasil Perlombaan", icon: TrophyIcon }]
+			? [{ id: "leaderboard", label: "Hasil Perlombaan", icon: LuTrophy }]
 			: []),
 	];
 
@@ -467,10 +465,7 @@ const EventDetail: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-			{/* Red-White accent line at top */}
-			<div className="h-1 bg-gradient-to-r from-red-600 via-white to-red-600 dark:from-cyan-500 dark:via-purple-500 dark:to-pink-500" />
-
+		<div className="min-h-screen transition-colors">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
 				{/* ============ HERO: Poster + Info Side-by-Side ============ */}
@@ -478,8 +473,8 @@ const EventDetail: React.FC = () => {
 
 					{/* Poster - 2 cols */}
 					<div className="lg:col-span-2">
-						<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-red-100 dark:border-gray-700/50">
-							<div className="relative w-full aspect-[3/4] bg-gradient-to-br from-red-600 to-red-800 dark:from-gray-800 dark:to-gray-900">
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-gray-200/50 dark:border-white/[0.06]">
+							<div className="relative w-full aspect-[3/4] bg-gradient-to-br from-red-600 to-red-800 dark:from-red-950 dark:to-gray-900">
 								{event.thumbnail ? (
 									<img
 										src={getImageUrl(event.thumbnail) || ""}
@@ -489,7 +484,7 @@ const EventDetail: React.FC = () => {
 									/>
 								) : (
 									<div className="flex flex-col items-center justify-center h-full gap-3">
-										<CalendarIcon className="w-20 h-20 text-white/40" />
+										<LuCalendar className="w-20 h-20 text-white/40" />
 										<span className="text-white/50 text-sm">Belum ada poster</span>
 									</div>
 								)}
@@ -515,15 +510,15 @@ const EventDetail: React.FC = () => {
 
 								{/* Registration status badge */}
 								{isEventFull() ? (
-									<div className="absolute bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+									<div className="absolute bottom-4 right-4 bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
 										Event Penuh
 									</div>
 								) : isRegistrationOpen() ? (
-									<div className="absolute bottom-4 right-4 bg-green-500 dark:bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg animate-pulse">
+									<div className="absolute bottom-4 right-4 bg-green-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg animate-pulse">
 										Pendaftaran Dibuka
 									</div>
 								) : (
-									<div className="absolute bottom-4 right-4 bg-gray-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+									<div className="absolute bottom-4 right-4 bg-gray-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
 										Pendaftaran Ditutup
 									</div>
 								)}
@@ -542,7 +537,7 @@ const EventDetail: React.FC = () => {
 							<div className="flex items-center gap-3 mb-5">
 								<span className="text-sm text-gray-500 dark:text-gray-400 italic">presented by</span>
 								<span className="font-semibold text-gray-800 dark:text-white">{event.createdBy.name}</span>
-								<span className="text-xs bg-red-100 dark:bg-cyan-900/40 text-red-700 dark:text-cyan-300 px-2 py-0.5 rounded-full">{event.createdBy.email}</span>
+								<span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full">{event.createdBy.email}</span>
 							</div>
 						)}
 
@@ -550,7 +545,9 @@ const EventDetail: React.FC = () => {
 						<div className="space-y-4 flex-1">
 							{/* Date */}
 							<div className="flex items-start gap-3">
-								<CalendarIcon className="w-5 h-5 text-red-500 dark:text-cyan-400 mt-0.5 flex-shrink-0" />
+								<div className="w-8 h-8 rounded-lg bg-red-500/10 dark:bg-red-500/10 flex items-center justify-center flex-shrink-0">
+									<LuCalendar className="w-4 h-4 text-red-500" />
+								</div>
 								<div>
 									<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Tanggal Pelaksanaan</p>
 									<p className="text-gray-900 dark:text-white font-semibold">
@@ -563,7 +560,9 @@ const EventDetail: React.FC = () => {
 							{/* Location */}
 							{event.location && (
 								<div className="flex items-start gap-3">
-									<MapPinIcon className="w-5 h-5 text-red-500 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+									<div className="w-8 h-8 rounded-lg bg-red-500/10 dark:bg-red-500/10 flex items-center justify-center flex-shrink-0">
+										<LuMapPin className="w-4 h-4 text-red-500" />
+									</div>
 									<div>
 										<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Lokasi</p>
 										<p className="text-gray-900 dark:text-white font-semibold">
@@ -576,7 +575,9 @@ const EventDetail: React.FC = () => {
 							{/* Registration Deadline */}
 							{event.registrationDeadline && (
 								<div className="flex items-start gap-3">
-									<ClockIcon className="w-5 h-5 text-red-500 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+									<div className="w-8 h-8 rounded-lg bg-red-500/10 dark:bg-red-500/10 flex items-center justify-center flex-shrink-0">
+										<LuClock className="w-4 h-4 text-red-500" />
+									</div>
 									<div>
 										<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Batas Pendaftaran</p>
 										<p className="text-gray-900 dark:text-white font-semibold">{formatDate(event.registrationDeadline)}</p>
@@ -586,20 +587,22 @@ const EventDetail: React.FC = () => {
 
 							{/* Fee */}
 							<div className="flex items-start gap-3">
-								<CurrencyDollarIcon className="w-5 h-5 text-red-500 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+								<div className="w-8 h-8 rounded-lg bg-red-500/10 dark:bg-red-500/10 flex items-center justify-center flex-shrink-0">
+									<LuBadgeDollarSign className="w-4 h-4 text-red-500" />
+								</div>
 								<div>
 									<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Biaya Pendaftaran</p>
-									<p className="text-2xl font-bold text-red-600 dark:text-yellow-400">{formatCurrency(event.registrationFee)}</p>
+									<p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(event.registrationFee)}</p>
 								</div>
 							</div>
 						</div>
 
 						{/* Registration CTA */}
-						<div className="mt-6 pt-6 border-t border-red-100 dark:border-gray-700">
+						<div className="mt-6 pt-6 border-t border-gray-200/50 dark:border-white/[0.06]">
 							{myRegistration ? (
 								<div className="text-center">
-									<div className="inline-flex items-center px-5 py-2.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-xl border border-green-200 dark:border-green-800 mb-2">
-										<CheckCircleIcon className="w-5 h-5 mr-2" />
+									<div className="inline-flex items-center px-5 py-2.5 bg-green-500/10 text-green-700 dark:text-green-400 rounded-xl border border-green-500/20 mb-2">
+										<LuCircleCheck className="w-5 h-5 mr-2" />
 										<span className="font-bold">Sudah Terdaftar</span>
 									</div>
 									<p className="text-sm text-gray-600 dark:text-gray-400">
@@ -607,7 +610,7 @@ const EventDetail: React.FC = () => {
 									</p>
 									<Link
 										to="/peserta/registrations"
-										className="mt-2 inline-block text-sm text-red-600 dark:text-cyan-400 hover:underline font-medium"
+										className="mt-2 inline-block text-sm text-red-600 dark:text-red-400 hover:underline font-medium"
 									>
 										Kelola Pendaftaran →
 									</Link>
@@ -621,12 +624,12 @@ const EventDetail: React.FC = () => {
 									<button
 										onClick={handleRegister}
 										disabled={checkingRegistration}
-										className="w-full px-6 py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 dark:from-cyan-600 dark:to-blue-600 dark:hover:from-cyan-500 dark:hover:to-blue-500 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg shadow-red-500/20 dark:shadow-cyan-900/30"
+										className="w-full px-6 py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg shadow-red-500/20"
 									>
 										{checkingRegistration ? (
 											<><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" /> Memeriksa...</>
 										) : (
-											<><UserGroupIcon className="w-5 h-5 mr-2" />{isAuthenticated ? "Daftar Sekarang" : "Login untuk Daftar"}</>
+											<><LuUsers className="w-5 h-5 mr-2" />{isAuthenticated ? "Daftar Sekarang" : "Login untuk Daftar"}</>
 										)}
 									</button>
 									{!isAuthenticated && (
@@ -638,7 +641,7 @@ const EventDetail: React.FC = () => {
 							) : (
 								<button
 									disabled
-									className="w-full px-6 py-3.5 bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl font-bold cursor-not-allowed"
+									className="w-full px-6 py-3.5 bg-gray-200 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 rounded-xl font-bold cursor-not-allowed"
 								>
 									{isEventFull() ? "Event Penuh" : "Pendaftaran Ditutup"}
 								</button>
@@ -648,8 +651,8 @@ const EventDetail: React.FC = () => {
 				</div>
 
 				{/* ============ TAB NAVIGATION ============ */}
-				<div className="border-b border-red-200 dark:border-gray-700/50 mb-6">
-					<nav className="flex gap-1 overflow-x-auto -mb-px">
+				<div className="mb-6">
+					<nav className="flex gap-2 overflow-x-auto p-1 bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl rounded-xl border border-gray-200/50 dark:border-white/[0.06]">
 						{tabs.map((tab) => {
 							const Icon = tab.icon;
 							const isActive = activeTab === tab.id;
@@ -657,13 +660,13 @@ const EventDetail: React.FC = () => {
 								<button
 									key={tab.id}
 									onClick={() => setActiveTab(tab.id)}
-									className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
+									className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap ${
 										isActive
-											? "border-red-600 text-red-600 dark:border-cyan-400 dark:text-cyan-400"
-											: "border-transparent text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-cyan-400 hover:border-red-300 dark:hover:border-cyan-600"
+											? "bg-red-600 text-white shadow-lg shadow-red-500/20"
+											: "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.06]"
 									}`}
 								>
-									<Icon className={`w-5 h-5 ${isActive ? "text-red-600 dark:text-cyan-400" : ""}`} />
+									<Icon className="w-4 h-4" />
 									{tab.label}
 								</button>
 							);
@@ -678,9 +681,9 @@ const EventDetail: React.FC = () => {
 					<div className="space-y-6">
 						{/* Description */}
 						{event.description && (
-							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-									<InformationCircleIcon className="w-5 h-5 text-red-500 dark:text-cyan-400" />
+									<LuInfo className="w-5 h-5 text-red-500" />
 									Tentang Event
 								</h2>
 								<p className="text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
@@ -691,10 +694,10 @@ const EventDetail: React.FC = () => {
 
 						{/* Juknis */}
 						{event.juknisUrl && (
-							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<div className="flex items-center justify-between mb-4">
 									<h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-										<DocumentArrowDownIcon className="w-5 h-5 text-red-500 dark:text-violet-400" />
+										<LuFileDown className="w-5 h-5 text-red-500" />
 										Petunjuk Teknis (Juknis)
 									</h2>
 								</div>
@@ -706,21 +709,21 @@ const EventDetail: React.FC = () => {
 										href={getImageUrl(event.juknisUrl) || ""}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-violet-600 dark:hover:bg-violet-500 text-white rounded-lg font-medium transition-colors"
+										className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
 									>
-										<EyeIcon className="w-5 h-5 mr-2" />
+										<LuEye className="w-5 h-5 mr-2" />
 										Buka di Tab Baru
 									</a>
 									<a
 										href={getImageUrl(event.juknisUrl) || ""}
 										download
-										className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
+										className="inline-flex items-center px-4 py-2 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/[0.06] rounded-lg font-medium transition-colors"
 									>
-										<DocumentArrowDownIcon className="w-5 h-5 mr-2" />
+										<LuFileDown className="w-5 h-5 mr-2" />
 										Download PDF
 									</a>
 								</div>
-								<div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+								<div className="border border-gray-200/50 dark:border-white/[0.06] rounded-lg overflow-hidden">
 									<iframe
 										src={getImageUrl(event.juknisUrl) || ""}
 										className="w-full bg-white"
@@ -733,15 +736,15 @@ const EventDetail: React.FC = () => {
 
 						{/* Contact Person */}
 						{(event.contactPersonName || event.contactPhone || event.organizer) && (
-							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-									<PhoneIcon className="w-5 h-5 text-red-500 dark:text-emerald-400" />
+									<LuPhone className="w-5 h-5 text-red-500" />
 									Contact Person
 								</h2>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 									{event.contactPersonName && (
-										<div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl">
-											<UserIcon className="w-8 h-8 text-red-500 dark:text-cyan-400 flex-shrink-0" />
+										<div className="flex items-center gap-3 p-4 bg-red-50/50 dark:bg-white/[0.03] rounded-xl border border-gray-200/50 dark:border-white/[0.06]">
+											<LuUser className="w-8 h-8 text-red-500 flex-shrink-0" />
 											<div>
 												<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Nama</p>
 												<p className="font-semibold text-gray-900 dark:text-white">{event.contactPersonName}</p>
@@ -749,19 +752,19 @@ const EventDetail: React.FC = () => {
 										</div>
 									)}
 									{event.contactPhone && (
-										<div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl">
-											<PhoneIcon className="w-8 h-8 text-red-500 dark:text-emerald-400 flex-shrink-0" />
+										<div className="flex items-center gap-3 p-4 bg-red-50/50 dark:bg-white/[0.03] rounded-xl border border-gray-200/50 dark:border-white/[0.06]">
+											<LuPhone className="w-8 h-8 text-red-500 flex-shrink-0" />
 											<div>
 												<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Telepon / WhatsApp</p>
-												<a href={`https://wa.me/${event.contactPhone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-red-600 dark:text-emerald-400 hover:underline">
+												<a href={`https://wa.me/${event.contactPhone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-red-600 dark:text-red-400 hover:underline">
 													{event.contactPhone}
 												</a>
 											</div>
 										</div>
 									)}
 									{event.organizer && (
-										<div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl sm:col-span-2">
-											<UsersIcon className="w-8 h-8 text-red-500 dark:text-violet-400 flex-shrink-0" />
+										<div className="flex items-center gap-3 p-4 bg-red-50/50 dark:bg-white/[0.03] rounded-xl border border-gray-200/50 dark:border-white/[0.06] sm:col-span-2">
+											<LuUsers className="w-8 h-8 text-red-500 flex-shrink-0" />
 											<div>
 												<p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Penyelenggara</p>
 												<p className="font-semibold text-gray-900 dark:text-white">{event.organizer}</p>
@@ -779,9 +782,9 @@ const EventDetail: React.FC = () => {
 					<div className="space-y-6">
 						{/* Assessment Categories */}
 						{event.assessmentCategories && event.assessmentCategories.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-									<TrophyIcon className="w-5 h-5 text-red-500 dark:text-amber-400" />
+									<LuTrophy className="w-5 h-5 text-red-500" />
 									Kriteria Penilaian
 								</h2>
 								<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -790,9 +793,9 @@ const EventDetail: React.FC = () => {
 										.map((category, idx) => (
 											<div
 												key={category.id}
-												className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50 to-white dark:from-gray-700/50 dark:to-gray-700/30 rounded-xl border border-red-100 dark:border-gray-600"
+												className="flex items-center gap-3 p-4 bg-red-50/50 dark:bg-white/[0.03] rounded-xl border border-gray-200/50 dark:border-white/[0.06]"
 											>
-												<div className="w-8 h-8 flex items-center justify-center bg-red-600 dark:bg-cyan-600 text-white rounded-full text-sm font-bold flex-shrink-0">
+												<div className="w-8 h-8 flex items-center justify-center bg-red-600 text-white rounded-full text-sm font-bold flex-shrink-0">
 													{idx + 1}
 												</div>
 												<div className="min-w-0">
@@ -801,7 +804,7 @@ const EventDetail: React.FC = () => {
 														<p className="text-xs text-gray-500 dark:text-gray-400 truncate">{category.assessmentCategory.description}</p>
 													)}
 													{category.customWeight !== null && (
-														<span className="text-xs font-bold text-red-600 dark:text-amber-400">Bobot: {category.customWeight}%</span>
+														<span className="text-xs font-bold text-red-600 dark:text-red-400">Bobot: {category.customWeight}%</span>
 													)}
 												</div>
 											</div>
@@ -813,31 +816,31 @@ const EventDetail: React.FC = () => {
 
 						{/* Jury List */}
 						{event.juryAssignments && event.juryAssignments.length > 0 ? (
-							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-									<TrophyIcon className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+									<LuTrophy className="w-5 h-5 text-yellow-500" />
 									Dewan Juri ({event.juryAssignments.length})
 								</h2>
 								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
 									{event.juryAssignments.map((assignment) => (
 										<div
 											key={assignment.id}
-											className="bg-gradient-to-b from-red-50 to-white dark:from-gray-700/50 dark:to-gray-700/30 rounded-xl p-4 text-center border border-red-100 dark:border-gray-600"
+											className="bg-white/60 dark:bg-white/[0.03] rounded-xl p-4 text-center border border-gray-200/50 dark:border-white/[0.06]"
 										>
 											<div className="relative mx-auto w-20 h-20 mb-3">
 												{assignment.jury.profile?.avatar ? (
 													<img
 														src={getImageUrl(assignment.jury.profile.avatar) || ""}
 														alt={assignment.jury.name}
-														className="w-20 h-20 rounded-lg object-cover border-2 border-red-200 dark:border-cyan-700"
+														className="w-20 h-20 rounded-lg object-cover border-2 border-red-200 dark:border-white/[0.1]"
 													/>
 												) : (
-													<div className="w-20 h-20 rounded-lg bg-gradient-to-br from-red-500 to-red-700 dark:from-cyan-600 dark:to-violet-600 flex items-center justify-center text-white text-2xl font-bold">
+													<div className="w-20 h-20 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-2xl font-bold">
 														{assignment.jury.name.charAt(0).toUpperCase()}
 													</div>
 												)}
-												<div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
-													<CheckCircleIcon className="w-3 h-3 text-white" />
+												<div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white dark:border-white/[0.06]">
+													<LuCircleCheck className="w-3 h-3 text-white" />
 												</div>
 											</div>
 											<h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-0.5 truncate">{assignment.jury.name}</h3>
@@ -847,7 +850,7 @@ const EventDetail: React.FC = () => {
 											{assignment.assignedCategories.length > 0 && (
 												<div className="flex flex-wrap justify-center gap-1 mt-1">
 													{assignment.assignedCategories.slice(0, 2).map((cat, cidx) => (
-														<span key={cidx} className="inline-flex items-center px-2 py-0.5 bg-red-100 dark:bg-cyan-900/40 text-red-700 dark:text-cyan-300 text-xs rounded-full">
+														<span key={cidx} className="inline-flex items-center px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded-full">
 															{cat.assessmentCategory.name}
 														</span>
 													))}
@@ -861,8 +864,8 @@ const EventDetail: React.FC = () => {
 								</div>
 							</div>
 						) : (
-							<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center border border-red-50 dark:border-gray-700">
-								<TrophyIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-8 text-center border border-gray-200/50 dark:border-white/[0.06]">
+								<LuTrophy className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
 								<p className="text-gray-500 dark:text-gray-400">Belum ada juri yang ditugaskan</p>
 							</div>
 						)}
@@ -873,9 +876,9 @@ const EventDetail: React.FC = () => {
 				{activeTab === "peserta" && (
 					<div className="space-y-6">
 						{/* Quota */}
-						<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 							<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-								<UsersIcon className="w-5 h-5 text-red-500 dark:text-pink-400" />
+								<LuUsers className="w-5 h-5 text-red-500" />
 								Kuota Peserta
 							</h2>
 							{event.schoolCategoryLimits && event.schoolCategoryLimits.length > 0 ? (
@@ -889,11 +892,11 @@ const EventDetail: React.FC = () => {
 											<div key={limit.id}>
 												<div className="flex items-center justify-between mb-1.5">
 													<span className="font-semibold text-gray-900 dark:text-white text-sm">{limit.schoolCategory.name}</span>
-													<span className={`text-sm font-bold ${isFull ? "text-red-600 dark:text-pink-400" : "text-gray-600 dark:text-gray-400"}`}>
+													<span className={`text-sm font-bold ${isFull ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"}`}>
 														{current} / {max} tim
 													</span>
 												</div>
-												<div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+												<div className="w-full bg-gray-200 dark:bg-white/[0.06] rounded-full h-2.5">
 													<div
 														className={`h-2.5 rounded-full transition-all ${
 															isFull ? "bg-red-500" : percentage > 75 ? "bg-yellow-500" : "bg-green-500"
@@ -907,7 +910,7 @@ const EventDetail: React.FC = () => {
 								</div>
 							) : (
 								<div className="flex items-center gap-3">
-									<UsersIcon className="w-8 h-8 text-red-500 dark:text-pink-400" />
+									<LuUsers className="w-8 h-8 text-red-500" />
 									<div>
 										<p className="text-gray-900 dark:text-white font-semibold">
 											{event.currentParticipants} / {event.maxParticipants || "∞"} terdaftar
@@ -939,20 +942,20 @@ const EventDetail: React.FC = () => {
 							const totalTeams = filteredSummary.reduce((acc, p) => acc + p.teamCount, 0);
 
 							return (
-								<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+								<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 									<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-										<UserGroupIcon className="w-5 h-5 text-red-500 dark:text-pink-400" />
+										<LuUsers className="w-5 h-5 text-red-500" />
 										Peserta Terdaftar ({totalTeams} Tim)
 									</h2>
 
 									{allCategories.length > 1 && (
-										<div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">
+										<div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200/50 dark:border-white/[0.06] pb-3">
 											<button
 												onClick={() => setParticipantTab("all")}
 												className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
 													participantTab === "all"
-														? "bg-red-600 dark:bg-cyan-600 text-white"
-														: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+														? "bg-red-600 text-white"
+														: "bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.1]"
 												}`}
 											>
 												Semua
@@ -964,7 +967,7 @@ const EventDetail: React.FC = () => {
 													className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
 														participantTab === cat
 															? "bg-red-600 text-white"
-															: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+															: "bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.1]"
 													}`}
 												>
 													{cat}
@@ -975,17 +978,17 @@ const EventDetail: React.FC = () => {
 
 									<div className="space-y-3 overflow-y-auto" style={{ maxHeight: "80vh" }}>
 										{filteredSummary.map((participant, idx) => (
-											<div key={idx} className="p-3 bg-red-50/50 dark:bg-gray-700/40 rounded-xl border border-red-100 dark:border-gray-600">
+											<div key={idx} className="p-3 bg-red-50/50 dark:bg-white/[0.03] rounded-xl border border-gray-200/50 dark:border-white/[0.06]">
 												<div className="flex items-center justify-between mb-2">
 													<span className="font-semibold text-gray-900 dark:text-white">{participant.schoolName}</span>
-													<span className="text-sm text-gray-500 dark:text-gray-400 bg-red-100 dark:bg-gray-600 px-2 py-0.5 rounded-full">{participant.teamCount} tim</span>
+													<span className="text-sm text-gray-500 dark:text-gray-400 bg-red-100 dark:bg-white/[0.06] px-2 py-0.5 rounded-full">{participant.teamCount} tim</span>
 												</div>
 												<div className="flex flex-wrap gap-2">
 													{participant.teams.map((team, tidx) => (
-														<span key={tidx} className="inline-flex items-center px-2.5 py-1 bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs rounded-full border border-red-200 dark:border-gray-500">
+														<span key={tidx} className="inline-flex items-center px-2.5 py-1 bg-white/80 dark:bg-white/[0.06] text-gray-700 dark:text-gray-200 text-xs rounded-full border border-gray-200/50 dark:border-white/[0.06]">
 															{team.name}
 															{team.category && participantTab === "all" && (
-																<span className="ml-1 text-red-500 dark:text-cyan-400">({team.category})</span>
+																<span className="ml-1 text-red-500 dark:text-red-400">({team.category})</span>
 															)}
 														</span>
 													))}
@@ -1014,15 +1017,15 @@ const EventDetail: React.FC = () => {
 					const ranked = [...filteredLeaderboard].sort((a, b) => b.grandTotal - a.grandTotal);
 
 					return (
-						<div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 							<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-								<TrophyIcon className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+								<LuTrophy className="w-5 h-5 text-yellow-500" />
 								Rekapitulasi Nilai & Peringkat
 							</h2>
 
 							{/* School Category Tabs - no "Semua" */}
 							{schoolCategories.length > 1 && (
-								<div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700 pb-3">
+								<div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200/50 dark:border-white/[0.06] pb-3">
 									{schoolCategories.map((cat) => (
 										<button
 											key={cat.id}
@@ -1030,7 +1033,7 @@ const EventDetail: React.FC = () => {
 											className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
 												currentTab === cat.id
 													? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow"
-													: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+													: "bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.1]"
 											}`}
 										>
 											{cat.name}
@@ -1042,7 +1045,7 @@ const EventDetail: React.FC = () => {
 							{/* Leaderboard Table */}
 							<div className="overflow-x-auto" style={{ maxHeight: "80vh", overflowY: "auto" }}>
 								<table className="w-full text-sm">
-									<thead className="sticky top-0 bg-gray-50 dark:bg-gray-700">
+									<thead className="sticky top-0 bg-white/60 dark:bg-white/[0.03] backdrop-blur-sm">
 										<tr>
 											<th className="px-3 py-3 text-left text-gray-500 dark:text-gray-400 font-semibold">#</th>
 											<th className="px-3 py-3 text-left text-gray-500 dark:text-gray-400 font-semibold">Peserta</th>
@@ -1050,13 +1053,13 @@ const EventDetail: React.FC = () => {
 											<th className="px-3 py-3 text-right text-gray-500 dark:text-gray-400 font-semibold">Total Nilai</th>
 										</tr>
 									</thead>
-									<tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+									<tbody className="divide-y divide-gray-200/50 dark:divide-white/[0.06]">
 										{ranked.map((entry, idx) => {
 											const rank = idx + 1;
 											const isTop3 = rank <= 3;
 											const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
 											return (
-												<tr key={entry.id} className={`${isTop3 ? "bg-yellow-50/70 dark:bg-yellow-900/10" : ""} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
+												<tr key={entry.id} className={`${isTop3 ? "bg-yellow-50/70 dark:bg-yellow-900/10" : ""} hover:bg-white/40 dark:hover:bg-white/[0.03] transition-colors`}>
 													<td className="px-3 py-3">
 														{medalEmoji ? (
 															<span className="text-lg">{medalEmoji}</span>
@@ -1071,7 +1074,7 @@ const EventDetail: React.FC = () => {
 													</td>
 													<td className="px-3 py-3 text-gray-600 dark:text-gray-400">{entry.schoolName}</td>
 													<td className="px-3 py-3 text-right">
-														<span className={`font-bold ${isTop3 ? "text-red-600 dark:text-amber-400 text-base" : "text-gray-700 dark:text-gray-300"}`}>
+														<span className={`font-bold ${isTop3 ? "text-red-600 dark:text-red-400 text-base" : "text-gray-700 dark:text-gray-300"}`}>
 															{entry.grandTotal.toFixed(1)}
 														</span>
 													</td>
@@ -1082,7 +1085,7 @@ const EventDetail: React.FC = () => {
 								</table>
 								{ranked.length === 0 && (
 									<div className="text-center py-8 text-gray-500 dark:text-gray-400">
-										<TrophyIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
+										<LuTrophy className="w-12 h-12 mx-auto mb-2 opacity-30" />
 										<p>Belum ada data peringkat untuk kategori ini</p>
 									</div>
 								)}
@@ -1092,10 +1095,10 @@ const EventDetail: React.FC = () => {
 				})()}
 
 				{/* ============ Like, Comment & Share Section ============ */}
-				<div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-red-50 dark:border-gray-700">
+				<div className="mt-8 bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 					{/* Event Caption */}
 					{event.description && (
-						<div className="mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
+						<div className="mb-5 pb-5 border-b border-gray-200/50 dark:border-white/[0.06]">
 							<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{event.title}</h2>
 							<p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-line line-clamp-3">{event.description}</p>
 						</div>
@@ -1109,28 +1112,28 @@ const EventDetail: React.FC = () => {
 								disabled={togglingLike}
 								className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all active:scale-95 ${
 									likeData.isLiked
-										? "bg-red-100 dark:bg-pink-900/40 text-red-600 dark:text-pink-400 border border-red-200 dark:border-pink-800"
-										: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+										? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50"
+										: "bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06]"
 								}`}
 							>
 								{likeData.isLiked ? (
-									<HeartIconSolid className="w-5 h-5 text-red-500" />
+									<LuHeart className="w-5 h-5 text-red-500 fill-red-500" />
 								) : (
-									<HeartIconOutline className="w-5 h-5" />
+									<LuHeart className="w-5 h-5" />
 								)}
 								<span className="font-bold">{likeData.count}</span>
 								<span className="hidden sm:inline">Suka</span>
 							</button>
 							<button
 								onClick={handleShare}
-								className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 transition-all active:scale-95"
+								className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06] transition-all active:scale-95"
 							>
-								<ShareIcon className="w-5 h-5" />
+								<LuShare2 className="w-5 h-5" />
 								<span className="hidden sm:inline">Bagikan</span>
 							</button>
 						</div>
 						<div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-							<ChatBubbleLeftIcon className="w-5 h-5" />
+							<LuMessageCircle className="w-5 h-5" />
 							<span className="text-sm">{comments.length} Komentar</span>
 						</div>
 					</div>
@@ -1140,7 +1143,7 @@ const EventDetail: React.FC = () => {
 						<div className="mb-6">
 							<div className="flex gap-3">
 								<div className="flex-shrink-0">
-									<div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 dark:from-cyan-500 dark:to-violet-600 flex items-center justify-center text-white font-bold">
+									<div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white font-bold">
 										{user?.name?.charAt(0).toUpperCase() || "U"}
 									</div>
 								</div>
@@ -1149,7 +1152,7 @@ const EventDetail: React.FC = () => {
 										value={newComment}
 										onChange={(e) => setNewComment(e.target.value)}
 										placeholder="Tulis komentar..."
-										className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 dark:focus:ring-cyan-500 focus:border-red-500 dark:focus:border-cyan-500 resize-none transition-colors"
+										className="w-full px-4 py-3 bg-white/60 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none transition-colors"
 										rows={3}
 										maxLength={1000}
 									/>
@@ -1158,7 +1161,7 @@ const EventDetail: React.FC = () => {
 										<button
 											onClick={handleAddComment}
 											disabled={!newComment.trim() || submittingComment}
-											className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
+											className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed text-sm"
 										>
 											{submittingComment ? "Mengirim..." : "Kirim"}
 										</button>
@@ -1167,12 +1170,12 @@ const EventDetail: React.FC = () => {
 							</div>
 						</div>
 					) : (
-						<div className="mb-6 p-4 bg-red-50 dark:bg-gray-700/50 rounded-xl text-center border border-red-100 dark:border-gray-600">
+						<div className="mb-6 p-4 bg-red-50/50 dark:bg-white/[0.03] rounded-xl text-center border border-gray-200/50 dark:border-white/[0.06]">
 							<p className="text-gray-600 dark:text-gray-400 mb-2">Login untuk memberikan komentar</p>
 							<Link
 								to="/login"
 								state={{ from: `/events/${id}` }}
-								className="text-red-600 dark:text-cyan-400 font-medium hover:underline"
+								className="text-red-600 dark:text-red-400 font-medium hover:underline"
 							>
 								Login Sekarang →
 							</Link>
@@ -1183,13 +1186,13 @@ const EventDetail: React.FC = () => {
 					<div className="space-y-4">
 						{comments.length === 0 ? (
 							<div className="text-center py-8 text-gray-500 dark:text-gray-400">
-								<ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 opacity-40" />
+								<LuMessageCircle className="w-12 h-12 mx-auto mb-2 opacity-40" />
 								<p>Belum ada komentar</p>
 								<p className="text-sm">Jadilah yang pertama berkomentar!</p>
 							</div>
 						) : (
 							comments.map((comment) => (
-								<div key={comment.id} className="flex gap-3 p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-100 dark:border-gray-600">
+								<div key={comment.id} className="flex gap-3 p-4 bg-white/40 dark:bg-white/[0.02] rounded-xl border border-gray-200/50 dark:border-white/[0.06]">
 									<div className="flex-shrink-0">
 										{comment.user.profile?.avatar ? (
 											<img
@@ -1198,7 +1201,7 @@ const EventDetail: React.FC = () => {
 												className="w-10 h-10 rounded-full object-cover"
 											/>
 										) : (
-											<div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 dark:from-cyan-500 dark:to-violet-600 flex items-center justify-center text-white font-bold text-sm">
+											<div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white font-bold text-sm">
 												{comment.user.name.charAt(0).toUpperCase()}
 											</div>
 										)}
@@ -1208,7 +1211,7 @@ const EventDetail: React.FC = () => {
 											<div>
 												<p className="font-semibold text-gray-900 dark:text-white">
 													{comment.user.name}
-													<span className="ml-2 text-xs font-normal px-2 py-0.5 bg-red-100 dark:bg-violet-900/40 text-red-600 dark:text-violet-300 rounded-full">
+													<span className="ml-2 text-xs font-normal px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300 rounded-full">
 														{comment.user.role}
 													</span>
 												</p>
@@ -1220,10 +1223,10 @@ const EventDetail: React.FC = () => {
 											{(user?.id === comment.user.id || user?.role === "SUPERADMIN" || user?.role === "PANITIA") && (
 												<button
 													onClick={() => handleDeleteComment(comment.id)}
-													className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+													className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-white/[0.06] rounded-lg transition-colors"
 													title="Hapus komentar"
 												>
-													<TrashIcon className="w-4 h-4" />
+													<LuTrash2 className="w-4 h-4" />
 												</button>
 											)}
 										</div>

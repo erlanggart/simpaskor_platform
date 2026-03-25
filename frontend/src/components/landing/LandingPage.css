@@ -1,0 +1,425 @@
+/* ===== Landing Page - Full Screen Section Scroll ===== */
+
+/* Scroll snap container - fits inside MainLayout content area */
+.landing-scroll-container {
+	height: calc(100vh - 3.5rem); /* minus header height */
+	overflow-y: auto;
+	scroll-snap-type: y mandatory;
+	scroll-behavior: smooth;
+	-webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbar but keep functionality */
+.landing-scroll-container::-webkit-scrollbar {
+	width: 0px;
+	background: transparent;
+}
+
+.landing-scroll-container {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+/* Each section takes full visible height inside the container */
+.landing-section-inner {
+	height: calc(100vh - 3.5rem);
+	scroll-snap-align: start;
+	scroll-snap-stop: always;
+	position: relative;
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+}
+
+/* ===== Mobile: disable snap, allow sections to grow ===== */
+@media (max-width: 767px) {
+	.landing-scroll-container {
+		height: auto;
+		overflow-y: visible;
+		scroll-snap-type: none;
+	}
+
+	.landing-section-inner {
+		height: auto;
+		min-height: calc(100vh - 3.5rem - 4rem); /* viewport - header - bottom nav */
+		scroll-snap-align: none;
+		scroll-snap-stop: unset;
+		overflow: visible;
+		align-items: flex-start;
+		padding-top: 2rem;
+		padding-bottom: 2rem;
+	}
+}
+
+/* ===== Main Layout Background Grid + Gradient (Dark) ===== */
+.main-layout-bg {
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	/* Dark mode default */
+	background-color: #080810;
+	background-image: linear-gradient(
+			rgba(255, 255, 255, 0.025) 1px,
+			transparent 1px
+		),
+		linear-gradient(
+			90deg,
+			rgba(255, 255, 255, 0.025) 1px,
+			transparent 1px
+		);
+	background-size: 64px 64px;
+}
+
+/* Red gradient overlay - Dark (stronger so grid lines pop) */
+.main-layout-bg::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(
+			ellipse 90% 70% at 50% 40%,
+			rgba(185, 28, 28, 0.18) 0%,
+			rgba(127, 29, 29, 0.09) 35%,
+			rgba(80, 10, 10, 0.04) 60%,
+			transparent 80%
+		),
+		radial-gradient(
+			circle 500px at 25% 70%,
+			rgba(220, 38, 38, 0.1) 0%,
+			transparent 100%
+		),
+		radial-gradient(
+			circle 400px at 75% 25%,
+			rgba(185, 28, 28, 0.08) 0%,
+			transparent 100%
+		);
+	pointer-events: none;
+}
+
+/* Secondary accent glow - Dark */
+.main-layout-bg::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(
+			circle 400px at 20% 80%,
+			rgba(220, 38, 38, 0.06) 0%,
+			transparent 100%
+		),
+		radial-gradient(
+			circle 300px at 80% 20%,
+			rgba(239, 68, 68, 0.05) 0%,
+			transparent 100%
+		);
+	pointer-events: none;
+}
+
+/* ===== Light Mode Background ===== */
+:root:not(.dark) .main-layout-bg,
+html:not(.dark) .main-layout-bg {
+	background-color: #fafafa;
+	background-image: linear-gradient(
+			rgba(220, 38, 38, 0.06) 1px,
+			transparent 1px
+		),
+		linear-gradient(
+			90deg,
+			rgba(220, 38, 38, 0.06) 1px,
+			transparent 1px
+		);
+	background-size: 64px 64px;
+}
+
+:root:not(.dark) .main-layout-bg::before,
+html:not(.dark) .main-layout-bg::before {
+	background:
+		radial-gradient(
+			ellipse 90% 70% at 50% 40%,
+			rgba(239, 68, 68, 0.09) 0%,
+			rgba(252, 165, 165, 0.05) 35%,
+			transparent 70%
+		),
+		radial-gradient(
+			circle 400px at 25% 70%,
+			rgba(239, 68, 68, 0.04) 0%,
+			transparent 100%
+		);
+}
+
+:root:not(.dark) .main-layout-bg::after,
+html:not(.dark) .main-layout-bg::after {
+	background: radial-gradient(
+			circle 400px at 20% 80%,
+			rgba(239, 68, 68, 0.03) 0%,
+			transparent 100%
+		),
+		radial-gradient(
+			circle 300px at 80% 20%,
+			rgba(252, 165, 165, 0.03) 0%,
+			transparent 100%
+		);
+}
+
+/* ===== Neon Red Lines Overlay ===== */
+.neon-red-lines {
+	position: fixed;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+/* Horizontal neon lines — fading/tapered ends */
+.neon-red-lines::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background:
+		/* H1: top-left, short — smooth fade both ends */
+		linear-gradient(90deg, transparent 4.5%, rgba(239, 68, 68, 0) 5%, rgba(239, 68, 68, 0.65) 6.5%, rgba(239, 68, 68, 0.8) 7%, rgba(239, 68, 68, 0.65) 8%, rgba(239, 68, 68, 0) 9.5%, transparent 10%) no-repeat 0 12%,
+		/* H2: right side, medium */
+		linear-gradient(90deg, transparent 61%, rgba(220, 38, 38, 0) 61.5%, rgba(220, 38, 38, 0.55) 63.5%, rgba(220, 38, 38, 0.7) 65%, rgba(220, 38, 38, 0.55) 66.5%, rgba(220, 38, 38, 0) 68.5%, transparent 69%) no-repeat 0 28%,
+		/* H3: center-left, long */
+		linear-gradient(90deg, transparent 14%, rgba(248, 113, 113, 0) 14.5%, rgba(248, 113, 113, 0.5) 16.5%, rgba(248, 113, 113, 0.65) 18%, rgba(248, 113, 113, 0.5) 20%, rgba(248, 113, 113, 0) 22.5%, transparent 23%) no-repeat 0 45%,
+		/* H4: far right, short */
+		linear-gradient(90deg, transparent 77%, rgba(239, 68, 68, 0) 77.5%, rgba(239, 68, 68, 0.55) 79%, rgba(239, 68, 68, 0.7) 80%, rgba(239, 68, 68, 0.55) 81%, rgba(239, 68, 68, 0) 82.5%, transparent 83%) no-repeat 0 63%,
+		/* H5: left, medium */
+		linear-gradient(90deg, transparent 2%, rgba(185, 28, 28, 0) 2.5%, rgba(185, 28, 28, 0.4) 4.5%, rgba(185, 28, 28, 0.55) 5.5%, rgba(185, 28, 28, 0.4) 7%, rgba(185, 28, 28, 0) 8.5%, transparent 9%) no-repeat 0 78%,
+		/* H6: center, tiny */
+		linear-gradient(90deg, transparent 41%, rgba(248, 113, 113, 0) 41.5%, rgba(248, 113, 113, 0.5) 42.5%, rgba(248, 113, 113, 0.6) 43%, rgba(248, 113, 113, 0.5) 43.5%, rgba(248, 113, 113, 0) 44.5%, transparent 45%) no-repeat 0 91%;
+	background-size: 100% 2px, 100% 2px, 100% 2px, 100% 2px, 100% 2px, 100% 2px;
+	filter: blur(0px);
+}
+
+/* Vertical neon lines — fading/tapered ends */
+.neon-red-lines::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background:
+		/* V1: top-left, medium */
+		linear-gradient(180deg, transparent 2%, rgba(239, 68, 68, 0) 2.5%, rgba(239, 68, 68, 0.6) 4.5%, rgba(239, 68, 68, 0.8) 6%, rgba(239, 68, 68, 0.6) 8%, rgba(239, 68, 68, 0) 9.5%, transparent 10%) no-repeat 8% 0,
+		/* V2: right side, medium */
+		linear-gradient(180deg, transparent 34%, rgba(220, 38, 38, 0) 34.5%, rgba(220, 38, 38, 0.5) 36.5%, rgba(220, 38, 38, 0.65) 37.5%, rgba(220, 38, 38, 0.5) 39%, rgba(220, 38, 38, 0) 40.5%, transparent 41%) no-repeat 72% 0,
+		/* V3: center-left, short */
+		linear-gradient(180deg, transparent 54%, rgba(248, 113, 113, 0) 54.5%, rgba(248, 113, 113, 0.45) 55.5%, rgba(248, 113, 113, 0.6) 56.5%, rgba(248, 113, 113, 0.45) 57.5%, rgba(248, 113, 113, 0) 58.5%, transparent 59%) no-repeat 35% 0,
+		/* V4: far left, long */
+		linear-gradient(180deg, transparent 14%, rgba(239, 68, 68, 0) 14.5%, rgba(239, 68, 68, 0.45) 17%, rgba(239, 68, 68, 0.6) 18.5%, rgba(239, 68, 68, 0.45) 20.5%, rgba(239, 68, 68, 0) 22.5%, transparent 23%) no-repeat 22% 0,
+		/* V5: right-center, tiny */
+		linear-gradient(180deg, transparent 69%, rgba(185, 28, 28, 0) 69.5%, rgba(185, 28, 28, 0.5) 70.5%, rgba(185, 28, 28, 0.6) 71.5%, rgba(185, 28, 28, 0.5) 72.5%, rgba(185, 28, 28, 0) 73.5%, transparent 74%) no-repeat 88% 0,
+		/* V6: mid-bottom, medium */
+		linear-gradient(180deg, transparent 81%, rgba(248, 113, 113, 0) 81.5%, rgba(248, 113, 113, 0.4) 83.5%, rgba(248, 113, 113, 0.55) 85%, rgba(248, 113, 113, 0.4) 86.5%, rgba(248, 113, 113, 0) 87.5%, transparent 88%) no-repeat 55% 0;
+	background-size: 2px 100%, 2px 100%, 2px 100%, 2px 100%, 2px 100%, 2px 100%;
+	filter: blur(0px);
+}
+
+/* Dark mode: add neon glow with drop-shadow */
+.dark .neon-red-lines::before,
+.dark .neon-red-lines::after {
+	filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6))
+		drop-shadow(0 0 12px rgba(239, 68, 68, 0.3))
+		drop-shadow(0 0 24px rgba(220, 38, 38, 0.15));
+}
+
+/* Light mode: subtle tapered lines */
+:root:not(.dark) .neon-red-lines::before {
+	background:
+		linear-gradient(90deg, transparent 4.5%, rgba(220, 38, 38, 0) 5%, rgba(220, 38, 38, 0.15) 6.5%, rgba(220, 38, 38, 0.2) 7%, rgba(220, 38, 38, 0.15) 8%, rgba(220, 38, 38, 0) 9.5%, transparent 10%) no-repeat 0 12%,
+		linear-gradient(90deg, transparent 61%, rgba(220, 38, 38, 0) 61.5%, rgba(220, 38, 38, 0.12) 63.5%, rgba(220, 38, 38, 0.18) 65%, rgba(220, 38, 38, 0.12) 66.5%, rgba(220, 38, 38, 0) 68.5%, transparent 69%) no-repeat 0 28%,
+		linear-gradient(90deg, transparent 14%, rgba(220, 38, 38, 0) 14.5%, rgba(220, 38, 38, 0.1) 16.5%, rgba(220, 38, 38, 0.16) 18%, rgba(220, 38, 38, 0.1) 20%, rgba(220, 38, 38, 0) 22.5%, transparent 23%) no-repeat 0 45%,
+		linear-gradient(90deg, transparent 77%, rgba(220, 38, 38, 0) 77.5%, rgba(220, 38, 38, 0.12) 79%, rgba(220, 38, 38, 0.16) 80%, rgba(220, 38, 38, 0.12) 81%, rgba(220, 38, 38, 0) 82.5%, transparent 83%) no-repeat 0 63%,
+		linear-gradient(90deg, transparent 2%, rgba(220, 38, 38, 0) 2.5%, rgba(220, 38, 38, 0.1) 4.5%, rgba(220, 38, 38, 0.14) 5.5%, rgba(220, 38, 38, 0.1) 7%, rgba(220, 38, 38, 0) 8.5%, transparent 9%) no-repeat 0 78%,
+		linear-gradient(90deg, transparent 41%, rgba(220, 38, 38, 0) 41.5%, rgba(220, 38, 38, 0.12) 42.5%, rgba(220, 38, 38, 0.16) 43%, rgba(220, 38, 38, 0.12) 43.5%, rgba(220, 38, 38, 0) 44.5%, transparent 45%) no-repeat 0 91%;
+	background-size: 100% 1px, 100% 1px, 100% 1px, 100% 1px, 100% 1px, 100% 1px;
+	filter: none;
+}
+
+:root:not(.dark) .neon-red-lines::after {
+	background:
+		linear-gradient(180deg, transparent 2%, rgba(220, 38, 38, 0) 2.5%, rgba(220, 38, 38, 0.14) 4.5%, rgba(220, 38, 38, 0.2) 6%, rgba(220, 38, 38, 0.14) 8%, rgba(220, 38, 38, 0) 9.5%, transparent 10%) no-repeat 8% 0,
+		linear-gradient(180deg, transparent 34%, rgba(220, 38, 38, 0) 34.5%, rgba(220, 38, 38, 0.1) 36.5%, rgba(220, 38, 38, 0.15) 37.5%, rgba(220, 38, 38, 0.1) 39%, rgba(220, 38, 38, 0) 40.5%, transparent 41%) no-repeat 72% 0,
+		linear-gradient(180deg, transparent 54%, rgba(220, 38, 38, 0) 54.5%, rgba(220, 38, 38, 0.08) 55.5%, rgba(220, 38, 38, 0.13) 56.5%, rgba(220, 38, 38, 0.08) 57.5%, rgba(220, 38, 38, 0) 58.5%, transparent 59%) no-repeat 35% 0,
+		linear-gradient(180deg, transparent 14%, rgba(220, 38, 38, 0) 14.5%, rgba(220, 38, 38, 0.08) 17%, rgba(220, 38, 38, 0.14) 18.5%, rgba(220, 38, 38, 0.08) 20.5%, rgba(220, 38, 38, 0) 22.5%, transparent 23%) no-repeat 22% 0,
+		linear-gradient(180deg, transparent 69%, rgba(220, 38, 38, 0) 69.5%, rgba(220, 38, 38, 0.1) 70.5%, rgba(220, 38, 38, 0.14) 71.5%, rgba(220, 38, 38, 0.1) 72.5%, rgba(220, 38, 38, 0) 73.5%, transparent 74%) no-repeat 88% 0,
+		linear-gradient(180deg, transparent 81%, rgba(220, 38, 38, 0) 81.5%, rgba(220, 38, 38, 0.08) 83.5%, rgba(220, 38, 38, 0.12) 85%, rgba(220, 38, 38, 0.08) 86.5%, rgba(220, 38, 38, 0) 87.5%, transparent 88%) no-repeat 55% 0;
+	background-size: 1px 100%, 1px 100%, 1px 100%, 1px 100%, 1px 100%, 1px 100%;
+	filter: none;
+}
+
+/* ===== Gradient Title Text ===== */
+.landing-title-gradient {
+	background: linear-gradient(135deg, #ef4444 0%, #dc2626 30%, #ffffff 60%, #fca5a5 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+/* Light mode title gradients */
+:root:not(.dark) .landing-title-gradient,
+html:not(.dark) .landing-title-gradient {
+	background: linear-gradient(135deg, #dc2626 0%, #b91c1c 30%, #1f2937 60%, #ef4444 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.landing-title-gradient-marketplace {
+	background: linear-gradient(135deg, #f97316 0%, #ef4444 30%, #ffffff 60%, #fed7aa 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+:root:not(.dark) .landing-title-gradient-marketplace,
+html:not(.dark) .landing-title-gradient-marketplace {
+	background: linear-gradient(135deg, #ea580c 0%, #dc2626 30%, #1f2937 60%, #f97316 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.landing-title-gradient-ticketing {
+	background: linear-gradient(135deg, #eab308 0%, #f59e0b 30%, #ffffff 60%, #fef08a 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+:root:not(.dark) .landing-title-gradient-ticketing,
+html:not(.dark) .landing-title-gradient-ticketing {
+	background: linear-gradient(135deg, #ca8a04 0%, #d97706 30%, #1f2937 60%, #eab308 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+.landing-title-gradient-voting {
+	background: linear-gradient(135deg, #a855f7 0%, #ec4899 30%, #ffffff 60%, #e9d5ff 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+:root:not(.dark) .landing-title-gradient-voting,
+html:not(.dark) .landing-title-gradient-voting {
+	background: linear-gradient(135deg, #9333ea 0%, #db2777 30%, #1f2937 60%, #a855f7 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+/* ===== Section Icon Glow ===== */
+.section-icon-glow {
+	position: relative;
+}
+
+.section-icon-glow::before {
+	content: "";
+	position: absolute;
+	inset: -20px;
+	background: radial-gradient(
+		circle,
+		rgba(239, 68, 68, 0.15) 0%,
+		transparent 70%
+	);
+	border-radius: 50%;
+	pointer-events: none;
+}
+
+:root:not(.dark) .section-icon-glow::before,
+html:not(.dark) .section-icon-glow::before {
+	background: radial-gradient(
+		circle,
+		rgba(239, 68, 68, 0.08) 0%,
+		transparent 70%
+	);
+}
+
+.section-icon-glow-orange::before {
+	background: radial-gradient(
+		circle,
+		rgba(249, 115, 22, 0.15) 0%,
+		transparent 70%
+	);
+}
+
+:root:not(.dark) .section-icon-glow-orange::before,
+html:not(.dark) .section-icon-glow-orange::before {
+	background: radial-gradient(
+		circle,
+		rgba(249, 115, 22, 0.08) 0%,
+		transparent 70%
+	);
+}
+
+.section-icon-glow-yellow::before {
+	background: radial-gradient(
+		circle,
+		rgba(234, 179, 8, 0.15) 0%,
+		transparent 70%
+	);
+}
+
+:root:not(.dark) .section-icon-glow-yellow::before,
+html:not(.dark) .section-icon-glow-yellow::before {
+	background: radial-gradient(
+		circle,
+		rgba(234, 179, 8, 0.08) 0%,
+		transparent 70%
+	);
+}
+
+.section-icon-glow-purple::before {
+	background: radial-gradient(
+		circle,
+		rgba(168, 85, 247, 0.15) 0%,
+		transparent 70%
+	);
+}
+
+:root:not(.dark) .section-icon-glow-purple::before,
+html:not(.dark) .section-icon-glow-purple::before {
+	background: radial-gradient(
+		circle,
+		rgba(168, 85, 247, 0.08) 0%,
+		transparent 70%
+	);
+}
+
+/* ===== Floating Decoration ===== */
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(0px);
+	}
+	50% {
+		transform: translateY(-10px);
+	}
+}
+
+.animate-float {
+	animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+	animation: float 6s ease-in-out infinite;
+	animation-delay: 3s;
+}
+
+/* ===== Scroll indicator ===== */
+@keyframes scrollBounce {
+	0%,
+	100% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+	50% {
+		transform: translateY(8px);
+		opacity: 0.5;
+	}
+}
+
+.animate-scroll-bounce {
+	animation: scrollBounce 2s ease-in-out infinite;
+}

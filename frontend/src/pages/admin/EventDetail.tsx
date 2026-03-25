@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
-	CalendarIcon,
-	MapPinIcon,
-	UsersIcon,
-	CurrencyDollarIcon,
-	UserGroupIcon,
-	TrophyIcon,
-	PencilSquareIcon,
-	ArrowLeftIcon,
-	BookOpenIcon,
-	ChartBarIcon,
-	ExclamationTriangleIcon,
-	CheckCircleIcon,
-	ClockIcon,
-	XCircleIcon,
-} from "@heroicons/react/24/outline";
+	LuCalendar,
+	LuMapPin,
+	LuUsers,
+	LuBadgeDollarSign,
+	LuUserCog,
+	LuTrophy,
+	LuPencil,
+	LuArrowLeft,
+	LuBookOpen,
+	LuChartBar,
+	LuTriangleAlert,
+	LuCircleCheck,
+	LuClock,
+	LuCircleX,
+} from "react-icons/lu";
 import { api } from "../../utils/api";
 
 interface SchoolCategoryLimit {
@@ -214,59 +214,59 @@ const AdminEventDetail: React.FC = () => {
 	const getStatusConfig = (status: string) => {
 		const configs: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
 			DRAFT: {
-				color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-				icon: <ExclamationTriangleIcon className="w-4 h-4" />,
+				color: "bg-gray-500/20 text-gray-400 border border-gray-500/20",
+				icon: <LuTriangleAlert className="w-4 h-4" />,
 				label: "Draft",
 			},
 			PUBLISHED: {
-				color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-				icon: <CheckCircleIcon className="w-4 h-4" />,
+				color: "bg-green-500/20 text-green-400 border border-green-500/20",
+				icon: <LuCircleCheck className="w-4 h-4" />,
 				label: "Published",
 			},
 			ONGOING: {
-				color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-				icon: <ClockIcon className="w-4 h-4" />,
+				color: "bg-blue-500/20 text-blue-400 border border-blue-500/20",
+				icon: <LuClock className="w-4 h-4" />,
 				label: "Ongoing",
 			},
 			COMPLETED: {
-				color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-				icon: <CheckCircleIcon className="w-4 h-4" />,
+				color: "bg-purple-500/20 text-purple-400 border border-purple-500/20",
+				icon: <LuCircleCheck className="w-4 h-4" />,
 				label: "Completed",
 			},
 			CANCELLED: {
-				color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-				icon: <XCircleIcon className="w-4 h-4" />,
+				color: "bg-red-500/20 text-red-400 border border-red-500/20",
+				icon: <LuCircleX className="w-4 h-4" />,
 				label: "Cancelled",
 			},
 		};
-		return configs[status] || configs.DRAFT;
+		return (configs[status] || configs.DRAFT)!;
 	};
 
 	const tabs: { key: TabType; label: string; icon: React.ReactNode }[] = [
-		{ key: "info", label: "Informasi", icon: <CalendarIcon className="w-5 h-5" /> },
-		{ key: "panitia", label: "Panitia", icon: <UserGroupIcon className="w-5 h-5" /> },
-		{ key: "juri", label: "Juri", icon: <TrophyIcon className="w-5 h-5" /> },
-		{ key: "peserta", label: "Peserta", icon: <UsersIcon className="w-5 h-5" /> },
-		{ key: "materi", label: "Materi", icon: <BookOpenIcon className="w-5 h-5" /> },
-		{ key: "rekap", label: "Rekapitulasi", icon: <ChartBarIcon className="w-5 h-5" /> },
+		{ key: "info", label: "Informasi", icon: <LuCalendar className="w-4 h-4" /> },
+		{ key: "panitia", label: "Panitia", icon: <LuUserCog className="w-4 h-4" /> },
+		{ key: "juri", label: "Juri", icon: <LuTrophy className="w-4 h-4" /> },
+		{ key: "peserta", label: "Peserta", icon: <LuUsers className="w-4 h-4" /> },
+		{ key: "materi", label: "Materi", icon: <LuBookOpen className="w-4 h-4" /> },
+		{ key: "rekap", label: "Rekapitulasi", icon: <LuChartBar className="w-4 h-4" /> },
 	];
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+			<div className="min-h-screen flex items-center justify-center">
+				<div className="animate-spin rounded-full h-10 w-10 border-2 border-red-500/30 border-t-red-500"></div>
 			</div>
 		);
 	}
 
 	if (!event) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+			<div className="min-h-screen flex items-center justify-center">
 				<div className="text-center">
 					<h2 className="text-xl font-semibold text-gray-900 dark:text-white">Event tidak ditemukan</h2>
 					<button
 						onClick={() => navigate("/admin/events")}
-						className="mt-4 text-red-600 hover:text-red-700"
+						className="mt-4 text-red-500 hover:text-red-400 text-sm"
 					>
 						Kembali ke Event Management
 					</button>
@@ -278,38 +278,38 @@ const AdminEventDetail: React.FC = () => {
 	const statusConfig = getStatusConfig(event.status);
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen transition-colors">
 			{/* Header */}
-			<header className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900/50">
+			<header className="border-b border-gray-200/30 dark:border-white/[0.06] bg-white/60 dark:bg-white/[0.02] backdrop-blur-xl">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex items-center justify-between py-6">
+					<div className="flex items-center justify-between py-5">
 						<div className="flex items-center gap-4">
 							<button
 								onClick={() => navigate("/admin/events")}
-								className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
+								className="p-2 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
 							>
-								<ArrowLeftIcon className="w-5 h-5" />
+								<LuArrowLeft className="w-4 h-4" />
 							</button>
 							<div>
 								<div className="flex items-center gap-3">
-									<h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+									<h1 className="text-xl font-bold text-gray-900 dark:text-white">
 										{event.title}
 									</h1>
-									<span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${statusConfig.color}`}>
+									<span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig.color}`}>
 										{statusConfig.icon}
 										{statusConfig.label}
 									</span>
 								</div>
-								<p className="text-gray-600 dark:text-gray-400 mt-1">
+								<p className="text-sm text-gray-500 dark:text-gray-500 mt-0.5">
 									{event.organizer || "No organizer"}
 								</p>
 							</div>
 						</div>
 						<Link
 							to={`/admin/events/${event.id}/edit`}
-							className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+							className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
 						>
-							<PencilSquareIcon className="w-5 h-5" />
+							<LuPencil className="w-4 h-4" />
 							Edit Event
 						</Link>
 					</div>
@@ -317,31 +317,29 @@ const AdminEventDetail: React.FC = () => {
 			</header>
 
 			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Tabs */}
-				<div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-					<nav className="flex space-x-8 overflow-x-auto" aria-label="Tabs">
-						{tabs.map((tab) => (
-							<button
-								key={tab.key}
-								onClick={() => setActiveTab(tab.key)}
-								className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-									activeTab === tab.key
-										? "border-red-500 text-red-600 dark:text-red-400"
-										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-								}`}
-							>
-								{tab.icon}
-								{tab.label}
-							</button>
-						))}
-					</nav>
+				{/* Tabs - pill style */}
+				<div className="mb-6 flex gap-1 overflow-x-auto pb-1">
+					{tabs.map((tab) => (
+						<button
+							key={tab.key}
+							onClick={() => setActiveTab(tab.key)}
+							className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+								activeTab === tab.key
+									? "bg-red-500/15 text-red-500 dark:text-red-400 border border-red-500/20"
+									: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-500 dark:text-gray-500 border border-gray-200/30 dark:border-white/[0.04] hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.06]"
+							}`}
+						>
+							{tab.icon}
+							{tab.label}
+						</button>
+					))}
 				</div>
 
 				{/* Tab Content */}
 				{activeTab === "info" && (
 					<div className="space-y-6">
 						{/* Event Thumbnail & Basic Info */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl overflow-hidden">
 							<div className="md:flex">
 								{event.thumbnail && (
 									<div className="md:w-1/3">
@@ -353,57 +351,67 @@ const AdminEventDetail: React.FC = () => {
 									</div>
 								)}
 								<div className={`p-6 ${event.thumbnail ? "md:w-2/3" : "w-full"}`}>
-									<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Informasi Event</h3>
+									<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Informasi Event</h3>
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<div className="flex items-start gap-3">
-											<CalendarIcon className="w-5 h-5 text-gray-400 mt-0.5" />
+											<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+												<LuCalendar className="w-4 h-4 text-red-500/80" />
+											</div>
 											<div>
-												<p className="text-sm text-gray-500 dark:text-gray-400">Tanggal</p>
-												<p className="text-gray-900 dark:text-white">
+												<p className="text-xs text-gray-400 dark:text-gray-500">Tanggal</p>
+												<p className="text-sm text-gray-900 dark:text-white">
 													{formatDate(event.startDate)} - {formatDate(event.endDate)}
 												</p>
 											</div>
 										</div>
 										<div className="flex items-start gap-3">
-											<MapPinIcon className="w-5 h-5 text-gray-400 mt-0.5" />
+											<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+												<LuMapPin className="w-4 h-4 text-red-500/80" />
+											</div>
 											<div>
-												<p className="text-sm text-gray-500 dark:text-gray-400">Lokasi</p>
-												<p className="text-gray-900 dark:text-white">{event.location || "-"}</p>
+												<p className="text-xs text-gray-400 dark:text-gray-500">Lokasi</p>
+												<p className="text-sm text-gray-900 dark:text-white">{event.location || "-"}</p>
 												{event.venue && (
-													<p className="text-sm text-gray-600 dark:text-gray-400">{event.venue}</p>
+													<p className="text-xs text-gray-500 dark:text-gray-500">{event.venue}</p>
 												)}
 											</div>
 										</div>
 										<div className="flex items-start gap-3">
-											<UsersIcon className="w-5 h-5 text-gray-400 mt-0.5" />
+											<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+												<LuUsers className="w-4 h-4 text-red-500/80" />
+											</div>
 											<div>
-												<p className="text-sm text-gray-500 dark:text-gray-400">Peserta</p>
-												<p className="text-gray-900 dark:text-white">
+												<p className="text-xs text-gray-400 dark:text-gray-500">Peserta</p>
+												<p className="text-sm text-gray-900 dark:text-white">
 													{event.currentParticipants} / {event.maxParticipants || "∞"}
 												</p>
 											</div>
 										</div>
 										<div className="flex items-start gap-3">
-											<CurrencyDollarIcon className="w-5 h-5 text-gray-400 mt-0.5" />
+											<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+												<LuBadgeDollarSign className="w-4 h-4 text-red-500/80" />
+											</div>
 											<div>
-												<p className="text-sm text-gray-500 dark:text-gray-400">Biaya Registrasi</p>
-												<p className="text-gray-900 dark:text-white">{formatCurrency(event.registrationFee)}</p>
+												<p className="text-xs text-gray-400 dark:text-gray-500">Biaya Registrasi</p>
+												<p className="text-sm text-gray-900 dark:text-white">{formatCurrency(event.registrationFee)}</p>
 											</div>
 										</div>
 										{event.registrationDeadline && (
 											<div className="flex items-start gap-3">
-												<ClockIcon className="w-5 h-5 text-gray-400 mt-0.5" />
+												<div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center flex-shrink-0">
+													<LuClock className="w-4 h-4 text-red-500/80" />
+												</div>
 												<div>
-													<p className="text-sm text-gray-500 dark:text-gray-400">Batas Registrasi</p>
-													<p className="text-gray-900 dark:text-white">{formatDate(event.registrationDeadline)}</p>
+													<p className="text-xs text-gray-400 dark:text-gray-500">Batas Registrasi</p>
+													<p className="text-sm text-gray-900 dark:text-white">{formatDate(event.registrationDeadline)}</p>
 												</div>
 											</div>
 										)}
 									</div>
 									{event.description && (
-										<div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-											<h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Deskripsi</h4>
-											<p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">{event.description}</p>
+										<div className="mt-4 pt-4 border-t border-gray-200/30 dark:border-white/[0.06]">
+											<h4 className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-2">Deskripsi</h4>
+											<p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{event.description}</p>
 										</div>
 									)}
 								</div>
@@ -412,13 +420,13 @@ const AdminEventDetail: React.FC = () => {
 
 						{/* School Category Limits */}
 						{event.schoolCategoryLimits && event.schoolCategoryLimits.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-								<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Kuota per Kategori Sekolah</h3>
-								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+								<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Kuota per Kategori Sekolah</h3>
+								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 									{event.schoolCategoryLimits.map((limit) => (
-										<div key={limit.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-											<p className="font-medium text-gray-900 dark:text-white">{limit.schoolCategory.name}</p>
-											<p className="text-sm text-gray-600 dark:text-gray-400">
+										<div key={limit.id} className="bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl p-4">
+											<p className="text-sm font-medium text-gray-900 dark:text-white">{limit.schoolCategory.name}</p>
+											<p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
 												{limit.currentParticipants || 0} / {limit.maxParticipants} peserta
 											</p>
 										</div>
@@ -429,13 +437,13 @@ const AdminEventDetail: React.FC = () => {
 
 						{/* Assessment Categories */}
 						{event.assessmentCategories && event.assessmentCategories.length > 0 && (
-							<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-								<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Kategori Penilaian</h3>
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+								<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Kategori Penilaian</h3>
 								<div className="flex flex-wrap gap-2">
 									{event.assessmentCategories.map((cat) => (
 										<span
 											key={cat.id}
-											className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-sm font-medium"
+											className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-medium"
 										>
 											{cat.assessmentCategory.name}
 										</span>
@@ -447,66 +455,66 @@ const AdminEventDetail: React.FC = () => {
 				)}
 
 				{activeTab === "panitia" && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-						<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Panitia Event</h3>
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+						<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Panitia Event</h3>
 						{event.createdBy ? (
-							<div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-								<div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-									<span className="text-red-600 dark:text-red-400 font-semibold text-lg">
+							<div className="flex items-center gap-4 p-4 bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl">
+								<div className="w-11 h-11 bg-red-500/15 rounded-xl flex items-center justify-center border border-red-500/20">
+									<span className="text-red-500 font-semibold text-lg">
 										{event.createdBy.name.charAt(0).toUpperCase()}
 									</span>
 								</div>
 								<div>
-									<p className="font-medium text-gray-900 dark:text-white">{event.createdBy.name}</p>
-									<p className="text-sm text-gray-500 dark:text-gray-400">{event.createdBy.email}</p>
-									<span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded">
+									<p className="text-sm font-medium text-gray-900 dark:text-white">{event.createdBy.name}</p>
+									<p className="text-xs text-gray-500 dark:text-gray-500">{event.createdBy.email}</p>
+									<span className="inline-block mt-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-medium rounded-full">
 										Creator / Penyelenggara
 									</span>
 								</div>
 							</div>
 						) : (
-							<p className="text-gray-500 dark:text-gray-400">Tidak ada data panitia</p>
+							<p className="text-sm text-gray-500 dark:text-gray-500">Tidak ada data panitia</p>
 						)}
 					</div>
 				)}
 
 				{activeTab === "juri" && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-						<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+						<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
 							Daftar Juri ({event.juryAssignments?.length || 0})
 						</h3>
 						{event.juryAssignments && event.juryAssignments.length > 0 ? (
-							<div className="space-y-4">
+							<div className="space-y-3">
 								{event.juryAssignments.map((assignment) => (
-									<div key={assignment.id} className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-										<div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-											<span className="text-yellow-600 dark:text-yellow-400 font-semibold text-lg">
+									<div key={assignment.id} className="flex items-start gap-4 p-4 bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl">
+										<div className="w-11 h-11 bg-amber-500/15 rounded-xl flex items-center justify-center border border-amber-500/20 flex-shrink-0">
+											<span className="text-amber-500 font-semibold text-lg">
 												{assignment.jury.name.charAt(0).toUpperCase()}
 											</span>
 										</div>
 										<div className="flex-1 min-w-0">
 											<div className="flex items-center gap-2">
-												<p className="font-medium text-gray-900 dark:text-white">{assignment.jury.name}</p>
-												<span className={`px-2 py-0.5 rounded text-xs font-medium ${
+												<p className="text-sm font-medium text-gray-900 dark:text-white">{assignment.jury.name}</p>
+												<span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
 													assignment.status === "ACCEPTED"
-														? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+														? "bg-green-500/15 text-green-400 border border-green-500/20"
 														: assignment.status === "PENDING"
-														? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-														: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+														? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+														: "bg-red-500/15 text-red-400 border border-red-500/20"
 												}`}>
 													{assignment.status}
 												</span>
 											</div>
-											<p className="text-sm text-gray-500 dark:text-gray-400">{assignment.jury.email}</p>
+											<p className="text-xs text-gray-500 dark:text-gray-500">{assignment.jury.email}</p>
 											{assignment.jury.profile?.institution && (
-												<p className="text-sm text-gray-500 dark:text-gray-400">{assignment.jury.profile.institution}</p>
+												<p className="text-xs text-gray-500 dark:text-gray-500">{assignment.jury.profile.institution}</p>
 											)}
 											{assignment.assignedCategories.length > 0 && (
 												<div className="flex flex-wrap gap-1 mt-2">
 													{assignment.assignedCategories.map((cat) => (
 														<span
 															key={cat.assessmentCategory.id}
-															className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded text-xs"
+															className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-[10px] font-medium"
 														>
 															{cat.assessmentCategory.name}
 														</span>
@@ -518,47 +526,47 @@ const AdminEventDetail: React.FC = () => {
 								))}
 							</div>
 						) : (
-							<p className="text-gray-500 dark:text-gray-400">Belum ada juri yang ditugaskan</p>
+							<p className="text-sm text-gray-500 dark:text-gray-500">Belum ada juri yang ditugaskan</p>
 						)}
 					</div>
 				)}
 
 				{activeTab === "peserta" && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-						<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+						<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
 							Daftar Peserta ({participants.length})
 						</h3>
 						{participants.length > 0 ? (
 							<div className="overflow-x-auto">
-								<table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-									<thead className="bg-gray-50 dark:bg-gray-700">
-										<tr>
-											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">No.</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tim</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Pendaftar</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kategori</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+								<table className="min-w-full">
+									<thead>
+										<tr className="border-b border-gray-200/30 dark:border-white/[0.06]">
+											<th className="px-4 py-3 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">No.</th>
+											<th className="px-4 py-3 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Tim</th>
+											<th className="px-4 py-3 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Pendaftar</th>
+											<th className="px-4 py-3 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Kategori</th>
+											<th className="px-4 py-3 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Status</th>
 										</tr>
 									</thead>
-									<tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+									<tbody>
 										{participants.map((p, idx) => (
-											<tr key={p.id}>
+											<tr key={p.id} className="border-b border-gray-200/20 dark:border-white/[0.04] last:border-0">
 												<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{p.orderNumber || idx + 1}</td>
 												<td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{p.teamName || "-"}</td>
 												<td className="px-4 py-3">
 													<p className="text-sm text-gray-900 dark:text-white">{p.user.name}</p>
-													<p className="text-xs text-gray-500 dark:text-gray-400">{p.user.email}</p>
+													<p className="text-[10px] text-gray-400 dark:text-gray-500">{p.user.email}</p>
 												</td>
-												<td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+												<td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
 													{p.schoolCategory?.name || "-"}
 												</td>
 												<td className="px-4 py-3">
-													<span className={`px-2 py-1 rounded text-xs font-medium ${
+													<span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
 														p.status === "CONFIRMED"
-															? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+															? "bg-green-500/15 text-green-400 border border-green-500/20"
 															: p.status === "PENDING"
-															? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-															: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+															? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+															: "bg-red-500/15 text-red-400 border border-red-500/20"
 													}`}>
 														{p.status}
 													</span>
@@ -569,32 +577,32 @@ const AdminEventDetail: React.FC = () => {
 								</table>
 							</div>
 						) : (
-							<p className="text-gray-500 dark:text-gray-400">Belum ada peserta terdaftar</p>
+							<p className="text-sm text-gray-500 dark:text-gray-500">Belum ada peserta terdaftar</p>
 						)}
 					</div>
 				)}
 
 				{activeTab === "materi" && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-						<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+						<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
 							Daftar Materi ({materials.length})
 						</h3>
 						{materials.length > 0 ? (
 							<div className="space-y-3">
 								{materials.map((material, idx) => (
-									<div key={material.id} className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-										<div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-											<span className="text-blue-600 dark:text-blue-400 font-semibold">{material.order || idx + 1}</span>
+									<div key={material.id} className="flex items-start gap-4 p-4 bg-gray-50/80 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.06] rounded-xl">
+										<div className="w-10 h-10 bg-blue-500/15 rounded-xl flex items-center justify-center border border-blue-500/20 flex-shrink-0">
+											<span className="text-blue-400 font-semibold text-sm">{material.order || idx + 1}</span>
 										</div>
 										<div>
-											<p className="font-medium text-gray-900 dark:text-white">{material.name}</p>
+											<p className="text-sm font-medium text-gray-900 dark:text-white">{material.name}</p>
 											{material.description && (
-												<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{material.description}</p>
+												<p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{material.description}</p>
 											)}
-											<span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${
+											<span className={`inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-medium ${
 												material.isActive
-													? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-													: "bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300"
+													? "bg-green-500/15 text-green-400 border border-green-500/20"
+													: "bg-gray-500/15 text-gray-400 border border-gray-500/20"
 											}`}>
 												{material.isActive ? "Aktif" : "Nonaktif"}
 											</span>
@@ -603,22 +611,22 @@ const AdminEventDetail: React.FC = () => {
 								))}
 							</div>
 						) : (
-							<p className="text-gray-500 dark:text-gray-400">Belum ada materi</p>
+							<p className="text-sm text-gray-500 dark:text-gray-500">Belum ada materi</p>
 						)}
 					</div>
 				)}
 
 				{activeTab === "rekap" && (
-					<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-						<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rekapitulasi Penilaian</h3>
-						<p className="text-gray-600 dark:text-gray-400 mb-4">
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.06] rounded-2xl p-6">
+						<h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Rekapitulasi Penilaian</h3>
+						<p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
 							Lihat rekapitulasi lengkap penilaian untuk event ini.
 						</p>
 						<Link
 							to={`/admin/events/${event.slug || event.id}/rekapitulasi`}
-							className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+							className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
 						>
-							<ChartBarIcon className="w-5 h-5" />
+							<LuChartBar className="w-4 h-4" />
 							Lihat Rekapitulasi Lengkap
 						</Link>
 					</div>

@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
+import "../components/landing/LandingPage.css";
 
 export const AuthLayout: React.FC = () => {
 	const location = useLocation();
@@ -9,54 +9,59 @@ export const AuthLayout: React.FC = () => {
 	const isRegister = location.pathname === "/register";
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-red-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex flex-col transition-colors duration-300">
-			{/* Modern Navbar */}
-			<nav className="sticky top-0 z-50 backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div className="flex items-center justify-between h-16">
-					{/* Logo */}
-					<Link to="/" className="flex items-center gap-3 group">
-						<Logo variant="auto" size="sm" showText clickable={false} />
-					</Link>
+		<div className="min-h-screen relative overflow-hidden flex flex-col">
+			{/* Shared background from MainLayout */}
+			<div className="main-layout-bg" />
+			<div className="neon-red-lines" />
 
-					{/* Right Section */}
-						<div className="flex items-center gap-4">
-							{/* Auth Links */}
-							<div className="hidden sm:flex items-center gap-2">
-								{!isLogin && (
-									<Link
-										to="/login"
-										className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200"
-									>
-										Masuk
-									</Link>
-								)}
-								{!isRegister && (
-									<Link
-										to="/register"
-										className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
-									>
-										Daftar
-									</Link>
-								)}
-							</div>
-
-							{/* Theme Toggle */}
-							<ThemeToggle />
-						</div>
+			{/* Top Header */}
+			<header className="relative z-20 h-14 flex items-center justify-between px-4 sm:px-8">
+				{/* Logo */}
+				<Link to="/" className="flex items-center gap-3 group">
+					<div className="w-8 h-8 rounded-lg bg-gray-100/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden">
+						<img
+							src="/simpaskor.webp"
+							alt="Logo"
+							className="w-6 h-6 object-contain"
+						/>
 					</div>
+					<span className="text-sm font-bold text-gray-800 dark:text-white tracking-wide hidden sm:block">
+						SIMPASKOR
+					</span>
+				</Link>
+
+				{/* Right: Auth links + Theme */}
+				<div className="flex items-center gap-3">
+					<div className="hidden sm:flex items-center gap-2">
+						{!isLogin && (
+							<Link
+								to="/login"
+								className="px-4 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+							>
+								Masuk
+							</Link>
+						)}
+						{!isRegister && (
+							<Link
+								to="/register"
+								className="px-4 py-1.5 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25"
+							>
+								Daftar
+							</Link>
+						)}
+					</div>
+					<ThemeToggle />
 				</div>
-			</nav>
+			</header>
 
 			{/* Main Content */}
-			<main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+			<main className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8">
 				<div className={`w-full ${isRegister ? "max-w-3xl" : "max-w-md"}`}>
-					{/* Form Card - Modern Minimalist */}
+					{/* Glassmorphic Form Card */}
 					<div className="relative group">
-						{/* Subtle glow effect */}
-						<div className="absolute -inset-0.5 bg-gradient-to-r from-red-500 to-red-400 rounded-2xl opacity-0 group-hover:opacity-10 blur transition-opacity duration-300"></div>
+						<div className="absolute -inset-1 bg-gradient-to-r from-red-500/20 to-red-400/10 rounded-2xl opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500" />
 
-						<div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8 shadow-xl dark:shadow-2xl dark:shadow-black/20">
+						<div className="relative bg-white/80 dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200/60 dark:border-white/[0.08] rounded-2xl p-8 shadow-xl shadow-black/5 dark:shadow-black/30">
 							<Outlet />
 						</div>
 					</div>
@@ -66,7 +71,7 @@ export const AuthLayout: React.FC = () => {
 						{!isLogin && (
 							<Link
 								to="/login"
-								className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors duration-200"
+								className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
 							>
 								Masuk
 							</Link>
@@ -74,7 +79,7 @@ export const AuthLayout: React.FC = () => {
 						{!isRegister && (
 							<Link
 								to="/register"
-								className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+								className="px-4 py-1.5 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors"
 							>
 								Daftar
 							</Link>
@@ -83,33 +88,16 @@ export const AuthLayout: React.FC = () => {
 				</div>
 			</main>
 
-			{/* Minimal Footer */}
-			<footer className="py-6 px-4 sm:px-6 lg:px-8 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
-				<div className="max-w-7xl mx-auto">
-					<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-						<p className="text-sm text-gray-500 dark:text-gray-400">
-							© 2025 Simpaskor Platform. All rights reserved.
-						</p>
-						<div className="flex items-center gap-6 text-xs text-gray-400 dark:text-gray-500">
-							<a
-								href="#"
-								className="hover:text-red-600 dark:hover:text-red-400 transition-colors"
-							>
-								Privacy
-							</a>
-							<a
-								href="#"
-								className="hover:text-red-600 dark:hover:text-red-400 transition-colors"
-							>
-								Terms
-							</a>
-							<a
-								href="#"
-								className="hover:text-red-600 dark:hover:text-red-400 transition-colors"
-							>
-								Help
-							</a>
-						</div>
+			{/* Footer */}
+			<footer className="relative z-10 py-6 px-4 sm:px-8 border-t border-gray-200/20 dark:border-white/[0.04]">
+				<div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+					<p className="text-xs text-gray-400 dark:text-gray-600">
+						© 2025 Simpaskor Platform
+					</p>
+					<div className="flex items-center gap-6 text-[10px] text-gray-400 dark:text-gray-600">
+						<a href="#" className="hover:text-red-500 transition-colors">Privacy</a>
+						<a href="#" className="hover:text-red-500 transition-colors">Terms</a>
+						<a href="#" className="hover:text-red-500 transition-colors">Help</a>
 					</div>
 				</div>
 			</footer>

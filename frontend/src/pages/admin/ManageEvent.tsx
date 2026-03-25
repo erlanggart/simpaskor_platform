@@ -7,11 +7,9 @@ import {
 	CurrencyDollarIcon,
 	UserGroupIcon,
 	TrophyIcon,
-	ClockIcon,
 	CheckCircleIcon,
 	DocumentArrowDownIcon,
 	EyeIcon,
-	ArrowPathIcon,
 	ArrowLeftIcon,
 	PencilSquareIcon,
 } from "@heroicons/react/24/outline";
@@ -249,7 +247,7 @@ const AdminManageEvent: React.FC = () => {
 		);
 	}
 
-	const currentStatusInfo = EVENT_STATUSES.find(s => s.value === event.status) || EVENT_STATUSES[0];
+	const currentStatusInfo = (EVENT_STATUSES.find(s => s.value === event.status) ?? EVENT_STATUSES[0])!;
 
 	return (
 		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">

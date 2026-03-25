@@ -1,47 +1,40 @@
 import React, { useState, useMemo } from "react";
-import EventCard from "./EventCard";
+import { Link } from "react-router-dom";
+import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuFlame, LuClock, LuFilter } from "react-icons/lu";
 import { calculateDistance, getCityByName } from "../../utils/indonesiaCities";
 import { Event } from "../../types/landing";
-import {
-	FunnelIcon,
-	FireIcon,
-	ClockIcon,
-	MapPinIcon,
-	XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { config } from "../../utils/config";
 
 interface EventGridProps {
 	events: Event[];
-	completedEvents?: Event[];
 }
 
-type TabType = "available" | "completed";
 type SortType = "default" | "newest" | "popular" | "nearest";
+type StatusFilter = "all" | "available" | "active" | "completed";
 
 interface UserLocation {
 	latitude: number;
 	longitude: number;
 }
 
-const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) => {
-	const [activeTab, setActiveTab] = useState<TabType>("available");
+const EVENTS_PER_PAGE = 25;
+
+const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [sortBy, setSortBy] = useState<SortType>("default");
+	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+	const [searchQuery, setSearchQuery] = useState("");
 	const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
 	const [locationLoading, setLocationLoading] = useState(false);
 	const [locationError, setLocationError] = useState<string | null>(null);
-	const eventsPerPage = 9;
 
-	// Request user location when sorting by nearest
 	const requestUserLocation = () => {
 		if (!navigator.geolocation) {
 			setLocationError("Geolocation tidak didukung oleh browser Anda");
 			return;
 		}
-
 		setLocationLoading(true);
 		setLocationError(null);
-
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
 				setUserLocation({
@@ -71,7 +64,6 @@ const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) =
 		);
 	};
 
-	// Handle sort change
 	const handleSortChange = (sort: SortType) => {
 		if (sort === "nearest") {
 			if (userLocation) {
@@ -85,13 +77,37 @@ const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) =
 		setCurrentPage(1);
 	};
 
-	// Get current events based on active tab
-	const currentTabEvents = activeTab === "available" ? events : completedEvents;
+	const filteredByStatus = useMemo(() => {
+		if (statusFilter === "all") return events;
+		switch (statusFilter) {
+			case "available":
+				return events.filter(
+					(e) => e.status === "PUBLISHED" || e.status === "REGISTRATION_OPEN"
+				);
+			case "active":
+				return events.filter((e) => e.status === "ACTIVE");
+			case "completed":
+				return events.filter((e) => e.status === "COMPLETED");
+			default:
+				return events;
+		}
+	}, [events, statusFilter]);
 
-	// Sort events based on selected sort
+	const filteredEvents = useMemo(() => {
+		if (!searchQuery.trim()) return filteredByStatus;
+		const q = searchQuery.toLowerCase();
+		return filteredByStatus.filter(
+			(e) =>
+				e.title.toLowerCase().includes(q) ||
+				e.location?.toLowerCase().includes(q) ||
+				e.city?.toLowerCase().includes(q) ||
+				e.province?.toLowerCase().includes(q) ||
+				e.category?.toLowerCase().includes(q)
+		);
+	}, [filteredByStatus, searchQuery]);
+
 	const sortedEvents = useMemo(() => {
-		const eventsCopy = [...currentTabEvents];
-
+		const eventsCopy = [...filteredEvents];
 		switch (sortBy) {
 			case "newest":
 				return eventsCopy.sort((a, b) => {
@@ -109,7 +125,6 @@ const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) =
 				if (!userLocation) return eventsCopy;
 				return eventsCopy
 					.map((event) => {
-						// Get coordinates from city data
 						const cityData = event.city ? getCityByName(event.city) : undefined;
 						const distance = cityData
 							? calculateDistance(
@@ -123,267 +138,312 @@ const EventGrid: React.FC<EventGridProps> = ({ events, completedEvents = [] }) =
 					})
 					.sort((a, b) => a.distance - b.distance);
 			default:
-				// Default: featured first, then by start date
 				return eventsCopy.sort((a, b) => {
 					if (a.featured !== b.featured) return a.featured ? -1 : 1;
 					return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
 				});
 		}
-	}, [currentTabEvents, sortBy, userLocation]);
+	}, [filteredEvents, sortBy, userLocation]);
 
-	// Pagination calculations
-	const totalPages = Math.ceil(sortedEvents.length / eventsPerPage);
-	const startIndex = (currentPage - 1) * eventsPerPage;
-	const endIndex = startIndex + eventsPerPage;
+	const totalPages = Math.ceil(sortedEvents.length / EVENTS_PER_PAGE);
+	const startIndex = (currentPage - 1) * EVENTS_PER_PAGE;
+	const endIndex = startIndex + EVENTS_PER_PAGE;
 	const paginatedEvents = sortedEvents.slice(startIndex, endIndex);
 
-	const handlePageChange = (page: number) => {
-		setCurrentPage(page);
+	const getImageUrl = (imageUrl: string | null): string => {
+		if (!imageUrl) return "";
+		if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+			return imageUrl;
+		}
+		return `${config.api.backendUrl}${imageUrl}`;
 	};
 
-	const handleTabChange = (tab: TabType) => {
-		setActiveTab(tab);
-		setSortBy("default"); // Reset sort when switching tabs
-		setCurrentPage(1); // Reset to first page when switching tabs
+	const formatDate = (dateString: string): string => {
+		return new Date(dateString).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+		});
+	};
+
+	const getStatusLabel = (
+		status: string,
+		featured?: boolean
+	): { label: string; className: string } => {
+		if (featured)
+			return { label: "Featured", className: "bg-red-500/80 text-white" };
+		switch (status) {
+			case "REGISTRATION_OPEN":
+				return { label: "Buka", className: "bg-green-500/80 text-white" };
+			case "ACTIVE":
+				return { label: "Aktif", className: "bg-emerald-500/80 text-white" };
+			case "COMPLETED":
+				return { label: "Selesai", className: "bg-gray-500/80 text-white" };
+			default:
+				return { label: "Segera", className: "bg-orange-500/80 text-white" };
+		}
 	};
 
 	const sortOptions = [
-		{ id: "default" as SortType, label: "Default", icon: FunnelIcon },
-		{ id: "newest" as SortType, label: "Terbaru", icon: ClockIcon },
-		{ id: "popular" as SortType, label: "Populer", icon: FireIcon },
-		{ id: "nearest" as SortType, label: "Terdekat", icon: MapPinIcon },
+		{ id: "default" as SortType, label: "Default", icon: LuFilter },
+		{ id: "newest" as SortType, label: "Terbaru", icon: LuClock },
+		{ id: "popular" as SortType, label: "Populer", icon: LuFlame },
+		{ id: "nearest" as SortType, label: "Terdekat", icon: LuMapPin },
 	];
 
-	const tabs = [
-		{
-			id: "available" as TabType,
-			label: "Event Tersedia",
-			count: events.length,
-			icon: (
-				<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-				</svg>
-			),
-		},
-		{
-			id: "completed" as TabType,
-			label: "Event Selesai",
-			count: completedEvents.length,
-			icon: (
-				<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-				</svg>
-			),
-		},
+	const statusOptions: { id: StatusFilter; label: string }[] = [
+		{ id: "all", label: "Semua" },
+		{ id: "available", label: "Tersedia" },
+		{ id: "active", label: "Berlangsung" },
+		{ id: "completed", label: "Selesai" },
 	];
 
 	return (
-		<section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-			{/* Tab Navigation */}
-			<div className="mb-8">
-				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-					<h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-						Daftar Event
-					</h2>
-					<div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
-						{tabs.map((tab) => (
-							<button
-								key={tab.id}
-								onClick={() => handleTabChange(tab.id)}
-								className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-									activeTab === tab.id
-										? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-										: "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-								}`}
-							>
-								{tab.icon}
-								<span className="hidden sm:inline">{tab.label}</span>
-								<span className={`px-2 py-0.5 rounded-full text-xs ${
-									activeTab === tab.id
-										? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-										: "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-								}`}>
-									{tab.count}
-								</span>
-							</button>
-						))}
-					</div>
-				</div>
-				<p className="text-gray-600 dark:text-gray-400 mt-2">
-					{sortedEvents.length > 0 ? (
-						<>
-							Menampilkan {startIndex + 1}-{Math.min(endIndex, sortedEvents.length)}{" "}
-							dari {sortedEvents.length} event
-						</>
-					) : (
-						activeTab === "available" 
-							? "Tidak ada event yang tersedia saat ini" 
-							: "Belum ada event yang selesai"
-					)}
-				</p>
-
-				{/* Sort/Filter Options */}
-				<div className="flex flex-wrap items-center gap-2 mt-4">
-					<span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Urutkan:</span>
-					{sortOptions.map((option) => {
-						const Icon = option.icon;
-						const isActive = sortBy === option.id;
-						const isNearestLoading = option.id === "nearest" && locationLoading;
-						
-						return (
-							<button
-								key={option.id}
-								onClick={() => handleSortChange(option.id)}
-								disabled={isNearestLoading}
-								className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-									isActive
-										? "bg-indigo-600 dark:bg-indigo-500 text-white"
-										: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-								} ${isNearestLoading ? "opacity-50 cursor-wait" : ""}`}
-							>
-								<Icon className="w-4 h-4" />
-								<span>{isNearestLoading ? "Mencari..." : option.label}</span>
-							</button>
-						);
-					})}
-					{sortBy !== "default" && (
+		<div>
+			{/* Search + Filters */}
+			<div className="mb-6 space-y-4">
+				{/* Search bar */}
+				<div className="relative">
+					<LuSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+					<input
+						type="text"
+						value={searchQuery}
+						onChange={(e) => {
+							setSearchQuery(e.target.value);
+							setCurrentPage(1);
+						}}
+						placeholder="Cari event berdasarkan nama, lokasi, atau kategori..."
+						className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/50 transition-colors"
+					/>
+					{searchQuery && (
 						<button
-							onClick={() => setSortBy("default")}
-							className="flex items-center gap-1 px-2 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+							onClick={() => {
+								setSearchQuery("");
+								setCurrentPage(1);
+							}}
+							className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
 						>
-							<XMarkIcon className="w-4 h-4" />
-							<span className="hidden sm:inline">Reset</span>
+							<LuX className="w-4 h-4" />
 						</button>
 					)}
 				</div>
 
-				{/* Location Error */}
-				{locationError && (
-					<div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-						<p className="text-sm text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
-							<MapPinIcon className="w-4 h-4" />
-							{locationError}
-						</p>
+				{/* Status filter + Sort */}
+				<div className="flex flex-wrap items-center gap-3">
+					{/* Status filter pills */}
+					<div className="flex items-center gap-1.5">
+						<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Status:</span>
+						{statusOptions.map((opt) => (
+							<button
+								key={opt.id}
+								onClick={() => {
+									setStatusFilter(opt.id);
+									setCurrentPage(1);
+								}}
+								className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+									statusFilter === opt.id
+										? "bg-orange-500 text-white"
+										: "bg-gray-200/60 dark:bg-white/[0.08] text-gray-600 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/[0.14]"
+								}`}
+							>
+								{opt.label}
+							</button>
+						))}
 					</div>
-				)}
 
-				{/* User Location Info */}
-				{sortBy === "nearest" && userLocation && (
-					<div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
-						<p className="text-sm text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
-							<MapPinIcon className="w-4 h-4" />
-							Event diurutkan berdasarkan jarak dari lokasi Anda
-						</p>
+					<div className="w-px h-5 bg-gray-300/50 dark:bg-white/10 hidden sm:block" />
+
+					{/* Sort options */}
+					<div className="flex items-center gap-1.5">
+						<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Urutkan:</span>
+						{sortOptions.map((option) => {
+							const Icon = option.icon;
+							const isActive = sortBy === option.id;
+							const isNearestLoading = option.id === "nearest" && locationLoading;
+
+							return (
+								<button
+									key={option.id}
+									onClick={() => handleSortChange(option.id)}
+									disabled={isNearestLoading}
+									className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+										isActive
+											? "bg-orange-500 text-white"
+											: "bg-gray-200/60 dark:bg-white/[0.08] text-gray-600 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/[0.14]"
+									} ${isNearestLoading ? "opacity-50 cursor-wait" : ""}`}
+								>
+									<Icon className="w-3.5 h-3.5" />
+									<span>{isNearestLoading ? "Mencari..." : option.label}</span>
+								</button>
+							);
+						})}
 					</div>
-				)}
+				</div>
 			</div>
 
-			{currentTabEvents.length === 0 ? (
+			{/* Result info */}
+			<p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+				{sortedEvents.length > 0 ? (
+					<>
+						Menampilkan {startIndex + 1}-{Math.min(endIndex, sortedEvents.length)}{" "}
+						dari {sortedEvents.length} event
+					</>
+				) : (
+					"Tidak ada event yang ditemukan"
+				)}
+			</p>
+
+			{/* Location Error */}
+			{locationError && (
+				<div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/40 rounded-xl">
+					<p className="text-sm text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
+						<LuMapPin className="w-4 h-4" />
+						{locationError}
+					</p>
+				</div>
+			)}
+
+			{/* Nearest info */}
+			{sortBy === "nearest" && userLocation && (
+				<div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/40 rounded-xl">
+					<p className="text-sm text-orange-700 dark:text-orange-400 flex items-center gap-2">
+						<LuMapPin className="w-4 h-4" />
+						Event diurutkan berdasarkan jarak dari lokasi Anda
+					</p>
+				</div>
+			)}
+
+			{sortedEvents.length === 0 ? (
 				<div className="text-center py-16">
-					<div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-						<svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-						</svg>
+					<div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center">
+						<LuCalendar className="w-8 h-8 text-gray-400 dark:text-gray-500" />
 					</div>
-					<p className="text-gray-500 dark:text-gray-400 text-lg">
-						{activeTab === "available" 
-							? "Tidak ada event yang tersedia saat ini." 
-							: "Belum ada event yang telah selesai."}
+					<p className="text-gray-500 dark:text-gray-400 text-sm">
+						Tidak ada event yang ditemukan
 					</p>
 				</div>
 			) : (
 				<>
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-						{paginatedEvents.map((event) => (
-							<EventCard key={event.id} event={event} />
-						))}
+					{/* Event grid - 5 columns × 5 rows */}
+					<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+						{paginatedEvents.map((event) => {
+							const status = getStatusLabel(event.status, event.featured);
+
+							return (
+								<Link
+									key={event.id}
+									to={`/events/${event.slug || event.id}`}
+									className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-orange-400/30 dark:hover:border-orange-500/20 transition-all duration-300 hover:scale-[1.02]"
+								>
+									{/* Poster - 2:3 ratio */}
+									<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-orange-900/10 to-red-900/10 overflow-hidden">
+										{event.thumbnail ? (
+											<img
+												src={getImageUrl(event.thumbnail)}
+												alt={event.title}
+												className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+												loading="lazy"
+											/>
+										) : (
+											<div className="w-full h-full flex items-center justify-center">
+												<LuCalendar className="w-6 h-6 text-gray-400/40 dark:text-gray-600" />
+											</div>
+										)}
+										<div className="absolute top-1.5 left-1.5">
+											<span
+												className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${status.className}`}
+											>
+												{status.label}
+											</span>
+										</div>
+									</div>
+
+									{/* Info */}
+									<div className="p-2">
+										<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
+											{event.title}
+										</h4>
+										<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
+											<LuCalendar className="w-3 h-3 flex-shrink-0" />
+											<span className="text-[8px] lg:text-[9px]">
+												{formatDate(event.startDate)}
+											</span>
+										</div>
+										{(event.location || event.city) && (
+											<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500 mt-0.5">
+												<LuMapPin className="w-3 h-3 flex-shrink-0" />
+												<span className="text-[8px] lg:text-[9px] line-clamp-1">
+													{event.city || event.location}
+												</span>
+											</div>
+										)}
+									</div>
+								</Link>
+							);
+						})}
 					</div>
 
 					{/* Pagination */}
 					{totalPages > 1 && (
-						<div className="flex justify-center items-center gap-2 mt-12">
+						<div className="flex items-center justify-center gap-3 mt-8">
 							<button
-								onClick={() => handlePageChange(currentPage - 1)}
+								onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
 								disabled={currentPage === 1}
-								className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+								className="w-8 h-8 rounded-full bg-gray-200/50 dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-500 dark:text-gray-400 flex items-center justify-center hover:bg-gray-300/50 dark:hover:bg-white/[0.12] transition-colors disabled:opacity-30 disabled:pointer-events-none"
 							>
-								<svg
-									className="w-5 h-5"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M15 19l-7-7 7-7"
-									/>
-								</svg>
+								<LuChevronLeft className="w-4 h-4" />
 							</button>
 
-							{Array.from({ length: totalPages }, (_, i) => i + 1).map(
-								(page) => {
-									// Show first, last, current, and adjacent pages
-									if (
-										page === 1 ||
-										page === totalPages ||
-										(page >= currentPage - 1 && page <= currentPage + 1)
-									) {
-										return (
-											<button
-												key={page}
-												onClick={() => handlePageChange(page)}
-												className={`px-4 py-2 rounded-lg border transition-colors ${
-													page === currentPage
-														? "bg-blue-600 dark:bg-indigo-600 text-white border-blue-600 dark:border-indigo-600"
-														: "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-												}`}
-											>
-												{page}
-											</button>
-										);
-									} else if (
-										page === currentPage - 2 ||
-										page === currentPage + 2
-									) {
-										return (
-											<span
-												key={page}
-												className="px-2 text-gray-500 dark:text-gray-400"
-											>
-												...
-											</span>
-										);
+							<div className="flex gap-1.5">
+								{Array.from({ length: totalPages }, (_, i) => i + 1).map(
+									(page) => {
+										if (
+											page === 1 ||
+											page === totalPages ||
+											(page >= currentPage - 1 && page <= currentPage + 1)
+										) {
+											return (
+												<button
+													key={page}
+													onClick={() => setCurrentPage(page)}
+													className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
+														page === currentPage
+															? "bg-orange-500 text-white"
+															: "bg-gray-200/50 dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-white/[0.12]"
+													}`}
+												>
+													{page}
+												</button>
+											);
+										} else if (
+											page === currentPage - 2 ||
+											page === currentPage + 2
+										) {
+											return (
+												<span
+													key={page}
+													className="w-8 h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs"
+												>
+													...
+												</span>
+											);
+										}
+										return null;
 									}
-									return null;
-								}
-							)}
+								)}
+							</div>
 
 							<button
-								onClick={() => handlePageChange(currentPage + 1)}
+								onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
 								disabled={currentPage === totalPages}
-								className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+								className="w-8 h-8 rounded-full bg-gray-200/50 dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-500 dark:text-gray-400 flex items-center justify-center hover:bg-gray-300/50 dark:hover:bg-white/[0.12] transition-colors disabled:opacity-30 disabled:pointer-events-none"
 							>
-								<svg
-									className="w-5 h-5"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M9 5l7 7-7 7"
-									/>
-								</svg>
+								<LuChevronRight className="w-4 h-4" />
 							</button>
 						</div>
 					)}
 				</>
 			)}
-		</section>
+		</div>
 	);
 };
 

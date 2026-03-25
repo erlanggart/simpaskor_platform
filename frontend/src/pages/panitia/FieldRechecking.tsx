@@ -4,6 +4,7 @@ import {
 	MapPinIcon,
 	ArrowLeftIcon,
 	PlayIcon,
+	PauseIcon,
 	StopIcon,
 	CheckIcon,
 	ClockIcon,
@@ -125,6 +126,10 @@ const FieldRechecking: React.FC = () => {
 	const [elapsedTime, setElapsedTime] = useState(0);
 	const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const [timeInputMode, setTimeInputMode] = useState<"stopwatch" | "manual" | null>(null);
+	const [manualMinutes, setManualMinutes] = useState(0);
+	const [manualSeconds, setManualSeconds] = useState(0);
+	const [isTimeLocked, setIsTimeLocked] = useState(false);
 
 	// Material checklist state
 	const [useMaterialCheck, setUseMaterialCheck] = useState(false);
@@ -387,6 +392,10 @@ const FieldRechecking: React.FC = () => {
 		setUseMaterialCheck(false);
 		setElapsedTime(0);
 		setIsStopwatchRunning(false);
+		setTimeInputMode(null);
+		setManualMinutes(0);
+		setManualSeconds(0);
+		setIsTimeLocked(false);
 		setMaterialChecks([]);
 		setSearchParams({});
 	};
@@ -451,13 +460,38 @@ const FieldRechecking: React.FC = () => {
 		}
 	};
 
-	// Toggle stopwatch
-	const toggleStopwatch = () => {
-		if (!useStopwatch) {
-			setUseStopwatch(true);
-			setIsStopwatchRunning(true);
-		} else {
-			setIsStopwatchRunning(!isStopwatchRunning);
+	// Start stopwatch
+	const startStopwatch = () => {
+		setTimeInputMode("stopwatch");
+		setUseStopwatch(true);
+		setIsStopwatchRunning(true);
+		setIsTimeLocked(false);
+	};
+
+	// Pause/Resume stopwatch
+	const handlePauseStopwatch = () => {
+		setIsStopwatchRunning(!isStopwatchRunning);
+	};
+
+	// Stop stopwatch with confirmation
+	const handleStopStopwatch = async () => {
+		setIsStopwatchRunning(false);
+
+		const result = await Swal.fire({
+			icon: "question",
+			title: "Simpan Waktu?",
+			html: `<div style="text-align:center">
+				<p style="font-size:2rem;font-family:monospace;font-weight:bold;color:#ea580c;margin:1rem 0">${formatTime(elapsedTime)}</p>
+				<p>Apakah waktu ini yang akan diinput untuk peserta?</p>
+			</div>`,
+			showCancelButton: true,
+			confirmButtonText: "Ya, Simpan Waktu",
+			cancelButtonText: "Kembali",
+			confirmButtonColor: "#16a34a",
+		});
+
+		if (result.isConfirmed) {
+			setIsTimeLocked(true);
 		}
 	};
 
@@ -465,10 +499,25 @@ const FieldRechecking: React.FC = () => {
 	const handleFinishPerformance = async () => {
 		if (!currentSession) return;
 
+		// Calculate duration based on input mode
+		let previewDuration: number | undefined;
+		if (timeInputMode === "stopwatch" && (isTimeLocked || useStopwatch)) {
+			previewDuration = elapsedTime;
+		} else if (timeInputMode === "manual") {
+			const manualDuration = manualMinutes * 60 + manualSeconds;
+			if (manualDuration > 0) {
+				previewDuration = manualDuration;
+			}
+		}
+
+		const durationPreview = previewDuration !== undefined && previewDuration > 0
+			? `<p class="mb-2">Durasi: <strong>${formatTime(previewDuration)}</strong></p>`
+			: "";
+
 		const result = await Swal.fire({
 			icon: "question",
 			title: "Selesai Penampilan?",
-			text: "Data penampilan akan disimpan.",
+			html: `${durationPreview}<p>Data penampilan akan disimpan.</p>`,
 			showCancelButton: true,
 			confirmButtonText: "Ya, Selesai",
 			cancelButtonText: "Batal",
@@ -478,10 +527,9 @@ const FieldRechecking: React.FC = () => {
 		if (!result.isConfirmed) return;
 
 		try {
-			// Send duration only if stopwatch was used
 			const requestBody: { duration?: number } = {};
-			if (useStopwatch) {
-				requestBody.duration = elapsedTime;
+			if (previewDuration !== undefined && previewDuration > 0) {
+				requestBody.duration = previewDuration;
 			}
 
 			await api.post(
@@ -489,10 +537,10 @@ const FieldRechecking: React.FC = () => {
 				requestBody
 			);
 
-			const finalDuration = elapsedTime;
+			const finalDuration = previewDuration || 0;
 			const checkedMaterials = materialChecks.filter((m) => m.isChecked).length;
 			const totalMaterials = materialChecks.length;
-			const hadStopwatch = useStopwatch;
+			const hadTimeInput = timeInputMode !== null && finalDuration > 0;
 			const hadMaterialCheck = useMaterialCheck;
 
 			setCurrentSession(null);
@@ -501,13 +549,17 @@ const FieldRechecking: React.FC = () => {
 			setUseMaterialCheck(false);
 			setElapsedTime(0);
 			setIsStopwatchRunning(false);
+			setTimeInputMode(null);
+			setManualMinutes(0);
+			setManualSeconds(0);
+			setIsTimeLocked(false);
 			setMaterialChecks([]);
 
 			// Refresh data
 			await fetchFields();
 			await fetchParticipants();
 
-			const durationText = hadStopwatch ? `<p>Durasi: <strong>${formatTime(finalDuration)}</strong></p>` : "";
+			const durationText = hadTimeInput ? `<p>Durasi: <strong>${formatTime(finalDuration)}</strong></p>` : "";
 			const materiText = hadMaterialCheck ? `<p>Materi: <strong>${checkedMaterials}/${totalMaterials}</strong></p>` : "";
 
 			Swal.fire({
@@ -779,7 +831,7 @@ const FieldRechecking: React.FC = () => {
 									</div>
 								)}
 
-								/* Button to enter field management */
+								{/* Button to enter field management */}
 								<button
 									onClick={() => enterField(field)}
 									className={`w-full mt-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
@@ -849,62 +901,169 @@ const FieldRechecking: React.FC = () => {
 			<div className="flex flex-col md:grid md:grid-cols-3 gap-6">
 				{/* Mobile-first: Stopwatch & Quick Stats (shows first on mobile) */}
 				<div className="order-first md:order-last space-y-4">
-					{/* Stopwatch Card */}
+					{/* Time Input Card */}
 					{isPerforming && (
 						<div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-6 shadow-md border border-gray-200 dark:border-gray-700">
 							<div className="flex items-center justify-between mb-3 md:mb-4">
 								<h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
 									<ClockIcon className="h-5 w-5 md:h-6 md:w-6 text-orange-600 dark:text-orange-400" />
-									Stopwatch
+									Waktu Penampilan
 									<span className="text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-400 px-2 py-1 rounded border border-orange-200 dark:border-orange-500/30">Opsional</span>
 								</h3>
 							</div>
 
-							{/* Stopwatch Display */}
-							<div
-								className={`text-4xl md:text-5xl font-mono font-bold text-center py-4 md:py-6 rounded-xl ${
-									isStopwatchRunning ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-300 dark:border-orange-500" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-								}`}
-							>
-								{formatTime(elapsedTime)}
-							</div>
-
-							<div className="mt-3 md:mt-4 flex gap-2">
-								{!useStopwatch ? (
+							{/* Mode Selector */}
+							{!isTimeLocked && (
+								<div className="flex gap-2 mb-4">
 									<button
-										onClick={toggleStopwatch}
-										className="flex-1 py-2.5 md:py-3 bg-orange-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-orange-700"
-									>
-										<PlayIcon className="h-5 w-5" />
-										Mulai Stopwatch
-									</button>
-								) : (
-									<button
-										onClick={toggleStopwatch}
-										className={`flex-1 py-2.5 md:py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-											isStopwatchRunning
-												? "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/70 border border-orange-300 dark:border-orange-500"
-												: "bg-orange-600 text-white hover:bg-orange-700"
+										onClick={() => {
+											setTimeInputMode("stopwatch");
+											if (timeInputMode === "manual") {
+												setManualMinutes(0);
+												setManualSeconds(0);
+											}
+										}}
+										className={`flex-1 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-1.5 transition-colors ${
+											timeInputMode === "stopwatch"
+												? "bg-orange-600 text-white"
+												: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
 										}`}
 									>
-										{isStopwatchRunning ? (
-											<>
-												<StopIcon className="h-5 w-5" />
-												Pause
-											</>
-										) : (
-											<>
-												<PlayIcon className="h-5 w-5" />
-												Lanjut
-											</>
-										)}
+										<ClockIcon className="h-4 w-4" />
+										Stopwatch
 									</button>
-								)}
-							</div>
+									<button
+										onClick={() => {
+											setTimeInputMode("manual");
+											if (isStopwatchRunning) {
+												setIsStopwatchRunning(false);
+											}
+											setUseStopwatch(false);
+											setElapsedTime(0);
+										}}
+										className={`flex-1 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-1.5 transition-colors ${
+											timeInputMode === "manual"
+												? "bg-blue-600 text-white"
+												: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+										}`}
+									>
+										<PencilIcon className="h-4 w-4" />
+										Input Manual
+									</button>
+								</div>
+							)}
 
-							{!useStopwatch && (
-								<p className="text-xs text-gray-500 text-center mt-2 md:mt-3">
-									Klik "Mulai Stopwatch" untuk mencatat durasi penampilan.
+							{/* Stopwatch Mode */}
+							{timeInputMode === "stopwatch" && (
+								<>
+									<div
+										className={`text-4xl md:text-5xl font-mono font-bold text-center py-4 md:py-6 rounded-xl ${
+											isTimeLocked
+												? "bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-300 dark:border-green-500"
+												: isStopwatchRunning
+												? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-300 dark:border-orange-500"
+												: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+										}`}
+									>
+										{formatTime(elapsedTime)}
+										{isTimeLocked && (
+											<p className="text-xs font-sans font-medium text-green-600 dark:text-green-400 mt-1">✓ Waktu tersimpan</p>
+										)}
+									</div>
+
+									<div className="mt-3 md:mt-4">
+										{isTimeLocked ? (
+											<button
+												onClick={() => {
+													setIsTimeLocked(false);
+													setElapsedTime(0);
+													setUseStopwatch(false);
+												}}
+												className="w-full py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg font-medium text-sm hover:bg-gray-200 dark:hover:bg-gray-600"
+											>
+												Reset Stopwatch
+											</button>
+										) : !useStopwatch ? (
+											<button
+												onClick={startStopwatch}
+												className="w-full py-2.5 md:py-3 bg-orange-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-orange-700"
+											>
+												<PlayIcon className="h-5 w-5" />
+												Mulai Stopwatch
+											</button>
+										) : (
+											<div className="flex gap-2">
+												<button
+													onClick={handlePauseStopwatch}
+													className={`flex-1 py-2.5 md:py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+														isStopwatchRunning
+															? "bg-yellow-500 text-white hover:bg-yellow-600"
+															: "bg-orange-600 text-white hover:bg-orange-700"
+													}`}
+												>
+													{isStopwatchRunning ? (
+														<>
+															<PauseIcon className="h-5 w-5" />
+															Pause
+														</>
+													) : (
+														<>
+															<PlayIcon className="h-5 w-5" />
+															Lanjut
+														</>
+													)}
+												</button>
+												<button
+													onClick={handleStopStopwatch}
+													className="flex-1 py-2.5 md:py-3 bg-red-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-red-700"
+												>
+													<StopIcon className="h-5 w-5" />
+													Stop
+												</button>
+											</div>
+										)}
+									</div>
+								</>
+							)}
+
+							{/* Manual Input Mode */}
+							{timeInputMode === "manual" && (
+								<>
+									<div className="flex items-center justify-center gap-3 py-4">
+										<div className="text-center">
+											<label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Menit</label>
+											<input
+												type="number"
+												min={0}
+												max={999}
+												value={manualMinutes}
+												onChange={(e) => setManualMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+												className="w-20 text-center text-3xl font-mono font-bold bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg py-3 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+											/>
+										</div>
+										<span className="text-3xl font-bold text-gray-400 dark:text-gray-500 mt-5">:</span>
+										<div className="text-center">
+											<label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Detik</label>
+											<input
+												type="number"
+												min={0}
+												max={59}
+												value={manualSeconds}
+												onChange={(e) => setManualSeconds(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+												className="w-20 text-center text-3xl font-mono font-bold bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg py-3 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+											/>
+										</div>
+									</div>
+									<p className="text-center text-sm text-gray-500 dark:text-gray-400">
+										Total: <span className="font-mono font-semibold">{formatTime(manualMinutes * 60 + manualSeconds)}</span>
+									</p>
+								</>
+							)}
+
+							{/* No mode selected hint */}
+							{!timeInputMode && (
+								<p className="text-xs text-gray-500 text-center mt-1">
+									Pilih metode input waktu di atas untuk mencatat durasi penampilan.
 								</p>
 							)}
 						</div>

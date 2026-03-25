@@ -111,6 +111,12 @@ export const DashboardLayout: React.FC = () => {
 				// Clear the exit flag since user is entering an event
 				sessionStorage.removeItem("juri_exited_event");
 				setActiveJuryEvent(response.data);
+				// Store active event in localStorage for MainLayout redirect
+				localStorage.setItem("juri_active_event", JSON.stringify({
+					slug: response.data.event.slug,
+					title: response.data.event.title,
+					id: response.data.event.id,
+				}));
 			}
 		} catch (error) {
 			// Not assigned to this event
@@ -121,6 +127,7 @@ export const DashboardLayout: React.FC = () => {
 	const handleLeaveJuryEvent = () => {
 		// Set flag to prevent auto-redirect until browser session ends
 		sessionStorage.setItem("juri_exited_event", "true");
+		localStorage.removeItem("juri_active_event");
 		setActiveJuryEvent(null);
 		navigate("/juri/events");
 	};

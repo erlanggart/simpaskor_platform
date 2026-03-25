@@ -1,18 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { VotingEvent, VotingNominee } from "../types/voting";
-import {
-	CalendarDaysIcon,
-	MapPinIcon,
-	MagnifyingGlassIcon,
-	UserIcon,
-	EnvelopeIcon,
-	PhoneIcon,
-	HandThumbUpIcon,
-	CheckCircleIcon,
-} from "@heroicons/react/24/outline";
+import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuThumbsUp, LuCircleCheck } from "react-icons/lu";
 import Swal from "sweetalert2";
 
 const EVotingPage: React.FC = () => {
@@ -22,6 +13,7 @@ const EVotingPage: React.FC = () => {
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
+	const [statusFilter, setStatusFilter] = useState<"all" | "open" | "upcoming" | "ended">("all");
 
 	// Voting detail view
 	const [selectedEvent, setSelectedEvent] = useState<VotingEvent | null>(null);
@@ -45,7 +37,7 @@ const EVotingPage: React.FC = () => {
 	const fetchEvents = useCallback(async () => {
 		try {
 			setLoading(true);
-			const params: any = { page, limit: 12 };
+			const params: any = { page, limit: 25 };
 			if (search) params.search = search;
 
 			const res = await api.get("/voting/events", { params });
@@ -106,7 +98,7 @@ const EVotingPage: React.FC = () => {
 			showCancelButton: true,
 			confirmButtonText: "Vote!",
 			cancelButtonText: "Batal",
-			confirmButtonColor: "#7c3aed",
+			confirmButtonColor: "#dc2626",
 		});
 
 		if (!result.isConfirmed) return;
@@ -207,7 +199,7 @@ const EVotingPage: React.FC = () => {
 					<p class="text-sm text-gray-500 mt-3">Simpan kode ini untuk melakukan vote</p>
 				</div>`,
 				icon: "success",
-				confirmButtonColor: "#7c3aed",
+				confirmButtonColor: "#dc2626",
 			});
 		} catch (err: any) {
 			Swal.fire("Gagal", err.response?.data?.error || "Gagal memesan vote", "error");
@@ -216,11 +208,24 @@ const EVotingPage: React.FC = () => {
 		}
 	};
 
+	const formatShortDate = (date: string) => {
+		return new Date(date).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+		});
+	};
+
+	const getImageUrl = (imageUrl: string | null): string => {
+		if (!imageUrl) return "";
+		if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
+		return `${config.api.backendUrl}${imageUrl}`;
+	};
+
 	const getVotingStatus = (event: VotingEvent) => {
 		if (!event.votingConfig) return { text: "Tidak tersedia", color: "gray" };
 		const now = new Date();
 		if (event.votingConfig.startDate && new Date(event.votingConfig.startDate) > now) {
-			return { text: "Segera dibuka", color: "amber" };
+			return { text: "Segera", color: "amber" };
 		}
 		if (event.votingConfig.endDate && new Date(event.votingConfig.endDate) < now) {
 			return { text: "Selesai", color: "red" };
@@ -228,12 +233,53 @@ const EVotingPage: React.FC = () => {
 		return { text: "Buka", color: "green" };
 	};
 
+	const getVotingStatusBadge = (event: VotingEvent): { label: string; className: string } => {
+		const status = getVotingStatus(event);
+		if (event.votingConfig?.isPaid) return { label: formatCurrency(event.votingConfig.pricePerVote) + "/vote", className: "bg-red-500/80 text-white" };
+		switch (status.color) {
+			case "green":
+				return { label: "Buka", className: "bg-green-500/80 text-white" };
+			case "amber":
+				return { label: "Segera", className: "bg-orange-500/80 text-white" };
+			case "red":
+				return { label: "Selesai", className: "bg-gray-500/80 text-white" };
+			default:
+				return { label: "Vote", className: "bg-red-500/80 text-white" };
+		}
+	};
+
+	const filteredEvents = useMemo(() => {
+		if (statusFilter === "all") return events;
+		const now = new Date();
+		return events.filter((event) => {
+			const start = event.votingConfig?.startDate ? new Date(event.votingConfig.startDate) : null;
+			const end = event.votingConfig?.endDate ? new Date(event.votingConfig.endDate) : null;
+			switch (statusFilter) {
+				case "upcoming":
+					return start && start > now;
+				case "open":
+					return (!start || start <= now) && (!end || end >= now);
+				case "ended":
+					return end && end < now;
+				default:
+					return true;
+			}
+		});
+	}, [events, statusFilter]);
+
+	const statusOptions = [
+		{ id: "all" as const, label: "Semua" },
+		{ id: "open" as const, label: "Buka" },
+		{ id: "upcoming" as const, label: "Segera" },
+		{ id: "ended" as const, label: "Selesai" },
+	];
+
 	const currentCategory = selectedEvent?.votingConfig?.categories.find((c) => c.id === selectedCategoryId);
 
 	// Event detail / voting view
 	if (selectedEvent) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+			<div className="min-h-screen transition-colors">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
 					{/* Back button */}
 					<button
@@ -244,7 +290,7 @@ const EVotingPage: React.FC = () => {
 					</button>
 
 					{/* Event header */}
-					<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
+					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] overflow-hidden mb-6">
 						{selectedEvent.thumbnail && (
 							<img
 								src={`${config.api.backendUrl}${selectedEvent.thumbnail}`}
@@ -256,12 +302,12 @@ const EVotingPage: React.FC = () => {
 							<h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{selectedEvent.title}</h1>
 							<div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
 								<span className="flex items-center gap-1.5">
-									<CalendarDaysIcon className="w-4 h-4" />
+									<LuCalendar className="w-4 h-4" />
 									{formatDate(selectedEvent.startDate)}
 								</span>
 								{(selectedEvent.venue || selectedEvent.city) && (
 									<span className="flex items-center gap-1.5">
-										<MapPinIcon className="w-4 h-4" />
+										<LuMapPin className="w-4 h-4" />
 										{selectedEvent.venue || selectedEvent.city}
 									</span>
 								)}
@@ -273,7 +319,7 @@ const EVotingPage: React.FC = () => {
 									</span>
 									<button
 										onClick={() => setShowPurchaseModal(true)}
-										className="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+										className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
 									>
 										Beli Vote
 									</button>
@@ -291,8 +337,8 @@ const EVotingPage: React.FC = () => {
 									onClick={() => setSelectedCategoryId(cat.id)}
 									className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
 										selectedCategoryId === cat.id
-											? "bg-purple-600 text-white"
-											: "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+										? "bg-red-600 text-white shadow-lg shadow-red-600/25"
+										: "bg-white/60 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06]"
 									}`}
 								>
 									{cat.title}
@@ -322,16 +368,16 @@ const EVotingPage: React.FC = () => {
 								return (
 									<div
 										key={nominee.id}
-										className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all ${
-											isVoted ? "border-purple-500 ring-1 ring-purple-500" : "border-gray-200 dark:border-gray-700"
-										}`}
-									>
-										{/* Photo */}
-										<div className="h-40 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/20 dark:to-blue-900/20 flex items-center justify-center relative">
+											className={`bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border overflow-hidden transition-all ${
+												isVoted ? "border-red-500 ring-1 ring-red-500" : "border-gray-200/50 dark:border-white/[0.06]"
+											}`}
+										>
+											{/* Photo */}
+											<div className="h-40 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10 flex items-center justify-center relative">
 											{nominee.nomineePhoto ? (
 												<img src={nominee.nomineePhoto} alt={nominee.nomineeName} className="w-full h-full object-cover" />
 											) : (
-												<UserIcon className="w-16 h-16 text-gray-400 dark:text-gray-500" />
+													<LuUser className="w-16 h-16 text-gray-400 dark:text-gray-500" />
 											)}
 											{/* Rank badge */}
 											{idx < 3 && (
@@ -354,11 +400,11 @@ const EVotingPage: React.FC = () => {
 											<div className="mt-3 mb-3">
 												<div className="flex items-center justify-between text-xs mb-1">
 													<span className="text-gray-500 dark:text-gray-400">Vote</span>
-													<span className="font-semibold text-purple-600 dark:text-purple-400">{nominee.voteCount}</span>
+													<span className="font-semibold text-red-600 dark:text-red-400">{nominee.voteCount}</span>
 												</div>
-												<div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+												<div className="w-full bg-gray-100 dark:bg-white/[0.06] rounded-full h-1.5">
 													<div
-														className="h-1.5 rounded-full bg-purple-500 transition-all"
+														className="h-1.5 rounded-full bg-red-500 transition-all"
 														style={{ width: `${pct}%` }}
 													/>
 												</div>
@@ -377,17 +423,17 @@ const EVotingPage: React.FC = () => {
 												className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
 													isVoted
 														? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-														: "bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-												}`}
-											>
-												{isVoted ? (
-													<>
-														<CheckCircleIcon className="w-4 h-4" />
-														Sudah Vote
-													</>
-												) : (
-													<>
-														<HandThumbUpIcon className="w-4 h-4" />
+															: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+													}`}
+												>
+													{isVoted ? (
+														<>
+															<LuCircleCheck className="w-4 h-4" />
+															Sudah Vote
+														</>
+													) : (
+														<>
+															<LuThumbsUp className="w-4 h-4" />
 														Vote
 													</>
 												)}
@@ -399,7 +445,7 @@ const EVotingPage: React.FC = () => {
 						</div>
 					) : (
 						<div className="text-center py-12 text-gray-500 dark:text-gray-400">
-							<HandThumbUpIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+							<LuThumbsUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
 							<p>Belum ada nominee untuk kategori ini</p>
 						</div>
 					)}
@@ -407,26 +453,26 @@ const EVotingPage: React.FC = () => {
 					{/* Purchase code entry modal */}
 					{showCodeEntry && (
 						<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCodeEntry(false)}>
-							<div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+							<div className="bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
 								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Masukkan Kode Vote</h3>
 								<input
 									type="text"
 									value={purchaseCode}
 									onChange={(e) => setPurchaseCode(e.target.value.toUpperCase())}
 									placeholder="VOT-XXXXXX-XXXXXXXX"
-									className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-center"
+									className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white font-mono text-center"
 								/>
 								<div className="flex gap-3">
 									<button
 										onClick={() => setShowCodeEntry(false)}
-										className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg"
+										className="flex-1 px-4 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-lg"
 									>
 										Batal
 									</button>
 									<button
 										onClick={submitPaidVote}
 										disabled={voting || !purchaseCode.trim()}
-										className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+										className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
 									>
 										{voting ? "..." : "Vote"}
 									</button>
@@ -438,40 +484,40 @@ const EVotingPage: React.FC = () => {
 					{/* Purchase votes modal */}
 					{showPurchaseModal && (
 						<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowPurchaseModal(false)}>
-							<div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+							<div className="bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
 								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Beli Paket Vote</h3>
 
 								<div>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<UserIcon className="w-4 h-4 inline mr-1" /> Nama *
+										<LuUser className="w-4 h-4 inline mr-1" /> Nama *
 									</label>
 									<input
 										type="text"
 										value={buyerName}
 										onChange={(e) => setBuyerName(e.target.value)}
-										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
 									/>
 								</div>
 								<div>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<EnvelopeIcon className="w-4 h-4 inline mr-1" /> Email *
+										<LuMail className="w-4 h-4 inline mr-1" /> Email *
 									</label>
 									<input
 										type="email"
 										value={buyerEmail}
 										onChange={(e) => setBuyerEmail(e.target.value)}
-										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
 									/>
 								</div>
 								<div>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<PhoneIcon className="w-4 h-4 inline mr-1" /> Telepon
+										<LuPhone className="w-4 h-4 inline mr-1" /> Telepon
 									</label>
 									<input
 										type="tel"
 										value={buyerPhone}
 										onChange={(e) => setBuyerPhone(e.target.value)}
-										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
 									/>
 								</div>
 								<div>
@@ -482,17 +528,17 @@ const EVotingPage: React.FC = () => {
 										max={100}
 										value={voteCount}
 										onChange={(e) => setVoteCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-										className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
 									/>
 								</div>
-								<div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 text-sm">
+								<div className="bg-red-50/50 dark:bg-white/[0.03] rounded-lg p-3 text-sm border border-red-100/50 dark:border-white/[0.06]">
 									<div className="flex justify-between">
 										<span className="text-gray-600 dark:text-gray-400">Harga/vote</span>
 										<span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedEvent.votingConfig?.pricePerVote || 0)}</span>
 									</div>
 									<div className="flex justify-between font-semibold mt-1">
 										<span className="text-gray-900 dark:text-white">Total</span>
-										<span className="text-purple-700 dark:text-purple-400">
+										<span className="text-red-600 dark:text-red-400">
 											{formatCurrency((selectedEvent.votingConfig?.pricePerVote || 0) * voteCount)}
 										</span>
 									</div>
@@ -500,14 +546,14 @@ const EVotingPage: React.FC = () => {
 								<div className="flex gap-3">
 									<button
 										onClick={() => setShowPurchaseModal(false)}
-										className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg"
+										className="flex-1 px-4 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-lg"
 									>
 										Batal
 									</button>
 									<button
 										onClick={handlePurchaseVotes}
 										disabled={purchasing}
-										className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium"
+										className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
 									>
 										{purchasing ? "Memproses..." : "Beli Vote"}
 									</button>
@@ -522,136 +568,193 @@ const EVotingPage: React.FC = () => {
 
 	// Event list view
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div className="min-h-screen transition-colors">
+			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
-				<div className="mb-8">
-					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">E-Voting</h1>
-					<p className="mt-2 text-gray-600 dark:text-gray-400">Vote untuk tim atau peserta favorit kamu</p>
+				<div className="mb-6">
+					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">
+						VOTE FAVORIT KAMU
+					</p>
+					<h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-1">E-Voting</h1>
+					<p className="text-sm text-gray-500 dark:text-gray-400">Vote untuk tim atau peserta favorit kamu</p>
 				</div>
 
-				{/* Search */}
-				<div className="mb-6">
-					<div className="relative max-w-md">
-						<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+				{/* Search + Filters */}
+				<div className="mb-6 space-y-4">
+					{/* Search bar */}
+					<div className="relative">
+						<LuSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
 						<input
 							type="text"
-							placeholder="Cari event..."
 							value={search}
 							onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-							className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+							placeholder="Cari event voting berdasarkan nama atau lokasi..."
+							className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 transition-colors"
 						/>
-					</div>
-				</div>
-
-				{/* Events Grid */}
-				{loading ? (
-					<div className="flex justify-center py-20">
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-					</div>
-				) : events.length === 0 ? (
-					<div className="text-center py-20">
-						<HandThumbUpIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-						<p className="text-gray-500 dark:text-gray-400 text-lg">Belum ada event dengan e-voting</p>
-					</div>
-				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-						{events.map((event) => {
-							const status = getVotingStatus(event);
-							return (
-								<div
-									key={event.id}
-									className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-									onClick={() => fetchEventDetail(event.id)}
-								>
-									<div className="relative h-48 bg-gray-200 dark:bg-gray-700">
-										{event.thumbnail ? (
-											<img
-												src={`${config.api.backendUrl}${event.thumbnail}`}
-												alt={event.title}
-												className="w-full h-full object-cover"
-											/>
-										) : (
-											<div className="flex items-center justify-center h-full">
-												<HandThumbUpIcon className="w-16 h-16 text-gray-400 dark:text-gray-500" />
-											</div>
-										)}
-										{/* Status badge */}
-										<div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold ${
-											status.color === "green"
-												? "bg-green-600 text-white"
-												: status.color === "amber"
-												? "bg-amber-500 text-white"
-												: "bg-red-600 text-white"
-										}`}>
-											{status.text}
-										</div>
-										{/* Paid badge */}
-										{event.votingConfig?.isPaid && (
-											<div className="absolute top-3 left-3 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
-												{formatCurrency(event.votingConfig.pricePerVote)}/vote
-											</div>
-										)}
-									</div>
-
-									<div className="p-4">
-										<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">{event.title}</h3>
-										<div className="space-y-1.5 text-sm text-gray-500 dark:text-gray-400 mb-3">
-											<div className="flex items-center gap-2">
-												<CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
-												<span>{formatDate(event.startDate)}</span>
-											</div>
-											{(event.venue || event.city || event.location) && (
-												<div className="flex items-center gap-2">
-													<MapPinIcon className="w-4 h-4 flex-shrink-0" />
-													<span className="truncate">{event.venue || event.city || event.location}</span>
-												</div>
-											)}
-										</div>
-
-										{/* Categories preview */}
-										{event.votingConfig?.categories && event.votingConfig.categories.length > 0 && (
-											<div className="flex flex-wrap gap-1.5 mt-2">
-												{event.votingConfig.categories.slice(0, 3).map((cat) => (
-													<span key={cat.id} className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-														{cat.title}
-													</span>
-												))}
-												{event.votingConfig.categories.length > 3 && (
-													<span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
-														+{event.votingConfig.categories.length - 3}
-													</span>
-												)}
-											</div>
-										)}
-
-										<button className="w-full mt-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-											Mulai Vote
-										</button>
-									</div>
-								</div>
-							);
-						})}
-					</div>
-				)}
-
-				{/* Pagination */}
-				{totalPages > 1 && (
-					<div className="flex justify-center gap-2 mt-8">
-						{Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+						{search && (
 							<button
-								key={p}
-								onClick={() => setPage(p)}
-								className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-									p === page
-										? "bg-purple-600 text-white"
-										: "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+								onClick={() => { setSearch(""); setPage(1); }}
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+							>
+								<LuX className="w-4 h-4" />
+							</button>
+						)}
+					</div>
+
+					{/* Status filter pills */}
+					<div className="flex flex-wrap items-center gap-1.5">
+						<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Status:</span>
+						{statusOptions.map((opt) => (
+							<button
+								key={opt.id}
+								onClick={() => setStatusFilter(opt.id)}
+								className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+									statusFilter === opt.id
+										? "bg-red-500 text-white"
+										: "bg-gray-200/60 dark:bg-white/[0.08] text-gray-600 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/[0.14]"
 								}`}
 							>
-								{p}
+								{opt.label}
 							</button>
 						))}
 					</div>
+				</div>
+
+				{/* Result info */}
+				<p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+					{filteredEvents.length > 0
+						? `Menampilkan ${filteredEvents.length} event`
+						: "Tidak ada event yang ditemukan"}
+				</p>
+
+				{/* Events Grid */}
+				{loading ? (
+					<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+						{Array.from({ length: 25 }).map((_, i) => (
+							<div
+								key={i}
+								className="rounded-xl bg-gray-200/50 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.04] animate-pulse"
+							>
+								<div className="aspect-[2/3]" />
+								<div className="p-2 space-y-1.5">
+									<div className="h-2.5 bg-gray-300/50 dark:bg-white/[0.06] rounded w-3/4" />
+									<div className="h-2 bg-gray-300/50 dark:bg-white/[0.06] rounded w-1/2" />
+								</div>
+							</div>
+						))}
+					</div>
+				) : filteredEvents.length === 0 ? (
+					<div className="text-center py-16">
+						<div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center">
+							<LuThumbsUp className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+						</div>
+						<p className="text-gray-500 dark:text-gray-400 text-sm">Tidak ada event voting yang ditemukan</p>
+					</div>
+				) : (
+					<>
+						<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+							{filteredEvents.map((event) => {
+								const badge = getVotingStatusBadge(event);
+								return (
+									<div
+										key={event.id}
+										onClick={() => fetchEventDetail(event.id)}
+										className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-red-400/30 dark:hover:border-red-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+									>
+										{/* Poster - 2:3 ratio */}
+										<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-red-900/10 to-orange-900/10 overflow-hidden">
+											{event.thumbnail ? (
+												<img
+													src={getImageUrl(event.thumbnail)}
+													alt={event.title}
+													className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+													loading="lazy"
+												/>
+											) : (
+												<div className="w-full h-full flex items-center justify-center">
+													<LuThumbsUp className="w-6 h-6 text-gray-400/40 dark:text-gray-600" />
+												</div>
+											)}
+											<div className="absolute top-1.5 left-1.5">
+												<span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${badge.className}`}>
+													{badge.label}
+												</span>
+											</div>
+										</div>
+
+										{/* Info */}
+										<div className="p-2">
+											<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
+												{event.title}
+											</h4>
+											<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
+												<LuCalendar className="w-3 h-3 flex-shrink-0" />
+												<span className="text-[8px] lg:text-[9px]">
+													{formatShortDate(event.startDate)}
+												</span>
+											</div>
+											{(event.venue || event.city || event.location) && (
+												<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500 mt-0.5">
+													<LuMapPin className="w-3 h-3 flex-shrink-0" />
+													<span className="text-[8px] lg:text-[9px] line-clamp-1">
+														{event.city || event.venue || event.location}
+													</span>
+												</div>
+											)}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+
+						{/* Pagination */}
+						{totalPages > 1 && (
+							<div className="flex items-center justify-center gap-3 mt-8">
+								<button
+									onClick={() => setPage((p) => Math.max(1, p - 1))}
+									disabled={page === 1}
+									className="w-8 h-8 rounded-full bg-gray-200/50 dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-500 dark:text-gray-400 flex items-center justify-center hover:bg-gray-300/50 dark:hover:bg-white/[0.12] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+								>
+									<LuChevronLeft className="w-4 h-4" />
+								</button>
+
+								<div className="flex gap-1.5">
+									{Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+										if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
+											return (
+												<button
+													key={p}
+													onClick={() => setPage(p)}
+													className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
+														p === page
+															? "bg-red-500 text-white"
+															: "bg-gray-200/50 dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 hover:bg-gray-300/50 dark:hover:bg-white/[0.12]"
+													}`}
+												>
+													{p}
+												</button>
+											);
+										} else if (p === page - 2 || p === page + 2) {
+											return (
+												<span key={p} className="w-8 h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs">
+													...
+												</span>
+											);
+										}
+										return null;
+									})}
+								</div>
+
+								<button
+									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+									disabled={page === totalPages}
+									className="w-8 h-8 rounded-full bg-gray-200/50 dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-500 dark:text-gray-400 flex items-center justify-center hover:bg-gray-300/50 dark:hover:bg-white/[0.12] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+								>
+									<LuChevronRight className="w-4 h-4" />
+								</button>
+							</div>
+						)}
+					</>
 				)}
 			</div>
 		</div>

@@ -11,6 +11,8 @@ import {
 	ExclamationTriangleIcon,
 	Cog6ToothIcon,
 	ClipboardDocumentListIcon,
+	LockOpenIcon,
+	LockClosedIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
@@ -36,6 +38,7 @@ const EventTicketing: React.FC = () => {
 		salesEndDate: null,
 	});
 	const [saving, setSaving] = useState(false);
+	const [togglingTicketing, setTogglingTicketing] = useState(false);
 
 	// Purchases state
 	const [purchases, setPurchases] = useState<TicketPurchase[]>([]);
@@ -90,7 +93,21 @@ const EventTicketing: React.FC = () => {
 			try {
 				setLoading(true);
 				const res = await api.get(`/tickets/admin/event/${eventId}/config`);
-				setConfig(res.data);
+				const { event, ...configData } = res.data;
+				setConfig(configData);
+				if (event) {
+					// Auto-fill sales dates from event schedule if not set
+					if (!configData.salesStartDate && event.registrationDeadline) {
+						configData.salesStartDate = event.registrationDeadline;
+					}
+					if (!configData.salesEndDate && event.startDate) {
+						// H+1 dari acara dimulai
+						const hPlusOne = new Date(event.startDate);
+						hPlusOne.setDate(hPlusOne.getDate() + 1);
+						configData.salesEndDate = hPlusOne.toISOString();
+					}
+					setConfig(configData);
+				}
 			} catch {
 				// Config not found, use defaults
 			} finally {
@@ -193,6 +210,43 @@ const EventTicketing: React.FC = () => {
 			console.error("Error fetching purchases");
 		} finally {
 			setPurchasesLoading(false);
+		}
+	};
+
+	const handleToggleTicketing = async () => {
+		const isOpen = config.enabled;
+		const result = await Swal.fire({
+			icon: isOpen ? "warning" : "question",
+			title: isOpen ? "Tutup Penjualan Tiket?" : "Buka Penjualan Tiket?",
+			text: isOpen
+				? "Penjualan tiket akan ditutup untuk publik."
+				: "Penjualan tiket akan dibuka untuk publik.",
+			showCancelButton: true,
+			confirmButtonText: isOpen ? "Ya, Tutup" : "Ya, Buka",
+			cancelButtonText: "Batal",
+			confirmButtonColor: isOpen ? "#dc2626" : "#16a34a",
+		});
+
+		if (!result.isConfirmed) return;
+
+		try {
+			setTogglingTicketing(true);
+			const res = await api.post(`/tickets/admin/event/${eventId}/toggle-ticketing`);
+			setConfig((prev) => ({ ...prev, enabled: res.data.enabled }));
+
+			Swal.fire({
+				icon: "success",
+				title: res.data.enabled ? "Penjualan Dibuka" : "Penjualan Ditutup",
+				text: res.data.enabled
+					? "Tiket sekarang tersedia untuk publik."
+					: "Penjualan tiket telah ditutup.",
+				timer: 2000,
+				showConfirmButton: false,
+			});
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal mengubah status ticketing", "error");
+		} finally {
+			setTogglingTicketing(false);
 		}
 	};
 
@@ -325,7 +379,7 @@ const EventTicketing: React.FC = () => {
 			</div>
 
 			{/* Stats Summary */}
-			<div className="flex items-center gap-3 mb-6 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 shadow-sm">
+			<div className="flex items-center gap-3 mb-4 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 shadow-sm">
 				<span className={`w-3 h-3 rounded-full flex-shrink-0 ${config.enabled ? "bg-green-500" : "bg-red-500"}`} title={config.enabled ? "Aktif" : "Nonaktif"} />
 				<span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-300">
 					{config.enabled ? "Aktif" : "Nonaktif"}
@@ -339,6 +393,42 @@ const EventTicketing: React.FC = () => {
 				<div className="flex items-center gap-1.5 text-sm">
 					<span className="text-gray-500 dark:text-gray-400 hidden sm:inline">Pendapatan</span>
 					<span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(config.soldCount * config.price)}</span>
+				</div>
+			</div>
+
+			{/* Toggle Ticketing Button */}
+			<div className={`mb-6 rounded-xl p-4 border ${config.enabled ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700" : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700"}`}>
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-3">
+						{config.enabled ? (
+							<LockOpenIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
+						) : (
+							<LockClosedIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+						)}
+						<div>
+							<p className={`font-medium text-sm ${config.enabled ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+								{config.enabled ? "Penjualan Tiket Dibuka" : "Penjualan Tiket Ditutup"}
+							</p>
+							<p className="text-xs text-gray-500 dark:text-gray-400">
+								{config.enabled ? "Publik dapat membeli tiket saat ini" : "Publik tidak dapat membeli tiket saat ini"}
+							</p>
+						</div>
+					</div>
+					<button
+						onClick={handleToggleTicketing}
+						disabled={togglingTicketing}
+						className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+							config.enabled
+								? "bg-red-600 text-white hover:bg-red-700"
+								: "bg-green-600 text-white hover:bg-green-700"
+						}`}
+					>
+						{togglingTicketing
+							? "Memproses..."
+							: config.enabled
+							? "Tutup Penjualan"
+							: "Buka Penjualan"}
+					</button>
 				</div>
 			</div>
 
@@ -476,6 +566,9 @@ const EventTicketing: React.FC = () => {
 									}
 									className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 								/>
+								<p className="text-xs text-gray-400 mt-1">
+									Otomatis diisi dari waktu buka pendaftaran event
+								</p>
 							</div>
 							<div>
 								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -492,6 +585,9 @@ const EventTicketing: React.FC = () => {
 									}
 									className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 								/>
+								<p className="text-xs text-gray-400 mt-1">
+									Otomatis diisi H+1 dari tanggal acara dimulai
+								</p>
 							</div>
 						</div>
 

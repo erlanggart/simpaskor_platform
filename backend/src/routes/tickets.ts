@@ -301,6 +301,15 @@ router.get(
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
 
+			const event = await prisma.event.findUnique({
+				where: { id: eventId },
+				select: {
+					startDate: true,
+					endDate: true,
+					registrationDeadline: true,
+				},
+			});
+
 			let config = await prisma.eventTicketConfig.findUnique({
 				where: { eventId },
 			});
@@ -316,13 +325,47 @@ router.get(
 					description: null,
 					salesStartDate: null,
 					salesEndDate: null,
+					event: event || null,
 				});
 			}
 
-			res.json(config);
+			res.json({ ...config, event: event || null });
 		} catch (error) {
 			console.error("Error fetching ticket config:", error);
 			res.status(500).json({ error: "Gagal memuat konfigurasi tiket" });
+		}
+	}
+);
+
+// POST /api/tickets/admin/event/:eventId/toggle-ticketing - Open/close ticketing
+router.post(
+	"/admin/event/:eventId/toggle-ticketing",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const eventId = await resolveEventId(req.params.eventId);
+			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			const existing = await prisma.eventTicketConfig.findUnique({
+				where: { eventId },
+			});
+
+			if (!existing) {
+				return res.status(404).json({ error: "Konfigurasi tiket belum dibuat. Simpan konfigurasi terlebih dahulu." });
+			}
+
+			const config = await prisma.eventTicketConfig.update({
+				where: { eventId },
+				data: {
+					enabled: !existing.enabled,
+				},
+			});
+
+			res.json(config);
+		} catch (error) {
+			console.error("Error toggling ticketing:", error);
+			res.status(500).json({ error: "Gagal mengubah status ticketing" });
 		}
 	}
 );

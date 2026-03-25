@@ -1,79 +1,93 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Layouts
-import { MainLayout, AuthLayout, DashboardLayout, ScoringLayout, PreAssignLayout } from "./layouts";
+import "./App.css";
+
+// Layouts (named exports)
+const MainLayout = lazy(() => import("./layouts/MainLayout").then(m => ({ default: m.MainLayout })));
+const AuthLayout = lazy(() => import("./layouts/AuthLayout").then(m => ({ default: m.AuthLayout })));
+const DashboardLayout = lazy(() => import("./layouts/DashboardLayout").then(m => ({ default: m.DashboardLayout })));
+const ScoringLayout = lazy(() => import("./layouts/ScoringLayout").then(m => ({ default: m.ScoringLayout })));
+const PreAssignLayout = lazy(() => import("./layouts/PreAssignLayout").then(m => ({ default: m.PreAssignLayout })));
 
 // Public Pages
-import LandingPage from "./pages/LandingPage";
-import MarketplacePage from "./pages/MarketplacePage";
-import ETicketingPage from "./pages/ETicketingPage";
-import EVotingPage from "./pages/EVotingPage";
-import EventDetail from "./pages/EventDetail";
-import NotFound from "./pages/NotFound";
-import Unauthorized from "./pages/Unauthorized";
-import AllJuries from "./pages/AllJuries";
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
+const ETicketingPage = lazy(() => import("./pages/ETicketingPage"));
+const EVotingPage = lazy(() => import("./pages/EVotingPage"));
+const EventDetail = lazy(() => import("./pages/EventDetail"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+const AllJuries = lazy(() => import("./pages/AllJuries"));
+const EventsPage = lazy(() => import("./pages/EventsPage"));
 
 // Auth Pages
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 // Dashboard Pages
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 // Role-based Dashboard Pages
-import AdminDashboard from "./pages/admin/Dashboard";
-import UserManagement from "./pages/admin/UserManagement";
-import CouponManagement from "./pages/admin/CouponManagement";
-import AssessmentCategoryManagement from "./pages/admin/AssessmentCategoryManagement";
-import EventManagement from "./pages/admin/EventManagement";
-import AdminManageEvent from "./pages/admin/ManageEvent";
-import AdminEditEvent from "./pages/admin/EditEvent";
-import ProductManagement from "./pages/admin/ProductManagement";
-import OrderManagement from "./pages/admin/OrderManagement";
-import PanitiaDashboard from "./pages/panitia/Dashboard";
-import CreateEventWizard from "./pages/panitia/CreateEventWizard";
-import EditEventForm from "./pages/panitia/EditEvent";
-import ManageEvent from "./pages/panitia/ManageEvent";
-import EventParticipantManagement from "./pages/panitia/EventParticipantManagement";
-import PesertaDashboard from "./pages/peserta/Dashboard";
-import PesertaRegistrations from "./pages/peserta/Registrations";
-import PesertaEventRegister from "./pages/peserta/EventRegister";
-import PesertaAssessmentHistory from "./pages/peserta/AssessmentHistory";
-import PesertaEventsAvailable from "./pages/peserta/EventsAvailable";
-import JuriDashboard from "./pages/juri/Dashboard";
-import JuriInvitations from "./pages/juri/Invitations";
-import JuriMyEvents from "./pages/juri/MyEvents";
-import JuriEventInfo from "./pages/juri/EventInfo";
-import JuriEventMateri from "./pages/juri/EventMateri";
-import JuriEventPeserta from "./pages/juri/EventPeserta";
-import JuriEventPenilaian from "./pages/juri/EventPenilaian";
-import JuriPenilaianDetail from "./pages/juri/PenilaianDetail";
-import JuriMaterialScoring from "./pages/juri/MaterialScoring";
-import PelatihDashboard from "./pages/pelatih/Dashboard";
-import ManageJury from "./pages/panitia/ManageJury";
-import ManageJuara from "./pages/panitia/ManageJuara";
-import ManageMateri from "./pages/panitia/ManageMateri";
-import FieldRechecking from "./pages/panitia/FieldRechecking";
-import PanitiaEventRecap from "./pages/panitia/EventRecap";
-import EventTicketing from "./pages/panitia/EventTicketing";
-import EventVoting from "./pages/panitia/EventVoting";
-import PerformanceHistory from "./pages/shared/PerformanceHistory";
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
+const CouponManagement = lazy(() => import("./pages/admin/CouponManagement"));
+const AssessmentCategoryManagement = lazy(() => import("./pages/admin/AssessmentCategoryManagement"));
+const EventManagement = lazy(() => import("./pages/admin/EventManagement"));
+const AdminManageEvent = lazy(() => import("./pages/admin/ManageEvent"));
+const AdminEditEvent = lazy(() => import("./pages/admin/EditEvent"));
+const ProductManagement = lazy(() => import("./pages/admin/ProductManagement"));
+const OrderManagement = lazy(() => import("./pages/admin/OrderManagement"));
+const PanitiaDashboard = lazy(() => import("./pages/panitia/Dashboard"));
+const CreateEventWizard = lazy(() => import("./pages/panitia/CreateEventWizard"));
+const EditEventForm = lazy(() => import("./pages/panitia/EditEvent"));
+const ManageEvent = lazy(() => import("./pages/panitia/ManageEvent"));
+const EventParticipantManagement = lazy(() => import("./pages/panitia/EventParticipantManagement"));
+const PesertaDashboard = lazy(() => import("./pages/peserta/Dashboard"));
+const PesertaRegistrations = lazy(() => import("./pages/peserta/Registrations"));
+const PesertaEventRegister = lazy(() => import("./pages/peserta/EventRegister"));
+const PesertaAssessmentHistory = lazy(() => import("./pages/peserta/AssessmentHistory"));
+const PesertaEventsAvailable = lazy(() => import("./pages/peserta/EventsAvailable"));
+const JuriDashboard = lazy(() => import("./pages/juri/Dashboard"));
+const JuriInvitations = lazy(() => import("./pages/juri/Invitations"));
+const JuriMyEvents = lazy(() => import("./pages/juri/MyEvents"));
+const JuriEventInfo = lazy(() => import("./pages/juri/EventInfo"));
+const JuriEventMateri = lazy(() => import("./pages/juri/EventMateri"));
+const JuriEventPeserta = lazy(() => import("./pages/juri/EventPeserta"));
+const JuriEventPenilaian = lazy(() => import("./pages/juri/EventPenilaian"));
+const JuriPenilaianDetail = lazy(() => import("./pages/juri/PenilaianDetail"));
+const JuriMaterialScoring = lazy(() => import("./pages/juri/MaterialScoring"));
+const PelatihDashboard = lazy(() => import("./pages/pelatih/Dashboard"));
+const ManageJury = lazy(() => import("./pages/panitia/ManageJury"));
+const ManageJuara = lazy(() => import("./pages/panitia/ManageJuara"));
+const ManageMateri = lazy(() => import("./pages/panitia/ManageMateri"));
+const FieldRechecking = lazy(() => import("./pages/panitia/FieldRechecking"));
+const PanitiaEventRecap = lazy(() => import("./pages/panitia/EventRecap"));
+const EventTicketing = lazy(() => import("./pages/panitia/EventTicketing"));
+const EventVoting = lazy(() => import("./pages/panitia/EventVoting"));
+const PerformanceHistory = lazy(() => import("./pages/shared/PerformanceHistory"));
 
-import "./App.css";
+const LoadingFallback = () => (
+	<div className="h-screen w-screen flex items-center justify-center bg-[#080810]">
+		<div className="w-8 h-8 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+	</div>
+);
 
 function App() {
 	return (
 		<AuthProvider>
 			<div className="App">
+				<Suspense fallback={<LoadingFallback />}>
 				<Routes>
 					{/* Public Routes - Main Layout */}
 					<Route element={<MainLayout />}>
 						<Route index element={<LandingPage />} />
+						<Route path="events" element={<EventsPage />} />
 						<Route path="marketplace" element={<MarketplacePage />} />
 						<Route path="e-ticketing" element={<ETicketingPage />} />
 						<Route path="e-voting" element={<EVotingPage />} />
@@ -291,6 +305,7 @@ function App() {
 					{/* Catch-all Not Found */}
 					<Route path="*" element={<NotFound />} />
 				</Routes>
+				</Suspense>
 			</div>
 		</AuthProvider>
 	);
