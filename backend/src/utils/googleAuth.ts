@@ -56,7 +56,7 @@ export class GoogleAuthUtils {
         where: { id: user.id },
         data: { 
           lastLogin: new Date(),
-          emailVerified: googleUser.email_verified, // Update email verification status
+          emailVerified: googleUser.email_verified === true || googleUser.email_verified === 'true', // Update email verification status
         },
         include: { profile: true },
       });
@@ -69,7 +69,7 @@ export class GoogleAuthUtils {
           passwordHash: '', // No password for Google OAuth users
           role: UserRole.PESERTA, // Default role for Google sign-up
           status: UserStatus.PENDING, // Pending until verified by admin
-          emailVerified: googleUser.email_verified,
+          emailVerified: googleUser.email_verified === true || googleUser.email_verified === 'true',
           profile: {
             create: {
               avatar: googleUser.picture,
