@@ -28,7 +28,7 @@ const Login = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [showPassword, setShowPassword] = useState(false);
-	const { login } = useAuth();
+	const { login, setAuth } = useAuth();
 	const navigate = useNavigate();
 
 	const {
@@ -77,9 +77,8 @@ const Login = () => {
 				credential: response.credential,
 			});
 
-			// Save token and user
-			localStorage.setItem("token", result.data.token);
-			localStorage.setItem("user", JSON.stringify(result.data.user));
+			// Save token and user to auth context
+			setAuth(result.data.user, result.data.token);
 
 			const user = result.data.user;
 

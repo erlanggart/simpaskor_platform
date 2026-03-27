@@ -131,14 +131,17 @@ router.post(
 			const googleUser = await GoogleAuthUtils.verifyGoogleToken(credential);
 
 			// Find or create user
-			const { user, token } = await GoogleAuthUtils.findOrCreateGoogleUser(
+			const { user, token, isNewUser } = await GoogleAuthUtils.findOrCreateGoogleUser(
 				googleUser
 			);
 
 			res.json({
-				message: "Google authentication successful",
+				message: isNewUser
+					? "Berhasil mendaftar dengan Google"
+					: "Google authentication successful",
 				user,
 				token,
+				isNewUser,
 			});
 		} catch (error: any) {
 			console.error("Google authentication error:", error);

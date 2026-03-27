@@ -14,6 +14,7 @@ interface AuthContextType {
 	login: (email: string, password: string) => Promise<void>;
 	register: (data: any) => Promise<void>;
 	logout: () => void;
+	setAuth: (user: User, token: string) => void;
 	isAuthenticated: boolean;
 }
 
@@ -73,6 +74,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		}
 	};
 
+	const setAuth = (userData: User, tokenData: string) => {
+		setUser(userData);
+		setToken(tokenData);
+		localStorage.setItem("token", tokenData);
+		localStorage.setItem("user", JSON.stringify(userData));
+	};
+
 	const logout = () => {
 		setUser(null);
 		setToken(null);
@@ -100,6 +108,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		login,
 		register,
 		logout,
+		setAuth,
 		isAuthenticated: !!user && !!token,
 	};
 

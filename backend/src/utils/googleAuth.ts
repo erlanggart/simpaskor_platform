@@ -53,18 +53,20 @@ export class GoogleAuthUtils {
 			include: { profile: true },
 		});
 
+		let isNewUser = false;
+
 		if (user) {
-			// User exists - update last login
+			// User exists - update last login only
 			user = await prisma.user.update({
 				where: { id: user.id },
 				data: {
 					lastLogin: new Date(),
-					emailVerified: Boolean(googleUser.email_verified), // Update email verification status
 				},
 				include: { profile: true },
 			});
 		} else {
-			// Create new user
+			// Create new user - emailVerified defaults to false, admin must verify
+			isNewUser = true;
 			user = await prisma.user.create({
 				data: {
 					email: googleUser.email,
@@ -72,7 +74,7 @@ export class GoogleAuthUtils {
 					passwordHash: "", // No password for Google OAuth users
 					role: UserRole.PESERTA, // Default role for Google sign-up
 					status: UserStatus.PENDING, // Pending until verified by admin
-					emailVerified: Boolean(googleUser.email_verified),
+					emailVerified: false, // Not verified until admin approves
 					profile: {
 						create: {
 							avatar: googleUser.picture,
@@ -94,6 +96,7 @@ export class GoogleAuthUtils {
 		return {
 			user: AuthUtils.sanitizeUser(user),
 			token,
+			isNewUser,
 		};
 	}
 }

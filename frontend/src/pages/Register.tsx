@@ -28,8 +28,9 @@ type RegisterForm = z.infer<typeof registerSchema>;
 const Register = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [success, setSuccess] = useState<string | null>(null);
 	const [showPassword, setShowPassword] = useState(false);
-	const { register: registerUser, login } = useAuth();
+	const { register: registerUser, setAuth } = useAuth();
 	const navigate = useNavigate();
 	const { executeRecaptcha } = useGoogleReCaptcha();
 
@@ -61,7 +62,10 @@ const Register = () => {
 		document.body.appendChild(script);
 
 		return () => {
-			document.body.removeChild(script);
+			// Only remove if script is still in body
+			if (script.parentNode) {
+				document.body.removeChild(script);
+			}
 		};
 	}, []);
 
@@ -70,18 +74,26 @@ const Register = () => {
 		try {
 			setIsLoading(true);
 			setError(null);
+			setSuccess(null);
 
 			// Send credential to backend
 			const result = await api.post("/auth/google", {
 				credential: response.credential,
 			});
 
-			// Save token and user
-			localStorage.setItem("token", result.data.token);
-			localStorage.setItem("user", JSON.stringify(result.data.user));
-
-			// Navigate to dashboard
-			navigate("/dashboard");
+			if (result.data.isNewUser) {
+				// New user registered via Google - show success and redirect to login
+				setSuccess(
+					"Berhasil mendaftar dengan Google! Silakan login untuk melanjutkan."
+				);
+				setTimeout(() => {
+					navigate("/login");
+				}, 2000);
+			} else {
+				// Existing user - log them in directly
+				setAuth(result.data.user, result.data.token);
+				navigate("/dashboard");
+			}
 		} catch (err: any) {
 			setError(
 				err.response?.data?.message ||
@@ -107,6 +119,7 @@ const Register = () => {
 		try {
 			setIsLoading(true);
 			setError(null);
+			setSuccess(null);
 
 			// Check if reCAPTCHA is available
 			if (!executeRecaptcha) {
@@ -165,6 +178,12 @@ const Register = () => {
 				{error && (
 					<div className="bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl">
 						{error}
+					</div>
+				)}
+
+				{success && (
+					<div className="bg-green-50 dark:bg-green-900/20 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl">
+						{success}
 					</div>
 				)}
 
