@@ -25,6 +25,7 @@ const sectionNavLabels = [
 	{ id: "events", label: "Event", icon: LuLayoutGrid },
 	{ id: "statistics", label: "Statistik", icon: LuChartPie },
 	{ id: "jury", label: "Juri", icon: LuGavel },
+	{ id: "pelatih", label: "Pelatih", icon: LuUsers },
 ];
 
 const LandingPage: React.FC = () => {
@@ -232,13 +233,22 @@ const LandingPage: React.FC = () => {
 									juri-juri berpengalaman. Setiap aspek dinilai secara
 									profesional dengan standar nasional.
 								</p>
-								<Link
-									to="/juries"
-									className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
-								>
-									<span>Lihat Semua Juri</span>
-									<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-								</Link>
+								<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+									<Link
+										to="/juries"
+										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
+									>
+										<span>Lihat Semua Juri</span>
+										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+									</Link>
+									<Link
+										to="/register"
+										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all duration-300 group"
+									>
+										<span>Daftar sebagai Juri</span>
+										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+									</Link>
+								</div>
 							</div>
 
 							{/* Right: Jury visual placeholder */}
@@ -250,6 +260,67 @@ const LandingPage: React.FC = () => {
 											{ icon: LuChartBar, label: "Hasil" },
 											{ icon: LuUsers, label: "Kandidat" },
 											{ icon: LuShield, label: "Aman" },
+										].map((item, i) => (
+											<div
+												key={i}
+												className={`w-20 h-20 xl:w-24 xl:h-24 rounded-2xl bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2 transition-all duration-500 hover:bg-gray-200/50 dark:hover:bg-white/[0.08] hover:border-gray-300/50 dark:hover:border-white/[0.12] hover:scale-105 ${
+													i % 2 === 0 ? "animate-float" : "animate-float-delayed"
+												}`}
+											>
+												<item.icon className="w-6 h-6 xl:w-7 xl:h-7 text-gray-500 dark:text-gray-400" />
+												<span className="text-[9px] xl:text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+													{item.label}
+												</span>
+											</div>
+										))}
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				{/* ===== SECTION 5: PELATIH ===== */}
+				<section ref={setSectionRef(4)} className="landing-section-inner">
+					<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
+						<div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-16">
+							{/* Left: Text */}
+							<div className="flex-1 text-center lg:text-left max-w-2xl">
+								<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-4">
+									PELATIH PROFESIONAL
+								</p>
+								<h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-none mb-3 landing-title-gradient-coaching">
+									PELATIH
+								</h1>
+								<p className="text-sm md:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wide mb-6">
+									Bimbing Atlet Unggulan
+								</p>
+								<div className="w-12 h-[1px] bg-gradient-to-r from-blue-500/50 to-transparent mx-auto lg:mx-0 mb-6" />
+								<p className="text-sm md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0">
+									Pelatih profesional yang berpengalaman dalam membentuk
+									atlet-atlet berprestasi. Dengan metode pelatihan terkini
+									dan pendekatan personal untuk setiap atlet.
+								</p>
+								<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+									<Link
+										to="/register"
+										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all duration-300 group"
+									>
+										<span>Daftar sebagai Pelatih</span>
+										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+									</Link>
+								</div>
+							</div>
+
+							{/* Right: Coach visual placeholder */}
+							<div className="flex-shrink-0 hidden lg:flex flex-col items-center gap-6">
+								<div className="relative section-icon-glow-blue">
+									<div className="grid grid-cols-2 gap-4">
+										{[
+											{ icon: LuUsers, label: "Atlet" },
+											{ icon: LuTrophy, label: "Prestasi" },
+											{ icon: LuChartBar, label: "Statistik" },
+											{ icon: LuShield, label: "Profesional" },
 										].map((item, i) => (
 											<div
 												key={i}
