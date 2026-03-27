@@ -762,14 +762,7 @@ router.patch(
 				});
 			}
 
-			// Validate minimum participants (20)
-			for (const limit of schoolCategoryLimits) {
-				if (limit.maxParticipants < 20) {
-					return res.status(400).json({
-						message: "Minimum participants per school category is 20",
-					});
-				}
-			}
+			// Note: No minimum participants validation - allow any positive value
 
 			if (!contactEmail || !/\S+@\S+\.\S+/.test(contactEmail)) {
 				return res.status(400).json({
