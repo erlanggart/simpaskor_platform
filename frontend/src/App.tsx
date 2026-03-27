@@ -119,8 +119,8 @@ function App() {
 						<Route path="users/:userId" element={<UserDetail />} />
 							<Route path="coupons" element={<CouponManagement />} />
 							<Route path="events" element={<EventManagement />} />
-							<Route path="events/:eventSlug/manage" element={<AdminManageEvent />} />
 							<Route path="events/:eventId/edit" element={<AdminEditEvent />} />
+							<Route path="events/:eventSlug/manage" element={<AdminManageEvent />} />
 							<Route path="events/:eventSlug/peserta" element={<EventParticipantManagement />} />
 							<Route path="events/:eventSlug/juri" element={<ManageJury />} />
 							<Route path="events/:eventSlug/materi" element={<ManageMateri />} />

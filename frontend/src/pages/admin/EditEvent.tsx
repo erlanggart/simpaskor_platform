@@ -237,7 +237,7 @@ const AdminEditEvent: React.FC = () => {
 				headers: { "Content-Type": "multipart/form-data" },
 			});
 
-			const thumbnailPath = response.data.path;
+			const thumbnailPath = response.data.thumbnailUrl;
 			setFormData((prev) => ({ ...prev, thumbnail: thumbnailPath }));
 
 			const reader = new FileReader();
@@ -372,7 +372,7 @@ const AdminEditEvent: React.FC = () => {
 				timer: 2000,
 				showConfirmButton: false,
 			});
-			navigate(`/admin/events/${eventId}`);
+			navigate(`/admin/events/${eventId}/manage`);
 		} catch (error: any) {
 			console.error("Failed to update event:", error);
 			Swal.fire({
