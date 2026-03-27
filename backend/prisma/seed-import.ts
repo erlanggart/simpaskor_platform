@@ -234,7 +234,7 @@ async function batchCreateMany<T>(
 async function main() {
   console.log('Starting data import from legacy MariaDB dump...\n');
 
-  const sqlPath = path.join(__dirname, '../../database/u235383302_simpaskor.sql');
+  const sqlPath = path.join(__dirname, '../../dbsimpaskor.sql');
   console.log(`Reading SQL dump from: ${sqlPath}`);
   const content = fs.readFileSync(sqlPath, 'utf-8');
   console.log(`File size: ${(content.length / 1024 / 1024).toFixed(2)} MB\n`);
@@ -269,6 +269,30 @@ async function main() {
   // penilaian: id(0), soal_id(1), juri_id(2), peserta_id(3), nilai(4), alasan(5), created_at(6), updated_at(7)
   console.log(`  Penilaian: ${oldPenilaian.length}\n`);
 
+  const oldPunishment = parseSqlInsert(content, 'punishment');
+  // punishment: id(0), peserta_id(1), pemberi_id(2), event_category_id(3), punishment_type(4), deskripsi(5), nilai_pengurang(6), created_at(7)
+  console.log(`  Punishment: ${oldPunishment.length}`);
+
+  const oldPointplus = parseSqlInsert(content, 'pointplus');
+  // pointplus: id(0), peserta_id(1), pemberi_id(2), event_category_id(3), deskripsi(4), nilai_tambah(5), created_at(6)
+  console.log(`  Pointplus: ${oldPointplus.length}`);
+
+  const oldLapangan = parseSqlInsert(content, 'lapangan');
+  // lapangan: id(0), event_id(1), nama(2)
+  console.log(`  Lapangan: ${oldLapangan.length}`);
+
+  const oldPerform = parseSqlInsert(content, 'perform');
+  // perform: id(0), event_id(1), lapangan_id(2), peserta_id(3), created_at(4)
+  console.log(`  Perform: ${oldPerform.length}`);
+
+  const oldJuaraKategori = parseSqlInsert(content, 'event_juara_kategori');
+  // event_juara_kategori: id(0), event_id(1), kategori_utama(2), kategori_umum(3), created_at(4), updated_at(5)
+  console.log(`  Event Juara Kategori: ${oldJuaraKategori.length}`);
+
+  const oldRankingLabels = parseSqlInsert(content, 'event_ranking_labels');
+  // event_ranking_labels: id(0), event_id(1), label_nama(2), peringkat_mulai(3), peringkat_akhir(4)
+  console.log(`  Event Ranking Labels: ${oldRankingLabels.length}\n`);
+
   // Build lookup sets
   const oldEventIds = new Set(oldEvents.map((e) => e[0] as string));
   const oldUserMap = new Map<string, any[]>(); // user_id -> row
@@ -279,7 +303,7 @@ async function main() {
   // ========================================================================
   // Step 1: School Categories
   // ========================================================================
-  console.log('[1/9] Creating School Categories...');
+  console.log('[1/13] Creating School Categories...');
   const schoolCatData = [
     { name: 'SD', description: 'Sekolah Dasar', order: 1 },
     { name: 'SMP', description: 'Sekolah Menengah Pertama', order: 2 },
@@ -304,7 +328,7 @@ async function main() {
   // ========================================================================
   // Step 2: Assessment Categories
   // ========================================================================
-  console.log('[2/9] Creating Assessment Categories...');
+  console.log('[2/13] Creating Assessment Categories...');
   // Collect unique normalized names from event_categories (skip orphaned)
   const uniqueCatNames = new Set<string>();
   for (const cat of oldCategories) {
@@ -332,7 +356,7 @@ async function main() {
   // ========================================================================
   // Step 3: Users
   // ========================================================================
-  console.log('[3/9] Creating Users...');
+  console.log('[3/13] Creating Users...');
   const usedEmails = new Set<string>();
   const userCreateData: any[] = [];
 
@@ -371,7 +395,7 @@ async function main() {
   // ========================================================================
   // Step 4: Events
   // ========================================================================
-  console.log('[4/9] Creating Events...');
+  console.log('[4/13] Creating Events...');
   const eventIdMap = new Map<string, string>(); // old_event_id -> new_event_id
   const existingSlugs = new Set<string>();
 
@@ -445,7 +469,7 @@ async function main() {
   // ========================================================================
   // Step 5: EventAssessmentCategory
   // ========================================================================
-  console.log('[5/9] Creating Event Assessment Categories...');
+  console.log('[5/13] Creating Event Assessment Categories...');
   // Map old event_categories.id -> new EventAssessmentCategory.id
   const oldCatIdToEacId = new Map<number, string>();
   // Also map old event_categories.id -> old event_id (for soal mapping)
@@ -529,7 +553,7 @@ async function main() {
   // ========================================================================
   // Step 6: EventParticipation + ParticipationGroup
   // ========================================================================
-  console.log('[6/9] Creating Participant registrations...');
+  console.log('[6/13] Creating Participant registrations...');
 
   // Determine user roles from old DB
   const userRoleMap = new Map<string, string>(); // user_id -> role
@@ -634,7 +658,7 @@ async function main() {
   // ========================================================================
   // Step 7: JuryEventAssignment + JuryAssignedCategory
   // ========================================================================
-  console.log('[7/9] Creating Jury assignments...');
+  console.log('[7/13] Creating Jury assignments...');
 
   // Group juri entries by (event, jury)
   const juriByEventUser = new Map<string, string>(); // "oldEventId|juryId" -> assignmentId
@@ -708,7 +732,7 @@ async function main() {
   // ========================================================================
   // Step 8: EventMaterial (from soal)
   // ========================================================================
-  console.log('[8/9] Creating Event Materials from soal...');
+  console.log('[8/13] Creating Event Materials from soal...');
   const soalToMaterialId = new Map<string, string>(); // old soal.id -> new EventMaterial.id
   const soalKategoriData = new Map<string, Record<string, string[]>>(); // soal.id -> parsed kategori_data
   const materialCreateData: any[] = [];
@@ -785,7 +809,7 @@ async function main() {
   // ========================================================================
   // Step 9: MaterialEvaluation (from penilaian)
   // ========================================================================
-  console.log('[9/9] Creating Material Evaluations from penilaian...');
+  console.log('[9/13] Creating Material Evaluations from penilaian...');
   console.log(`  Processing ${oldPenilaian.length} scoring records in batches...`);
 
   // Build soal -> event mapping for fast lookup
@@ -799,72 +823,49 @@ async function main() {
   const evalBatch: any[] = [];
   const evalUniqueCheck = new Set<string>();
 
-  for (let i = 0; i < oldPenilaian.length; i++) {
-    const p = oldPenilaian[i]!;
+  for (const p of oldPenilaian) {
     const soalId = p[1] as string;
-    const juriId = p[2] as string;
+    const juryId = p[2] as string;
     const pesertaId = p[3] as string;
-    const nilai = p[4] as number | null;
+    const nilai = p[4] as number;
     const alasan = p[5] as string | null;
-    const createdAtStr = p[6] as string | null;
+    const createdAt = p[6] ? new Date(p[6] as string) : new Date();
 
-    // Get material ID
     const materialId = soalToMaterialId.get(soalId);
     if (!materialId) { evalSkipped++; continue; }
 
-    // Get event ID (old)
     const oldEventId = soalEventMap.get(soalId);
     if (!oldEventId) { evalSkipped++; continue; }
 
     const newEventId = eventIdMap.get(oldEventId);
     if (!newEventId) { evalSkipped++; continue; }
 
-    // Check jury exists
-    if (!existingUserIds.has(juriId)) { evalSkipped++; continue; }
+    // participantId must be a ParticipationGroup ID
+    // Look up from firstGroupMap using old event+peserta
+    const groupId = firstGroupMap.get(`${oldEventId}|${pesertaId}`);
+    if (!groupId) { evalSkipped++; continue; }
 
-    // Find participant group ID
-    // Try with soal's school category first
-    const soalRow = oldSoal.find((s) => s[0] === soalId);
-    const soalSchoolCat = soalRow?.[5] as string | null;
-    let participantId: string | undefined;
-
-    if (soalSchoolCat) {
-      const groupKey = `${oldEventId}|${pesertaId}|${soalSchoolCat.toUpperCase()}`;
-      participantId = groupIdMap.get(groupKey);
-    }
-    if (!participantId) {
-      participantId = firstGroupMap.get(`${oldEventId}|${pesertaId}`);
-    }
-    if (!participantId) {
-      // Peserta might not be in event_users - skip
-      evalSkipped++;
-      continue;
-    }
-
-    // Determine score category name
-    let scoreCategoryName: string | null = null;
-    if (nilai !== null && nilai !== undefined) {
-      const katData = soalKategoriData.get(soalId);
-      if (katData) {
-        scoreCategoryName = determineScoreCategory(nilai, katData);
-      }
-    }
-
-    // Unique check
-    const uniqueKey = `${newEventId}|${materialId}|${juriId}|${participantId}`;
+    // Check uniqueness (eventId, materialId, juryId, participantId)
+    const uniqueKey = `${newEventId}|${materialId}|${juryId}|${groupId}`;
     if (evalUniqueCheck.has(uniqueKey)) { evalSkipped++; continue; }
     evalUniqueCheck.add(uniqueKey);
 
-    const createdAt = createdAtStr ? new Date(createdAtStr) : new Date();
+    // Determine score category from soal's kategori_data
+    let scoreCategoryName: string | null = null;
+    const kategoriData = soalKategoriData.get(soalId);
+    if (kategoriData && nilai !== null && nilai !== undefined) {
+      scoreCategoryName = determineScoreCategory(nilai, kategoriData);
+    }
 
     evalBatch.push({
+      id: crypto.randomUUID(),
       eventId: newEventId,
       materialId,
-      juryId: juriId,
-      participantId,
-      score: nilai !== null ? Number(nilai) : null,
+      juryId,
+      participantId: groupId,
+      score: typeof nilai === 'number' ? nilai : null,
       scoreCategoryName,
-      notes: alasan,
+      notes: alasan || null,
       scoredAt: createdAt,
       createdAt,
       updatedAt: createdAt,
@@ -872,52 +873,390 @@ async function main() {
 
     // Flush batch
     if (evalBatch.length >= 500) {
-      const result = await prisma.materialEvaluation.createMany({
-        data: evalBatch,
-        skipDuplicates: true,
-      });
-      evalCreated += result.count;
+      const count = await batchCreateMany(prisma.materialEvaluation, evalBatch);
+      evalCreated += count;
       evalBatch.length = 0;
-      if ((i + 1) % 10000 === 0) {
-        console.log(`  Progress: ${i + 1}/${oldPenilaian.length} (${evalCreated} created, ${evalSkipped} skipped)`);
-      }
     }
   }
 
   // Flush remaining
   if (evalBatch.length > 0) {
-    const result = await prisma.materialEvaluation.createMany({
-      data: evalBatch,
-      skipDuplicates: true,
-    });
-    evalCreated += result.count;
+    const count = await batchCreateMany(prisma.materialEvaluation, evalBatch);
+    evalCreated += count;
   }
 
   console.log(`  Created ${evalCreated} material evaluations (${evalSkipped} skipped)\n`);
 
   // ========================================================================
-  // Summary
+  // Step 10: ExtraNilai (from punishment + pointplus)
+  // ========================================================================
+  console.log('[10/13] Creating Extra Nilai from punishment + pointplus...');
+
+  // We need to figure out which event a punishment/pointplus belongs to.
+  // The old tables reference peserta_id (user_id) and optionally event_category_id.
+  // We can map event_category_id -> old_event_id via oldCatIdToOldEventId.
+  // For those without event_category_id, we try to find the event via peserta's participations.
+
+  // Build peserta -> list of old event IDs from event_users
+  const pesertaEventMap = new Map<string, string[]>(); // peserta_id -> old_event_ids[]
+  for (const eu of oldEventUsers) {
+    const oldEventId = eu[1] as string | null;
+    const userId = eu[2] as string | null;
+    if (!oldEventId || !userId) continue;
+    if (!pesertaEventMap.has(userId)) pesertaEventMap.set(userId, []);
+    if (!pesertaEventMap.get(userId)!.includes(oldEventId)) {
+      pesertaEventMap.get(userId)!.push(oldEventId);
+    }
+  }
+
+  const extraNilaiCreateData: any[] = [];
+
+  // Helper to find event + group for a peserta and optional event_category_id
+  function resolveExtraNilaiContext(pesertaId: string, eventCatId: number | null): {
+    eventId: string | null;
+    groupId: string | null;
+    assessmentCategoryId: string | null;
+  } {
+    let oldEventId: string | null = null;
+    let assessmentCategoryId: string | null = null;
+
+    if (eventCatId && oldCatIdToOldEventId.has(eventCatId)) {
+      oldEventId = oldCatIdToOldEventId.get(eventCatId)!;
+      const eacId = oldCatIdToEacId.get(eventCatId);
+      if (eacId) {
+        const eac = eacCreateData.find((e) => e.id === eacId);
+        if (eac) assessmentCategoryId = eac.assessmentCategoryId;
+      }
+    }
+
+    if (!oldEventId) {
+      // Try to find from participant's event registrations
+      const events = pesertaEventMap.get(pesertaId);
+      if (events && events.length > 0) {
+        // Use the first event where they have a group
+        for (const eid of events) {
+          if (firstGroupMap.has(`${eid}|${pesertaId}`)) {
+            oldEventId = eid;
+            break;
+          }
+        }
+        if (!oldEventId) oldEventId = events[0]!;
+      }
+    }
+
+    if (!oldEventId) return { eventId: null, groupId: null, assessmentCategoryId: null };
+
+    const newEventId = eventIdMap.get(oldEventId) || null;
+    const groupId = firstGroupMap.get(`${oldEventId}|${pesertaId}`) || null;
+
+    return { eventId: newEventId, groupId, assessmentCategoryId };
+  }
+
+  // Process punishment → ExtraNilai (type: PUNISHMENT)
+  for (const pu of oldPunishment) {
+    const pesertaId = pu[1] as string;
+    const pemberiId = pu[2] as string;
+    const eventCatId = pu[3] as number | null;
+    const punishmentType = pu[4] as string | null; // 'general', 'category', 'ranking'
+    const deskripsi = pu[5] as string;
+    const nilaiPengurang = pu[6] as number;
+    const createdAt = pu[7] ? new Date(pu[7] as string) : new Date();
+
+    const ctx = resolveExtraNilaiContext(pesertaId, eventCatId);
+    if (!ctx.eventId || !ctx.groupId) continue;
+    if (!existingUserIds.has(pemberiId)) continue;
+
+    const scope = (punishmentType === 'category' && ctx.assessmentCategoryId) ? 'CATEGORY' : 'GENERAL';
+
+    extraNilaiCreateData.push({
+      id: crypto.randomUUID(),
+      eventId: ctx.eventId,
+      participantId: ctx.groupId,
+      type: 'PUNISHMENT',
+      scope,
+      assessmentCategoryId: scope === 'CATEGORY' ? ctx.assessmentCategoryId : null,
+      value: Math.abs(nilaiPengurang),
+      reason: deskripsi || null,
+      createdById: pemberiId,
+      createdAt,
+      updatedAt: createdAt,
+    });
+  }
+
+  // Process pointplus → ExtraNilai (type: POINPLUS)
+  for (const pp of oldPointplus) {
+    const pesertaId = pp[1] as string;
+    const pemberiId = pp[2] as string;
+    const eventCatId = pp[3] as number | null;
+    const deskripsi = pp[4] as string;
+    const nilaiTambah = pp[5] as number;
+    const createdAt = pp[6] ? new Date(pp[6] as string) : new Date();
+
+    const ctx = resolveExtraNilaiContext(pesertaId, eventCatId);
+    if (!ctx.eventId || !ctx.groupId) continue;
+    if (!existingUserIds.has(pemberiId)) continue;
+
+    const scope = (eventCatId && ctx.assessmentCategoryId) ? 'CATEGORY' : 'GENERAL';
+
+    extraNilaiCreateData.push({
+      id: crypto.randomUUID(),
+      eventId: ctx.eventId,
+      participantId: ctx.groupId,
+      type: 'POINPLUS',
+      scope,
+      assessmentCategoryId: scope === 'CATEGORY' ? ctx.assessmentCategoryId : null,
+      value: Math.abs(nilaiTambah),
+      reason: deskripsi || null,
+      createdById: pemberiId,
+      createdAt,
+      updatedAt: createdAt,
+    });
+  }
+
+  const extraCreated = await batchCreateMany(prisma.extraNilai, extraNilaiCreateData);
+  console.log(`  Created ${extraCreated} extra nilai records (${oldPunishment.length} punishments + ${oldPointplus.length} pointplus)\n`);
+
+  // ========================================================================
+  // Step 11: PerformanceField (from lapangan)
+  // ========================================================================
+  console.log('[11/13] Creating Performance Fields from lapangan...');
+  const oldLapanganIdToNewId = new Map<number, string>(); // old lapangan.id -> new UUID
+  const fieldCreateData: any[] = [];
+  const fieldUniqueCheck = new Set<string>(); // "eventId|name"
+
+  for (const l of oldLapangan) {
+    const oldId = l[0] as number;
+    const oldEventId = l[1] as string;
+    const nama = (l[2] as string || '').trim();
+
+    const newEventId = eventIdMap.get(oldEventId);
+    if (!newEventId || !nama) continue;
+
+    // Handle uniqueness: eventId + name must be unique
+    const uniqueKey = `${newEventId}|${nama}`;
+    if (fieldUniqueCheck.has(uniqueKey)) {
+      // Map duplicate to existing
+      for (const [existingOldId, existingNewId] of oldLapanganIdToNewId) {
+        const existingField = fieldCreateData.find((f) => f.id === existingNewId);
+        if (existingField && existingField.eventId === newEventId && existingField.name === nama) {
+          oldLapanganIdToNewId.set(oldId, existingNewId);
+          break;
+        }
+      }
+      continue;
+    }
+    fieldUniqueCheck.add(uniqueKey);
+
+    const newId = crypto.randomUUID();
+    oldLapanganIdToNewId.set(oldId, newId);
+
+    fieldCreateData.push({
+      id: newId,
+      eventId: newEventId,
+      name: nama,
+      order: fieldCreateData.filter((f) => f.eventId === newEventId).length,
+      isActive: true,
+    });
+  }
+
+  const fieldsCreated = await batchCreateMany(prisma.performanceField, fieldCreateData);
+  console.log(`  Created ${fieldsCreated} performance fields\n`);
+
+  // ========================================================================
+  // Step 12: PerformanceSession (from perform)
+  // ========================================================================
+  console.log('[12/13] Creating Performance Sessions from perform...');
+  const sessionCreateData: any[] = [];
+
+  for (const pf of oldPerform) {
+    const oldEventId = pf[1] as string;
+    const lapanganId = pf[2] as number;
+    const pesertaId = pf[3] as string;
+    const createdAt = pf[4] ? new Date(pf[4] as string) : new Date();
+
+    const fieldId = oldLapanganIdToNewId.get(lapanganId);
+    if (!fieldId) continue;
+
+    // participantId = ParticipationGroup ID
+    const groupId = firstGroupMap.get(`${oldEventId}|${pesertaId}`);
+    if (!groupId) continue;
+
+    sessionCreateData.push({
+      id: crypto.randomUUID(),
+      fieldId,
+      participantId: groupId,
+      status: 'COMPLETED',
+      createdAt,
+      updatedAt: createdAt,
+    });
+  }
+
+  const sessionsCreated = await batchCreateMany(prisma.performanceSession, sessionCreateData);
+  console.log(`  Created ${sessionsCreated} performance sessions\n`);
+
+  // ========================================================================
+  // Step 13: JuaraCategory + JuaraCategoryAssessment + JuaraRank
+  //          (from event_juara_kategori + event_ranking_labels)
+  // ========================================================================
+  console.log('[13/13] Creating Juara Categories and Ranking Labels...');
+
+  // event_juara_kategori has two JSON columns: kategori_utama and kategori_umum
+  // Each entry defines which assessment categories belong to UTAMA and UMUM juara types
+  // We need to deduplicate per event (some events have multiple rows)
+
+  // Use last row per event (most recent)
+  const juaraByEvent = new Map<string, any[]>(); // old_event_id -> last row
+  for (const jk of oldJuaraKategori) {
+    const oldEventId = jk[1] as string;
+    juaraByEvent.set(oldEventId, jk); // overwrite = keep last
+  }
+
+  const juaraCatCreateData: any[] = [];
+  const juaraCatAssessCreateData: any[] = [];
+  const juaraCatIdMap = new Map<string, string>(); // "eventId|type" -> juaraCategoryId
+
+  for (const [oldEventId, jk] of juaraByEvent) {
+    const newEventId = eventIdMap.get(oldEventId);
+    if (!newEventId) continue;
+
+    const kategoriUtamaStr = jk[2] as string | null;
+    const kategoriUmumStr = jk[3] as string | null;
+
+    // Process UTAMA
+    if (kategoriUtamaStr) {
+      try {
+        const categories = JSON.parse(kategoriUtamaStr) as string[];
+        if (categories.length > 0) {
+          const utamaId = crypto.randomUUID();
+          juaraCatIdMap.set(`${newEventId}|UTAMA`, utamaId);
+
+          juaraCatCreateData.push({
+            id: utamaId,
+            eventId: newEventId,
+            type: 'UTAMA',
+            name: 'Juara Utama',
+            order: 0,
+            rankCount: 3,
+          });
+
+          const seenAssess = new Set<string>();
+          for (const catName of categories) {
+            const normalizedName = normalizeCategoryName(catName);
+            const assessCatId = assessCatMap.get(normalizedName);
+            if (assessCatId && !seenAssess.has(assessCatId)) {
+              seenAssess.add(assessCatId);
+              juaraCatAssessCreateData.push({
+                id: crypto.randomUUID(),
+                juaraCategoryId: utamaId,
+                assessmentCategoryId: assessCatId,
+              });
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // Process UMUM
+    if (kategoriUmumStr) {
+      try {
+        const categories = JSON.parse(kategoriUmumStr) as string[];
+        if (categories.length > 0) {
+          const umumId = crypto.randomUUID();
+          juaraCatIdMap.set(`${newEventId}|UMUM`, umumId);
+
+          juaraCatCreateData.push({
+            id: umumId,
+            eventId: newEventId,
+            type: 'UMUM',
+            name: 'Juara Umum',
+            order: 1,
+            rankCount: 3,
+          });
+
+          const seenAssess = new Set<string>();
+          for (const catName of categories) {
+            const normalizedName = normalizeCategoryName(catName);
+            const assessCatId = assessCatMap.get(normalizedName);
+            if (assessCatId && !seenAssess.has(assessCatId)) {
+              seenAssess.add(assessCatId);
+              juaraCatAssessCreateData.push({
+                id: crypto.randomUUID(),
+                juaraCategoryId: umumId,
+                assessmentCategoryId: assessCatId,
+              });
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  const juaraCatsCreated = await batchCreateMany(prisma.juaraCategory, juaraCatCreateData);
+  console.log(`  Created ${juaraCatsCreated} juara categories`);
+
+  const juaraCatAssessCreated = await batchCreateMany(
+    prisma.juaraCategoryAssessment,
+    juaraCatAssessCreateData
+  );
+  console.log(`  Created ${juaraCatAssessCreated} juara category assessment links`);
+
+  // JuaraRank from event_ranking_labels
+  // These define rank ranges per event. We associate them with the UTAMA juara category
+  // (since ranking labels in the old system were per-event, not per juara-type)
+  const juaraRankCreateData: any[] = [];
+
+  for (const rl of oldRankingLabels) {
+    const oldEventId = rl[1] as string;
+    const labelName = (rl[2] as string || '').trim();
+    const startRank = rl[3] as number;
+    const endRank = rl[4] as number;
+
+    const newEventId = eventIdMap.get(oldEventId);
+    if (!newEventId) continue;
+
+    // Try to find the UTAMA juara category for this event, fallback to UMUM
+    let juaraCategoryId = juaraCatIdMap.get(`${newEventId}|UTAMA`);
+    if (!juaraCategoryId) {
+      juaraCategoryId = juaraCatIdMap.get(`${newEventId}|UMUM`);
+    }
+    if (!juaraCategoryId) continue;
+
+    juaraRankCreateData.push({
+      id: crypto.randomUUID(),
+      juaraCategoryId,
+      startRank,
+      endRank,
+      label: labelName,
+      order: startRank, // Use startRank as order for natural sorting
+    });
+  }
+
+  // Deduplicate juara ranks by (juaraCategoryId, order) - keep first occurrence
+  const rankUniqueMap = new Map<string, any>();
+  for (const rank of juaraRankCreateData) {
+    const key = `${rank.juaraCategoryId}|${rank.order}`;
+    if (!rankUniqueMap.has(key)) {
+      rankUniqueMap.set(key, rank);
+    }
+  }
+  const deduplicatedRanks = Array.from(rankUniqueMap.values());
+
+  const ranksCreated = await batchCreateMany(prisma.juaraRank, deduplicatedRanks);
+  console.log(`  Created ${ranksCreated} juara ranks\n`);
+
+  // ========================================================================
+  // Done
   // ========================================================================
   console.log('='.repeat(60));
-  console.log('Import Complete!');
-  console.log('='.repeat(60));
-  console.log(`  School Categories: ${schoolCats.length}`);
-  console.log(`  Assessment Categories: ${uniqueCatNames.size}`);
-  console.log(`  Users: ${usersCreated}`);
-  console.log(`  Events: ${eventsCreated}`);
-  console.log(`  Event Assessment Categories: ${eacCreated}`);
-  console.log(`  Participations: ${partCreated}`);
-  console.log(`  Participation Groups: ${grpCreated}`);
-  console.log(`  Jury Assignments: ${assgnCreated}`);
-  console.log(`  Jury Category Assignments: ${assignedCatCreated}`);
-  console.log(`  Event Materials: ${matCreated}`);
-  console.log(`  Material Evaluations: ${evalCreated}`);
+  console.log('Migration complete!');
   console.log('='.repeat(60));
 }
 
 main()
-  .catch((err) => {
-    console.error('Import failed:', err);
+  .catch((e) => {
+    console.error('Migration failed:', e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
