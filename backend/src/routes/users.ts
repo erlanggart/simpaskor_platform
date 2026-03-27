@@ -676,6 +676,197 @@ router.patch(
 	}
 );
 
+// Get user detail with role-specific data (SuperAdmin only)
+router.get(
+	"/:userId/detail",
+	authenticate,
+	requireSuperAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { userId } = req.params;
+
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+				include: {
+					profile: true,
+				},
+			});
+
+			if (!user) {
+				return res.status(404).json({
+					error: "User not found",
+					message: "User with this ID does not exist",
+				});
+			}
+
+			let roleData: any = {};
+
+			if (user.role === UserRole.PANITIA) {
+				// Get events created by this panitia
+				const events = await prisma.event.findMany({
+					where: { createdById: userId },
+					select: {
+						id: true,
+						title: true,
+						slug: true,
+						status: true,
+						startDate: true,
+						endDate: true,
+						currentParticipants: true,
+						maxParticipants: true,
+						thumbnail: true,
+					},
+					orderBy: { createdAt: "desc" },
+				});
+
+				// Get coupons assigned to this panitia's email
+				const coupons = await prisma.eventCoupon.findMany({
+					where: { assignedToEmail: user.email },
+					select: {
+						id: true,
+						code: true,
+						description: true,
+						isUsed: true,
+						usedAt: true,
+						expiresAt: true,
+						events: {
+							select: {
+								id: true,
+								title: true,
+								slug: true,
+							},
+						},
+					},
+					orderBy: { createdAt: "desc" },
+				});
+
+				roleData = { events, coupons };
+			} else if (user.role === UserRole.PESERTA) {
+				// Get event participations
+				const participations = await prisma.eventParticipation.findMany({
+					where: { userId },
+					select: {
+						id: true,
+						status: true,
+						teamName: true,
+						schoolName: true,
+						totalScore: true,
+						rank: true,
+						createdAt: true,
+						event: {
+							select: {
+								id: true,
+								title: true,
+								slug: true,
+								status: true,
+								startDate: true,
+								endDate: true,
+								thumbnail: true,
+							},
+						},
+					},
+					orderBy: { createdAt: "desc" },
+				});
+
+				roleData = { participations };
+			} else if (user.role === UserRole.JURI) {
+				// Get jury event assignments
+				const juryAssignments = await prisma.juryEventAssignment.findMany({
+					where: { juryId: userId },
+					select: {
+						id: true,
+						status: true,
+						invitedAt: true,
+						respondedAt: true,
+						notes: true,
+						event: {
+							select: {
+								id: true,
+								title: true,
+								slug: true,
+								status: true,
+								startDate: true,
+								endDate: true,
+								thumbnail: true,
+							},
+						},
+						assignedCategories: {
+							select: {
+								id: true,
+								assessmentCategory: {
+									select: {
+										name: true,
+									},
+								},
+							},
+						},
+					},
+					orderBy: { createdAt: "desc" },
+				});
+
+				roleData = { juryAssignments };
+			} else if (user.role === UserRole.PELATIH) {
+				// Get participations where they might be linked as coach
+				// For now, pelatih has no specific relations
+				roleData = {};
+			}
+
+			res.json({
+				user: AuthUtils.sanitizeUser(user),
+				roleData,
+			});
+		} catch (error) {
+			console.error("Get user detail error:", error);
+			res.status(500).json({
+				error: "Failed to fetch user detail",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Reset user password (SuperAdmin only)
+router.post(
+	"/:userId/reset-password",
+	authenticate,
+	requireSuperAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { userId } = req.params;
+
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+			});
+
+			if (!user) {
+				return res.status(404).json({
+					error: "User not found",
+					message: "User with this ID does not exist",
+				});
+			}
+
+			// Reset password to default
+			const defaultPassword = "SIMPASKOR";
+			const passwordHash = await AuthUtils.hashPassword(defaultPassword);
+
+			await prisma.user.update({
+				where: { id: userId },
+				data: { passwordHash },
+			});
+
+			res.json({
+				message: `Password berhasil direset untuk ${user.name}`,
+			});
+		} catch (error) {
+			console.error("Reset password error:", error);
+			res.status(500).json({
+				error: "Failed to reset password",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
 // Get public statistics (no auth required) - for landing page
 router.get("/public/stats", async (req, res: Response) => {
 	try {

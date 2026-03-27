@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
 	UsersIcon,
 	MagnifyingGlassIcon,
@@ -12,6 +13,7 @@ import {
 	PlusIcon,
 	EyeIcon,
 	EyeSlashIcon,
+	InformationCircleIcon,
 	ShieldCheckIcon,
 	ShieldExclamationIcon,
 	StarIcon,
@@ -45,6 +47,7 @@ interface Coupon {
 }
 
 const UserManagement: React.FC = () => {
+	const navigate = useNavigate();
 	const [users, setUsers] = useState<User[]>([]);
 	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -540,8 +543,14 @@ const UserManagement: React.FC = () => {
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm">
 											<div className="flex items-center gap-2">
-												<button
-													onClick={() => handleVerifyUser(user)}
+												<button												onClick={() => navigate(`/admin/users/${user.id}`)}
+												title="Detail User"
+												className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-xs font-medium"
+											>
+												<InformationCircleIcon className="w-4 h-4" />
+												Detail
+											</button>
+											<button													onClick={() => handleVerifyUser(user)}
 													title={user.emailVerified ? "Cabut Verifikasi" : "Verifikasi User"}
 													className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${
 														user.emailVerified

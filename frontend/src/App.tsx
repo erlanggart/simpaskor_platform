@@ -36,6 +36,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 // Role-based Dashboard Pages
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
+const UserDetail = lazy(() => import("./pages/admin/UserDetail"));
 const CouponManagement = lazy(() => import("./pages/admin/CouponManagement"));
 const AssessmentCategoryManagement = lazy(() => import("./pages/admin/AssessmentCategoryManagement"));
 const EventManagement = lazy(() => import("./pages/admin/EventManagement"));
@@ -115,6 +116,7 @@ function App() {
 						<Route path="admin">
 							<Route path="dashboard" element={<AdminDashboard />} />
 							<Route path="users" element={<UserManagement />} />
+						<Route path="users/:userId" element={<UserDetail />} />
 							<Route path="coupons" element={<CouponManagement />} />
 							<Route path="events" element={<EventManagement />} />
 							<Route path="events/:eventSlug/manage" element={<AdminManageEvent />} />

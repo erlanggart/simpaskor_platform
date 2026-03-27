@@ -407,7 +407,7 @@ router.get("/meta/school-categories", async (req: Request, res: Response) => {
 	}
 });
 
-// POST /api/events - Create new event (Panitia only, requires coupon)
+// POST /api/events - Create new event (Panitia/SuperAdmin, requires coupon)
 router.post(
 	"/",
 	authenticate,
@@ -415,9 +415,9 @@ router.post(
 		try {
 			const user = req.user;
 
-			if (!user || user.role !== "PANITIA") {
+			if (!user || (user.role !== "PANITIA" && user.role !== "SUPERADMIN")) {
 				return res.status(403).json({
-					message: "Only Panitia can create events",
+					message: "Only Panitia or SuperAdmin can create events",
 				});
 			}
 
@@ -669,9 +669,9 @@ router.patch(
 		try {
 			const user = req.user;
 
-			if (!user || user.role !== "PANITIA") {
+			if (!user || (user.role !== "PANITIA" && user.role !== "SUPERADMIN")) {
 				return res.status(403).json({
-					message: "Only Panitia can update events",
+					message: "Only Panitia or SuperAdmin can update events",
 				});
 			}
 
@@ -717,7 +717,7 @@ router.patch(
 				});
 			}
 
-			if (existingEvent.createdById !== user.userId) {
+			if (existingEvent.createdById !== user.userId && user.role !== "SUPERADMIN") {
 				return res.status(403).json({
 					message: "You can only update your own events",
 				});
@@ -977,9 +977,9 @@ router.patch(
 		try {
 			const user = req.user;
 
-			if (!user || user.role !== "PANITIA") {
+			if (!user || (user.role !== "PANITIA" && user.role !== "SUPERADMIN")) {
 				return res.status(403).json({
-					message: "Only Panitia can update event status",
+					message: "Only Panitia or SuperAdmin can update event status",
 				});
 			}
 
@@ -1007,7 +1007,7 @@ router.patch(
 				});
 			}
 
-			if (existingEvent.createdById !== user.userId) {
+			if (existingEvent.createdById !== user.userId && user.role !== "SUPERADMIN") {
 				return res.status(403).json({
 					message: "You can only update status of your own events",
 				});
@@ -1292,9 +1292,9 @@ router.post(
 		try {
 			const user = req.user;
 
-			if (!user || user.role !== "PANITIA") {
+			if (!user || (user.role !== "PANITIA" && user.role !== "SUPERADMIN")) {
 				return res.status(403).json({
-					message: "Only Panitia can create events",
+					message: "Only Panitia or SuperAdmin can create events",
 				});
 			}
 
