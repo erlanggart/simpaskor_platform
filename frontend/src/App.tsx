@@ -21,6 +21,7 @@ const EventDetail = lazy(() => import("./pages/EventDetail"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
 const AllJuries = lazy(() => import("./pages/AllJuries"));
+const AllPelatih = lazy(() => import("./pages/AllPelatih"));
 const EventsPage = lazy(() => import("./pages/EventsPage"));
 
 // Auth Pages
@@ -96,6 +97,7 @@ function App() {
 						<Route path="e-voting" element={<EVotingPage />} />
 						<Route path="events/:id" element={<EventDetail />} />
 						<Route path="juries" element={<AllJuries />} />
+						<Route path="pelatih" element={<AllPelatih />} />
 						<Route path="unauthorized" element={<Unauthorized />} />
 					</Route>
 					{/* Auth Routes - Auth Layout */}

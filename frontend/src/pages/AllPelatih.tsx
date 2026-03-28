@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { api } from "../utils/api";
 
-interface Juri {
+interface Pelatih {
 	id: string;
 	name: string;
 	status: string;
@@ -22,8 +22,8 @@ interface Juri {
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-const AllJuries: React.FC = () => {
-	const [juries, setJuries] = useState<Juri[]>([]);
+const AllPelatih: React.FC = () => {
+	const [pelatih, setPelatih] = useState<Pelatih[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
 	const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
@@ -32,54 +32,53 @@ const AllJuries: React.FC = () => {
 	const ITEMS_PER_PAGE = 20;
 
 	useEffect(() => {
-		const fetchJuries = async () => {
+		const fetchPelatih = async () => {
 			try {
 				setLoading(true);
-				const response = await api.get("/users/public/juries");
-				setJuries(response.data.juries);
+				const response = await api.get("/users/public/pelatih");
+				setPelatih(response.data.pelatih);
 			} catch (error) {
-				console.error("Error fetching juries:", error);
+				console.error("Error fetching pelatih:", error);
 			} finally {
 				setLoading(false);
 			}
 		};
-		fetchJuries();
+		fetchPelatih();
 	}, []);
 
-	const filteredJuries = useMemo(() => {
-		return juries.filter((juri) => {
+	const filteredPelatih = useMemo(() => {
+		return pelatih.filter((p) => {
 			const matchesStatus =
 				activeTab === "ACTIVE"
-					? juri.status === "ACTIVE"
-					: juri.status !== "ACTIVE";
+					? p.status === "ACTIVE"
+					: p.status !== "ACTIVE";
 			const matchesLetter = selectedLetter
-				? juri.name.charAt(0).toUpperCase() === selectedLetter
+				? p.name.charAt(0).toUpperCase() === selectedLetter
 				: true;
 			const matchesSearch = searchTerm
-				? juri.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				  juri.institution?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				  juri.city?.toLowerCase().includes(searchTerm.toLowerCase())
+				? p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				  p.institution?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				  p.city?.toLowerCase().includes(searchTerm.toLowerCase())
 				: true;
 			return matchesStatus && matchesLetter && matchesSearch;
 		});
-	}, [juries, activeTab, selectedLetter, searchTerm]);
+	}, [pelatih, activeTab, selectedLetter, searchTerm]);
 
 	const activeCount = useMemo(
-		() => juries.filter((j) => j.status === "ACTIVE").length,
-		[juries]
+		() => pelatih.filter((p) => p.status === "ACTIVE").length,
+		[pelatih]
 	);
 	const inactiveCount = useMemo(
-		() => juries.filter((j) => j.status !== "ACTIVE").length,
-		[juries]
+		() => pelatih.filter((p) => p.status !== "ACTIVE").length,
+		[pelatih]
 	);
 
-	// Get available letters in current tab
 	const availableLetters = useMemo(() => {
-		const tabJuries = juries.filter((j) =>
-			activeTab === "ACTIVE" ? j.status === "ACTIVE" : j.status !== "ACTIVE"
+		const tabPelatih = pelatih.filter((p) =>
+			activeTab === "ACTIVE" ? p.status === "ACTIVE" : p.status !== "ACTIVE"
 		);
-		return new Set(tabJuries.map((j) => j.name.charAt(0).toUpperCase()));
-	}, [juries, activeTab]);
+		return new Set(tabPelatih.map((p) => p.name.charAt(0).toUpperCase()));
+	}, [pelatih, activeTab]);
 
 	const getInitials = (name: string) =>
 		name
@@ -95,14 +94,12 @@ const AllJuries: React.FC = () => {
 		return avatar;
 	};
 
-	// Pagination
-	const totalPages = Math.ceil(filteredJuries.length / ITEMS_PER_PAGE);
-	const paginatedJuries = useMemo(() => {
+	const totalPages = Math.ceil(filteredPelatih.length / ITEMS_PER_PAGE);
+	const paginatedPelatih = useMemo(() => {
 		const start = (currentPage - 1) * ITEMS_PER_PAGE;
-		return filteredJuries.slice(start, start + ITEMS_PER_PAGE);
-	}, [filteredJuries, currentPage, ITEMS_PER_PAGE]);
+		return filteredPelatih.slice(start, start + ITEMS_PER_PAGE);
+	}, [filteredPelatih, currentPage, ITEMS_PER_PAGE]);
 
-	// Reset page when filters change
 	useEffect(() => {
 		setCurrentPage(1);
 	}, [activeTab, selectedLetter, searchTerm]);
@@ -136,7 +133,7 @@ const AllJuries: React.FC = () => {
 	return (
 		<div className="min-h-screen">
 			<div className="max-w-6xl mx-auto px-6 md:px-12 lg:px-16 py-8 md:py-12">
-				{/* Header - EventSection style */}
+				{/* Header */}
 				<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4 lg:mb-6">
 					<div>
 						<Link
@@ -147,15 +144,15 @@ const AllJuries: React.FC = () => {
 							Kembali ke Beranda
 						</Link>
 						<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-3">
-							DEWAN JURI PROFESIONAL
+							TIM PELATIH BERPENGALAMAN
 						</p>
 						<h1 className="text-4xl sm:text-5xl md:text-6xl font-black leading-none mb-2 bg-gradient-to-r from-red-600 via-red-500 to-orange-500 bg-clip-text text-transparent">
-							JURI
+							PELATIH
 						</h1>
 						<div className="flex items-center gap-4">
 							<div className="w-10 h-[1px] bg-gradient-to-r from-red-500/50 to-transparent" />
 							<p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-medium tracking-wide">
-								Tim Penilai Paskibra Se-Indonesia
+								Pelatih Paskibra Se-Indonesia
 							</p>
 						</div>
 					</div>
@@ -163,7 +160,6 @@ const AllJuries: React.FC = () => {
 
 				{/* Filters Row */}
 				<div className="flex flex-col sm:flex-row gap-3 mb-4">
-					{/* Active/Inactive Tabs */}
 					<div className="flex gap-1.5">
 						<button
 							onClick={() => {
@@ -193,12 +189,11 @@ const AllJuries: React.FC = () => {
 						</button>
 					</div>
 
-					{/* Search */}
 					<div className="relative flex-1 max-w-sm">
 						<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
 						<input
 							type="text"
-							placeholder="Cari juri..."
+							placeholder="Cari pelatih..."
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 							className="w-full pl-9 pr-3 py-2 bg-gray-900/[0.04] dark:bg-white/[0.04] border border-gray-200/50 dark:border-white/[0.06] rounded-full text-xs text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-1 focus:ring-red-500/50 focus:border-red-500/30 transition-all"
@@ -219,16 +214,16 @@ const AllJuries: React.FC = () => {
 						All
 					</button>
 					{ALPHABET.map((letter) => {
-						const hasJuries = availableLetters.has(letter);
+						const hasPelatih = availableLetters.has(letter);
 						return (
 							<button
 								key={letter}
-								onClick={() => hasJuries && setSelectedLetter(letter)}
-								disabled={!hasJuries}
+								onClick={() => hasPelatih && setSelectedLetter(letter)}
+								disabled={!hasPelatih}
 								className={`w-7 h-7 rounded-md font-medium text-[10px] transition-all ${
 									selectedLetter === letter
 										? "bg-red-500/80 text-white"
-										: hasJuries
+										: hasPelatih
 										? "bg-gray-900/[0.06] dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12]"
 										: "bg-gray-100/50 dark:bg-white/[0.02] text-gray-300 dark:text-gray-700 cursor-not-allowed"
 								}`}
@@ -243,9 +238,9 @@ const AllJuries: React.FC = () => {
 				<p className="text-[10px] text-gray-400 dark:text-gray-500 mb-4">
 					Menampilkan{" "}
 					<span className="font-semibold text-gray-600 dark:text-gray-300">
-						{filteredJuries.length}
+						{filteredPelatih.length}
 					</span>{" "}
-					juri · Halaman {currentPage}/{totalPages || 1}
+					pelatih · Halaman {currentPage}/{totalPages || 1}
 					{selectedLetter && (
 						<>
 							{" "}· huruf{" "}
@@ -254,49 +249,46 @@ const AllJuries: React.FC = () => {
 					)}
 				</p>
 
-				{/* Juries Grid - LandingEventGrid style */}
-				{filteredJuries.length === 0 ? (
+				{/* Grid */}
+				{filteredPelatih.length === 0 ? (
 					<div className="text-center text-gray-400 dark:text-gray-500 py-12 text-sm">
-						Tidak ada juri ditemukan
+						Tidak ada pelatih ditemukan
 					</div>
 				) : (
 					<>
 						<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
-							{paginatedJuries.map((juri) => (
+							{paginatedPelatih.map((p) => (
 								<div
-									key={juri.id}
+									key={p.id}
 									className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-red-400/30 dark:hover:border-red-500/20 transition-all duration-300 hover:scale-[1.02]"
 								>
-									{/* Poster - 2:3 ratio */}
 									<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-red-900/10 to-red-800/5 overflow-hidden">
-										{juri.avatar ? (
+										{p.avatar ? (
 											<img
-												src={getAvatarUrl(juri.avatar) || ""}
-												alt={juri.name}
+												src={getAvatarUrl(p.avatar) || ""}
+												alt={p.name}
 												className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
 												loading="lazy"
 											/>
 										) : (
 											<div className="w-full h-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center">
 												<span className="text-white/30 font-black text-4xl select-none">
-													{getInitials(juri.name)}
+													{getInitials(p.name)}
 												</span>
 											</div>
 										)}
-										{/* Status badge */}
 										<div className="absolute top-1.5 left-1.5">
 											<span
 												className={`text-[7px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
-													juri.status === "ACTIVE"
+													p.status === "ACTIVE"
 														? "bg-green-500/80 text-white"
 														: "bg-gray-500/80 text-white"
 												}`}
 											>
-												{juri.status === "ACTIVE" ? "Aktif" : "Non-Aktif"}
+												{p.status === "ACTIVE" ? "Aktif" : "Non-Aktif"}
 											</span>
 										</div>
-										{/* Pinned badge */}
-										{juri.isPinned && (
+										{p.isPinned && (
 											<div className="absolute top-1.5 right-1.5">
 												<span className="text-[7px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm bg-red-500/80 text-white flex items-center gap-0.5">
 													<StarIconSolid className="w-2.5 h-2.5" />
@@ -306,19 +298,18 @@ const AllJuries: React.FC = () => {
 										)}
 									</div>
 
-									{/* Info */}
 									<div className="p-1.5 lg:p-2">
 										<h4 className="text-[9px] lg:text-[10px] font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
-											{juri.name}
+											{p.name}
 										</h4>
-										{juri.institution && (
+										{p.institution && (
 											<p className="text-[7px] lg:text-[8px] text-gray-400 dark:text-gray-500 line-clamp-1">
-												{juri.institution}
+												{p.institution}
 											</p>
 										)}
-										{juri.city && (
+										{p.city && (
 											<p className="text-[7px] lg:text-[8px] text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-1">
-												{juri.city}
+												{p.city}
 											</p>
 										)}
 									</div>
@@ -376,4 +367,4 @@ const AllJuries: React.FC = () => {
 	);
 };
 
-export default AllJuries;
+export default AllPelatih;

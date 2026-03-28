@@ -71,6 +71,16 @@ web_modules/
 .env.test.local
 .env.production.local
 .env.local
+env (2)
+env (3)
+
+# Uploaded files
+backend/uploads/avatars/
+backend/uploads/events/*.png
+backend/uploads/events/*.jpg
+backend/uploads/events/*.jpeg
+backend/uploads/products/
+backend/uploads/registrations/
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
