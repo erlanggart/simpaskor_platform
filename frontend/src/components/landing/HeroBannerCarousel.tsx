@@ -166,7 +166,7 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 
 					return (
 						<div
-							key={`${evt.id}-${offset}`}
+							key={evt.id}
 							className="absolute inset-0"
 							style={{
 								...posStyle,

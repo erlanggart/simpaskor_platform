@@ -30,7 +30,7 @@ interface PasswordFormData {
 }
 
 const ProfilePage: React.FC = () => {
-	const { user, updateUser } = useAuth();
+	const { user } = useAuth();
 	const navigate = useNavigate();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,14 +42,8 @@ const ProfilePage: React.FC = () => {
 		type: "success" | "error";
 		text: string;
 	} | null>(null);
-	const getAvatarUrl = (url: string | null): string | null => {
-		if (!url) return null;
-		if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) return url;
-		return url;
-	};
-
 	const [avatarPreview, setAvatarPreview] = useState<string | null>(
-		getAvatarUrl(user?.profile?.avatar || null)
+		user?.profile?.avatar || null
 	);
 
 	const [profileData, setProfileData] = useState<ProfileFormData>({
@@ -107,8 +101,7 @@ const ProfilePage: React.FC = () => {
 			// Update localStorage
 			const updatedUser = { ...user, ...profileData };
 			localStorage.setItem("user", JSON.stringify(updatedUser));
-			updateUser(profileData as any);
-			showMessage("success", "Profil berhasil diperbarui!");
+			window.location.reload(); // Reload to update context
 		} catch (error: any) {
 			showMessage(
 				"error",
@@ -190,16 +183,14 @@ const ProfilePage: React.FC = () => {
 			const formData = new FormData();
 			formData.append("avatar", file);
 
-			const response = await api.post("/users/avatar", formData, {
+			await api.post("/users/avatar", formData, {
 				headers: {
 					"Content-Type": "multipart/form-data",
 				},
 			});
 
-			const newAvatarUrl = response.data.avatarUrl;
-			setAvatarPreview(getAvatarUrl(newAvatarUrl));
-			updateUser({ profile: { ...(user?.profile || {}), avatar: newAvatarUrl } as any });
 			showMessage("success", "Foto profil berhasil diperbarui!");
+			window.location.reload();
 		} catch (error: any) {
 			showMessage(
 				"error",
@@ -219,8 +210,8 @@ const ProfilePage: React.FC = () => {
 		try {
 			await api.delete("/users/avatar");
 			setAvatarPreview(null);
-			updateUser({ profile: { ...(user?.profile || {}), avatar: null } as any });
 			showMessage("success", "Foto profil berhasil dihapus!");
+			window.location.reload();
 		} catch (error: any) {
 			showMessage(
 				"error",

@@ -781,21 +781,6 @@ router.patch(
 			const oldStatus = registration.status;
 			const activeGroupsCount = registration.groups.length;
 
-			// If confirming, check if event has registration fee and payment is required
-			if (status === "CONFIRMED" && oldStatus !== "CONFIRMED") {
-				const eventFee = registration.event.registrationFee;
-				if (eventFee && Number(eventFee) > 0) {
-					const payment = await prisma.registrationPayment.findUnique({
-						where: { participationId: registration.id },
-					});
-					if (!payment || payment.status !== "PAID") {
-						return res.status(400).json({
-							error: "Registrasi belum dibayar via Midtrans. Tidak bisa dikonfirmasi sebelum pembayaran diterima.",
-						});
-					}
-				}
-			}
-
 			// Group counts by school category for proper limit updates
 			const groupCountsByCategory: Record<string, number> = {};
 			for (const group of registration.groups) {

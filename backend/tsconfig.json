@@ -18,8 +18,7 @@
 		"noUnusedParameters": false,
 		"noImplicitReturns": false,
 		"noFallthroughCasesInSwitch": true,
-		"noUncheckedIndexedAccess": true,
-		"typeRoots": ["./src/types", "./node_modules/@types"]
+		"noUncheckedIndexedAccess": true
 	},
 	"include": ["src/**/*"],
 	"exclude": ["node_modules", "dist"]

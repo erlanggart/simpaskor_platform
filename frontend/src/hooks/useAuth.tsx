@@ -15,7 +15,6 @@ interface AuthContextType {
 	register: (data: any) => Promise<void>;
 	logout: () => void;
 	setAuth: (user: User, token: string) => void;
-	updateUser: (updates: Partial<User>) => void;
 	isAuthenticated: boolean;
 }
 
@@ -82,15 +81,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		localStorage.setItem("user", JSON.stringify(userData));
 	};
 
-	const updateUser = (updates: Partial<User>) => {
-		setUser((prev) => {
-			if (!prev) return prev;
-			const updated = { ...prev, ...updates };
-			localStorage.setItem("user", JSON.stringify(updated));
-			return updated;
-		});
-	};
-
 	const logout = () => {
 		setUser(null);
 		setToken(null);
@@ -119,7 +109,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		register,
 		logout,
 		setAuth,
-		updateUser,
 		isAuthenticated: !!user && !!token,
 	};
 

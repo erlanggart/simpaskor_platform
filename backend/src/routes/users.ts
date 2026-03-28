@@ -7,7 +7,6 @@ import {
 	requireSuperAdmin,
 	requireOwnershipOrAdmin,
 } from "../middleware/auth";
-import { uploadAvatar } from "../middleware/upload";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
@@ -35,8 +34,8 @@ const updateUserSchema = z.object({
 });
 
 const updateProfileSchema = z.object({
-	name: z.string().min(1).optional(),
-	email: z.string().email().optional(),
+	firstName: z.string().min(1).optional(),
+	lastName: z.string().min(1).optional(),
 	phone: z.string().optional(),
 	bio: z.string().optional(),
 	institution: z.string().optional(),
@@ -211,6 +210,147 @@ router.get(
 	}
 );
 
+// Update user (Admin or owner)
+router.put(
+	"/:userId",
+	authenticate,
+	requireOwnershipOrAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { userId } = req.params;
+			const validatedData = updateUserSchema.parse(req.body);
+
+			// Only superadmin can change role and status
+			if (
+				(validatedData.role || validatedData.status) &&
+				req.user?.role !== UserRole.SUPERADMIN
+			) {
+				return res.status(403).json({
+					error: "Forbidden",
+					message: "Only superadmin can change role and status",
+				});
+			}
+
+			const user = await prisma.user.update({
+				where: { id: userId },
+				data: validatedData,
+				include: {
+					profile: true,
+				},
+			});
+
+			res.json({
+				message: "User updated successfully",
+				user: AuthUtils.sanitizeUser(user),
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+
+			console.error("Update user error:", error);
+			res.status(500).json({
+				error: "Failed to update user",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Update user profile
+router.put(
+	"/:userId/profile",
+	authenticate,
+	requireOwnershipOrAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { userId } = req.params;
+			const validatedData = updateProfileSchema.parse(req.body);
+
+			const profile = await prisma.userProfile.upsert({
+				where: { userId },
+				update: {
+					...validatedData,
+					birthDate: validatedData.birthDate
+						? new Date(validatedData.birthDate)
+						: undefined,
+				},
+				create: {
+					user: {
+						connect: { id: userId },
+					},
+					...validatedData,
+					birthDate: validatedData.birthDate
+						? new Date(validatedData.birthDate)
+						: undefined,
+				},
+				include: {
+					user: true,
+				},
+			});
+
+			res.json({
+				message: "Profile updated successfully",
+				profile,
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+
+			console.error("Update profile error:", error);
+			res.status(500).json({
+				error: "Failed to update profile",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+// Delete user (Superadmin only)
+router.delete(
+	"/:userId",
+	authenticate,
+	requireSuperAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { userId } = req.params;
+
+			// Don't allow deleting superadmin
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+			});
+
+			if (user?.role === UserRole.SUPERADMIN && req.user?.userId !== userId) {
+				return res.status(403).json({
+					error: "Forbidden",
+					message: "Cannot delete other superadmin accounts",
+				});
+			}
+
+			await prisma.user.delete({
+				where: { id: userId },
+			});
+
+			res.json({
+				message: "User deleted successfully",
+			});
+		} catch (error) {
+			console.error("Delete user error:", error);
+			res.status(500).json({
+				error: "Failed to delete user",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
 // Update own profile (authenticated user)
 router.put(
 	"/profile",
@@ -228,11 +368,12 @@ router.put(
 			const validatedData = updateProfileSchema.parse(req.body);
 
 			// Extract user fields and profile fields
-			const { name, email, phone, ...profileData } = validatedData;
+			const { firstName, lastName, phone, ...profileData } = validatedData;
 
 			// Update user basic info
 			const userUpdate: any = {};
-			if (name) userUpdate.name = name;
+			if (firstName) userUpdate.firstName = firstName;
+			if (lastName) userUpdate.lastName = lastName;
 			if (phone !== undefined) userUpdate.phone = phone;
 
 			const user = await prisma.user.update({
@@ -362,110 +503,53 @@ router.put(
 	}
 );
 
-// Update user (Admin or owner)
-router.put(
-	"/:userId",
+// Upload avatar (authenticated user)
+router.post(
+	"/avatar",
 	authenticate,
-	requireOwnershipOrAdmin,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { userId } = req.params;
-			const validatedData = updateUserSchema.parse(req.body);
-
-			// Only superadmin can change role and status
-			if (
-				(validatedData.role || validatedData.status) &&
-				req.user?.role !== UserRole.SUPERADMIN
-			) {
-				return res.status(403).json({
-					error: "Forbidden",
-					message: "Only superadmin can change role and status",
+			const userId = req.user?.userId;
+			if (!userId) {
+				return res.status(401).json({
+					error: "Unauthorized",
+					message: "User not authenticated",
 				});
 			}
 
-			const user = await prisma.user.update({
-				where: { id: userId },
-				data: validatedData,
-				include: {
-					profile: true,
-				},
-			});
+			// For now, just return success
+			// In production, you would:
+			// 1. Use multer to handle file upload
+			// 2. Validate file type and size
+			// 3. Upload to cloud storage (S3, Cloudinary, etc.)
+			// 4. Save URL to database
 
-			res.json({
-				message: "User updated successfully",
-				user: AuthUtils.sanitizeUser(user),
-			});
-		} catch (error) {
-			if (error instanceof z.ZodError) {
-				return res.status(400).json({
-					error: "Validation error",
-					details: error.errors,
-				});
-			}
+			const avatarUrl = `/avatars/${userId}.jpg`; // Placeholder
 
-			console.error("Update user error:", error);
-			res.status(500).json({
-				error: "Failed to update user",
-				message: "Internal server error",
-			});
-		}
-	}
-);
-
-// Update user profile
-router.put(
-	"/:userId/profile",
-	authenticate,
-	requireOwnershipOrAdmin,
-	async (req: AuthenticatedRequest, res: Response) => {
-		try {
-			const { userId } = req.params;
-			const validatedData = updateProfileSchema.parse(req.body);
-
-			const profile = await prisma.userProfile.upsert({
+			await prisma.userProfile.upsert({
 				where: { userId },
-				update: {
-					...validatedData,
-					birthDate: validatedData.birthDate
-						? new Date(validatedData.birthDate)
-						: undefined,
-				},
+				update: { avatar: avatarUrl },
 				create: {
-					user: {
-						connect: { id: userId },
-					},
-					...validatedData,
-					birthDate: validatedData.birthDate
-						? new Date(validatedData.birthDate)
-						: undefined,
-				},
-				include: {
-					user: true,
+					userId,
+					avatar: avatarUrl,
 				},
 			});
 
 			res.json({
-				message: "Profile updated successfully",
-				profile,
+				message: "Avatar uploaded successfully",
+				avatarUrl,
 			});
 		} catch (error) {
-			if (error instanceof z.ZodError) {
-				return res.status(400).json({
-					error: "Validation error",
-					details: error.errors,
-				});
-			}
-
-			console.error("Update profile error:", error);
+			console.error("Upload avatar error:", error);
 			res.status(500).json({
-				error: "Failed to update profile",
+				error: "Failed to upload avatar",
 				message: "Internal server error",
 			});
 		}
 	}
 );
 
-// Delete avatar (authenticated user) — must be before /:userId to avoid param conflict
+// Delete avatar (authenticated user)
 router.delete(
 	"/avatar",
 	authenticate,
@@ -491,105 +575,6 @@ router.delete(
 			console.error("Delete avatar error:", error);
 			res.status(500).json({
 				error: "Failed to delete avatar",
-				message: "Internal server error",
-			});
-		}
-	}
-);
-
-// Delete user (Superadmin only)
-router.delete(
-	"/:userId",
-	authenticate,
-	requireSuperAdmin,
-	async (req: AuthenticatedRequest, res: Response) => {
-		try {
-			const { userId } = req.params;
-
-			// Don't allow deleting superadmin
-			const user = await prisma.user.findUnique({
-				where: { id: userId },
-			});
-
-			if (user?.role === UserRole.SUPERADMIN && req.user?.userId !== userId) {
-				return res.status(403).json({
-					error: "Forbidden",
-					message: "Cannot delete other superadmin accounts",
-				});
-			}
-
-			await prisma.user.delete({
-				where: { id: userId },
-			});
-
-			res.json({
-				message: "User deleted successfully",
-			});
-		} catch (error) {
-			console.error("Delete user error:", error);
-			res.status(500).json({
-				error: "Failed to delete user",
-				message: "Internal server error",
-			});
-		}
-	}
-);
-
-// Upload avatar (authenticated user)
-router.post(
-	"/avatar",
-	authenticate,
-	uploadAvatar.single("avatar"),
-	async (req: AuthenticatedRequest, res: Response) => {
-		try {
-			const userId = req.user?.userId;
-			if (!userId) {
-				return res.status(401).json({
-					error: "Unauthorized",
-					message: "User not authenticated",
-				});
-			}
-
-			if (!req.file) {
-				return res.status(400).json({
-					error: "No file uploaded",
-					message: "Please select an image file",
-				});
-			}
-
-			const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-
-			// Delete old avatar file if exists
-			const existingProfile = await prisma.userProfile.findUnique({
-				where: { userId },
-				select: { avatar: true },
-			});
-			if (existingProfile?.avatar) {
-				const fs = await import("fs");
-				const path = await import("path");
-				const oldPath = path.join(__dirname, "../../", existingProfile.avatar.replace(/^\//, ""));
-				if (fs.existsSync(oldPath)) {
-					fs.unlinkSync(oldPath);
-				}
-			}
-
-			await prisma.userProfile.upsert({
-				where: { userId },
-				update: { avatar: avatarUrl },
-				create: {
-					userId,
-					avatar: avatarUrl,
-				},
-			});
-
-			res.json({
-				message: "Avatar uploaded successfully",
-				avatarUrl,
-			});
-		} catch (error) {
-			console.error("Upload avatar error:", error);
-			res.status(500).json({
-				error: "Failed to upload avatar",
 				message: "Internal server error",
 			});
 		}
@@ -943,39 +928,12 @@ router.get("/public/stats", async (req, res: Response) => {
 			},
 		});
 
-		// Get pinned pelatih for landing page
-		const pelatihList = await prisma.user.findMany({
-			where: {
-				role: UserRole.PELATIH,
-				status: "ACTIVE",
-				isPinned: true,
-			},
-			select: {
-				id: true,
-				name: true,
-				profile: {
-					select: {
-						avatar: true,
-						institution: true,
-					},
-				},
-			},
-			orderBy: { createdAt: "desc" },
-			take: 12,
-		});
-
 		res.json({
 			juries: juries.map((juri) => ({
 				id: juri.id,
 				name: juri.name,
 				avatar: juri.profile?.avatar || null,
 				institution: juri.profile?.institution || null,
-			})),
-			pelatih: pelatihList.map((p) => ({
-				id: p.id,
-				name: p.name,
-				avatar: p.profile?.avatar || null,
-				institution: p.profile?.institution || null,
 			})),
 			stats: {
 				juriCount,
@@ -1034,51 +992,6 @@ router.get("/public/juries", async (req, res: Response) => {
 		console.error("Get all juries error:", error);
 		res.status(500).json({
 			error: "Failed to fetch juries",
-			message: "Internal server error",
-		});
-	}
-});
-
-// Get all pelatih (public, no auth) - for "View All Pelatih" page
-router.get("/public/pelatih", async (req, res: Response) => {
-	try {
-		const pelatih = await prisma.user.findMany({
-			where: {
-				role: UserRole.PELATIH,
-			},
-			select: {
-				id: true,
-				name: true,
-				status: true,
-				isPinned: true,
-				profile: {
-					select: {
-						avatar: true,
-						institution: true,
-						city: true,
-						bio: true,
-					},
-				},
-			},
-			orderBy: { name: "asc" },
-		});
-
-		res.json({
-			pelatih: pelatih.map((p) => ({
-				id: p.id,
-				name: p.name,
-				status: p.status,
-				isPinned: p.isPinned,
-				avatar: p.profile?.avatar || null,
-				institution: p.profile?.institution || null,
-				city: p.profile?.city || null,
-				bio: p.profile?.bio || null,
-			})),
-		});
-	} catch (error) {
-		console.error("Get all pelatih error:", error);
-		res.status(500).json({
-			error: "Failed to fetch pelatih",
 			message: "Internal server error",
 		});
 	}

@@ -7,11 +7,6 @@ import {
 	AuthenticatedRequest,
 } from "../middleware/auth";
 import crypto from "crypto";
-import {
-	createSnapTransaction,
-	generateMidtransOrderId,
-	PaymentPrefix,
-} from "../lib/midtrans";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -221,52 +216,18 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 				},
 			});
 
-			// Only update sold count for FREE tickets (paid tickets update via webhook after payment)
-			if (ticketConfig.price === 0) {
-				await tx.eventTicketConfig.update({
-					where: { eventId },
-					data: { soldCount: { increment: quantity } },
-				});
-			}
+			// Update sold count
+			await tx.eventTicketConfig.update({
+				where: { eventId },
+				data: { soldCount: { increment: quantity } },
+			});
 
 			return purchase;
 		});
 
-		// Generate Midtrans Snap token for paid tickets
-		let snapToken: string | null = null;
-		let midtransOrderId: string | null = null;
-		if (result.totalAmount > 0) {
-			try {
-				midtransOrderId = generateMidtransOrderId(PaymentPrefix.TICKET, result.id);
-				const snapResult = await createSnapTransaction({
-					orderId: midtransOrderId,
-					grossAmount: result.totalAmount,
-					customerName: buyerName,
-					customerEmail: buyerEmail,
-					customerPhone: buyerPhone,
-					itemDetails: [
-						{
-							id: result.eventId,
-							price: result.totalAmount / result.quantity,
-							quantity: result.quantity,
-							name: `Tiket ${result.event?.title || "Event"}`,
-						},
-					],
-				});
-				snapToken = snapResult.token;
-
-				await prisma.ticketPurchase.update({
-					where: { id: result.id },
-					data: { midtransOrderId, snapToken },
-				});
-			} catch (midtransError) {
-				console.error("Midtrans Snap token generation failed:", midtransError);
-			}
-		}
-
 		res.status(201).json({
 			message: result.totalAmount === 0 ? "Tiket berhasil didapatkan!" : "Pesanan tiket berhasil dibuat!",
-			ticket: { ...result, snapToken, midtransOrderId },
+			ticket: result,
 		});
 	} catch (error: any) {
 		console.error("Error purchasing ticket:", error);
@@ -522,11 +483,6 @@ router.patch(
 
 			if (!purchase) {
 				return res.status(404).json({ error: "Pembelian tiket tidak ditemukan" });
-			}
-
-			// Prevent marking as PAID if not yet paid via Midtrans
-			if (status === "PAID" && !purchase.paidAt && purchase.status === "PENDING" && purchase.totalAmount > 0) {
-				return res.status(400).json({ error: "Tiket belum dibayar via Midtrans. Tidak bisa dikonfirmasi sebelum pembayaran diterima." });
 			}
 
 			const updateData: any = { status };

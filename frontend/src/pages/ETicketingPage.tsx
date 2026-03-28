@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
-import { usePayment } from "../hooks/usePayment";
 import { TicketedEvent } from "../types/ticket";
 import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload } from "react-icons/lu";
 import Swal from "sweetalert2";
@@ -10,7 +9,6 @@ import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 
 const ETicketingPage: React.FC = () => {
 	const { user } = useAuth();
-	const { pay, isSnapReady } = usePayment();
 	const [events, setEvents] = useState<TicketedEvent[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [search, setSearch] = useState("");
@@ -173,56 +171,16 @@ const ETicketingPage: React.FC = () => {
 				quantity,
 			});
 
-			const { snapToken } = res.data.ticket;
-
-			if (snapToken && isSnapReady) {
-				setShowPurchaseModal(false);
-				// Open Midtrans Snap payment popup
-				pay(snapToken, {
-					onSuccess: () => {
-						setTicketResult({
-							ticketCode: res.data.ticket.ticketCode,
-							eventTitle: selectedEvent.title,
-							buyerName: buyerName.trim(),
-							quantity,
-							totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
-							message: "Pembayaran berhasil! Tiket Anda sudah aktif.",
-						});
-						fetchEvents();
-					},
-					onPending: () => {
-						setTicketResult({
-							ticketCode: res.data.ticket.ticketCode,
-							eventTitle: selectedEvent.title,
-							buyerName: buyerName.trim(),
-							quantity,
-							totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
-							message: "Menunggu pembayaran. Tiket akan aktif setelah pembayaran dikonfirmasi.",
-						});
-						fetchEvents();
-					},
-					onError: () => {
-						Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Tiket tidak aktif.", "error");
-						fetchEvents();
-					},
-					onClose: () => {
-						Swal.fire("Pembayaran Belum Selesai", "Tiket belum aktif karena pembayaran belum dilakukan.", "warning");
-						fetchEvents();
-					},
-				});
-			} else {
-				// Free ticket or Snap not available
-				setShowPurchaseModal(false);
-				setTicketResult({
-					ticketCode: res.data.ticket.ticketCode,
-					eventTitle: selectedEvent.title,
-					buyerName: buyerName.trim(),
-					quantity,
-					totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
-					message: res.data.message,
-				});
-				fetchEvents();
-			}
+			setShowPurchaseModal(false);
+			setTicketResult({
+				ticketCode: res.data.ticket.ticketCode,
+				eventTitle: selectedEvent.title,
+				buyerName: buyerName.trim(),
+				quantity,
+				totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
+				message: res.data.message,
+			});
+			fetchEvents();
 		} catch (err: any) {
 			Swal.fire("Gagal", err.response?.data?.error || "Gagal memesan tiket", "error");
 		} finally {

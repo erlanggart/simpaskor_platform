@@ -22,13 +22,6 @@ interface Juri {
 	institution: string | null;
 }
 
-interface Pelatih {
-	id: string;
-	name: string;
-	avatar: string | null;
-	institution: string | null;
-}
-
 interface PublicStats {
 	juriCount: number;
 	pesertaCount: number;
@@ -42,7 +35,6 @@ interface UseLandingDataReturn {
 	events: Event[];
 	completedEvents: Event[];
 	juries: Juri[];
-	pelatih: Pelatih[];
 	publicStats: PublicStats;
 	loading: boolean;
 	error: string | null;
@@ -54,7 +46,6 @@ export const useLandingData = (): UseLandingDataReturn => {
 	const [events, setEvents] = useState<Event[]>([]);
 	const [completedEvents, setCompletedEvents] = useState<Event[]>([]);
 	const [juries, setJuries] = useState<Juri[]>([]);
-	const [pelatih, setPelatih] = useState<Pelatih[]>([]);
 	const [publicStats, setPublicStats] = useState<PublicStats>({
 		juriCount: 0,
 		pesertaCount: 0,
@@ -79,7 +70,6 @@ export const useLandingData = (): UseLandingDataReturn => {
 			setEvents(eventsRes.data.data || eventsRes.data);
 			setCompletedEvents(completedRes.data.data || completedRes.data);
 			setJuries(statsRes.data.juries || []);
-			setPelatih(statsRes.data.pelatih || []);
 			setPublicStats(
 				statsRes.data.stats || { juriCount: 0, pesertaCount: 0, eventsCount: 0, availableEventsCount: 0, completedEventsCount: 0 }
 			);
@@ -101,7 +91,6 @@ export const useLandingData = (): UseLandingDataReturn => {
 		events,
 		completedEvents,
 		juries,
-		pelatih,
 		publicStats,
 		loading,
 		error,

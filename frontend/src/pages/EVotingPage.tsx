@@ -2,14 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
-import { usePayment } from "../hooks/usePayment";
 import { VotingEvent, VotingNominee } from "../types/voting";
 import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuThumbsUp, LuCircleCheck } from "react-icons/lu";
 import Swal from "sweetalert2";
 
 const EVotingPage: React.FC = () => {
 	const { user } = useAuth();
-	const { pay, isSnapReady } = usePayment();
 	const [events, setEvents] = useState<VotingEvent[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [search, setSearch] = useState("");
@@ -190,57 +188,19 @@ const EVotingPage: React.FC = () => {
 				voteCount,
 			});
 
-			const { snapToken, purchaseCode, totalAmount } = res.data.purchase;
+			setShowPurchaseModal(false);
 
-			if (snapToken && isSnapReady && totalAmount > 0) {
-				setShowPurchaseModal(false);
-				// Open Midtrans Snap payment popup
-				pay(snapToken, {
-					onSuccess: () => {
-						Swal.fire({
-							title: "Pembayaran Berhasil!",
-							html: `<div class="text-left space-y-2">
-								<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
-								<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
-								<p><strong>Total:</strong> ${formatCurrency(totalAmount)}</p>
-								<p class="text-sm text-gray-500 mt-3">Simpan kode ini untuk melakukan vote</p>
-							</div>`,
-							icon: "success",
-							confirmButtonColor: "#dc2626",
-						});
-					},
-					onPending: () => {
-						Swal.fire({
-							title: "Menunggu Pembayaran",
-							html: `<div class="text-left space-y-2">
-								<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
-								<p class="text-sm text-gray-500 mt-3">Vote akan aktif setelah pembayaran dikonfirmasi</p>
-							</div>`,
-							icon: "info",
-							confirmButtonColor: "#dc2626",
-						});
-					},
-					onError: () => {
-						Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Vote tidak aktif.", "error");
-					},
-					onClose: () => {
-						Swal.fire("Pembayaran Belum Selesai", "Vote belum aktif karena pembayaran belum dilakukan.", "warning");
-					},
-				});
-			} else {
-				setShowPurchaseModal(false);
-				Swal.fire({
-					title: res.data.message,
-					html: `<div class="text-left space-y-2">
-						<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
-						<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
-						<p><strong>Total:</strong> ${formatCurrency(totalAmount)}</p>
-						<p class="text-sm text-gray-500 mt-3">Simpan kode ini untuk melakukan vote</p>
-					</div>`,
-					icon: "success",
-					confirmButtonColor: "#dc2626",
-				});
-			}
+			Swal.fire({
+				title: res.data.message,
+				html: `<div class="text-left space-y-2">
+					<p><strong>Kode:</strong> <span class="font-mono text-lg">${res.data.purchase.purchaseCode}</span></p>
+					<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
+					<p><strong>Total:</strong> ${formatCurrency(res.data.purchase.totalAmount)}</p>
+					<p class="text-sm text-gray-500 mt-3">Simpan kode ini untuk melakukan vote</p>
+				</div>`,
+				icon: "success",
+				confirmButtonColor: "#dc2626",
+			});
 		} catch (err: any) {
 			Swal.fire("Gagal", err.response?.data?.error || "Gagal memesan vote", "error");
 		} finally {

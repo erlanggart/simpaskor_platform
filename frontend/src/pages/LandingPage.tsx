@@ -5,17 +5,18 @@ import {
 	LuUsers,
 	LuTrophy,
 	LuCalendar,
+	LuImages,
 	LuLayoutGrid,
 	LuChartPie,
 	LuGavel,
 	LuChartBar,
 	LuShield,
+	LuVote,
 	LuHouse,
 } from "react-icons/lu";
 import { useLandingData } from "../hooks/useLandingData";
 import HeroSection from "../components/landing/HeroSection";
 import EventSection from "../components/landing/EventSection";
-import PinnedPersonCarousel from "../components/landing/PinnedPersonCarousel";
 import "../components/landing/LandingPage.css";
 
 // Right-side section navigation labels
@@ -31,7 +32,7 @@ const LandingPage: React.FC = () => {
 	const [activeSection, setActiveSection] = useState(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sectionRefs = useRef<(HTMLElement | null)[]>([]);
-	const { pinnedEvents, publicStats, juries, pelatih, loading } = useLandingData();
+	const { pinnedEvents, publicStats, loading } = useLandingData();
 
 	const scrollToSection = useCallback((index: number) => {
 		sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth" });
@@ -250,9 +251,30 @@ const LandingPage: React.FC = () => {
 								</div>
 							</div>
 
-							{/* Right: Pinned Juri Carousel */}
+							{/* Right: Jury visual placeholder */}
 							<div className="flex-shrink-0 hidden lg:flex flex-col items-center gap-6">
-								<PinnedPersonCarousel persons={juries} accentColor="purple" linkPrefix="/juries" />
+								<div className="relative section-icon-glow-purple">
+									<div className="grid grid-cols-2 gap-4">
+										{[
+											{ icon: LuVote, label: "Vote" },
+											{ icon: LuChartBar, label: "Hasil" },
+											{ icon: LuUsers, label: "Kandidat" },
+											{ icon: LuShield, label: "Aman" },
+										].map((item, i) => (
+											<div
+												key={i}
+												className={`w-20 h-20 xl:w-24 xl:h-24 rounded-2xl bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2 transition-all duration-500 hover:bg-gray-200/50 dark:hover:bg-white/[0.08] hover:border-gray-300/50 dark:hover:border-white/[0.12] hover:scale-105 ${
+													i % 2 === 0 ? "animate-float" : "animate-float-delayed"
+												}`}
+											>
+												<item.icon className="w-6 h-6 xl:w-7 xl:h-7 text-gray-500 dark:text-gray-400" />
+												<span className="text-[9px] xl:text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+													{item.label}
+												</span>
+											</div>
+										))}
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -281,13 +303,6 @@ const LandingPage: React.FC = () => {
 								</p>
 								<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
 									<Link
-										to="/pelatih"
-										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
-									>
-										<span>Lihat Semua Pelatih</span>
-										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-									</Link>
-									<Link
 										to="/register"
 										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all duration-300 group"
 									>
@@ -297,9 +312,30 @@ const LandingPage: React.FC = () => {
 								</div>
 							</div>
 
-							{/* Right: Pinned Pelatih Carousel */}
+							{/* Right: Coach visual placeholder */}
 							<div className="flex-shrink-0 hidden lg:flex flex-col items-center gap-6">
-								<PinnedPersonCarousel persons={pelatih} accentColor="blue" linkPrefix="/pelatih" />
+								<div className="relative section-icon-glow-blue">
+									<div className="grid grid-cols-2 gap-4">
+										{[
+											{ icon: LuUsers, label: "Atlet" },
+											{ icon: LuTrophy, label: "Prestasi" },
+											{ icon: LuChartBar, label: "Statistik" },
+											{ icon: LuShield, label: "Profesional" },
+										].map((item, i) => (
+											<div
+												key={i}
+												className={`w-20 h-20 xl:w-24 xl:h-24 rounded-2xl bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2 transition-all duration-500 hover:bg-gray-200/50 dark:hover:bg-white/[0.08] hover:border-gray-300/50 dark:hover:border-white/[0.12] hover:scale-105 ${
+													i % 2 === 0 ? "animate-float" : "animate-float-delayed"
+												}`}
+											>
+												<item.icon className="w-6 h-6 xl:w-7 xl:h-7 text-gray-500 dark:text-gray-400" />
+												<span className="text-[9px] xl:text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+													{item.label}
+												</span>
+											</div>
+										))}
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
