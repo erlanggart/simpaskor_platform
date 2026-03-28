@@ -14,7 +14,7 @@ git pull origin main >> "$LOG_FILE" 2>&1
 
 echo "Restarting containers..." >> "$LOG_FILE"
 docker compose down >> "$LOG_FILE" 2>&1
-docker compose up -d --build >> "$LOG_FILE" 2>&1
+docker compose up -d --build -V >> "$LOG_FILE" 2>&1
 
 echo "Deploy completed at $(date)" >> "$LOG_FILE"
 echo "============================================" >> "$LOG_FILE"
