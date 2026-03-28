@@ -7,6 +7,11 @@ import {
 	AuthenticatedRequest,
 } from "../middleware/auth";
 import crypto from "crypto";
+import {
+	createSnapTransaction,
+	generateMidtransOrderId,
+	PaymentPrefix,
+} from "../lib/midtrans";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -401,9 +406,41 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			},
 		});
 
+		// Generate Midtrans Snap token for paid voting
+		let snapToken: string | null = null;
+		let midtransOrderId: string | null = null;
+		if (totalAmount > 0) {
+			try {
+				midtransOrderId = generateMidtransOrderId(PaymentPrefix.VOTING, purchase.id);
+				const snapResult = await createSnapTransaction({
+					orderId: midtransOrderId,
+					grossAmount: totalAmount,
+					customerName: buyerName,
+					customerEmail: buyerEmail,
+					customerPhone: buyerPhone,
+					itemDetails: [
+						{
+							id: resolvedEventId,
+							price: votingConfig.pricePerVote,
+							quantity: voteCount,
+							name: "Paket Vote",
+						},
+					],
+				});
+				snapToken = snapResult.token;
+
+				await prisma.votingPurchase.update({
+					where: { id: purchase.id },
+					data: { midtransOrderId, snapToken },
+				});
+			} catch (midtransError) {
+				console.error("Midtrans Snap token generation failed:", midtransError);
+			}
+		}
+
 		res.status(201).json({
 			message: totalAmount === 0 ? "Vote berhasil didapatkan!" : "Pesanan vote berhasil dibuat!",
-			purchase,
+			purchase: { ...purchase, snapToken, midtransOrderId },
 		});
 	} catch (error) {
 		console.error("Error purchasing votes:", error);
@@ -987,6 +1024,11 @@ router.patch(
 
 			if (!purchase) {
 				return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
+			}
+
+			// Prevent marking as PAID if not yet paid via Midtrans
+			if (status === "PAID" && !purchase.paidAt && purchase.status === "PENDING" && purchase.totalAmount > 0) {
+				return res.status(400).json({ error: "Vote belum dibayar via Midtrans. Tidak bisa dikonfirmasi sebelum pembayaran diterima." });
 			}
 
 			const updateData: any = { status };

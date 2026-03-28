@@ -1,32 +1,25 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { CalendarIcon, MapPinIcon } from "@heroicons/react/24/outline";
-import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { LuChevronLeft, LuChevronRight, LuBuilding2, LuUser } from "react-icons/lu";
 import { config } from "../../utils/config";
 
-interface PinnedEvent {
+interface Person {
 	id: string;
-	title: string;
-	description: string | null;
-	thumbnail: string | null;
-	slug: string | null;
-	startDate: string;
-	endDate: string;
-	location: string | null;
-	venue: string | null;
-	pinnedOrder: number | null;
+	name: string;
+	avatar: string | null;
+	institution: string | null;
 }
 
-interface HeroBannerCarouselProps {
-	events: PinnedEvent[];
+interface PinnedPersonCarouselProps {
+	persons: Person[];
+	accentColor: "purple" | "blue";
+	linkPrefix: string;
 }
 
-// Position styles for each offset from center
 const getPositionStyle = (
 	offset: number
 ): React.CSSProperties => {
 	switch (offset) {
-		case -2: // far left — hidden behind left card
+		case -2:
 			return {
 				transform: "translateX(-35%) scale(0.78) rotateY(8deg)",
 				zIndex: 0,
@@ -34,7 +27,7 @@ const getPositionStyle = (
 				filter: "brightness(0.3)",
 				pointerEvents: "none",
 			};
-		case -1: // left
+		case -1:
 			return {
 				transform: "translateX(-25%) scale(0.88) rotateY(5deg)",
 				zIndex: 2,
@@ -42,7 +35,7 @@ const getPositionStyle = (
 				filter: "brightness(0.4)",
 				pointerEvents: "none",
 			};
-		case 0: // center (active)
+		case 0:
 			return {
 				transform: "translateX(0%) scale(1) rotateY(0deg)",
 				zIndex: 10,
@@ -50,7 +43,7 @@ const getPositionStyle = (
 				filter: "brightness(1)",
 				pointerEvents: "auto",
 			};
-		case 1: // right
+		case 1:
 			return {
 				transform: "translateX(25%) scale(0.88) rotateY(-5deg)",
 				zIndex: 2,
@@ -58,7 +51,7 @@ const getPositionStyle = (
 				filter: "brightness(0.4)",
 				pointerEvents: "none",
 			};
-		case 2: // far right — hidden behind right card
+		case 2:
 			return {
 				transform: "translateX(35%) scale(0.78) rotateY(-8deg)",
 				zIndex: 0,
@@ -66,7 +59,7 @@ const getPositionStyle = (
 				filter: "brightness(0.3)",
 				pointerEvents: "none",
 			};
-		default: // completely hidden
+		default:
 			return {
 				transform: `translateX(${offset > 0 ? "40%" : "-40%"}) scale(0.7)`,
 				zIndex: 0,
@@ -77,74 +70,77 @@ const getPositionStyle = (
 	}
 };
 
-const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
+const accentGradients = {
+	purple: "from-purple-800 to-purple-950",
+	blue: "from-blue-800 to-blue-950",
+};
+
+const accentBadge = {
+	purple: "bg-purple-600/90",
+	blue: "bg-blue-600/90",
+};
+
+const accentGlow = {
+	purple: "section-icon-glow-purple",
+	blue: "section-icon-glow-blue",
+};
+
+const PinnedPersonCarousel: React.FC<PinnedPersonCarouselProps> = ({
+	persons,
+	accentColor,
+	linkPrefix,
+}) => {
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
-	const getImageUrl = (imageUrl: string | null): string => {
-		if (!imageUrl) {
-			return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='400'%3E%3Crect fill='%23991b1b' width='300' height='400'/%3E%3Ctext fill='%23fff' font-size='18' font-family='Arial' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
-		}
+	const getImageUrl = (imageUrl: string | null): string | null => {
+		if (!imageUrl) return null;
 		if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
 			return imageUrl;
 		}
-		return `${config.api.backendUrl}${imageUrl}`;
-	};
-
-	const formatDate = (dateString: string): string => {
-		const date = new Date(dateString);
-		return date.toLocaleDateString("id-ID", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
-		});
-	};
-
-	const getCountdown = (startDate: string): string => {
-		const now = new Date();
-		const start = new Date(startDate);
-		const diff = start.getTime() - now.getTime();
-		if (diff < 0) return "Berlangsung";
-		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-		if (days > 0) return `${days} Hari Lagi`;
-		const hours = Math.floor(
-			(diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-		);
-		return hours > 0 ? `${hours} Jam Lagi` : "Segera";
+		return `${config.api.backendUrl}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
 	};
 
 	const goNext = useCallback(() => {
-		setCurrentIndex((prev) => (prev + 1) % events.length);
-	}, [events.length]);
+		setCurrentIndex((prev) => (prev + 1) % persons.length);
+	}, [persons.length]);
 
 	const goPrev = useCallback(() => {
-		setCurrentIndex((prev) => (prev - 1 + events.length) % events.length);
-	}, [events.length]);
+		setCurrentIndex((prev) => (prev - 1 + persons.length) % persons.length);
+	}, [persons.length]);
 
 	useEffect(() => {
-		if (!isAutoPlaying || events.length <= 1) return;
-		const interval = setInterval(goNext, 5000);
+		if (!isAutoPlaying || persons.length <= 1) return;
+		const interval = setInterval(goNext, 4000);
 		return () => clearInterval(interval);
-	}, [isAutoPlaying, events.length, goNext]);
+	}, [isAutoPlaying, persons.length, goNext]);
 
-	// Calculate which cards to render (5 around current) with their offsets
 	const visibleCards = useMemo(() => {
-		if (events.length === 0) return [];
-		if (events.length === 1) return [{ eventIndex: 0, offset: 0 }];
+		if (persons.length === 0) return [];
+		if (persons.length === 1) return [{ personIndex: 0, offset: 0 }];
 
-		const cards: { eventIndex: number; offset: number }[] = [];
+		const cards: { personIndex: number; offset: number }[] = [];
 		for (let off = -2; off <= 2; off++) {
 			const idx =
-				((currentIndex + off) % events.length + events.length) %
-				events.length;
-			cards.push({ eventIndex: idx, offset: off });
+				((currentIndex + off) % persons.length + persons.length) %
+				persons.length;
+			cards.push({ personIndex: idx, offset: off });
 		}
 		return cards;
-	}, [currentIndex, events.length]);
+	}, [currentIndex, persons.length]);
 
-	if (events.length === 0) return null;
+	// Fallback: show glow placeholder if no persons
+	if (persons.length === 0) {
+		return (
+			<div className={`relative ${accentGlow[accentColor]}`}>
+				<div className="w-[220px] h-[300px] rounded-2xl bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] flex items-center justify-center">
+					<LuUser className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+				</div>
+			</div>
+		);
+	}
 
-	const hasMultiple = events.length > 1;
+	const hasMultiple = persons.length > 1;
 
 	return (
 		<div
@@ -156,17 +152,18 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 			{/* Cards container */}
 			<div
 				className="relative group"
-				style={{ width: "280px", height: "370px" }}
+				style={{ width: "220px", height: "300px" }}
 			>
-				{visibleCards.map(({ eventIndex, offset }) => {
-					const evt = events[eventIndex];
-					if (!evt) return null;
+				{visibleCards.map(({ personIndex, offset }) => {
+					const person = persons[personIndex];
+					if (!person) return null;
 					const isCenter = offset === 0;
 					const posStyle = getPositionStyle(offset);
+					const avatarUrl = getImageUrl(person.avatar);
 
 					return (
 						<div
-							key={`${evt.id}-${offset}`}
+							key={`${person.id}-${offset}`}
 							className="absolute inset-0"
 							style={{
 								...posStyle,
@@ -182,18 +179,26 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 										: "shadow-xl shadow-black/10 dark:shadow-black/20"
 								}`}
 							>
-								<div className="relative w-full h-full bg-gradient-to-br from-red-800 to-red-950">
-									<img
-										src={getImageUrl(evt.thumbnail)}
-										alt={evt.title}
-										className="w-full h-full object-cover"
-										loading="lazy"
-										onError={(e) => {
-											e.currentTarget.style.display = "none";
-										}}
-									/>
+								<div className={`relative w-full h-full bg-gradient-to-br ${accentGradients[accentColor]}`}>
+									{avatarUrl ? (
+										<img
+											src={avatarUrl}
+											alt={person.name}
+											className="w-full h-full object-cover"
+											loading="lazy"
+											onError={(e) => {
+												e.currentTarget.style.display = "none";
+											}}
+										/>
+									) : (
+										<div className="w-full h-full flex items-center justify-center">
+											<span className="text-6xl font-black text-white/20">
+												{person.name.charAt(0).toUpperCase()}
+											</span>
+										</div>
+									)}
 
-									{/* Only show overlay on center card */}
+									{/* Overlay - only visible on center card */}
 									<div
 										className="absolute inset-0 flex flex-col justify-end"
 										style={{
@@ -201,40 +206,30 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 											transition: "opacity 400ms ease",
 										}}
 									>
-										{/* Countdown badge */}
+										{/* Role badge */}
 										<div className="absolute top-3 left-3 z-10">
-											<div className="bg-red-600/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-[11px] font-semibold shadow-lg">
-												{getCountdown(evt.startDate)}
+											<div className={`${accentBadge[accentColor]} backdrop-blur-sm text-white px-3 py-1 rounded-full text-[11px] font-semibold shadow-lg`}>
+												{accentColor === "purple" ? "Juri" : "Pelatih"}
 											</div>
 										</div>
 
-										{/* Bottom overlay */}
+										{/* Bottom info overlay */}
 										<div className="bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 pt-16">
-											<h3 className="text-white font-bold text-sm leading-tight mb-2 line-clamp-2">
-												{evt.title}
+											<h3 className="text-white font-bold text-sm leading-tight mb-1.5 line-clamp-2">
+												{person.name}
 											</h3>
-											<div className="flex flex-col gap-1 mb-3">
-												<div className="flex items-center text-gray-300 text-[11px]">
-													<CalendarIcon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
-													<span>
-														{formatDate(evt.startDate)}
-													</span>
+											{person.institution && (
+												<div className="flex items-center text-gray-300 text-[11px] mb-3">
+													<LuBuilding2 className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+													<span className="line-clamp-1">{person.institution}</span>
 												</div>
-												{evt.location && (
-													<div className="flex items-center text-gray-300 text-[11px]">
-														<MapPinIcon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
-														<span className="line-clamp-1">
-															{evt.location}
-														</span>
-													</div>
-												)}
-											</div>
-											<Link
-												to={`/events/${evt.slug || evt.id}`}
+											)}
+											<a
+												href={linkPrefix}
 												className="block w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white text-center text-xs font-semibold rounded-lg transition-colors"
 											>
-												Lihat Detail
-											</Link>
+												Lihat Profil
+											</a>
 										</div>
 									</div>
 								</div>
@@ -253,7 +248,7 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 							}}
 							className="absolute left-0 top-0 w-[30%] h-full z-20 cursor-pointer"
 							style={{ background: "transparent", border: "none" }}
-							aria-label="Previous event"
+							aria-label="Previous"
 						/>
 						<button
 							onClick={() => {
@@ -262,7 +257,7 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 							}}
 							className="absolute right-0 top-0 w-[30%] h-full z-20 cursor-pointer"
 							style={{ background: "transparent", border: "none" }}
-							aria-label="Next event"
+							aria-label="Next"
 						/>
 					</>
 				)}
@@ -283,7 +278,7 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 					</button>
 
 					<div className="flex gap-1.5">
-						{events.map((_, index) => (
+						{persons.map((_, index) => (
 							<button
 								key={index}
 								onClick={() => {
@@ -295,7 +290,7 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 										? "w-5 h-1.5 bg-red-500"
 										: "w-1.5 h-1.5 bg-gray-400/50 dark:bg-white/20 hover:bg-red-400/50"
 								}`}
-								aria-label={`Slide ${index + 1}`}
+								aria-label={`Person ${index + 1}`}
 							/>
 						))}
 					</div>
@@ -316,4 +311,4 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 	);
 };
 
-export default HeroBannerCarousel;
+export default PinnedPersonCarousel;

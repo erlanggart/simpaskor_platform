@@ -1,6 +1,11 @@
 import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { authenticate, authorize, AuthenticatedRequest } from "../middleware/auth";
+import {
+	createSnapTransaction,
+	generateMidtransOrderId,
+	PaymentPrefix,
+} from "../lib/midtrans";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -59,7 +64,7 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res: Response) 
 			};
 		});
 
-		// Create order and reduce stock in transaction
+		// Create order WITHOUT reducing stock (stock will be reduced after payment confirmed via webhook)
 		const order = await prisma.$transaction(async (tx) => {
 			// Create order
 			const newOrder = await tx.order.create({
@@ -73,32 +78,43 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res: Response) 
 				},
 				include: {
 					items: { include: { product: true } },
+					user: { select: { name: true, email: true } },
 				},
 			});
-
-			// Reduce stock
-			for (const item of orderItems) {
-				await tx.product.update({
-					where: { id: item.productId },
-					data: {
-						stock: { decrement: item.quantity },
-					},
-				});
-
-				// Check if out of stock after decrement
-				const updated = await tx.product.findUnique({ where: { id: item.productId } });
-				if (updated && updated.stock <= 0) {
-					await tx.product.update({
-						where: { id: item.productId },
-						data: { status: "OUT_OF_STOCK" },
-					});
-				}
-			}
 
 			return newOrder;
 		});
 
-		res.status(201).json(order);
+		// Generate Midtrans Snap token for payment
+		let snapToken: string | null = null;
+		let midtransOrderId: string | null = null;
+		try {
+			midtransOrderId = generateMidtransOrderId(PaymentPrefix.ORDER, order.id);
+			const snapResult = await createSnapTransaction({
+				orderId: midtransOrderId,
+				grossAmount: totalAmount,
+				customerName: order.user?.name || "Customer",
+				customerEmail: order.user?.email || "",
+				itemDetails: order.items.map((item: any) => ({
+					id: item.productId,
+					price: item.price,
+					quantity: item.quantity,
+					name: item.product?.name || "Product",
+				})),
+			});
+			snapToken = snapResult.token;
+
+			// Save Midtrans data to order
+			await prisma.order.update({
+				where: { id: order.id },
+				data: { midtransOrderId, snapToken },
+			});
+		} catch (midtransError) {
+			console.error("Midtrans Snap token generation failed:", midtransError);
+			// Order is still created with PENDING status; admin can handle manually
+		}
+
+		res.status(201).json({ ...order, snapToken, midtransOrderId });
 	} catch (error) {
 		console.error("Error creating order:", error);
 		res.status(500).json({ error: "Gagal membuat pesanan" });
@@ -207,6 +223,11 @@ router.patch("/admin/:id/status", authenticate, authorize("SUPERADMIN"), async (
 
 		if (!order) {
 			return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+		}
+
+		// Prevent confirming orders that haven't been paid via Midtrans
+		if (status === "CONFIRMED" && !order.paidAt && order.status === "PENDING") {
+			return res.status(400).json({ error: "Pesanan belum dibayar via Midtrans. Tidak bisa dikonfirmasi sebelum pembayaran diterima." });
 		}
 
 		// If cancelling, restore stock
