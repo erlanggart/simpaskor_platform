@@ -2,6 +2,11 @@ import express from "express";
 import { authenticate, AuthenticatedRequest, requirePanitia } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { z } from "zod";
+import {
+	createSnapTransaction,
+	generateMidtransOrderId,
+	PaymentPrefix,
+} from "../lib/midtrans";
 
 const router = express.Router();
 
@@ -351,12 +356,30 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 		// DON'T update current participants count here
 		// Only update when status is changed to CONFIRMED by panitia
 
+		// If event has registration fee, create pending payment
+		if (registration.event.registrationFee && Number(registration.event.registrationFee) > 0) {
+			const midtransOrderId = generateMidtransOrderId(PaymentPrefix.REGISTRATION, registration.id);
+			
+			await prisma.registrationPayment.create({
+				data: {
+					participationId: registration.id,
+					eventId: registration.eventId,
+					userId,
+					amount: Number(registration.event.registrationFee),
+					status: "PENDING",
+					midtransOrderId,
+				},
+			});
+		}
+
 		res.status(201).json({
 			message: "Registration successful",
 			registration,
+			paymentRequired: registration.event.registrationFee && Number(registration.event.registrationFee) > 0,
 		});
 	} catch (error) {
 		if (error instanceof z.ZodError) {
+			console.error("Zod Validation Error:", JSON.stringify(error.errors, null, 2));
 			return res.status(400).json({
 				error: "Validation error",
 				details: error.errors,
@@ -364,6 +387,114 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 		}
 		console.error("Error creating registration:", error);
 		res.status(500).json({ error: "Failed to create registration" });
+	}
+});
+
+// POST /api/registrations/:id/pay - Create/initiate Midtrans payment for registration
+router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => {
+	try {
+		const userId = req.user!.userId;
+		const { id } = req.params;
+
+		// Get registration
+		const registration = await prisma.eventParticipation.findFirst({
+			where: { id, userId },
+			include: {
+				event: true,
+				user: true,
+			},
+		});
+
+		if (!registration) {
+			return res.status(404).json({ error: "Registration not found" });
+		}
+
+		// Check if event has fee
+		const eventFee = registration.event.registrationFee;
+		if (!eventFee || Number(eventFee) <= 0) {
+			return res.status(400).json({ error: "Event does not have registration fee" });
+		}
+
+		// Check if payment already exists and is paid
+		const existingPayment = await prisma.registrationPayment.findUnique({
+			where: { participationId: id },
+		});
+
+		if (existingPayment && existingPayment.status === "PAID") {
+			return res.status(400).json({ error: "Registration fee already paid" });
+		}
+
+		// Generate or update Midtrans order ID
+		let midtransOrderId = existingPayment?.midtransOrderId;
+		if (!midtransOrderId) {
+			midtransOrderId = generateMidtransOrderId(PaymentPrefix.REGISTRATION, registration.id);
+		}
+
+		// Create or update payment record
+		const payment = await prisma.registrationPayment.upsert({
+			where: { participationId: id },
+			update: {
+				midtransOrderId,
+				amount: Number(eventFee),
+				status: "PENDING",
+			},
+			create: {
+				participationId: registration.id,
+				eventId: registration.eventId,
+				userId,
+				amount: Number(eventFee),
+				status: "PENDING",
+				midtransOrderId,
+			},
+		});
+
+		// Generate Midtrans Snap token
+		let snapToken: string | null = null;
+		let redirectUrl: string | null = null;
+
+		try {
+			const snapResult = await createSnapTransaction({
+				orderId: midtransOrderId,
+				grossAmount: Number(eventFee),
+				customerName: registration.user.name || registration.user.email,
+				customerEmail: registration.user.email,
+				customerPhone: registration.user.phone || undefined,
+				itemDetails: [
+					{
+						id: registration.eventId,
+						price: Number(eventFee),
+						quantity: 1,
+						name: `Registrasi: ${registration.event.title}`,
+					},
+				],
+			});
+			snapToken = snapResult.token;
+			redirectUrl = snapResult.redirectUrl;
+
+			// Update payment with snap token
+			await prisma.registrationPayment.update({
+				where: { id: payment.id },
+				data: { snapToken },
+			});
+		} catch (midtransError) {
+			console.error("Midtrans Snap token generation failed:", midtransError);
+			return res.status(500).json({ error: "Failed to create payment token" });
+		}
+
+		res.json({
+			message: "Payment initiated",
+			payment: {
+				id: payment.id,
+				amount: payment.amount,
+				status: payment.status,
+				midtransOrderId: payment.midtransOrderId,
+				snapToken,
+				redirectUrl,
+			},
+		});
+	} catch (error) {
+		console.error("Error initiating payment:", error);
+		res.status(500).json({ error: "Failed to initiate payment" });
 	}
 });
 

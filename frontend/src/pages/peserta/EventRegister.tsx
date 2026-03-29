@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import api from "../../utils/api";
 import { useAuth } from "../../hooks/useAuth";
+import { usePayment } from "../../hooks/usePayment";
 import Swal from "sweetalert2";
 
 interface SchoolCategoryLimit {
@@ -80,6 +81,7 @@ const EventRegister: React.FC = () => {
 	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const navigate = useNavigate();
 	const { user } = useAuth();
+	const { pay, isSnapReady } = usePayment();
 
 	const [event, setEvent] = useState<Event | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -471,20 +473,98 @@ const EventRegister: React.FC = () => {
 				groups: groupsData,
 			};
 
-			await api.post("/registrations", registrationData);
+			const regRes = await api.post("/registrations", registrationData);
+			const { registration, paymentRequired } = regRes.data;
 
-			await Swal.fire({
-				icon: "success",
-				title: "Pendaftaran Berhasil!",
-				html: `
-					<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
-					<p class="text-sm text-gray-600">Status pendaftaran Anda saat ini: <strong>REGISTERED</strong></p>
-					<p class="text-sm text-gray-600">Panitia akan meninjau pendaftaran Anda.</p>
-				`,
-				confirmButtonText: "Lihat Pendaftaran Saya",
-			});
+			// If payment required, initiate Midtrans payment
+			if (paymentRequired) {
+				const paymentRes = await api.post(`/registrations/${registration.id}/pay`);
+				const { snapToken, midtransOrderId } = paymentRes.data.payment;
 
-			navigate("/peserta/registrations");
+				if (snapToken && isSnapReady) {
+					await new Promise<void>((resolve) => {
+						pay(snapToken, {
+							onSuccess: () => {
+								Swal.fire({
+									icon: "success",
+									title: "Pendaftaran & Pembayaran Berhasil!",
+									html: `
+										<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
+										<p class="text-sm text-gray-600">Pembayaran sebesar <strong>${formatCurrency(event.registrationFee)}</strong> telah diterima.</p>
+										<p class="text-sm text-gray-600">Status pendaftaran Anda: <strong>REGISTERED</strong></p>
+										<p class="text-sm text-gray-600">Panitia akan meninjau pendaftaran Anda.</p>
+									`,
+									confirmButtonText: "Lihat Pendaftaran Saya",
+								});
+								resolve();
+							},
+							onPending: () => {
+								Swal.fire({
+									icon: "info",
+									title: "Pembayaran Pending",
+									html: `
+										<p class="mb-2">Pendaftaran berhasil disimpan.</p>
+										<p class="text-sm text-gray-600">Silakan selesaikan pembayaran Anda.</p>
+										<p class="text-sm text-gray-600">Order ID: <code class="bg-gray-100 px-1 rounded">${midtransOrderId}</code></p>
+									`,
+									confirmButtonText: "OK",
+								});
+								resolve();
+							},
+							onError: () => {
+								Swal.fire({
+									icon: "error",
+									title: "Pembayaran Gagal",
+									html: `
+										<p class="mb-2">Pendaftaran berhasil, tapi pembayaran gagal.</p>
+										<p class="text-sm text-gray-600">Silakan coba lagi dari halaman pendaftaran Anda.</p>
+									`,
+									confirmButtonText: "OK",
+								});
+								resolve();
+							},
+							onClose: () => {
+								Swal.fire({
+									icon: "info",
+									title: "Pembayaran Ditutup",
+									html: `
+										<p class="mb-2">Pendaftaran berhasil disimpan.</p>
+										<p class="text-sm text-gray-600">Selesaikan pembayaran Anda untuk mengkonfirmasi pendaftaran.</p>
+									`,
+									confirmButtonText: "OK",
+								});
+								resolve();
+							},
+						});
+					});
+				} else {
+					// Snap not ready, show manual payment info
+					await Swal.fire({
+						icon: "warning",
+						title: "Pendaftaran Berhasil - Pembayaran Pending",
+						html: `
+							<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
+							<p class="text-sm text-gray-600">Segera selesaikan pembayaran sebesar <strong>${formatCurrency(event.registrationFee)}</strong>.</p>
+							<p class="text-sm text-gray-600">Order ID: <code class="bg-gray-100 px-1 rounded">${midtransOrderId}</code></p>
+						`,
+						confirmButtonText: "Lihat Pendaftaran Saya",
+					});
+				}
+				navigate("/peserta/registrations");
+			} else {
+				// No payment required
+				await Swal.fire({
+					icon: "success",
+					title: "Pendaftaran Berhasil!",
+					html: `
+						<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
+						<p class="text-sm text-gray-600">Status pendaftaran Anda saat ini: <strong>REGISTERED</strong></p>
+						<p class="text-sm text-gray-600">Panitia akan meninjau pendaftaran Anda.</p>
+					`,
+					confirmButtonText: "Lihat Pendaftaran Saya",
+				});
+				navigate("/peserta/registrations");
+			}
 		} catch (err: any) {
 			Swal.fire({
 				icon: "error",
