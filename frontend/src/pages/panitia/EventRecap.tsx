@@ -11,6 +11,8 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   WrenchScrewdriverIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -186,10 +188,8 @@ const PanitiaEventRecap: React.FC = () => {
   const [juaraCategories, setJuaraCategories] = useState<JuaraCategory[]>([]);
   const [selectedJuaraPreset, setSelectedJuaraPreset] = useState<string | null>(null);
 
-  // Drag-drop reorder state: maps schoolCategoryId -> ordered participant IDs
+  // Reorder state: maps schoolCategoryId -> ordered participant IDs
   const [manualOrder, setManualOrder] = useState<Record<string, string[]>>({});
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
 
   // Verification states
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
@@ -286,42 +286,24 @@ const PanitiaEventRecap: React.FC = () => {
     setManualOrder({});
   };
 
-  // Drag-drop handlers for reordering juara rankings
-  const handleDragStart = (index: number) => {
-    dragItem.current = index;
-  };
-
-  const handleDragEnter = (index: number) => {
-    dragOverItem.current = index;
-  };
-
-  const handleDragEnd = () => {
-    if (dragItem.current === null || dragOverItem.current === null) return;
-    if (dragItem.current === dragOverItem.current) {
-      dragItem.current = null;
-      dragOverItem.current = null;
-      return;
-    }
-
+  // Move participant up or down in the ranking
+  const handleMoveParticipant = (index: number, direction: 'up' | 'down') => {
     const activeGroup = getActiveSchoolCategoryGroup();
     if (!activeGroup) return;
 
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= activeGroup.participants.length) return;
+
     const groupId = activeGroup.id;
     const currentParticipants = [...activeGroup.participants];
-    const draggedItemContent = currentParticipants[dragItem.current];
-    if (!draggedItemContent) return;
+    const temp = currentParticipants[index]!;
+    currentParticipants[index] = currentParticipants[targetIndex]!;
+    currentParticipants[targetIndex] = temp;
 
-    currentParticipants.splice(dragItem.current, 1);
-    currentParticipants.splice(dragOverItem.current, 0, draggedItemContent);
-
-    // Save the new order
     setManualOrder((prev) => ({
       ...prev,
       [groupId]: currentParticipants.map((p) => p.participant.id),
     }));
-
-    dragItem.current = null;
-    dragOverItem.current = null;
   };
 
   // Compute rank position considering ties (same score = same rank)
@@ -1368,30 +1350,48 @@ const PanitiaEventRecap: React.FC = () => {
                           <tbody>
                             {activeGroup.participants.map((item, index) => {
                               const extraSummary = getExtraNilaiSummary(item);
-                              const isDraggable = !!selectedJuaraPreset;
+                              const canReorder = !!selectedJuaraPreset;
                               const rankPos = selectedJuara ? getRankPosition(activeGroup.participants, index) : 0;
+                              const isFirst = index === 0;
+                              const isLast = index === activeGroup.participants.length - 1;
                               return (
                                 <tr
                                   key={item.participant.id}
-                                  draggable={isDraggable}
-                                  onDragStart={() => handleDragStart(index)}
-                                  onDragEnter={() => handleDragEnter(index)}
-                                  onDragEnd={handleDragEnd}
-                                  onDragOver={(e) => e.preventDefault()}
                                   className={`border-b border-gray-200/60 dark:border-gray-700/40 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
                                     index % 2 === 0
                                       ? "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm"
                                       : "bg-gray-50 dark:bg-gray-800/70"
-                                  } ${isDraggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+                                  }`}
                                   onClick={() =>
                                     handleParticipantClick(item.participant.id)
                                   }
                                 >
                                   <td className="px-3 py-3 text-gray-700 dark:text-gray-300 text-sm">
-                                    {isDraggable && (
-                                      <span className="inline-block w-4 text-gray-400 mr-1 select-none" title="Drag untuk pindahkan urutan">⠿</span>
-                                    )}
-                                    {index + 1}
+                                    <span className="inline-flex items-center gap-1">
+                                      {canReorder && (
+                                        <span className="inline-flex flex-col gap-0.5 mr-1">
+                                          <button
+                                            type="button"
+                                            disabled={isFirst}
+                                            onClick={(e) => { e.stopPropagation(); handleMoveParticipant(index, 'up'); }}
+                                            className={`p-0.5 rounded transition-colors ${isFirst ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40'}`}
+                                            title="Pindah ke atas"
+                                          >
+                                            <ChevronUpIcon className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={isLast}
+                                            onClick={(e) => { e.stopPropagation(); handleMoveParticipant(index, 'down'); }}
+                                            className={`p-0.5 rounded transition-colors ${isLast ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40'}`}
+                                            title="Pindah ke bawah"
+                                          >
+                                            <ChevronDownIcon className="w-3.5 h-3.5" />
+                                          </button>
+                                        </span>
+                                      )}
+                                      {index + 1}
+                                    </span>
                                   </td>
                                   <td className="px-3 py-3 text-gray-900 dark:text-white text-sm font-medium hover:text-red-600 dark:hover:text-red-400 transition-colors">
                                     <div>{item.participant.teamName}</div>

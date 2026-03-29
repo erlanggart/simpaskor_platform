@@ -20,12 +20,12 @@ export default defineConfig({
 		},
 		proxy: {
 			"/api": {
-				target: "https://192.168.18.42:3001",
+				target: "http://localhost:3001",
 				changeOrigin: true,
 				secure: false,
 			},
 			"/uploads": {
-				target: "https://192.168.18.42:3001",
+				target: "http://localhost:3001",
 				changeOrigin: true,
 				secure: false,
 			},
