@@ -7,6 +7,10 @@ import {
   XMarkIcon,
   PlusIcon,
   DocumentArrowDownIcon,
+  ShieldCheckIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -51,8 +55,9 @@ interface ExtraNilai {
   id: string;
   participantId: string;
   type: "PUNISHMENT" | "POINPLUS";
-  scope: "GENERAL" | "CATEGORY";
+  scope: "GENERAL" | "CATEGORY" | "JUARA";
   assessmentCategoryId: string | null;
+  juaraCategoryId: string | null;
   value: number;
   reason: string | null;
 }
@@ -98,6 +103,29 @@ interface RecapItem {
   grandAverage: number;
   extraNilai?: ExtraNilai[];
   generalExtraAdjustment?: number;
+}
+
+interface VerificationIssue {
+  type: "duplicate" | "missing" | "mismatch" | "material_excess" | "score_exceeds_max";
+  severity: "error" | "warning";
+  participantName: string;
+  participantId: string;
+  category?: string;
+  juryId?: string;
+  juryName?: string;
+  eventCategoryId?: string;
+  message: string;
+  fixAction?: "delete_jury_category" | "recalculate" | "none";
+  fixed?: boolean;
+}
+
+interface VerificationResult {
+  totalIssues: number;
+  duplicates: VerificationIssue[];
+  missing: VerificationIssue[];
+  mismatches: VerificationIssue[];
+  materialIssues: VerificationIssue[];
+  isClean: boolean;
 }
 
 interface EventInfo {
@@ -157,6 +185,17 @@ const PanitiaEventRecap: React.FC = () => {
   // Juara category states
   const [juaraCategories, setJuaraCategories] = useState<JuaraCategory[]>([]);
   const [selectedJuaraPreset, setSelectedJuaraPreset] = useState<string | null>(null);
+
+  // Drag-drop reorder state: maps schoolCategoryId -> ordered participant IDs
+  const [manualOrder, setManualOrder] = useState<Record<string, string[]>>({});
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
+
+  // Verification states
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isFixing, setIsFixing] = useState<string | null>(null);
 
   // Track if categories have been initialized (to avoid resetting on refresh)
   const categoriesInitialized = useRef(false);
@@ -243,6 +282,65 @@ const PanitiaEventRecap: React.FC = () => {
       // Reset to all categories when deselected
       setSelectedCategories(new Set(recapData.categories.map((c) => c.id)));
     }
+    // Clear manual order when changing juara preset
+    setManualOrder({});
+  };
+
+  // Drag-drop handlers for reordering juara rankings
+  const handleDragStart = (index: number) => {
+    dragItem.current = index;
+  };
+
+  const handleDragEnter = (index: number) => {
+    dragOverItem.current = index;
+  };
+
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOverItem.current === null) return;
+    if (dragItem.current === dragOverItem.current) {
+      dragItem.current = null;
+      dragOverItem.current = null;
+      return;
+    }
+
+    const activeGroup = getActiveSchoolCategoryGroup();
+    if (!activeGroup) return;
+
+    const groupId = activeGroup.id;
+    const currentParticipants = [...activeGroup.participants];
+    const draggedItemContent = currentParticipants[dragItem.current];
+    if (!draggedItemContent) return;
+
+    currentParticipants.splice(dragItem.current, 1);
+    currentParticipants.splice(dragOverItem.current, 0, draggedItemContent);
+
+    // Save the new order
+    setManualOrder((prev) => ({
+      ...prev,
+      [groupId]: currentParticipants.map((p) => p.participant.id),
+    }));
+
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
+
+  // Compute rank position considering ties (same score = same rank)
+  const getRankPosition = (participants: RecapItem[], index: number): number => {
+    if (index === 0) return 1;
+    const currentScore = getFilteredTotal(participants[index]!);
+    let rank = 1;
+    for (let i = 0; i < index; i++) {
+      const prevScore = getFilteredTotal(participants[i]!);
+      if (prevScore !== currentScore) {
+        rank = i + 1;
+      }
+    }
+    // If current score differs from the one right before, rank = index + 1
+    const prevScore = getFilteredTotal(participants[index - 1]!);
+    if (prevScore !== currentScore) {
+      rank = index + 1;
+    }
+    return rank;
   };
 
   const handleParticipantClick = (participantId: string) => {
@@ -301,12 +399,28 @@ const PanitiaEventRecap: React.FC = () => {
 
     // Sort participants within each group
     Object.values(groups).forEach((group) => {
-      if (selectedJuaraPreset) {
-        // When juara preset is selected, sort by total score (highest first)
+      const groupId = group.id;
+      const existingManualOrder = manualOrder[groupId];
+
+      if (selectedJuaraPreset && existingManualOrder && existingManualOrder.length > 0) {
+        // Manual drag-drop order takes priority
+        group.participants.sort((a, b) => {
+          const idxA = existingManualOrder.indexOf(a.participant.id);
+          const idxB = existingManualOrder.indexOf(b.participant.id);
+          // Items not in manual order go to the end
+          return (idxA === -1 ? 9999 : idxA) - (idxB === -1 ? 9999 : idxB);
+        });
+      } else if (selectedJuaraPreset) {
+        // When juara preset is selected, sort by total score (highest first) with stable tiebreaker
         group.participants.sort((a, b) => {
           const totalA = getFilteredTotal(a);
           const totalB = getFilteredTotal(b);
-          return totalB - totalA; // Descending order
+          if (totalB !== totalA) return totalB - totalA; // Descending by score
+          // Tiebreaker: orderNumber ascending, then team name alphabetically
+          const orderA = a.participant.orderNumber ?? 9999;
+          const orderB = b.participant.orderNumber ?? 9999;
+          if (orderA !== orderB) return orderA - orderB;
+          return a.participant.teamName.localeCompare(b.participant.teamName);
         });
       } else {
         // Default: sort by orderNumber
@@ -362,12 +476,20 @@ const PanitiaEventRecap: React.FC = () => {
     const categoryTotal = getFilteredCategories().reduce((sum, cat) => {
       return sum + getCategoryScore(item, cat.id);
     }, 0);
+    let total = categoryTotal;
     // Add general extra adjustment only if extra nilai is shown AND general extra nilai is enabled
     if (showExtraNilai && applyGeneralExtraNilai) {
       const generalAdjustment = item.generalExtraAdjustment || 0;
-      return categoryTotal + generalAdjustment;
+      total += generalAdjustment;
     }
-    return categoryTotal;
+    // Add juara-scoped extra nilai if a juara preset is selected
+    if (showExtraNilai && selectedJuaraPreset && item.extraNilai) {
+      const juaraAdjustment = item.extraNilai
+        .filter((en) => en.scope === "JUARA" && en.juaraCategoryId === selectedJuaraPreset)
+        .reduce((sum, en) => sum + (en.type === "PUNISHMENT" ? -en.value : en.value), 0);
+      total += juaraAdjustment;
+    }
+    return total;
   };
 
   // Extra Nilai functions
@@ -397,6 +519,10 @@ const PanitiaEventRecap: React.FC = () => {
         // Only include if the category is currently selected/displayed
         return en.assessmentCategoryId && selectedCategories.has(en.assessmentCategoryId);
       }
+      if (en.scope === "JUARA" && selectedJuaraPreset) {
+        // Only include if the juara category matches current preset
+        return en.juaraCategoryId === selectedJuaraPreset;
+      }
       return false;
     });
     return {
@@ -421,6 +547,323 @@ const PanitiaEventRecap: React.FC = () => {
     
     // Default to first group
     return groups[0] || null;
+  };
+
+  // Verification function
+  const runVerification = async () => {
+    if (!recapData) return;
+
+    setIsVerifying(true);
+
+    const duplicates: VerificationIssue[] = [];
+    const missing: VerificationIssue[] = [];
+    const mismatches: VerificationIssue[] = [];
+    const materialIssues: VerificationIssue[] = [];
+
+    // Build jury-to-category assignment map
+    const juryAssignments = new Map<string, Set<string>>();
+    recapData.juries.forEach((jury) => {
+      juryAssignments.set(jury.id, new Set(jury.assignedCategories));
+    });
+
+    for (const item of recapData.recap) {
+      const pName = item.participant.teamName;
+      const pId = item.participant.id;
+
+      for (const catScore of item.categoryScores) {
+        // 1. Check for MISSING scores: jury assigned to category but score is null
+        for (const jury of recapData.juries) {
+          const assignedCats = juryAssignments.get(jury.id);
+          if (assignedCats && assignedCats.has(catScore.categoryId)) {
+            const juryScore = catScore.scores.find((s) => s.juryId === jury.id);
+            if (!juryScore || juryScore.score === null) {
+              missing.push({
+                type: "missing",
+                severity: "warning",
+                participantName: pName,
+                participantId: pId,
+                category: catScore.categoryName,
+                juryName: jury.name,
+                message: `Juri "${jury.name}" belum memberikan nilai untuk kategori "${catScore.categoryName}"`,
+              });
+            }
+          }
+        }
+
+        // 2. Check for DUPLICATE scores: identical scores from different juries (suspicious)
+        const validScores = catScore.scores.filter((s) => s.score !== null);
+        if (validScores.length >= 2) {
+          const scoreMap = new Map<number, string[]>();
+          for (const s of validScores) {
+            const key = s.score!;
+            if (!scoreMap.has(key)) scoreMap.set(key, []);
+            scoreMap.get(key)!.push(s.juryName);
+          }
+          for (const [score, juryNames] of scoreMap) {
+            if (juryNames.length >= 2) {
+              duplicates.push({
+                type: "duplicate",
+                severity: "warning",
+                participantName: pName,
+                participantId: pId,
+                category: catScore.categoryName,
+                message: `${juryNames.length} juri (${juryNames.join(", ")}) memberikan nilai sama (${score}) pada kategori "${catScore.categoryName}"`,
+              });
+            }
+          }
+        }
+
+        // 3. Check for MISMATCH: totalScore != sum of individual jury scores + extraAdjustment
+        const sumOfScores = validScores.reduce((sum, s) => sum + (s.score || 0), 0);
+        const extraAdj = catScore.extraAdjustment || 0;
+        const expectedTotal = sumOfScores + extraAdj;
+        const diff = Math.abs(catScore.totalScore - expectedTotal);
+        if (diff > 0.01) {
+          mismatches.push({
+            type: "mismatch",
+            severity: "error",
+            participantName: pName,
+            participantId: pId,
+            category: catScore.categoryName,
+            message: `Total kategori "${catScore.categoryName}" tidak sesuai: tercatat ${catScore.totalScore.toFixed(1)}, seharusnya ${expectedTotal.toFixed(1)} (selisih: ${diff.toFixed(1)})`,
+          });
+        }
+
+        // 4. Check for score exceeding maxScore (possible material duplication)
+        for (const s of validScores) {
+          if (s.score !== null && s.score > s.maxScore) {
+            materialIssues.push({
+              type: "score_exceeds_max",
+              severity: "error",
+              participantName: pName,
+              participantId: pId,
+              category: catScore.categoryName,
+              juryName: s.juryName,
+              message: `Nilai juri "${s.juryName}" (${s.score}) melebihi batas maksimum (${s.maxScore}) di kategori "${catScore.categoryName}" — kemungkinan nilai materi terhitung ganda!`,
+            });
+          }
+        }
+
+        // 5. Check inconsistent scoredMaterials count between juries
+        const scoredMaterialCounts = validScores
+          .filter((s) => s.scoredMaterials !== undefined && s.scoredMaterials !== null)
+          .map((s) => ({ juryName: s.juryName, count: s.scoredMaterials! }));
+        if (scoredMaterialCounts.length >= 2) {
+          const counts = scoredMaterialCounts.map((s) => s.count);
+          const maxCount = Math.max(...counts);
+          const minCount = Math.min(...counts);
+          if (maxCount !== minCount) {
+            materialIssues.push({
+              type: "material_excess",
+              severity: "warning",
+              participantName: pName,
+              participantId: pId,
+              category: catScore.categoryName,
+              message: `Jumlah materi yang dinilai tidak konsisten di kategori "${catScore.categoryName}": ${scoredMaterialCounts.map((s) => `${s.juryName} (${s.count})`).join(", ")}`,
+            });
+          }
+        }
+      }
+
+      // 6. Check grand total mismatch
+      const expectedGrandTotal = item.categoryScores.reduce(
+        (sum, cs) => sum + cs.totalScore,
+        0
+      ) + (item.generalExtraAdjustment || 0);
+      const grandDiff = Math.abs(item.grandTotal - expectedGrandTotal);
+      if (grandDiff > 0.01) {
+        mismatches.push({
+          type: "mismatch",
+          severity: "error",
+          participantName: pName,
+          participantId: pId,
+          message: `Grand total tidak sesuai: tercatat ${item.grandTotal.toFixed(1)}, seharusnya ${expectedGrandTotal.toFixed(1)} (selisih: ${grandDiff.toFixed(1)})`,
+        });
+      }
+    }
+
+    // 7. Deep backend verification: check material-level duplicates in database
+    try {
+      const backendRes = await api.get(`/evaluations/event/${eventSlug}/verify`);
+      const backendData = backendRes.data;
+      if (backendData.issues && Array.isArray(backendData.issues)) {
+        for (const issue of backendData.issues) {
+          if (issue.type === "material_excess" || issue.type === "material_duplicate") {
+            materialIssues.push({
+              type: "material_excess",
+              severity: "error",
+              participantName: issue.participantName,
+              participantId: issue.participantId,
+              category: issue.category,
+              juryId: issue.juryId,
+              juryName: issue.juryName,
+              eventCategoryId: issue.eventCategoryId,
+              message: issue.message,
+              fixAction: issue.fixAction || "delete_jury_category",
+            });
+          } else if (issue.type === "score_exceeds_max") {
+            // Only add if not already caught by frontend check
+            const alreadyExists = materialIssues.some(
+              (mi) =>
+                mi.participantId === issue.participantId &&
+                mi.category === issue.category &&
+                mi.juryName === issue.juryName &&
+                mi.type === "score_exceeds_max"
+            );
+            if (!alreadyExists) {
+              materialIssues.push({
+                type: "score_exceeds_max",
+                severity: "error",
+                participantName: issue.participantName,
+                participantId: issue.participantId,
+                category: issue.category,
+                juryId: issue.juryId,
+                juryName: issue.juryName,
+                eventCategoryId: issue.eventCategoryId,
+                message: issue.message,
+                fixAction: issue.fixAction || "delete_jury_category",
+              });
+            }
+          } else if (issue.type === "missing_score") {
+            const alreadyExists = missing.some(
+              (mi) =>
+                mi.participantId === issue.participantId &&
+                mi.category === issue.category &&
+                mi.juryName === issue.juryName
+            );
+            if (!alreadyExists) {
+              missing.push({
+                type: "missing",
+                severity: "warning",
+                participantName: issue.participantName,
+                participantId: issue.participantId,
+                category: issue.category,
+                juryId: issue.juryId,
+                juryName: issue.juryName,
+                eventCategoryId: issue.eventCategoryId,
+                message: issue.message,
+                fixAction: "none",
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Backend verification failed, using frontend-only results:", err);
+    }
+
+    const result: VerificationResult = {
+      totalIssues: duplicates.length + missing.length + mismatches.length + materialIssues.length,
+      duplicates,
+      missing,
+      mismatches,
+      materialIssues,
+      isClean: duplicates.length === 0 && missing.length === 0 && mismatches.length === 0 && materialIssues.length === 0,
+    };
+
+    setVerificationResult(result);
+    setShowVerificationModal(true);
+    setIsVerifying(false);
+  };
+
+  // Fix a single verification issue
+  const fixIssue = async (issue: VerificationIssue, issueIndex: number, listKey: "materialIssues" | "mismatches" | "missing" | "duplicates") => {
+    if (!eventSlug || !issue.fixAction || issue.fixAction === "none" || issue.fixed) return;
+
+    const fixId = `${listKey}-${issueIndex}`;
+    setIsFixing(fixId);
+
+    try {
+      await api.post(`/evaluations/event/${eventSlug}/verify/fix`, {
+        action: issue.fixAction,
+        participantId: issue.participantId,
+        juryId: issue.juryId,
+        eventCategoryId: issue.eventCategoryId,
+      });
+
+      // Mark issue as fixed in UI
+      setVerificationResult((prev) => {
+        if (!prev) return prev;
+        const updated = { ...prev };
+        const list = [...updated[listKey]];
+        const existing = list[issueIndex];
+        if (existing) list[issueIndex] = { ...existing, fixed: true };
+        updated[listKey] = list;
+        updated.totalIssues = [
+          ...updated.materialIssues,
+          ...updated.mismatches,
+          ...updated.missing,
+          ...updated.duplicates,
+        ].filter((i) => !i.fixed).length;
+        return updated;
+      });
+    } catch (err) {
+      console.error("Fix failed:", err);
+      alert("Gagal memperbaiki masalah. Silakan coba lagi.");
+    } finally {
+      setIsFixing(null);
+    }
+  };
+
+  // Fix all fixable issues at once
+  const fixAllIssues = async () => {
+    if (!verificationResult || !eventSlug) return;
+
+    const allFixable: Array<{ issue: VerificationIssue; index: number; listKey: "materialIssues" | "mismatches" | "missing" | "duplicates" }> = [];
+
+    (["materialIssues", "mismatches"] as const).forEach((key) => {
+      verificationResult[key].forEach((issue, i) => {
+        if (issue.fixAction && issue.fixAction !== "none" && !issue.fixed) {
+          allFixable.push({ issue, index: i, listKey: key });
+        }
+      });
+    });
+
+    if (allFixable.length === 0) return;
+
+    if (!confirm(`Akan memperbaiki ${allFixable.length} masalah secara otomatis. Lanjutkan?`)) return;
+
+    setIsFixing("all");
+
+    for (const item of allFixable) {
+      try {
+        await api.post(`/evaluations/event/${eventSlug}/verify/fix`, {
+          action: item.issue.fixAction,
+          participantId: item.issue.participantId,
+          juryId: item.issue.juryId,
+          eventCategoryId: item.issue.eventCategoryId,
+        });
+
+        // Mark individual issue as fixed
+        setVerificationResult((prev) => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          const list = [...updated[item.listKey]];
+          const existing = list[item.index];
+          if (existing) list[item.index] = { ...existing, fixed: true };
+          updated[item.listKey] = list;
+          return updated;
+        });
+      } catch (err) {
+        console.error(`Fix failed for ${item.listKey}[${item.index}]:`, err);
+      }
+    }
+
+    // Recalculate total
+    setVerificationResult((prev) => {
+      if (!prev) return prev;
+      const remaining = [
+        ...prev.materialIssues,
+        ...prev.mismatches,
+        ...prev.missing,
+        ...prev.duplicates,
+      ].filter((i) => !i.fixed).length;
+      return { ...prev, totalIssues: remaining };
+    });
+
+    setIsFixing(null);
+    // Refresh recap data
+    fetchRecap();
   };
 
   // Export functions
@@ -472,7 +915,8 @@ const PanitiaEventRecap: React.FC = () => {
       row.push(getFilteredTotal(item).toFixed(1));
       
       if (selectedJuaraPreset && selectedJuara) {
-        row.push(getRankLabel(index + 1, selectedJuara.ranks));
+        const rankPos = manualOrder[activeGroup.id] ? index + 1 : getRankPosition(activeGroup.participants, index);
+        row.push(getRankLabel(rankPos, selectedJuara.ranks));
       }
       
       return row;
@@ -633,7 +1077,8 @@ const PanitiaEventRecap: React.FC = () => {
       row.push(getFilteredTotal(item).toFixed(1));
       
       if (selectedJuaraPreset && selectedJuara) {
-        row.push(getRankLabel(index + 1, selectedJuara.ranks));
+        const rankPos = manualOrder[activeGroup.id] ? index + 1 : getRankPosition(activeGroup.participants, index);
+        row.push(getRankLabel(rankPos, selectedJuara.ranks));
       }
       
       return row;
@@ -752,6 +1197,14 @@ const PanitiaEventRecap: React.FC = () => {
 
             {/* Action Buttons - Responsive */}
             <div className="flex flex-wrap gap-2 sm:gap-4 justify-center sm:justify-end mb-6">
+              <button
+                onClick={runVerification}
+                disabled={isVerifying || !recapData}
+                className="inline-flex items-center px-3 py-2 sm:px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base active:scale-95"
+              >
+                <ShieldCheckIcon className={`w-5 h-5 sm:mr-2 ${isVerifying ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">{isVerifying ? "Memverifikasi..." : "Verifikasi Nilai"}</span>
+              </button>
               <button
                 onClick={exportToExcel}
                 disabled={!getActiveSchoolCategoryGroup()}
@@ -915,19 +1368,29 @@ const PanitiaEventRecap: React.FC = () => {
                           <tbody>
                             {activeGroup.participants.map((item, index) => {
                               const extraSummary = getExtraNilaiSummary(item);
+                              const isDraggable = !!selectedJuaraPreset;
+                              const rankPos = selectedJuara ? getRankPosition(activeGroup.participants, index) : 0;
                               return (
                                 <tr
                                   key={item.participant.id}
+                                  draggable={isDraggable}
+                                  onDragStart={() => handleDragStart(index)}
+                                  onDragEnter={() => handleDragEnter(index)}
+                                  onDragEnd={handleDragEnd}
+                                  onDragOver={(e) => e.preventDefault()}
                                   className={`border-b border-gray-200/60 dark:border-gray-700/40 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
                                     index % 2 === 0
                                       ? "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm"
                                       : "bg-gray-50 dark:bg-gray-800/70"
-                                  }`}
+                                  } ${isDraggable ? "cursor-grab active:cursor-grabbing" : ""}`}
                                   onClick={() =>
                                     handleParticipantClick(item.participant.id)
                                   }
                                 >
                                   <td className="px-3 py-3 text-gray-700 dark:text-gray-300 text-sm">
+                                    {isDraggable && (
+                                      <span className="inline-block w-4 text-gray-400 mr-1 select-none" title="Drag untuk pindahkan urutan">⠿</span>
+                                    )}
                                     {index + 1}
                                   </td>
                                   <td className="px-3 py-3 text-gray-900 dark:text-white text-sm font-medium hover:text-red-600 dark:hover:text-red-400 transition-colors">
@@ -972,7 +1435,7 @@ const PanitiaEventRecap: React.FC = () => {
                                   {selectedJuara && (
                                     <td className="px-3 py-3 text-center text-sm font-semibold bg-yellow-50 dark:bg-yellow-900/20">
                                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200">
-                                        {getRankLabel(index + 1, selectedJuara.ranks)}
+                                        {manualOrder[activeGroup.id] ? getRankLabel(index + 1, selectedJuara.ranks) : getRankLabel(rankPos, selectedJuara.ranks)}
                                       </span>
                                     </td>
                                   )}
@@ -1310,7 +1773,278 @@ const PanitiaEventRecap: React.FC = () => {
           categories={recapData.categories}
           onClose={closeExtraNilaiModal}
           onDataChange={fetchRecap}
+          juaraCategories={juaraCategories.map(jc => ({ id: jc.id, name: jc.name, type: jc.type }))}
+          selectedJuaraPreset={selectedJuaraPreset}
         />
+      )}
+
+      {/* Verification Result Modal */}
+      {showVerificationModal && verificationResult && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-gray-200 dark:border-gray-700">
+            {/* Modal Header */}
+            <div className={`flex items-center justify-between px-6 py-4 border-b rounded-t-xl ${
+              verificationResult.isClean
+                ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+            }`}>
+              <div className="flex items-center gap-3">
+                {verificationResult.isClean ? (
+                  <CheckCircleIcon className="w-7 h-7 text-green-600 dark:text-green-400" />
+                ) : (
+                  <ExclamationTriangleIcon className="w-7 h-7 text-red-600 dark:text-red-400" />
+                )}
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    Hasil Verifikasi Nilai
+                  </h3>
+                  <p className={`text-sm ${
+                    verificationResult.isClean
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  }`}>
+                    {verificationResult.isClean
+                      ? "Semua nilai terverifikasi dengan baik!"
+                      : `Ditemukan ${verificationResult.totalIssues} masalah`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowVerificationModal(false)}
+                className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {verificationResult.isClean ? (
+                <div className="text-center py-8">
+                  <CheckCircleIcon className="w-16 h-16 text-green-500 dark:text-green-400 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Tidak Ada Masalah!
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                  Tidak ditemukan materi ganda, nilai yang hilang, atau penjumlahan yang tidak sesuai.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className={`rounded-lg p-3 text-center border ${
+                      verificationResult.materialIssues.length > 0
+                        ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800"
+                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
+                    }`}>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{verificationResult.materialIssues.length}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Materi Ganda</p>
+                    </div>
+                    <div className={`rounded-lg p-3 text-center border ${
+                      verificationResult.mismatches.length > 0
+                        ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
+                    }`}>
+                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">{verificationResult.mismatches.length}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Penjumlahan Salah</p>
+                    </div>
+                    <div className={`rounded-lg p-3 text-center border ${
+                      verificationResult.missing.length > 0
+                        ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
+                    }`}>
+                      <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{verificationResult.missing.length}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Nilai Belum Diisi</p>
+                    </div>
+                    <div className={`rounded-lg p-3 text-center border ${
+                      verificationResult.duplicates.length > 0
+                        ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
+                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
+                    }`}>
+                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{verificationResult.duplicates.length}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Nilai Identik</p>
+                    </div>
+                  </div>
+
+                  {/* Material Issues Section (highest priority) */}
+                  {verificationResult.materialIssues.length > 0 && (
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-semibold text-purple-700 dark:text-purple-400 mb-2">
+                        <ExclamationTriangleIcon className="w-4 h-4" />
+                        Materi Ganda / Nilai Melebihi Maksimum ({verificationResult.materialIssues.filter(i => !i.fixed).length})
+                      </h4>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {verificationResult.materialIssues.map((issue, i) => (
+                          <div
+                            key={`material-${i}`}
+                            className={`flex items-start gap-3 p-3 rounded-lg border ${
+                              issue.fixed
+                                ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/50 opacity-60"
+                                : "bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800/50"
+                            }`}
+                          >
+                            <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${issue.fixed ? "bg-green-500" : "bg-purple-500"}`} />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {issue.participantName}
+                                {issue.fixed && <span className="ml-2 text-xs text-green-600 dark:text-green-400 font-normal">Diperbaiki</span>}
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{issue.message}</p>
+                            </div>
+                            {issue.fixAction && issue.fixAction !== "none" && !issue.fixed && (
+                              <button
+                                onClick={() => fixIssue(issue, i, "materialIssues")}
+                                disabled={isFixing !== null}
+                                className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:opacity-50"
+                                title="Hapus nilai duplikat untuk juri & kategori ini"
+                              >
+                                <WrenchScrewdriverIcon className={`w-3 h-3 ${isFixing === `materialIssues-${i}` ? "animate-spin" : ""}`} />
+                                {issue.fixAction === "delete_jury_category" ? "Hapus Nilai" : "Hitung Ulang"}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mismatches Section */}
+                  {verificationResult.mismatches.length > 0 && (
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-400 mb-2">
+                        <ExclamationTriangleIcon className="w-4 h-4" />
+                        Penjumlahan Tidak Sesuai ({verificationResult.mismatches.filter(i => !i.fixed).length})
+                      </h4>
+                      <div className="space-y-2">
+                        {verificationResult.mismatches.map((issue, i) => (
+                          <div
+                            key={`mismatch-${i}`}
+                            className={`flex items-start gap-3 p-3 rounded-lg border ${
+                              issue.fixed
+                                ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/50 opacity-60"
+                                : "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50"
+                            }`}
+                          >
+                            <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${issue.fixed ? "bg-green-500" : "bg-red-500"}`} />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {issue.participantName}
+                                {issue.fixed && <span className="ml-2 text-xs text-green-600 dark:text-green-400 font-normal">Diperbaiki</span>}
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{issue.message}</p>
+                            </div>
+                            {issue.fixAction && issue.fixAction !== "none" && !issue.fixed && (
+                              <button
+                                onClick={() => fixIssue(issue, i, "mismatches")}
+                                disabled={isFixing !== null}
+                                className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors disabled:opacity-50"
+                                title="Hitung ulang nilai"
+                              >
+                                <WrenchScrewdriverIcon className={`w-3 h-3 ${isFixing === `mismatches-${i}` ? "animate-spin" : ""}`} />
+                                Hitung Ulang
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Missing Section */}
+                  {verificationResult.missing.length > 0 && (
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400 mb-2">
+                        <ExclamationTriangleIcon className="w-4 h-4" />
+                        Nilai Belum Diisi ({verificationResult.missing.length})
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Juri perlu menilai materi ini secara manual melalui halaman penilaian.
+                      </p>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {verificationResult.missing.map((issue, i) => (
+                          <div
+                            key={`missing-${i}`}
+                            className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-lg"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{issue.participantName}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{issue.message}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Duplicates Section */}
+                  {verificationResult.duplicates.length > 0 && (
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-semibold text-orange-700 dark:text-orange-400 mb-2">
+                        <ExclamationTriangleIcon className="w-4 h-4" />
+                        Nilai Ganda Terdeteksi ({verificationResult.duplicates.length})
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Beberapa juri memberikan nilai identik. Periksa apakah ini disengaja.
+                      </p>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {verificationResult.duplicates.map((issue, i) => (
+                          <div
+                            key={`dup-${i}`}
+                            className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/50 rounded-lg"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{issue.participantName}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{issue.message}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex gap-2">
+                {!verificationResult.isClean && (
+                  <>
+                    {[...verificationResult.materialIssues, ...verificationResult.mismatches].some(
+                      (i) => i.fixAction && i.fixAction !== "none" && !i.fixed
+                    ) && (
+                      <button
+                        onClick={fixAllIssues}
+                        disabled={isFixing !== null}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
+                      >
+                        <WrenchScrewdriverIcon className={`w-4 h-4 ${isFixing === "all" ? "animate-spin" : ""}`} />
+                        {isFixing === "all" ? "Memperbaiki..." : "Perbaiki Semua"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setShowVerificationModal(false); runVerification(); }}
+                      disabled={isVerifying}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-sm"
+                    >
+                      <ArrowPathIcon className="w-4 h-4" />
+                      Verifikasi Ulang
+                    </button>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => { setShowVerificationModal(false); fetchRecap(); }}
+                className="px-5 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors text-sm"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

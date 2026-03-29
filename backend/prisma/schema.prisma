@@ -393,6 +393,7 @@ enum ExtraNilaiType {
 enum ExtraNilaiScope {
   GENERAL   // Diterapkan ke total nilai keseluruhan
   CATEGORY  // Diterapkan ke kategori penilaian tertentu
+  JUARA     // Diterapkan ke total juara tertentu (Juara Utama / Juara Umum / Custom)
 }
 
 model ExtraNilai {
@@ -400,8 +401,9 @@ model ExtraNilai {
   eventId              String              @map("event_id")
   participantId        String              @map("participant_id") // ParticipationGroup ID
   type                 ExtraNilaiType      // PUNISHMENT atau POINPLUS
-  scope                ExtraNilaiScope     // GENERAL atau CATEGORY
+  scope                ExtraNilaiScope     // GENERAL, CATEGORY, atau JUARA
   assessmentCategoryId String?             @map("assessment_category_id") // Required if scope is CATEGORY
+  juaraCategoryId      String?             @map("juara_category_id") // Required if scope is JUARA
   value                Float               // Nilai poin (selalu positif, tipe menentukan + atau -)
   reason               String?             // Alasan pemberian punishment/poin plus
   createdById          String              @map("created_by_id")

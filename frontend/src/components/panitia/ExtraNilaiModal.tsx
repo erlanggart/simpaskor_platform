@@ -12,8 +12,9 @@ interface ExtraNilai {
 	id: string;
 	participantId: string;
 	type: "PUNISHMENT" | "POINPLUS";
-	scope: "GENERAL" | "CATEGORY";
+	scope: "GENERAL" | "CATEGORY" | "JUARA";
 	assessmentCategoryId: string | null;
+	juaraCategoryId: string | null;
 	value: number;
 	reason: string | null;
 }
@@ -21,6 +22,12 @@ interface ExtraNilai {
 interface Category {
 	id: string;
 	name: string;
+}
+
+interface JuaraCategory {
+	id: string;
+	name: string;
+	type: string;
 }
 
 interface Participant {
@@ -37,6 +44,8 @@ interface ExtraNilaiModalProps {
 	participant: RecapParticipant;
 	eventId: string;
 	categories: Category[];
+	juaraCategories?: JuaraCategory[];
+	selectedJuaraPreset?: string | null;
 	onClose: () => void;
 	onDataChange: () => void;
 }
@@ -45,13 +54,16 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 	participant,
 	eventId,
 	categories,
+	juaraCategories = [],
+	selectedJuaraPreset,
 	onClose,
 	onDataChange,
 }) => {
 	const [form, setForm] = useState({
 		type: "PUNISHMENT" as "PUNISHMENT" | "POINPLUS",
-		scope: "GENERAL" as "GENERAL" | "CATEGORY",
+		scope: (selectedJuaraPreset ? "JUARA" : "GENERAL") as "GENERAL" | "CATEGORY" | "JUARA",
 		assessmentCategoryId: "",
+		juaraCategoryId: selectedJuaraPreset || "",
 		value: 0,
 		reason: "",
 	});
@@ -69,6 +81,8 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 				scope: form.scope,
 				assessmentCategoryId:
 					form.scope === "CATEGORY" ? form.assessmentCategoryId : null,
+				juaraCategoryId:
+					form.scope === "JUARA" ? form.juaraCategoryId : null,
 				value: form.value,
 				reason: form.reason || null,
 			});
@@ -174,7 +188,7 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 						<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 							Penerapan
 						</label>
-						<div className="flex gap-2">
+						<div className="flex gap-2 flex-wrap">
 							<button
 								type="button"
 								onClick={() =>
@@ -182,9 +196,10 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 										...prev,
 										scope: "GENERAL",
 										assessmentCategoryId: "",
+										juaraCategoryId: "",
 									}))
 								}
-								className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+								className={`flex-1 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
 									form.scope === "GENERAL"
 										? "bg-red-600 text-white"
 										: "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -194,8 +209,8 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 							</button>
 							<button
 								type="button"
-								onClick={() => setForm((prev) => ({ ...prev, scope: "CATEGORY" }))}
-								className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+								onClick={() => setForm((prev) => ({ ...prev, scope: "CATEGORY", juaraCategoryId: "" }))}
+								className={`flex-1 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
 									form.scope === "CATEGORY"
 										? "bg-red-600 text-white"
 										: "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -203,6 +218,19 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 							>
 								Per Kategori
 							</button>
+							{juaraCategories.length > 0 && (
+								<button
+									type="button"
+									onClick={() => setForm((prev) => ({ ...prev, scope: "JUARA", assessmentCategoryId: "", juaraCategoryId: selectedJuaraPreset || "" }))}
+									className={`flex-1 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+										form.scope === "JUARA"
+											? "bg-yellow-600 text-white"
+											: "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+									}`}
+								>
+									Per Juara
+								</button>
+							)}
 						</div>
 					</div>
 
@@ -230,6 +258,36 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 									</option>
 								))}
 							</select>
+						</div>
+					)}
+
+					{/* Juara Category Selection (if scope is JUARA) */}
+					{form.scope === "JUARA" && (
+						<div>
+							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+								Kategori Juara
+							</label>
+							<select
+								value={form.juaraCategoryId}
+								onChange={(e) =>
+									setForm((prev) => ({
+										...prev,
+										juaraCategoryId: e.target.value,
+									}))
+								}
+								className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500"
+								required
+							>
+								<option value="">Pilih Kategori Juara</option>
+								{juaraCategories.map((jc) => (
+									<option key={jc.id} value={jc.id}>
+										{jc.name}
+									</option>
+								))}
+							</select>
+							<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								Hanya berlaku saat melihat rekap untuk kategori juara ini
+							</p>
 						</div>
 					)}
 
@@ -298,6 +356,8 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 											<span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
 												{en.scope === "GENERAL"
 													? "Total"
+													: en.scope === "JUARA"
+													? `Juara: ${juaraCategories.find((jc) => jc.id === en.juaraCategoryId)?.name || "Juara"}`
 													: categories.find((c) => c.id === en.assessmentCategoryId)?.name ||
 													  "Kategori"}
 											</span>

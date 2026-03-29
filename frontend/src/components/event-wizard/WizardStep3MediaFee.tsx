@@ -167,7 +167,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Poster Upload */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
 					<PhotoIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -262,7 +262,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Juknis Upload */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
 					<DocumentArrowUpIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -339,7 +339,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Contact Person */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
 					<UserIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -383,7 +383,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Fee & Organizer */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
 					<CurrencyDollarIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -430,7 +430,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			</div>
 
 			{/* Event Status */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
 					<PlayCircleIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">

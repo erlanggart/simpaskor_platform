@@ -377,7 +377,7 @@ const CreateEventWizard: React.FC = () => {
 	// Loading state
 	if (isFetching) {
 		return (
-			<div className="min-h-screen flex items-center justify-center transition-colors">
+			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-colors">
 				<div className="text-center">
 					<div className="animate-spin rounded-full h-12 w-12 border-4 border-red-600 dark:border-red-400 border-t-transparent mx-auto mb-4"></div>
 					<p className="text-gray-600 dark:text-gray-400">Memuat data...</p>
@@ -387,9 +387,9 @@ const CreateEventWizard: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen transition-colors">
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
 			{/* Header */}
-			<header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-sm dark:shadow-gray-900/50 border-b border-gray-200/60 dark:border-gray-700/40 sticky top-0 z-50 transition-colors">
+			<header className="bg-white/90 dark:bg-gray-800/80 backdrop-blur-md shadow-sm dark:shadow-gray-950/30 border-b border-gray-200 dark:border-gray-700/60 sticky top-0 z-50 transition-colors">
 				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex items-center justify-between h-16">
 						<div className="flex items-center gap-4">
@@ -422,7 +422,7 @@ const CreateEventWizard: React.FC = () => {
 			</header>
 
 			{/* Progress Steps */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border-b border-gray-200/60 dark:border-gray-700/40 transition-colors">
+			<div className="bg-white/90 dark:bg-gray-800/60 backdrop-blur-md border-b border-gray-200 dark:border-gray-700/60 transition-colors">
 				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 					<div className="flex items-center justify-between">
 						{STEPS.map((step, index) => {

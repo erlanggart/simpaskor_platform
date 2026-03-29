@@ -284,15 +284,15 @@ export const DashboardLayout: React.FC = () => {
 			<div className="neon-red-lines" />
 
 			{/* ===== Left Sidebar Navigation (desktop) ===== */}
-			<nav className="fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center gap-2 border-r border-gray-200/10 dark:border-white/5">
+			<nav className="fixed left-0 top-0 h-screen w-16 md:w-20 z-50 hidden md:flex flex-col items-center gap-2 border-r border-gray-200/10 dark:border-white/5 overflow-hidden">
 				{/* Logo at top */}
 				<div className="mt-4 mb-4">
 					<Link to="/">
-						<div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
+						<div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
 							<img
 								src="/simpaskor.webp"
 								alt="Logo"
-								className="w-7 h-7 object-contain"
+								className="w-8 h-8 object-contain"
 							/>
 						</div>
 					</Link>
@@ -306,7 +306,7 @@ export const DashboardLayout: React.FC = () => {
 				)}
 
 				{/* Navigation Items (centered) */}
-				<div className="flex-1 flex flex-col items-center justify-center gap-1 overflow-y-auto py-2 scrollbar-hide">
+				<div className="flex-1 flex flex-col items-center gap-1.5 overflow-y-auto overflow-x-hidden py-2 sidebar-scroll min-h-0">
 					{menuItems.map((item) => {
 						const active = isActive(item.path);
 						const Icon = item.icon;
@@ -315,7 +315,7 @@ export const DashboardLayout: React.FC = () => {
 							<Link
 								key={item.path}
 								to={item.path}
-								className="group relative flex flex-col items-center gap-0.5 outline-none"
+								className="group relative flex flex-col items-center gap-0.5 outline-none flex-shrink-0"
 								aria-label={item.name}
 							>
 								{active && (
@@ -323,9 +323,9 @@ export const DashboardLayout: React.FC = () => {
 								)}
 
 								<div
-									className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
+									className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
 										active
-											? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110 shadow-lg shadow-red-500/10"
+											? "bg-red-500/15 text-red-500 dark:text-red-400 shadow-lg shadow-red-500/10"
 											: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
 									}`}
 								>
@@ -333,7 +333,7 @@ export const DashboardLayout: React.FC = () => {
 								</div>
 
 								<span
-									className={`text-[9px] font-medium transition-all duration-300 leading-tight ${
+									className={`text-[10px] font-medium transition-all duration-300 leading-tight ${
 										active
 											? "text-red-500 dark:text-red-400 opacity-100"
 											: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
@@ -394,10 +394,10 @@ export const DashboardLayout: React.FC = () => {
 							className="group relative flex flex-col items-center gap-0.5 outline-none"
 							aria-label="Keluar Event"
 						>
-							<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20">
+							<div className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20">
 								<LuArrowRightFromLine className="w-5 h-5" />
 							</div>
-							<span className="text-[9px] font-medium text-red-500 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+							<span className="text-[10px] font-medium text-red-500 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
 								Keluar
 							</span>
 							<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
@@ -413,14 +413,14 @@ export const DashboardLayout: React.FC = () => {
 						className="group relative flex flex-col items-center gap-0.5 outline-none"
 						aria-label="Toggle theme"
 					>
-						<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300">
+						<div className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300">
 							{theme === "light" ? (
 								<LuMoon className="w-5 h-5" />
 							) : (
 								<LuSun className="w-5 h-5" />
 							)}
 						</div>
-						<span className="text-[9px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+						<span className="text-[10px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
 							Theme
 						</span>
 						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
@@ -435,10 +435,10 @@ export const DashboardLayout: React.FC = () => {
 						className="group relative flex flex-col items-center gap-0.5 outline-none"
 						aria-label="Logout"
 					>
-						<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400">
+						<div className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400">
 							<LuLogOut className="w-5 h-5" />
 						</div>
-						<span className="text-[9px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
+						<span className="text-[10px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
 							Logout
 						</span>
 						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
@@ -450,7 +450,7 @@ export const DashboardLayout: React.FC = () => {
 			</nav>
 
 			{/* ===== Main Content Area ===== */}
-			<main className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-[72px] pb-20 md:pb-6">
+			<main className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-20 pb-20 md:pb-6">
 				<Outlet />
 			</main>
 

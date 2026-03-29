@@ -916,6 +916,7 @@ router.get(
 					type: true,
 					scope: true,
 					assessmentCategoryId: true,
+					juaraCategoryId: true,
 					value: true,
 					reason: true,
 				},
@@ -1137,6 +1138,434 @@ router.get(
 		} catch (error) {
 			console.error("Error fetching recap:", error);
 			res.status(500).json({ error: "Failed to fetch recapitulation" });
+		}
+	}
+);
+
+// GET /api/evaluations/event/:eventSlug/verify - Verify score integrity (detect duplicates, missing, mismatches)
+router.get(
+	"/event/:eventSlug/verify",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { eventSlug } = req.params;
+
+			if (!user || !["PANITIA", "SUPERADMIN"].includes(user.role)) {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			const event = await prisma.event.findFirst({
+				where: {
+					OR: [{ slug: eventSlug }, { id: eventSlug }],
+				},
+				include: {
+					assessmentCategories: {
+						include: {
+							assessmentCategory: { select: { id: true, name: true } },
+						},
+					},
+				},
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found" });
+			}
+
+			// Get event materials grouped by category
+			const eventMaterials = await prisma.eventMaterial.findMany({
+				where: { eventId: event.id },
+				select: {
+					id: true,
+					eventAssessmentCategoryId: true,
+					name: true,
+					number: true,
+				},
+			});
+
+			// Map: categoryId -> expected material count
+			const materialsPerCategory = new Map<string, number>();
+			const materialToCategoryMap = new Map<string, string>();
+			const materialNameMap = new Map<string, string>();
+			eventMaterials.forEach((m) => {
+				materialToCategoryMap.set(m.id, m.eventAssessmentCategoryId);
+				materialNameMap.set(m.id, m.name);
+				const count = materialsPerCategory.get(m.eventAssessmentCategoryId) || 0;
+				materialsPerCategory.set(m.eventAssessmentCategoryId, count + 1);
+			});
+
+			// Get ALL material evaluations with full detail
+			const materialEvaluations = await prisma.materialEvaluation.findMany({
+				where: { eventId: event.id },
+				select: {
+					id: true,
+					participantId: true,
+					juryId: true,
+					materialId: true,
+					score: true,
+					isSkipped: true,
+				},
+			});
+
+			// Get participants
+			const participants = await prisma.participationGroup.findMany({
+				where: {
+					participation: { eventId: event.id },
+					status: { in: ["REGISTERED", "CONFIRMED", "ATTENDED", "ACTIVE"] },
+				},
+				select: {
+					id: true,
+					groupName: true,
+				},
+			});
+			const participantNameMap = new Map(participants.map((p) => [p.id, p.groupName]));
+
+			// Get juries with assignments
+			const juryAssignments = await prisma.juryEventAssignment.findMany({
+				where: { eventId: event.id, status: "CONFIRMED" },
+				include: {
+					jury: { select: { id: true, name: true } },
+					assignedCategories: {
+						select: { assessmentCategoryId: true },
+					},
+				},
+			});
+
+			const juryNameMap = new Map(juryAssignments.map((j) => [j.jury.id, j.jury.name]));
+
+			// Build: for each (participantId, categoryId, juryId) -> count how many material evaluations exist
+			const materialCountMap = new Map<string, { count: number; materialIds: Set<string> }>();
+			for (const me of materialEvaluations) {
+				const catId = materialToCategoryMap.get(me.materialId);
+				if (!catId) continue;
+				const key = `${me.participantId}:${catId}:${me.juryId}`;
+				if (!materialCountMap.has(key)) {
+					materialCountMap.set(key, { count: 0, materialIds: new Set() });
+				}
+				const entry = materialCountMap.get(key)!;
+				// Check if this materialId was already counted (true duplicate record)
+				if (entry.materialIds.has(me.materialId)) {
+					// This should never happen due to DB unique constraint, but check anyway
+					entry.count += 1;
+				} else {
+					entry.materialIds.add(me.materialId);
+					entry.count += 1;
+				}
+			}
+
+			const issues: Array<{
+				type: "material_duplicate" | "material_excess" | "missing_score" | "score_exceeds_max";
+				severity: "error" | "warning";
+				participantId: string;
+				participantName: string;
+				category?: string;
+				juryId?: string;
+				juryName?: string;
+				eventCategoryId?: string;
+				message: string;
+				fixAction?: "delete_jury_category" | "recalculate" | "none";
+			}> = [];
+
+			// Check each participant x category x jury
+			for (const participant of participants) {
+				for (const eac of event.assessmentCategories) {
+					const catId = eac.assessmentCategoryId;
+					const catName = eac.assessmentCategory.name;
+					const expectedMaterialCount = materialsPerCategory.get(eac.id) || 0;
+
+					for (const ja of juryAssignments) {
+						const isAssigned = ja.assignedCategories.some(
+							(ac) => ac.assessmentCategoryId === catId
+						);
+						if (!isAssigned) continue;
+
+						const key = `${participant.id}:${eac.id}:${ja.jury.id}`;
+						const evalData = materialCountMap.get(key);
+
+						if (!evalData || evalData.count === 0) {
+							// Missing: jury hasn't scored any material for this participant-category
+							issues.push({
+								type: "missing_score",
+								severity: "warning",
+								participantId: participant.id,
+								participantName: participant.groupName,
+								category: catName,
+								juryId: ja.jury.id,
+								juryName: ja.jury.name,
+								eventCategoryId: eac.id,
+								message: `Juri "${ja.jury.name}" belum menilai materi apapun untuk kategori "${catName}"`,
+								fixAction: "none",
+							});
+						} else if (expectedMaterialCount > 0 && evalData.count > expectedMaterialCount) {
+							// EXCESS: more evaluations than expected materials = bug/duplicate
+							issues.push({
+								type: "material_excess",
+								severity: "error",
+								participantId: participant.id,
+								participantName: participant.groupName,
+								category: catName,
+								juryId: ja.jury.id,
+								juryName: ja.jury.name,
+								eventCategoryId: eac.id,
+								message: `Juri "${ja.jury.name}" memiliki ${evalData.count} nilai materi, padahal hanya ada ${expectedMaterialCount} materi di kategori "${catName}" (kemungkinan materi terhitung ganda!)`,
+								fixAction: "delete_jury_category",
+							});
+						}
+					}
+				}
+			}
+
+			// Check for direct evaluations that exceed maxScore
+			const directEvaluations = await prisma.evaluation.findMany({
+				where: { eventId: event.id },
+				select: {
+					participantId: true,
+					juryId: true,
+					assessmentCategoryId: true,
+					score: true,
+					maxScore: true,
+				},
+			});
+
+			for (const ev of directEvaluations) {
+				if (ev.score > ev.maxScore) {
+					const eac = event.assessmentCategories.find(
+						(c) => c.assessmentCategoryId === ev.assessmentCategoryId
+					);
+					issues.push({
+						type: "score_exceeds_max",
+						severity: "error",
+						participantId: ev.participantId,
+						participantName: participantNameMap.get(ev.participantId) || "Unknown",
+						category: eac?.assessmentCategory.name || "Unknown",
+						juryId: ev.juryId,
+						juryName: juryNameMap.get(ev.juryId) || "Unknown",
+						eventCategoryId: eac?.id,
+						message: `Nilai (${ev.score}) melebihi batas maksimum (${ev.maxScore}) di kategori "${eac?.assessmentCategory.name}"`,
+						fixAction: "delete_jury_category",
+					});
+				}
+			}
+
+			// Also check summed material scores against maxScore
+			for (const [key, evalData] of materialCountMap) {
+				const parts = key.split(":");
+				const participantId = parts[0]!;
+				const eacId = parts[1]!;
+				const juryId = parts[2]!;
+				const eac = event.assessmentCategories.find((c) => c.id === eacId);
+				if (!eac) continue;
+
+				const maxScore = eac.customMaxScore || 100;
+
+				// Sum scores for this combo
+				const relevantEvals = materialEvaluations.filter(
+					(me) =>
+						me.participantId === participantId &&
+						me.juryId === juryId &&
+						materialToCategoryMap.get(me.materialId) === eacId &&
+						!me.isSkipped &&
+						me.score !== null
+				);
+				const totalScore = relevantEvals.reduce((sum, me) => sum + (me.score || 0), 0);
+
+				if (totalScore > maxScore) {
+					issues.push({
+						type: "score_exceeds_max",
+						severity: "error",
+						participantId,
+						participantName: participantNameMap.get(participantId) || "Unknown",
+						category: eac.assessmentCategory.name,
+						juryId: juryId,
+						juryName: juryNameMap.get(juryId) || "Unknown",
+						eventCategoryId: eac.id,
+						message: `Total nilai materi oleh juri "${juryNameMap.get(juryId)}" = ${totalScore}, melebihi batas maksimum (${maxScore}) di kategori "${eac.assessmentCategory.name}" (kemungkinan nilai materi ganda!)`,
+						fixAction: "delete_jury_category",
+					});
+				}
+			}
+
+			// Summary
+			const materialDuplicates = issues.filter((i) => i.type === "material_excess" || i.type === "material_duplicate");
+			const missingScores = issues.filter((i) => i.type === "missing_score");
+			const scoreExceeds = issues.filter((i) => i.type === "score_exceeds_max");
+
+			res.json({
+				isClean: issues.length === 0,
+				totalIssues: issues.length,
+				summary: {
+					materialDuplicates: materialDuplicates.length,
+					missingScores: missingScores.length,
+					scoreExceedsMax: scoreExceeds.length,
+				},
+				issues,
+			});
+		} catch (error) {
+			console.error("Error verifying scores:", error);
+			res.status(500).json({ error: "Failed to verify scores" });
+		}
+	}
+);
+
+// POST /api/evaluations/event/:eventSlug/verify/fix
+// Fix a specific verification issue (PANITIA/SUPERADMIN only)
+router.post(
+	"/event/:eventSlug/verify/fix",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { eventSlug } = req.params;
+			const { action, participantId, juryId, eventCategoryId } = req.body;
+
+			if (!user || !["PANITIA", "SUPERADMIN"].includes(user.role)) {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			const event = await prisma.event.findFirst({
+				where: {
+					OR: [{ slug: eventSlug }, { id: eventSlug }],
+				},
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found" });
+			}
+
+			// For panitia, verify they own this event
+			if (user.role === "PANITIA" && event.createdById !== user.userId) {
+				return res.status(403).json({ error: "Anda tidak memiliki akses ke event ini" });
+			}
+
+			if (action === "delete_jury_category") {
+				// Delete all material evaluations for a specific jury + participant + category
+				if (!participantId || !juryId || !eventCategoryId) {
+					return res.status(400).json({ error: "participantId, juryId, dan eventCategoryId wajib diisi" });
+				}
+
+				// Get all materials in this event assessment category
+				const materials = await prisma.eventMaterial.findMany({
+					where: {
+						eventId: event.id,
+						eventAssessmentCategoryId: eventCategoryId,
+					},
+					select: { id: true },
+				});
+
+				const materialIds = materials.map((m) => m.id);
+
+				// Delete material evaluations
+				const deletedMaterial = await prisma.materialEvaluation.deleteMany({
+					where: {
+						eventId: event.id,
+						juryId,
+						participantId,
+						materialId: { in: materialIds },
+					},
+				});
+
+				// Also delete direct evaluation if exists
+				const eac = await prisma.eventAssessmentCategory.findUnique({
+					where: { id: eventCategoryId },
+					select: { assessmentCategoryId: true },
+				});
+
+				let deletedDirect = 0;
+				if (eac) {
+					const result = await prisma.evaluation.deleteMany({
+						where: {
+							eventId: event.id,
+							juryId,
+							participantId,
+							assessmentCategoryId: eac.assessmentCategoryId,
+						},
+					});
+					deletedDirect = result.count;
+				}
+
+				return res.json({
+					message: `Berhasil menghapus ${deletedMaterial.count} nilai materi dan ${deletedDirect} nilai langsung`,
+					deletedMaterialCount: deletedMaterial.count,
+					deletedDirectCount: deletedDirect,
+				});
+			}
+
+			if (action === "recalculate") {
+				// Recalculate the Evaluation (direct) score from MaterialEvaluation sums
+				if (!participantId || !juryId || !eventCategoryId) {
+					return res.status(400).json({ error: "participantId, juryId, dan eventCategoryId wajib diisi" });
+				}
+
+				const eac = await prisma.eventAssessmentCategory.findUnique({
+					where: { id: eventCategoryId },
+					select: { assessmentCategoryId: true, customMaxScore: true },
+				});
+
+				if (!eac) {
+					return res.status(404).json({ error: "Kategori penilaian tidak ditemukan" });
+				}
+
+				// Get all materials in this category
+				const materials = await prisma.eventMaterial.findMany({
+					where: {
+						eventId: event.id,
+						eventAssessmentCategoryId: eventCategoryId,
+					},
+					select: { id: true },
+				});
+
+				const materialIds = materials.map((m) => m.id);
+
+				// Sum material evaluation scores
+				const matEvals = await prisma.materialEvaluation.findMany({
+					where: {
+						eventId: event.id,
+						juryId,
+						participantId,
+						materialId: { in: materialIds },
+						isSkipped: false,
+					},
+					select: { score: true },
+				});
+
+				const totalScore = matEvals.reduce((sum, me) => sum + (me.score || 0), 0);
+				const maxScore = eac.customMaxScore || 100;
+
+				// Upsert the direct Evaluation record
+				await prisma.evaluation.upsert({
+					where: {
+						eventId_assessmentCategoryId_juryId_participantId: {
+							eventId: event.id,
+							assessmentCategoryId: eac.assessmentCategoryId,
+							juryId,
+							participantId,
+						},
+					},
+					update: {
+						score: totalScore,
+						maxScore,
+					},
+					create: {
+						eventId: event.id,
+						assessmentCategoryId: eac.assessmentCategoryId,
+						juryId,
+						participantId,
+						score: totalScore,
+						maxScore,
+					},
+				});
+
+				return res.json({
+					message: `Nilai berhasil dihitung ulang: ${totalScore} (maks: ${maxScore})`,
+					newScore: totalScore,
+					maxScore,
+				});
+			}
+
+			return res.status(400).json({ error: "Action tidak dikenal" });
+		} catch (error) {
+			console.error("Error fixing verification issue:", error);
+			res.status(500).json({ error: "Gagal memperbaiki masalah" });
 		}
 	}
 );
@@ -1544,7 +1973,7 @@ router.post(
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const user = req.user;
-			const { eventId, participantId, type, scope, assessmentCategoryId, value, reason } = req.body;
+			const { eventId, participantId, type, scope, assessmentCategoryId, juaraCategoryId, value, reason } = req.body;
 
 			if (!user || !["PANITIA", "SUPERADMIN"].includes(user.role)) {
 				return res.status(403).json({ error: "Access denied" });
@@ -1559,12 +1988,16 @@ router.post(
 				return res.status(400).json({ error: "Tipe tidak valid" });
 			}
 
-			if (!["GENERAL", "CATEGORY"].includes(scope)) {
+			if (!["GENERAL", "CATEGORY", "JUARA"].includes(scope)) {
 				return res.status(400).json({ error: "Scope tidak valid" });
 			}
 
 			if (scope === "CATEGORY" && !assessmentCategoryId) {
 				return res.status(400).json({ error: "Kategori penilaian harus dipilih untuk scope CATEGORY" });
+			}
+
+			if (scope === "JUARA" && !juaraCategoryId) {
+				return res.status(400).json({ error: "Kategori juara harus dipilih untuk scope JUARA" });
 			}
 
 			if (typeof value !== "number" || value < 0) {
@@ -1599,6 +2032,20 @@ router.post(
 				}
 			}
 
+			// If scope is JUARA, verify the juara category exists for this event
+			if (scope === "JUARA") {
+				const juaraExists = await prisma.juaraCategory.findFirst({
+					where: {
+						id: juaraCategoryId,
+						eventId,
+					},
+				});
+
+				if (!juaraExists) {
+					return res.status(400).json({ error: "Kategori juara tidak ditemukan untuk event ini" });
+				}
+			}
+
 			const extraNilai = await prisma.extraNilai.create({
 				data: {
 					eventId,
@@ -1606,6 +2053,7 @@ router.post(
 					type,
 					scope,
 					assessmentCategoryId: scope === "CATEGORY" ? assessmentCategoryId : null,
+					juaraCategoryId: scope === "JUARA" ? juaraCategoryId : null,
 					value,
 					reason: reason || null,
 					createdById: user.userId,
@@ -1631,7 +2079,7 @@ router.put(
 		try {
 			const user = req.user;
 			const { id } = req.params;
-			const { type, scope, assessmentCategoryId, value, reason } = req.body;
+			const { type, scope, assessmentCategoryId, juaraCategoryId, value, reason } = req.body;
 
 			if (!user || !["PANITIA", "SUPERADMIN"].includes(user.role)) {
 				return res.status(403).json({ error: "Access denied" });
@@ -1664,6 +2112,10 @@ router.put(
 				return res.status(400).json({ error: "Kategori penilaian harus dipilih untuk scope CATEGORY" });
 			}
 
+			if (scope === "JUARA" && !juaraCategoryId) {
+				return res.status(400).json({ error: "Kategori juara harus dipilih untuk scope JUARA" });
+			}
+
 			if (value !== undefined && (typeof value !== "number" || value < 0)) {
 				return res.status(400).json({ error: "Nilai harus berupa angka positif" });
 			}
@@ -1674,6 +2126,7 @@ router.put(
 					type: type || existing.type,
 					scope: scope || existing.scope,
 					assessmentCategoryId: scope === "CATEGORY" ? assessmentCategoryId : null,
+					juaraCategoryId: scope === "JUARA" ? juaraCategoryId : null,
 					value: value !== undefined ? value : existing.value,
 					reason: reason !== undefined ? reason : existing.reason,
 				},
@@ -2138,6 +2591,307 @@ router.get(
 		} catch (error) {
 			console.error("Error fetching statistics:", error);
 			res.status(500).json({ error: "Failed to fetch statistics" });
+		}
+	}
+);
+
+// POST /api/evaluations/event/:eventSlug/verify/seed-test
+// Seed dummy problematic data for testing verification (SUPERADMIN only, development)
+router.get(
+	"/event/:eventSlug/verify/seed-test",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { eventSlug } = req.params;
+
+			if (!user || user.role !== "SUPERADMIN") {
+				return res.status(403).json({ error: "Superadmin only" });
+			}
+
+			const event = await prisma.event.findFirst({
+				where: {
+					OR: [{ slug: eventSlug }, { id: eventSlug }],
+				},
+				include: {
+					assessmentCategories: {
+						include: {
+							assessmentCategory: true,
+						},
+					},
+				},
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found" });
+			}
+
+			if (event.assessmentCategories.length === 0) {
+				return res.status(400).json({ error: "Event harus memiliki minimal 1 kategori penilaian" });
+			}
+
+			const seeded: string[] = [];
+
+			// ---- AUTO-CREATE: Juri dummy users if needed ----
+			let juryAssignments = await prisma.juryEventAssignment.findMany({
+				where: { eventId: event.id, status: "CONFIRMED" },
+				include: {
+					jury: { select: { id: true, name: true } },
+					assignedCategories: { select: { assessmentCategoryId: true } },
+				},
+				take: 2,
+			});
+
+			if (juryAssignments.length === 0) {
+				// Create 2 dummy jury users
+				const bcrypt = await import("bcryptjs");
+				const dummyHash = await bcrypt.hash("testjuri123", 10);
+
+				for (let i = 1; i <= 2; i++) {
+					const juryEmail = `test-juri-${i}@simpaskor-test.id`;
+					const juryUser = await prisma.user.upsert({
+						where: { email: juryEmail },
+						update: {},
+						create: {
+							email: juryEmail,
+							passwordHash: dummyHash,
+							name: `Juri Test ${i}`,
+							role: "JURI",
+							status: "ACTIVE",
+							emailVerified: true,
+						},
+					});
+
+					// Create jury event assignment
+					const assignment = await prisma.juryEventAssignment.upsert({
+						where: {
+							juryId_eventId: { juryId: juryUser.id, eventId: event.id },
+						},
+						update: { status: "CONFIRMED" },
+						create: {
+							juryId: juryUser.id,
+							eventId: event.id,
+							status: "CONFIRMED",
+						},
+					});
+
+					// Assign all assessment categories
+					for (const eac of event.assessmentCategories) {
+						await prisma.juryAssignedCategory.upsert({
+							where: {
+								assignmentId_assessmentCategoryId: {
+									assignmentId: assignment.id,
+									assessmentCategoryId: eac.assessmentCategoryId,
+								},
+							},
+							update: {},
+							create: {
+								assignmentId: assignment.id,
+								assessmentCategoryId: eac.assessmentCategoryId,
+							},
+						});
+					}
+					seeded.push(`Created jury user: ${juryEmail}`);
+				}
+
+				// Re-fetch jury assignments
+				juryAssignments = await prisma.juryEventAssignment.findMany({
+					where: { eventId: event.id, status: "CONFIRMED" },
+					include: {
+						jury: { select: { id: true, name: true } },
+						assignedCategories: { select: { assessmentCategoryId: true } },
+					},
+					take: 2,
+				});
+			}
+
+			// ---- AUTO-CREATE: Peserta dummy if needed ----
+			let participants = await prisma.participationGroup.findMany({
+				where: {
+					participation: { eventId: event.id },
+					status: { in: ["REGISTERED", "CONFIRMED", "ATTENDED", "ACTIVE"] },
+				},
+				take: 3,
+				select: { id: true, groupName: true },
+			});
+
+			if (participants.length === 0) {
+				// Get a school category
+				const schoolCat = await prisma.schoolCategory.findFirst({ where: { isActive: true } });
+				if (!schoolCat) {
+					return res.status(400).json({ error: "Tidak ada school category di database" });
+				}
+
+				// Create dummy peserta user
+				const bcrypt = await import("bcryptjs");
+				const dummyHash = await bcrypt.hash("testpeserta123", 10);
+
+				for (let i = 1; i <= 2; i++) {
+					const pesertaEmail = `test-peserta-${i}@simpaskor-test.id`;
+					const pesertaUser = await prisma.user.upsert({
+						where: { email: pesertaEmail },
+						update: {},
+						create: {
+							email: pesertaEmail,
+							passwordHash: dummyHash,
+							name: `Peserta Test ${i}`,
+							role: "PESERTA",
+							status: "ACTIVE",
+							emailVerified: true,
+						},
+					});
+
+					// Create EventParticipation
+					const participation = await prisma.eventParticipation.upsert({
+						where: {
+							eventId_userId: { eventId: event.id, userId: pesertaUser.id },
+						},
+						update: { status: "CONFIRMED" },
+						create: {
+							eventId: event.id,
+							userId: pesertaUser.id,
+							schoolCategoryId: schoolCat.id,
+							teamName: `Tim Test ${i}`,
+							schoolName: `Sekolah Test ${i}`,
+							status: "CONFIRMED",
+						},
+					});
+
+					// Create ParticipationGroup
+					const existingGroup = await prisma.participationGroup.findFirst({
+						where: { participationId: participation.id },
+					});
+					if (!existingGroup) {
+						await prisma.participationGroup.create({
+							data: {
+								participationId: participation.id,
+								schoolCategoryId: schoolCat.id,
+								groupName: `Tim Test ${i}`,
+								teamMembers: 5,
+								orderNumber: i,
+								status: "ACTIVE",
+							},
+						});
+					}
+					seeded.push(`Created peserta: ${pesertaEmail} with group "Tim Test ${i}"`);
+				}
+
+				// Re-fetch participants
+				participants = await prisma.participationGroup.findMany({
+					where: {
+						participation: { eventId: event.id },
+						status: { in: ["REGISTERED", "CONFIRMED", "ATTENDED", "ACTIVE"] },
+					},
+					take: 3,
+					select: { id: true, groupName: true },
+				});
+			}
+
+			// ---- AUTO-CREATE: Event materials if needed ----
+			let materials = await prisma.eventMaterial.findMany({
+				where: { eventId: event.id },
+				select: { id: true, eventAssessmentCategoryId: true, number: true },
+				orderBy: { number: "asc" },
+			});
+
+			if (materials.length === 0) {
+				const firstCat = event.assessmentCategories[0]!;
+				for (let i = 1; i <= 3; i++) {
+					await prisma.eventMaterial.create({
+						data: {
+							eventId: event.id,
+							eventAssessmentCategoryId: firstCat.id,
+							number: i,
+							name: `Materi Test ${i}`,
+							order: i,
+						},
+					});
+				}
+				seeded.push(`Created 3 test materials for category "${firstCat.assessmentCategory.name}"`);
+
+				// Re-fetch materials
+				materials = await prisma.eventMaterial.findMany({
+					where: { eventId: event.id },
+					select: { id: true, eventAssessmentCategoryId: true, number: true },
+					orderBy: { number: "asc" },
+				});
+			}
+
+			// ---- Now seed problematic data ----
+			const participant = participants[0]!;
+			const jury = juryAssignments[0]!;
+			const firstCat = event.assessmentCategories[0]!;
+
+			// 1. Seed "score_exceeds_max": Create material evaluations that sum > maxScore
+			const catMaterials = materials.filter(
+				(m) => m.eventAssessmentCategoryId === firstCat.id
+			);
+			const maxScore = firstCat.customMaxScore || 100;
+
+			for (const mat of catMaterials) {
+				await prisma.materialEvaluation.upsert({
+					where: {
+						eventId_materialId_juryId_participantId: {
+							eventId: event.id,
+							materialId: mat.id,
+							juryId: jury.jury.id,
+							participantId: participant.id,
+						},
+					},
+					update: { score: maxScore },
+					create: {
+						eventId: event.id,
+						materialId: mat.id,
+						juryId: jury.jury.id,
+						participantId: participant.id,
+						score: maxScore,
+						scoreCategoryName: "Test Exceed",
+					},
+				});
+			}
+			seeded.push(
+				`score_exceeds_max: ${catMaterials.length} material evals with score=${maxScore} each for "${participant.groupName}" by "${jury.jury.name}" in "${firstCat.assessmentCategory.name}" (total=${catMaterials.length * maxScore}, max=${maxScore})`
+			);
+
+			// 2. Seed "mismatch": Create a direct Evaluation with wrong total
+			await prisma.evaluation.upsert({
+				where: {
+					eventId_assessmentCategoryId_juryId_participantId: {
+						eventId: event.id,
+						assessmentCategoryId: firstCat.assessmentCategoryId,
+						juryId: jury.jury.id,
+						participantId: participant.id,
+					},
+				},
+				update: { score: 999 },
+				create: {
+					eventId: event.id,
+					assessmentCategoryId: firstCat.assessmentCategoryId,
+					juryId: jury.jury.id,
+					participantId: participant.id,
+					score: 999,
+					maxScore: firstCat.customMaxScore || 100,
+				},
+			});
+			seeded.push(
+				`mismatch: Direct evaluation score=999 for "${participant.groupName}" by "${jury.jury.name}"`
+			);
+
+			res.json({
+				message: `Test data berhasil di-seed untuk event "${event.title}"`,
+				eventSlug: event.slug,
+				seeded,
+				testData: {
+					participant: { id: participant.id, name: participant.groupName },
+					jury: { id: jury.jury.id, name: jury.jury.name },
+					category: { id: firstCat.id, name: firstCat.assessmentCategory.name },
+					materialsCount: catMaterials.length,
+				},
+				hint: "Jalankan Verifikasi Nilai di halaman rekap untuk melihat masalah yang terdeteksi. Gunakan tombol 'Perbaiki' untuk menghapus data test.",
+			});
+		} catch (error) {
+			console.error("Error seeding test data:", error);
+			res.status(500).json({ error: "Failed to seed test data" });
 		}
 	}
 );

@@ -179,7 +179,7 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 			</div>
 
 			{/* Assessment Categories */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center justify-between mb-4">
 					<div className="flex items-center gap-3">
 						<ListBulletIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -315,7 +315,7 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 			</div>
 
 			{/* School Categories */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors">
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
 					<AcademicCapIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
