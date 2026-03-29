@@ -229,19 +229,23 @@ async function handleRegistrationPayment(
 					paidAt: new Date(),
 				},
 			});
-			// Auto-confirm the registration on payment success
+			// Payment success: move from PENDING_PAYMENT to REGISTERED
+			// Panitia will then confirm (REGISTERED -> CONFIRMED)
 			await tx.eventParticipation.update({
 				where: { id: payment.participationId },
-				data: { status: "CONFIRMED" },
+				data: { status: "REGISTERED" },
 			});
 		});
 	} else if (result === "failed" || result === "expired") {
-		await prisma.registrationPayment.update({
-			where: { id: payment.id },
-			data: {
-				status: result === "expired" ? "EXPIRED" : "CANCELLED",
-				paymentType,
-			},
+		await prisma.$transaction(async (tx) => {
+			await tx.registrationPayment.update({
+				where: { id: payment.id },
+				data: {
+					status: result === "expired" ? "EXPIRED" : "CANCELLED",
+					paymentType,
+				},
+			});
+			// Keep as PENDING_PAYMENT so user can retry
 		});
 	}
 }

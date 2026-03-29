@@ -478,8 +478,9 @@ const EventRegister: React.FC = () => {
 
 			// If payment required, initiate Midtrans payment
 			if (paymentRequired) {
-				const paymentRes = await api.post(`/registrations/${registration.id}/pay`);
-				const { snapToken, midtransOrderId } = paymentRes.data.payment;
+				try {
+					const paymentRes = await api.post(`/registrations/${registration.id}/pay`);
+					const { snapToken, midtransOrderId } = paymentRes.data.payment;
 
 				if (snapToken && isSnapReady) {
 					await new Promise<void>((resolve) => {
@@ -487,11 +488,10 @@ const EventRegister: React.FC = () => {
 							onSuccess: () => {
 								Swal.fire({
 									icon: "success",
-									title: "Pendaftaran & Pembayaran Berhasil!",
+									title: "Pembayaran Berhasil!",
 									html: `
 										<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
 										<p class="text-sm text-gray-600">Pembayaran sebesar <strong>${formatCurrency(event.registrationFee)}</strong> telah diterima.</p>
-										<p class="text-sm text-gray-600">Status pendaftaran Anda: <strong>REGISTERED</strong></p>
 										<p class="text-sm text-gray-600">Panitia akan meninjau pendaftaran Anda.</p>
 									`,
 									confirmButtonText: "Lihat Pendaftaran Saya",
@@ -504,7 +504,7 @@ const EventRegister: React.FC = () => {
 									title: "Pembayaran Pending",
 									html: `
 										<p class="mb-2">Pendaftaran berhasil disimpan.</p>
-										<p class="text-sm text-gray-600">Silakan selesaikan pembayaran Anda.</p>
+										<p class="text-sm text-gray-600">Silakan selesaikan pembayaran untuk mengaktifkan pendaftaran Anda.</p>
 										<p class="text-sm text-gray-600">Order ID: <code class="bg-gray-100 px-1 rounded">${midtransOrderId}</code></p>
 									`,
 									confirmButtonText: "OK",
@@ -516,8 +516,8 @@ const EventRegister: React.FC = () => {
 									icon: "error",
 									title: "Pembayaran Gagal",
 									html: `
-										<p class="mb-2">Pendaftaran berhasil, tapi pembayaran gagal.</p>
-										<p class="text-sm text-gray-600">Silakan coba lagi dari halaman pendaftaran Anda.</p>
+										<p class="mb-2">Pendaftaran tersimpan, tapi pembayaran gagal.</p>
+										<p class="text-sm text-gray-600">Silakan coba bayar lagi dari halaman pendaftaran Anda.</p>
 									`,
 									confirmButtonText: "OK",
 								});
@@ -546,6 +546,18 @@ const EventRegister: React.FC = () => {
 							<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
 							<p class="text-sm text-gray-600">Segera selesaikan pembayaran sebesar <strong>${formatCurrency(event.registrationFee)}</strong>.</p>
 							<p class="text-sm text-gray-600">Order ID: <code class="bg-gray-100 px-1 rounded">${midtransOrderId}</code></p>
+						`,
+						confirmButtonText: "Lihat Pendaftaran Saya",
+					});
+				}
+				} catch (paymentErr: any) {
+					// Registration succeeded but payment initiation failed
+					await Swal.fire({
+						icon: "warning",
+						title: "Pendaftaran Berhasil - Pembayaran Belum Bisa Diproses",
+						html: `
+							<p class="mb-2">Pendaftaran <strong>${teams.length} tim</strong> berhasil disimpan.</p>
+							<p class="text-sm text-gray-600">${paymentErr.response?.data?.message || "Sistem pembayaran sedang tidak tersedia. Silakan coba bayar nanti dari halaman pendaftaran Anda."}</p>
 						`,
 						confirmButtonText: "Lihat Pendaftaran Saya",
 					});

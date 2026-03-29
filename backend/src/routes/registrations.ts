@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
 	createSnapTransaction,
 	generateMidtransOrderId,
+	isMidtransConfigured,
 	PaymentPrefix,
 } from "../lib/midtrans";
 
@@ -274,6 +275,10 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			}
 		}
 
+		// Determine initial status based on whether event has fee
+		const hasFee = event.registrationFee && Number(event.registrationFee) > 0;
+		const initialStatus = hasFee ? "PENDING_PAYMENT" : "REGISTERED";
+
 		let registration;
 
 		// If cancelled registration exists, re-register by updating it
@@ -299,7 +304,7 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 				data: {
 					schoolName: validatedData.schoolName,
 					supportingDoc: validatedData.supportingDoc,
-					status: "REGISTERED",
+					status: initialStatus,
 					groups: {
 						create: validatedData.groups.map((group) => ({
 							groupName: group.groupName,
@@ -329,7 +334,7 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 					userId,
 					schoolName: validatedData.schoolName,
 					supportingDoc: validatedData.supportingDoc,
-					status: "REGISTERED",
+					status: initialStatus,
 					groups: {
 						create: validatedData.groups.map((group) => ({
 							groupName: group.groupName,
@@ -353,29 +358,10 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			});
 		}
 
-		// DON'T update current participants count here
-		// Only update when status is changed to CONFIRMED by panitia
-
-		// If event has registration fee, create pending payment
-		if (registration.event.registrationFee && Number(registration.event.registrationFee) > 0) {
-			const midtransOrderId = generateMidtransOrderId(PaymentPrefix.REGISTRATION, registration.id);
-			
-			await prisma.registrationPayment.create({
-				data: {
-					participationId: registration.id,
-					eventId: registration.eventId,
-					userId,
-					amount: Number(registration.event.registrationFee),
-					status: "PENDING",
-					midtransOrderId,
-				},
-			});
-		}
-
 		res.status(201).json({
-			message: "Registration successful",
+			message: hasFee ? "Registration saved. Please complete payment." : "Registration successful",
 			registration,
-			paymentRequired: registration.event.registrationFee && Number(registration.event.registrationFee) > 0,
+			paymentRequired: hasFee,
 		});
 	} catch (error) {
 		if (error instanceof z.ZodError) {
@@ -451,6 +437,14 @@ router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => 
 		// Generate Midtrans Snap token
 		let snapToken: string | null = null;
 		let redirectUrl: string | null = null;
+
+		if (!isMidtransConfigured) {
+			console.warn("Midtrans is not configured. Set MIDTRANS_SERVER_KEY and MIDTRANS_CLIENT_KEY in .env");
+			return res.status(503).json({
+				error: "Payment gateway not configured",
+				message: "Midtrans belum dikonfigurasi. Hubungi admin untuk setup payment gateway.",
+			});
+		}
 
 		try {
 			const snapResult = await createSnapTransaction({

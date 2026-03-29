@@ -11,9 +11,11 @@ import {
 	ChevronDownIcon,
 	ChevronUpIcon,
 	ArrowPathIcon,
+	CreditCardIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from "@heroicons/react/24/solid";
 import Swal from "sweetalert2";
+import { usePayment } from "../../hooks/usePayment";
 
 // Helper to get image URL
 const getImageUrl = (url: string | undefined | null): string | null => {
@@ -40,6 +42,8 @@ const PesertaRegistrations: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+	const [payingId, setPayingId] = useState<string | null>(null);
+	const { pay, isSnapReady } = usePayment();
 
 	useEffect(() => {
 		fetchRegistrations();
@@ -181,8 +185,47 @@ const PesertaRegistrations: React.FC = () => {
 		}
 	};
 
+	const handlePayRegistration = async (registrationId: string) => {
+		try {
+			setPayingId(registrationId);
+			const paymentRes = await api.post(`/registrations/${registrationId}/pay`);
+			const { snapToken } = paymentRes.data.payment;
+
+			if (snapToken && isSnapReady) {
+				pay(snapToken, {
+					onSuccess: () => {
+						Swal.fire({ icon: "success", title: "Pembayaran Berhasil!", text: "Pendaftaran Anda akan segera diproses." });
+						fetchRegistrations();
+					},
+					onPending: () => {
+						Swal.fire({ icon: "info", title: "Pembayaran Pending", text: "Silakan selesaikan pembayaran Anda." });
+						fetchRegistrations();
+					},
+					onError: () => {
+						Swal.fire({ icon: "error", title: "Pembayaran Gagal", text: "Silakan coba lagi." });
+					},
+					onClose: () => {
+						fetchRegistrations();
+					},
+				});
+			} else {
+				Swal.fire({ icon: "warning", title: "Pembayaran tidak tersedia", text: "Sistem pembayaran sedang tidak tersedia. Coba lagi nanti." });
+			}
+		} catch (error: any) {
+			Swal.fire({ icon: "error", title: "Gagal Memproses Pembayaran", text: error.response?.data?.message || error.response?.data?.error || "Terjadi kesalahan." });
+		} finally {
+			setPayingId(null);
+		}
+	};
+
 	const getStatusBadge = (status: string) => {
 		const statusConfig = {
+			PENDING_PAYMENT: {
+				bg: "bg-orange-100 dark:bg-orange-900",
+				text: "text-orange-800 dark:text-orange-200",
+				icon: <ClockIcon className="h-4 w-4" />,
+				label: "Menunggu Pembayaran",
+			},
 			REGISTERED: {
 				bg: "bg-yellow-100 dark:bg-yellow-900",
 				text: "text-yellow-800 dark:text-yellow-200",
@@ -592,8 +635,18 @@ const PesertaRegistrations: React.FC = () => {
 						)}
 
 						{/* Cancel Registration */}
-						{registration.status === "REGISTERED" && activeGroups.length > 0 && (
-							<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
+						{(registration.status === "REGISTERED" || registration.status === "PENDING_PAYMENT") && activeGroups.length > 0 && (
+							<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40 flex items-center gap-4">
+								{registration.status === "PENDING_PAYMENT" && (
+									<button
+										onClick={() => handlePayRegistration(registration.id)}
+										disabled={payingId === registration.id}
+										className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg transition-colors"
+									>
+										<CreditCardIcon className="h-4 w-4" />
+										{payingId === registration.id ? "Memproses..." : "Bayar Sekarang"}
+									</button>
+								)}
 								<button
 									onClick={() =>
 										handleCancelRegistration(

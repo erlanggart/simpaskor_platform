@@ -2,6 +2,8 @@ import midtransClient from "midtrans-client";
 
 const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
 
+export const isMidtransConfigured = !!(process.env.MIDTRANS_SERVER_KEY && process.env.MIDTRANS_CLIENT_KEY);
+
 // Snap client for creating payment tokens
 export const snap = new midtransClient.Snap({
 	isProduction,
