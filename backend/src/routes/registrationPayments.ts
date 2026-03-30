@@ -67,6 +67,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 			customerName: participation.user.name || "Peserta",
 			customerEmail: participation.user.email,
 			customerPhone: participation.user.phone || undefined,
+			adminFee: 5000,
 			itemDetails: [
 				{
 					id: participation.event.id,

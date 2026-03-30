@@ -41,7 +41,27 @@ export function generateMidtransOrderId(prefix: string, id: string): string {
 }
 
 /**
+ * QRIS MDR fee rate (0.7%)
+ * This fee is added on top of the original amount so the buyer pays the fee,
+ * not deducted from the seller's revenue.
+ */
+export const QRIS_FEE_RATE = 0.007;
+
+/**
+ * Calculate gross amount including QRIS fee passed to the buyer.
+ * Returns the total amount to charge and the fee portion.
+ */
+export function calculateQrisFee(originalAmount: number): { grossAmount: number; fee: number } {
+	if (originalAmount <= 0) return { grossAmount: 0, fee: 0 };
+	const grossAmount = Math.ceil(originalAmount / (1 - QRIS_FEE_RATE));
+	const fee = grossAmount - originalAmount;
+	return { grossAmount, fee };
+}
+
+/**
  * Create Midtrans Snap transaction token
+ * - Payment restricted to QRIS only
+ * - QRIS fee (0.7% MDR) added on top so buyer pays the processing fee
  */
 export async function createSnapTransaction(params: {
 	orderId: string;
@@ -49,6 +69,7 @@ export async function createSnapTransaction(params: {
 	customerName: string;
 	customerEmail: string;
 	customerPhone?: string;
+	adminFee?: number;
 	itemDetails: Array<{
 		id: string;
 		price: number;
@@ -56,22 +77,51 @@ export async function createSnapTransaction(params: {
 		name: string;
 	}>;
 }) {
+	const adminFee = params.adminFee || 0;
+	const baseAmount = params.grossAmount + adminFee;
+
+	// Calculate QRIS fee on total (original + admin fee)
+	const { grossAmount: totalWithFee, fee } = calculateQrisFee(baseAmount);
+
+	const items: Array<{ id: string; price: number; quantity: number; name: string }> = params.itemDetails.map((item) => ({
+		id: item.id,
+		price: Math.round(item.price),
+		quantity: item.quantity,
+		name: item.name.substring(0, 50), // Midtrans name limit
+	}));
+
+	// Add admin fee as separate line item
+	if (adminFee > 0) {
+		items.push({
+			id: "ADMIN_FEE",
+			price: adminFee,
+			quantity: 1,
+			name: "Biaya Admin",
+		});
+	}
+
+	// Add QRIS fee as separate line item so buyer sees it transparently
+	if (fee > 0) {
+		items.push({
+			id: "QRIS_FEE",
+			price: fee,
+			quantity: 1,
+			name: "Biaya Layanan QRIS (0.7%)",
+		});
+	}
+
 	const transactionDetails = {
 		transaction_details: {
 			order_id: params.orderId,
-			gross_amount: Math.round(params.grossAmount), // Midtrans requires integer
+			gross_amount: totalWithFee,
 		},
 		customer_details: {
 			first_name: params.customerName,
 			email: params.customerEmail,
 			phone: params.customerPhone || "",
 		},
-		item_details: params.itemDetails.map((item) => ({
-			id: item.id,
-			price: Math.round(item.price),
-			quantity: item.quantity,
-			name: item.name.substring(0, 50), // Midtrans name limit
-		})),
+		item_details: items,
+		enabled_payments: ["other_qris"],
 	};
 
 	const transaction = await snap.createTransaction(transactionDetails);

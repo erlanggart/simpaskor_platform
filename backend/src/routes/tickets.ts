@@ -245,6 +245,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					customerName: buyerName,
 					customerEmail: buyerEmail,
 					customerPhone: buyerPhone,
+					adminFee: 2000,
 					itemDetails: [
 						{
 							id: result.eventId,

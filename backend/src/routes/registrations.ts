@@ -528,6 +528,7 @@ router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => 
 				customerName: registration.user.name || registration.user.email,
 				customerEmail: registration.user.email,
 				customerPhone: registration.user.phone || undefined,
+				adminFee: 5000,
 				itemDetails: [
 					{
 						id: registration.eventId,

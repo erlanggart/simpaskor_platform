@@ -95,6 +95,7 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res: Response) 
 				grossAmount: totalAmount,
 				customerName: order.user?.name || "Customer",
 				customerEmail: order.user?.email || "",
+				adminFee: 2000,
 				itemDetails: order.items.map((item: any) => ({
 					id: item.productId,
 					price: item.price,

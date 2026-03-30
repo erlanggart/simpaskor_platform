@@ -38,6 +38,31 @@ const ETicketingPage: React.FC = () => {
 	// Send ticket to email
 	const [sendEmail, setSendEmail] = useState("");
 	const [sendingEmail, setSendingEmail] = useState(false);
+	const [autoEmailSent, setAutoEmailSent] = useState(false);
+
+	// Auto-send ticket email to buyer after purchase
+	useEffect(() => {
+		if (!ticketResult || autoEmailSent || !buyerEmail.trim()) return;
+
+		const timer = setTimeout(async () => {
+			try {
+				const qrCanvas = document.getElementById("ticket-qr-canvas") as HTMLCanvasElement;
+				const qrImageBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
+				if (!qrImageBase64) return;
+
+				await api.post("/tickets/send-email", {
+					ticketCode: ticketResult.ticketCode,
+					email: buyerEmail.trim(),
+					qrImageBase64,
+				});
+				setAutoEmailSent(true);
+			} catch (err) {
+				console.error("Auto-send ticket email failed:", err);
+			}
+		}, 1000); // Wait for QR canvas to render
+
+		return () => clearTimeout(timer);
+	}, [ticketResult, autoEmailSent, buyerEmail]);
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -138,6 +163,7 @@ const ETicketingPage: React.FC = () => {
 		setSelectedEvent(event);
 		setQuantity(1);
 		setSendEmail("");
+		setAutoEmailSent(false);
 		setShowPurchaseModal(true);
 	};
 
@@ -700,6 +726,13 @@ const ETicketingPage: React.FC = () => {
 							<p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
 								Simpan atau unduh tiket ini sebagai bukti pembelian.
 							</p>
+
+							{autoEmailSent && (
+								<div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg px-3 py-2 text-xs font-medium mb-2">
+									<LuMail className="w-3.5 h-3.5" />
+									Tiket otomatis dikirim ke {buyerEmail}
+								</div>
+							)}
 						</div>
 
 						{/* Send to Email */}

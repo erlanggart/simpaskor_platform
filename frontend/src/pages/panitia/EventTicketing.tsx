@@ -13,6 +13,7 @@ import {
 	ClipboardDocumentListIcon,
 	LockOpenIcon,
 	LockClosedIcon,
+	ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
@@ -69,8 +70,10 @@ const EventTicketing: React.FC = () => {
 	} | null>(null);
 	const [manualCode, setManualCode] = useState("");
 	const [scanProcessing, setScanProcessing] = useState(false);
+	const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
 	const scannerRef = useRef<Html5Qrcode | null>(null);
 	const lastScannedRef = useRef<string>("");
+	const facingModeRef = useRef<"environment" | "user">("environment");
 
 	// Fetch event ID from slug
 	useEffect(() => {
@@ -131,7 +134,8 @@ const EventTicketing: React.FC = () => {
 		};
 	}, [activeTab]);
 
-	const startScanner = useCallback(async () => {
+	const startScanner = useCallback(async (mode?: "environment" | "user") => {
+		const selectedMode = mode || facingModeRef.current;
 		try {
 			const scannerId = "ticket-qr-scanner";
 			const scannerEl = document.getElementById(scannerId);
@@ -141,7 +145,7 @@ const EventTicketing: React.FC = () => {
 			scannerRef.current = html5QrCode;
 
 			await html5QrCode.start(
-				{ facingMode: "environment" },
+				{ facingMode: selectedMode },
 				{ fps: 10, qrbox: { width: 250, height: 250 } },
 				async (decodedText) => {
 					// Prevent duplicate scans
@@ -162,6 +166,15 @@ const EventTicketing: React.FC = () => {
 			Swal.fire("Error", "Gagal membuka kamera. Pastikan izin kamera diaktifkan.", "error");
 		}
 	}, []);
+
+	const switchCamera = useCallback(async () => {
+		const newMode = facingModeRef.current === "environment" ? "user" : "environment";
+		facingModeRef.current = newMode;
+		setFacingMode(newMode);
+		await stopScanner();
+		// Small delay to let the DOM re-render after stopping
+		setTimeout(() => startScanner(newMode), 300);
+	}, [stopScanner, startScanner]);
 
 	const stopScanner = useCallback(async () => {
 		if (scannerRef.current) {
@@ -781,16 +794,28 @@ const EventTicketing: React.FC = () => {
 									<VideoCameraIcon className="w-5 h-5" />
 									Kamera Scanner
 								</h3>
-								<button
-									onClick={scanning ? stopScanner : startScanner}
-									className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-										scanning
-											? "bg-red-600 hover:bg-red-700 text-white"
-											: "bg-green-600 hover:bg-green-700 text-white"
-									}`}
-								>
-									{scanning ? "Stop Kamera" : "Mulai Scan"}
-								</button>
+								<div className="flex items-center gap-2">
+									{scanning && (
+										<button
+											onClick={switchCamera}
+											className="px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5"
+											title={facingMode === "environment" ? "Ganti ke Kamera Depan" : "Ganti ke Kamera Belakang"}
+										>
+											<ArrowPathIcon className="w-4 h-4" />
+											<span className="hidden sm:inline">{facingMode === "environment" ? "Depan" : "Belakang"}</span>
+										</button>
+									)}
+									<button
+										onClick={scanning ? stopScanner : startScanner}
+										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+											scanning
+												? "bg-red-600 hover:bg-red-700 text-white"
+												: "bg-green-600 hover:bg-green-700 text-white"
+										}`}
+									>
+										{scanning ? "Stop Kamera" : "Mulai Scan"}
+									</button>
+								</div>
 							</div>
 
 							{/* QR Scanner viewport */}
@@ -948,7 +973,7 @@ const EventTicketing: React.FC = () => {
 								<button
 									onClick={() => {
 										setScanResult(null);
-										setTimeout(() => startScanner(), 300);
+										setTimeout(() => startScanner(facingModeRef.current), 300);
 									}}
 									className="w-full mt-4 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
 								>
