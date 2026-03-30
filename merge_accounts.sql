@@ -5,7 +5,7 @@
 BEGIN;
 
 -- Create function to merge two users
-CREATE OR REPLACE FUNCTION merge_users(keep_id UUID, remove_id UUID) RETURNS VOID AS $fn$
+CREATE OR REPLACE FUNCTION merge_users(keep_id TEXT, remove_id TEXT) RETURNS VOID AS $fn$
 BEGIN
   -- Update evaluations (jury_id)
   UPDATE evaluations SET jury_id = keep_id WHERE jury_id = remove_id

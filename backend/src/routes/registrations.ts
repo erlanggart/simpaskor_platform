@@ -520,7 +520,7 @@ router.post("/:id/verify-payment", authenticate, async (req: AuthenticatedReques
 		const txStatus = await coreApi.transaction.status(payment.midtransOrderId);
 		const result = resolvePaymentStatus(txStatus.transaction_status, txStatus.fraud_status);
 
-		if (result === "success" && payment.status !== "PAID") {
+		if (result === "success") {
 			await prisma.$transaction(async (tx) => {
 				await tx.registrationPayment.update({
 					where: { id: payment.id },
