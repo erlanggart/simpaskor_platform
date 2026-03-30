@@ -189,7 +189,14 @@ const PesertaRegistrations: React.FC = () => {
 		try {
 			setPayingId(registrationId);
 			const paymentRes = await api.post(`/registrations/${registrationId}/pay`);
-			const { snapToken } = paymentRes.data.payment;
+			const { snapToken, status } = paymentRes.data.payment;
+
+			// Payment was already completed (detected via Midtrans check)
+			if (status === "PAID" && !snapToken) {
+				Swal.fire({ icon: "success", title: "Pembayaran Berhasil!", text: "Pembayaran Anda sudah dikonfirmasi sebelumnya." });
+				fetchRegistrations();
+				return;
+			}
 
 			if (snapToken && isSnapReady) {
 				pay(snapToken, {

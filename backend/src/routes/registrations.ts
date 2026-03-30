@@ -412,11 +412,46 @@ router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => 
 			return res.status(400).json({ error: "Registration fee already paid" });
 		}
 
-		// Generate or update Midtrans order ID
-		let midtransOrderId = existingPayment?.midtransOrderId;
-		if (!midtransOrderId) {
-			midtransOrderId = generateMidtransOrderId(PaymentPrefix.REGISTRATION, registration.id);
+		// If existing order ID exists, check Midtrans status first — payment may have settled but webhook missed
+		if (existingPayment?.midtransOrderId && isMidtransConfigured) {
+			try {
+				const txStatus = await coreApi.transaction.status(existingPayment.midtransOrderId);
+				const result = resolvePaymentStatus(txStatus.transaction_status, txStatus.fraud_status);
+				if (result === "success") {
+					// Payment already settled in Midtrans — update DB and return
+					await prisma.$transaction(async (tx) => {
+						await tx.registrationPayment.update({
+							where: { id: existingPayment.id },
+							data: {
+								status: "PAID",
+								paymentType: txStatus.payment_type || null,
+								paidAt: new Date(txStatus.settlement_time || txStatus.transaction_time),
+							},
+						});
+						await tx.eventParticipation.update({
+							where: { id },
+							data: { status: "REGISTERED" },
+						});
+					});
+					return res.json({
+						message: "Payment already completed",
+						payment: {
+							id: existingPayment.id,
+							amount: existingPayment.amount,
+							status: "PAID",
+							midtransOrderId: existingPayment.midtransOrderId,
+							snapToken: null,
+							redirectUrl: null,
+						},
+					});
+				}
+			} catch {
+				// Midtrans status check failed (e.g. 404 = order expired/not found) — generate new order ID
+			}
 		}
+
+		// Generate new Midtrans order ID (always new to avoid duplicate order rejection)
+		const midtransOrderId = generateMidtransOrderId(PaymentPrefix.REGISTRATION, registration.id);
 
 		// Create or update payment record
 		const payment = await prisma.registrationPayment.upsert({
