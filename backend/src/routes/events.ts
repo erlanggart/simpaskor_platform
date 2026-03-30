@@ -2093,17 +2093,18 @@ router.get("/:slug", async (req: Request, res: Response) => {
 			return res.status(404).json({ message: "Event not found" });
 		}
 
-		// Compute actual currentParticipants from confirmed participations' active groups
-		const confirmedParticipations = event.participations.filter(
-			(p) => p.status === "CONFIRMED" || p.status === "ATTENDED"
+		// Compute actual currentParticipants from all non-cancelled participations' active groups
+		// This prevents overbooking by showing accurate remaining slots
+		const activeParticipations = event.participations.filter(
+			(p) => p.status !== "CANCELLED"
 		);
-		const totalActiveGroups = confirmedParticipations.reduce(
+		const totalActiveGroups = activeParticipations.reduce(
 			(sum, p) => sum + p.groups.length, 0
 		);
 
-		// Compute currentParticipants per school category
+		// Compute currentParticipants per school category (all non-cancelled)
 		const categoryCountMap: Record<string, number> = {};
-		confirmedParticipations.forEach((p) => {
+		activeParticipations.forEach((p) => {
 			p.groups.forEach((g) => {
 				if (g.schoolCategory) {
 					categoryCountMap[g.schoolCategory.id] = (categoryCountMap[g.schoolCategory.id] || 0) + 1;

@@ -256,12 +256,13 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 		for (const [categoryId, count] of Object.entries(categoryUsage)) {
 			const limit = event.schoolCategoryLimits.find(l => l.schoolCategoryId === categoryId);
 			if (limit) {
+				// Count all non-cancelled registrations to prevent overbooking
 				const currentCount = await prisma.participationGroup.count({
 					where: {
 						schoolCategoryId: categoryId,
 						participation: {
 							eventId: validatedData.eventId,
-							status: "CONFIRMED", // Only count confirmed registrations
+							status: { notIn: ["CANCELLED"] },
 						},
 						status: "ACTIVE",
 					},
@@ -269,8 +270,8 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 
 				if (currentCount + count > limit.maxParticipants) {
 					return res.status(400).json({
-						error: `Registration limit exceeded for category ${limit.schoolCategory.name}. Available slots: ${
-							limit.maxParticipants - currentCount
+						error: `Kuota kategori ${limit.schoolCategory.name} sudah penuh. Sisa slot: ${
+							Math.max(0, limit.maxParticipants - currentCount)
 						}`,
 					});
 				}
@@ -410,6 +411,43 @@ router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => 
 
 		if (existingPayment && existingPayment.status === "PAID") {
 			return res.status(400).json({ error: "Registration fee already paid" });
+		}
+
+		// Check quota before opening payment gateway
+		const regGroups = await prisma.participationGroup.findMany({
+			where: { participationId: id, status: "ACTIVE" },
+		});
+		const eventWithLimits = await prisma.event.findUnique({
+			where: { id: registration.eventId },
+			include: { schoolCategoryLimits: { include: { schoolCategory: true } } },
+		});
+		if (eventWithLimits) {
+			const catUsage: Record<string, number> = {};
+			for (const g of regGroups) {
+				if (g.schoolCategoryId) catUsage[g.schoolCategoryId] = (catUsage[g.schoolCategoryId] || 0) + 1;
+			}
+			for (const [catId, needed] of Object.entries(catUsage)) {
+				const limit = eventWithLimits.schoolCategoryLimits.find(l => l.schoolCategoryId === catId);
+				if (limit) {
+					// Count all non-cancelled registrations EXCEPT this one
+					const taken = await prisma.participationGroup.count({
+						where: {
+							schoolCategoryId: catId,
+							participation: {
+								eventId: registration.eventId,
+								status: { notIn: ["CANCELLED", "PENDING_PAYMENT"] },
+								id: { not: id },
+							},
+							status: "ACTIVE",
+						},
+					});
+					if (taken + needed > limit.maxParticipants) {
+						return res.status(400).json({
+							error: `Kuota kategori ${limit.schoolCategory.name} sudah penuh. Sisa slot: ${Math.max(0, limit.maxParticipants - taken)}`,
+						});
+					}
+				}
+			}
 		}
 
 		// If existing order ID exists, check Midtrans status first — payment may have settled but webhook missed
