@@ -1,31 +1,34 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import basicSsl from "@vitejs/plugin-basic-ssl";
+
+const isDocker = process.env.DOCKER === "true" || process.env.NODE_ENV === "production";
+const backendTarget = isDocker ? "http://backend:3001" : "http://localhost:3001";
 
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [
 		react({
-			// Enable React 19 features
 			jsxRuntime: "automatic",
 		}),
-		basicSsl(),
 	],
 	server: {
 		port: 5173,
 		host: true,
-		https: true,
+		allowedHosts: ["simpaskor.id", "www.simpaskor.id"],
+		hmr: isDocker
+			? { host: "simpaskor.id", protocol: "wss", clientPort: 443 }
+			: true,
 		watch: {
 			usePolling: true,
 		},
 		proxy: {
 			"/api": {
-				target: "http://localhost:3001",
+				target: backendTarget,
 				changeOrigin: true,
 				secure: false,
 			},
 			"/uploads": {
-				target: "http://localhost:3001",
+				target: backendTarget,
 				changeOrigin: true,
 				secure: false,
 			},

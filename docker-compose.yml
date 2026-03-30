@@ -53,6 +53,8 @@ services:
     container_name: simpaskor_frontend
     env_file:
       - ./frontend/.env
+    environment:
+      DOCKER: "true"
     ports:
       - "5173:5173"
     volumes:
