@@ -115,7 +115,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 	}
 
 	// Calculate positions for stacked cards
-	const getCardStyle = (index: number) => {
+	const getCardStyle = (index: number): React.CSSProperties => {
 		const diff = index - currentIndex;
 		const totalCards = events.length;
 
@@ -125,53 +125,49 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 			normalizedDiff = diff > 0 ? diff - totalCards : diff + totalCards;
 		}
 
-		// Current card (front)
+		const absDiff = Math.abs(normalizedDiff);
+
+		// Hide cards too far away
+		if (absDiff > 3) {
+			return {
+				transform: `translateX(${normalizedDiff > 0 ? 600 : -600}px) scale(0.75)`,
+				opacity: 0,
+				zIndex: 0,
+				pointerEvents: "none",
+				transition: "all 700ms cubic-bezier(0.4, 0, 0.2, 1)",
+			};
+		}
+
+		// Current card (front center)
 		if (normalizedDiff === 0) {
 			return {
-				transform: "translateX(0) scale(1) translateZ(0)",
+				transform: "translateX(0px) scale(1)",
 				opacity: 1,
 				zIndex: 30,
-				filter: "grayscale(0) brightness(1)",
+				filter: "none",
+				transition: "all 700ms cubic-bezier(0.4, 0, 0.2, 1)",
 			};
 		}
 
-		// Cards on the right (back stack) - more visible stacking
-		if (normalizedDiff > 0) {
-			const offset = Math.min(normalizedDiff, 4);
-			// Increase horizontal offset to show half of each card
-			const horizontalOffset = offset * 160; // Half of card width (320px / 2)
-			// Scale down more gradually
-			const scale = 1 - offset * 0.05;
-			// More depth with translateZ
-			const depth = -offset * 80;
-
-			return {
-				transform: `translateX(${horizontalOffset}px) scale(${scale}) translateZ(${depth}px)`,
-				opacity: 0.8 - offset * 0.1,
-				zIndex: 30 - offset,
-				filter: "grayscale(1) brightness(0.6)",
-			};
-		}
-
-		// Cards on the left (previous cards stack) - mirror the right stack
-		const offset = Math.min(Math.abs(normalizedDiff), 4);
-		// Negative horizontal offset to show on the left
-		const horizontalOffset = -offset * 160; // Half of card width to the left
-		// Same scale down
-		const scale = 1 - offset * 0.05;
-		// Same depth
-		const depth = -offset * 80;
+		// Side cards
+		const direction = normalizedDiff > 0 ? 1 : -1;
+		const offset = Math.min(absDiff, 3);
+		const xOffset = direction * offset * 120;
+		const scale = 1 - offset * 0.08;
+		const opacity = 1 - offset * 0.25;
 
 		return {
-			transform: `translateX(${horizontalOffset}px) scale(${scale}) translateZ(${depth}px)`,
-			opacity: 0.8 - offset * 0.1,
+			transform: `translateX(${xOffset}px) scale(${scale})`,
+			opacity,
 			zIndex: 30 - offset,
-			filter: "grayscale(1) brightness(0.5)",
+			filter: `grayscale(${offset * 0.4}) brightness(${1 - offset * 0.15})`,
+			pointerEvents: "none",
+			transition: "all 700ms cubic-bezier(0.4, 0, 0.2, 1)",
 		};
 	};
 
 	return (
-		<section className="relative  overflow-hidden py-16 md:py-20 transition-colors">
+		<section className="relative py-16 md:py-20 transition-colors">
 			{/* Background decoration */}
 			{/* <div className="absolute inset-0 overflow-hidden">
 				<div className="absolute -top-40 -right-40 w-96 h-96 bg-red-400 dark:bg-blue-900 rounded-full mix-blend-multiply filter blur-3xl opacity-30 dark:opacity-20 animate-pulse"></div>
@@ -193,7 +189,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 				</div>
 
 				{/* Stacked Cards Container */}
-				<div className="relative h-[50vh] md:h-[50vh] flex items-center justify-center perspective-1000">
+				<div className="relative h-[420px] md:h-[440px] flex items-center justify-center">
 					{events.map((event, index) => {
 						const style = getCardStyle(index);
 						const isActive = index === currentIndex;
@@ -202,11 +198,8 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ events }) => {
 						return (
 							<div
 								key={event.id}
-								className="absolute transition-all duration-700 ease-out"
-								style={{
-									...style,
-									transitionProperty: "transform, opacity, filter",
-								}}
+								className="absolute will-change-transform"
+								style={style}
 							>
 								{/* Card - 4:5 Aspect Ratio (Portrait) - Full Image */}
 								<div

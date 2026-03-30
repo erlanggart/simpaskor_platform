@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { CalendarIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
@@ -26,52 +26,52 @@ const getPositionStyle = (
 	offset: number
 ): React.CSSProperties => {
 	switch (offset) {
-		case -2: // far left — hidden behind left card
+		case -2: // far left — mostly hidden
 			return {
-				transform: "translateX(-35%) scale(0.78) rotateY(8deg)",
+				transform: "translateX(-70%) scale(0.75)",
 				zIndex: 0,
 				opacity: 0,
-				filter: "brightness(0.3)",
+				filter: "brightness(0.3) grayscale(1)",
 				pointerEvents: "none",
 			};
 		case -1: // left
 			return {
-				transform: "translateX(-25%) scale(0.88) rotateY(5deg)",
+				transform: "translateX(-40%) scale(0.88)",
 				zIndex: 2,
-				opacity: 0.75,
-				filter: "brightness(0.4)",
+				opacity: 0.7,
+				filter: "brightness(0.5) grayscale(0.8)",
 				pointerEvents: "none",
 			};
 		case 0: // center (active)
 			return {
-				transform: "translateX(0%) scale(1) rotateY(0deg)",
+				transform: "translateX(0%) scale(1)",
 				zIndex: 10,
 				opacity: 1,
-				filter: "brightness(1)",
+				filter: "brightness(1) grayscale(0)",
 				pointerEvents: "auto",
 			};
 		case 1: // right
 			return {
-				transform: "translateX(25%) scale(0.88) rotateY(-5deg)",
+				transform: "translateX(40%) scale(0.88)",
 				zIndex: 2,
-				opacity: 0.75,
-				filter: "brightness(0.4)",
+				opacity: 0.7,
+				filter: "brightness(0.5) grayscale(0.8)",
 				pointerEvents: "none",
 			};
-		case 2: // far right — hidden behind right card
+		case 2: // far right — mostly hidden
 			return {
-				transform: "translateX(35%) scale(0.78) rotateY(-8deg)",
+				transform: "translateX(70%) scale(0.75)",
 				zIndex: 0,
 				opacity: 0,
-				filter: "brightness(0.3)",
+				filter: "brightness(0.3) grayscale(1)",
 				pointerEvents: "none",
 			};
 		default: // completely hidden
 			return {
-				transform: `translateX(${offset > 0 ? "40%" : "-40%"}) scale(0.7)`,
+				transform: `translateX(${offset > 0 ? "80%" : "-80%"}) scale(0.7)`,
 				zIndex: 0,
 				opacity: 0,
-				filter: "brightness(0.2)",
+				filter: "brightness(0.2) grayscale(1)",
 				pointerEvents: "none",
 			};
 	}
@@ -127,20 +127,18 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 		return () => clearInterval(interval);
 	}, [isAutoPlaying, events.length, goNext]);
 
-	// Calculate which cards to render (5 around current) with their offsets
-	const visibleCards = useMemo(() => {
-		if (events.length === 0) return [];
-		if (events.length === 1) return [{ eventIndex: 0, offset: 0 }];
-
-		const cards: { eventIndex: number; offset: number }[] = [];
-		for (let off = -2; off <= 2; off++) {
-			const idx =
-				((currentIndex + off) % events.length + events.length) %
-				events.length;
-			cards.push({ eventIndex: idx, offset: off });
-		}
-		return cards;
-	}, [currentIndex, events.length]);
+	// Calculate offset from center for each event (stable per event)
+	const getOffset = useCallback(
+		(index: number): number => {
+			const total = events.length;
+			let diff = index - currentIndex;
+			// Normalize to shortest circular path
+			if (diff > total / 2) diff -= total;
+			if (diff < -total / 2) diff += total;
+			return diff;
+		},
+		[currentIndex, events.length]
+	);
 
 	if (events.length === 0) return null;
 
@@ -151,23 +149,21 @@ const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({ events }) => {
 			className="relative"
 			onMouseEnter={() => setIsAutoPlaying(false)}
 			onMouseLeave={() => setIsAutoPlaying(true)}
-			style={{ perspective: "1200px" }}
 		>
 			{/* Cards container */}
 			<div
 				className="relative group"
 				style={{ width: "280px", height: "370px" }}
 			>
-				{visibleCards.map(({ eventIndex, offset }) => {
-					const evt = events[eventIndex];
-					if (!evt) return null;
+				{events.map((evt, index) => {
+					const offset = getOffset(index);
 					const isCenter = offset === 0;
 					const posStyle = getPositionStyle(offset);
 
 					return (
 						<div
-							key={`${evt.id}-${offset}`}
-							className="absolute inset-0"
+							key={evt.id}
+							className="absolute inset-0 will-change-transform"
 							style={{
 								...posStyle,
 								transformOrigin: "center center",
