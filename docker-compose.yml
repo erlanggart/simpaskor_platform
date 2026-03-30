@@ -43,7 +43,7 @@ services:
         condition: service_healthy
     networks:
       - simpaskor-network
-    command: sh -c "npx prisma generate && npx prisma db push --accept-data-loss && npm run dev"
+    command: sh -c "npm install && npx prisma generate && npx prisma db push --accept-data-loss && npm run dev"
 
   # Frontend React App
   frontend:
@@ -64,7 +64,7 @@ services:
       - backend
     networks:
       - simpaskor-network
-    command: npm run dev
+    command: sh -c "npm install && npm run dev"
 
   # pgAdmin (Optional database management)
   pgadmin:
