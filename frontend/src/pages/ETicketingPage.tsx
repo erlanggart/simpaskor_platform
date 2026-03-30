@@ -234,6 +234,18 @@ const ETicketingPage: React.FC = () => {
 							totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
 							message: "Pembayaran berhasil! Tiket Anda sudah aktif. E-Ticket akan dikirim ke email Anda.",
 						});
+						// Send ticket email immediately via API
+						setTimeout(() => {
+							const qrCanvas = document.getElementById("ticket-qr-canvas") as HTMLCanvasElement;
+							const qrImageBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
+							if (qrImageBase64) {
+								api.post("/tickets/send-email", {
+									ticketCode: res.data.ticket.ticketCode,
+									email: buyerEmail.trim(),
+									qrImageBase64,
+								}).catch((err) => console.error("Send ticket email failed:", err));
+							}
+						}, 1500);
 						fetchEvents();
 					},
 					onPending: () => {

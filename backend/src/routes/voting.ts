@@ -12,6 +12,7 @@ import {
 	generateMidtransOrderId,
 	PaymentPrefix,
 } from "../lib/midtrans";
+import { sendVotingPurchaseEmail } from "../lib/email";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -478,6 +479,53 @@ router.get("/check/:purchaseCode", async (req: AuthenticatedRequest, res: Respon
 	} catch (error) {
 		console.error("Error checking purchase:", error);
 		res.status(500).json({ error: "Gagal memeriksa pembelian" });
+	}
+});
+
+// ==========================================
+// SEND VOTING CODE TO EMAIL
+// ==========================================
+
+// POST /api/voting/send-email - Send voting purchase code to email
+router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const { purchaseCode, email } = req.body;
+
+		if (!purchaseCode || !email) {
+			return res.status(400).json({ error: "Kode pembelian dan email wajib diisi" });
+		}
+
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			return res.status(400).json({ error: "Format email tidak valid" });
+		}
+
+		const purchase = await prisma.votingPurchase.findUnique({
+			where: { purchaseCode },
+			include: {
+				event: {
+					select: { title: true },
+				},
+			},
+		});
+
+		if (!purchase) {
+			return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
+		}
+
+		await sendVotingPurchaseEmail({
+			to: email,
+			buyerName: purchase.buyerName,
+			purchaseCode: purchase.purchaseCode,
+			eventTitle: purchase.event.title,
+			voteCount: purchase.voteCount,
+			totalAmount: purchase.totalAmount,
+		});
+
+		res.json({ message: "Kode vote berhasil dikirim ke email" });
+	} catch (error: any) {
+		console.error("Error sending voting email:", error);
+		res.status(500).json({ error: "Gagal mengirim email. Pastikan konfigurasi SMTP sudah benar." });
 	}
 });
 

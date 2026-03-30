@@ -46,7 +46,8 @@ router.post("/notification", async (req: Request, res: Response) => {
 		// Verify signature
 		if (!verifySignature({ order_id, status_code, gross_amount, signature_key })) {
 			console.error("Invalid Midtrans signature for order:", order_id);
-			return res.status(403).json({ error: "Invalid signature" });
+			// Return 200 to prevent Midtrans from retrying (test notifications have invalid signatures)
+			return res.status(200).json({ status: "ok", message: "Invalid signature, ignored" });
 		}
 
 		const paymentResult = resolvePaymentStatus(transaction_status, fraud_status);

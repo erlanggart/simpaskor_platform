@@ -203,11 +203,16 @@ const EVotingPage: React.FC = () => {
 								<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
 								<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
 								<p><strong>Total:</strong> ${formatCurrency(totalAmount)}</p>
-								<p class="text-sm text-gray-500 mt-3">Kode vote juga akan dikirim ke email Anda.</p>
+								<p class="text-sm text-gray-500 mt-3">Kode vote juga dikirim ke email Anda.</p>
 							</div>`,
 							icon: "success",
 							confirmButtonColor: "#dc2626",
 						});
+						// Send voting code email immediately via API
+						api.post("/voting/send-email", {
+							purchaseCode,
+							email: buyerEmail.trim(),
+						}).catch((err) => console.error("Send voting email failed:", err));
 					},
 					onPending: () => {
 						Swal.fire({
