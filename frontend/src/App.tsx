@@ -23,6 +23,7 @@ const Unauthorized = lazy(() => import("./pages/Unauthorized"));
 const AllJuries = lazy(() => import("./pages/AllJuries"));
 const AllPelatih = lazy(() => import("./pages/AllPelatih"));
 const EventsPage = lazy(() => import("./pages/EventsPage"));
+const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
 
 // Auth Pages
 const Login = lazy(() => import("./pages/Login"));
@@ -99,6 +100,7 @@ function App() {
 						<Route path="juries" element={<AllJuries />} />
 						<Route path="pelatih" element={<AllPelatih />} />
 						<Route path="unauthorized" element={<Unauthorized />} />
+						<Route path="payment/success" element={<PaymentSuccessPage />} />
 					</Route>
 					{/* Auth Routes - Auth Layout */}
 					<Route element={<AuthLayout />}>
