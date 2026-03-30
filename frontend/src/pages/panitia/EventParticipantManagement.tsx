@@ -553,8 +553,11 @@ const EventParticipantManagement: React.FC = () => {
 													const pasukan = members.filter((m) => m.role === "PASUKAN");
 													const danton = members.find((m) => m.role === "DANTON");
 													const cadangan = members.filter((m) => m.role === "CADANGAN");
-											const official = members.filter((m) => m.role === "OFFICIAL");
-											const pelatih = members.filter((m) => m.role === "PELATIH");
+													const official = members.filter((m) => m.role === "OFFICIAL");
+													const pelatih = members.filter((m) => m.role === "PELATIH");
+
+													return (
+														<div
 															key={group.id}
 															className={`bg-white dark:bg-gray-900 border rounded-lg overflow-hidden ${
 																group.status === "CANCELLED"
