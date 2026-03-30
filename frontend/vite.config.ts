@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import fs from "fs";
 import path from "path";
 
+const isDocker = process.env.DOCKER === "true";
+
 // Load local overrides from vite.config.local.json if exists (gitignored)
 let localConfig: { https?: boolean; backendTarget?: string } = {};
 const localJsonPath = path.resolve(__dirname, "vite.config.local.json");
@@ -10,8 +12,8 @@ if (fs.existsSync(localJsonPath)) {
 	localConfig = JSON.parse(fs.readFileSync(localJsonPath, "utf-8"));
 }
 
-const useHttps = localConfig.https ?? false;
-const backendTarget = localConfig.backendTarget ?? "http://localhost:3001";
+const useHttps = !isDocker && (localConfig.https ?? false);
+const backendTarget = localConfig.backendTarget ?? (isDocker ? "http://backend:3001" : "http://localhost:3001");
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => {
@@ -31,6 +33,10 @@ export default defineConfig(async () => {
 		server: {
 			port: 5173,
 			host: true,
+			...(isDocker && {
+				allowedHosts: ["simpaskor.id", "www.simpaskor.id"],
+				hmr: { host: "simpaskor.id", protocol: "wss", clientPort: 443 },
+			}),
 			watch: {
 				usePolling: true,
 			},
