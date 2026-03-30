@@ -553,9 +553,8 @@ const EventParticipantManagement: React.FC = () => {
 													const pasukan = members.filter((m) => m.role === "PASUKAN");
 													const danton = members.find((m) => m.role === "DANTON");
 													const cadangan = members.filter((m) => m.role === "CADANGAN");
-
-													return (
-														<div
+											const official = members.filter((m) => m.role === "OFFICIAL");
+											const pelatih = members.filter((m) => m.role === "PELATIH");
 															key={group.id}
 															className={`bg-white dark:bg-gray-900 border rounded-lg overflow-hidden ${
 																group.status === "CANCELLED"
@@ -721,6 +720,68 @@ const EventParticipantManagement: React.FC = () => {
 																						) : (
 																							<div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
 																								<UserIcon className="w-4 h-4 text-gray-500" />
+																							</div>
+																						)}
+																						<p className="text-xs font-medium text-gray-900 dark:text-white line-clamp-1">{member.name}</p>
+																					</div>
+																				))}
+																			</div>
+																		</div>
+																	)}
+
+																	{/* Official */}
+																	{official.length > 0 && (
+																		<div>
+																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+																				<span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+																				Official ({official.length} orang)
+																			</h5>
+																			<div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+																				{official.map((member, idx) => (
+																					<div key={member.id || idx} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-600 rounded-lg">
+																						{member.photo ? (
+																							<img
+																								src={getImageUrl(member.photo) || ""}
+																								alt={member.name}
+																								className="w-8 h-8 rounded-full object-cover border border-blue-300"
+																								onError={(e) => {
+																									e.currentTarget.style.display = "none";
+																								}}
+																							/>
+																						) : (
+																							<div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+																								<UserIcon className="w-4 h-4 text-blue-500" />
+																							</div>
+																						)}
+																						<p className="text-xs font-medium text-gray-900 dark:text-white line-clamp-1">{member.name}</p>
+																					</div>
+																				))}
+																			</div>
+																		</div>
+																	)}
+
+																	{/* Pelatih */}
+																	{pelatih.length > 0 && (
+																		<div>
+																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+																				<span className="w-2 h-2 bg-green-500 rounded-full"></span>
+																				Pelatih ({pelatih.length} orang)
+																			</h5>
+																			<div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+																				{pelatih.map((member, idx) => (
+																					<div key={member.id || idx} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 border border-green-200 dark:border-green-600 rounded-lg">
+																						{member.photo ? (
+																							<img
+																								src={getImageUrl(member.photo) || ""}
+																								alt={member.name}
+																								className="w-8 h-8 rounded-full object-cover border border-green-300"
+																								onError={(e) => {
+																									e.currentTarget.style.display = "none";
+																								}}
+																							/>
+																						) : (
+																							<div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+																								<UserIcon className="w-4 h-4 text-green-500" />
 																							</div>
 																						)}
 																						<p className="text-xs font-medium text-gray-900 dark:text-white line-clamp-1">{member.name}</p>

@@ -56,7 +56,7 @@ export interface PersonMember {
 	id?: string;
 	name: string;
 	photo?: string; // URL to uploaded photo
-	role: 'PASUKAN' | 'DANTON' | 'CADANGAN';
+	role: 'PASUKAN' | 'DANTON' | 'CADANGAN' | 'OFFICIAL' | 'PELATIH';
 }
 
 export interface ParticipationGroup {

@@ -407,6 +407,8 @@ const PesertaRegistrations: React.FC = () => {
 													const pasukan = members.filter(m => m.role === 'PASUKAN');
 													const danton = members.find(m => m.role === 'DANTON');
 													const cadangan = members.filter(m => m.role === 'CADANGAN');
+													const official = members.filter(m => m.role === 'OFFICIAL');
+													const pelatih = members.filter(m => m.role === 'PELATIH');
 
 													return (
 														<div
@@ -567,6 +569,74 @@ const PesertaRegistrations: React.FC = () => {
 																						<div>
 																							<p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{member.name}</p>
 																							<p className="text-xs text-gray-500 dark:text-gray-400">Cadangan</p>
+																						</div>
+																					</div>
+																				))}
+																			</div>
+																		</div>
+																	)}
+
+																	{/* Official */}
+																	{official.length > 0 && (
+																		<div>
+																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+																				<span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+																				Official ({official.length} orang)
+																			</h5>
+																			<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+																				{official.map((member, idx) => (
+																					<div key={member.id || idx} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-600 rounded-lg">
+																						{member.photo ? (
+																							<img
+																								src={getImageUrl(member.photo) || ''}
+																								alt={member.name}
+																								className="w-10 h-10 rounded-full object-cover border border-blue-300"
+																								onError={(e) => {
+																									e.currentTarget.style.display = 'none';
+																								}}
+																							/>
+																						) : (
+																							<div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+																								<UserIcon className="w-5 h-5 text-blue-500" />
+																							</div>
+																						)}
+																						<div>
+																							<p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{member.name}</p>
+																							<p className="text-xs text-blue-500 dark:text-blue-400">Official</p>
+																						</div>
+																					</div>
+																				))}
+																			</div>
+																		</div>
+																	)}
+
+																	{/* Pelatih */}
+																	{pelatih.length > 0 && (
+																		<div>
+																			<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+																				<span className="w-2 h-2 bg-green-500 rounded-full"></span>
+																				Pelatih ({pelatih.length} orang)
+																			</h5>
+																			<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+																				{pelatih.map((member, idx) => (
+																					<div key={member.id || idx} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-900 border border-green-200 dark:border-green-600 rounded-lg">
+																						{member.photo ? (
+																							<img
+																								src={getImageUrl(member.photo) || ''}
+																								alt={member.name}
+																								className="w-10 h-10 rounded-full object-cover border border-green-300"
+																								onError={(e) => {
+																									e.currentTarget.style.display = 'none';
+																								}}
+																							/>
+																						) : (
+																							<div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+																								<UserIcon className="w-5 h-5 text-green-500" />
+																							</div>
+																						)}
+																						<div>
+																							<p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{member.name}</p>
+																							<p className="text-xs text-green-500 dark:text-green-400">Pelatih</p>
 																						</div>
 																					</div>
 																				))}

@@ -57,6 +57,8 @@ interface TeamData {
 	pasukan: PersonMember[];
 	danton: PersonMember;
 	cadangan: PersonMember[];
+	official: PersonMember[];
+	pelatih: PersonMember[];
 	notes: string;
 }
 
@@ -74,6 +76,8 @@ const createInitialTeam = (name: string, categoryId: string = ""): TeamData => (
 	pasukan: Array.from({ length: 6 }, () => createEmptyMember()), // Default 6 pasukan
 	danton: createEmptyMember(),
 	cadangan: [], // Start empty, add as needed
+	official: [], // Start empty, add as needed
+	pelatih: [], // Start empty, add as needed
 	notes: "",
 });
 
@@ -162,7 +166,7 @@ const EventRegister: React.FC = () => {
 	};
 
 	const getTotalMembers = (team: TeamData): number => {
-		return team.pasukan.length + 1 + team.cadangan.length; // pasukan + danton + cadangan
+		return team.pasukan.length + 1 + team.cadangan.length + team.official.length + team.pelatih.length; // pasukan + danton + cadangan + official + pelatih
 	};
 
 	const addTeam = () => {
@@ -198,7 +202,7 @@ const EventRegister: React.FC = () => {
 	// Update member in specific role array
 	const updateMember = (
 		teamId: string,
-		role: "pasukan" | "danton" | "cadangan",
+		role: "pasukan" | "danton" | "cadangan" | "official" | "pelatih",
 		memberId: string,
 		field: keyof PersonMember,
 		value: any
@@ -224,7 +228,7 @@ const EventRegister: React.FC = () => {
 	// Handle photo upload for a member
 	const handleMemberPhoto = (
 		teamId: string,
-		role: "pasukan" | "danton" | "cadangan",
+		role: "pasukan" | "danton" | "cadangan" | "official" | "pelatih",
 		memberId: string,
 		file: File | null
 	) => {
@@ -269,7 +273,7 @@ const EventRegister: React.FC = () => {
 	};
 
 	// Add/remove members from role arrays
-	const addMemberToRole = (teamId: string, role: "pasukan" | "cadangan") => {
+	const addMemberToRole = (teamId: string, role: "pasukan" | "cadangan" | "official" | "pelatih") => {
 		setTeams(
 			teams.map((t) => {
 				if (t.id !== teamId) return t;
@@ -278,7 +282,7 @@ const EventRegister: React.FC = () => {
 		);
 	};
 
-	const removeMemberFromRole = (teamId: string, role: "pasukan" | "cadangan", memberId: string) => {
+	const removeMemberFromRole = (teamId: string, role: "pasukan" | "cadangan" | "official" | "pelatih", memberId: string) => {
 		setTeams(
 			teams.map((t) => {
 				if (t.id !== teamId) return t;
@@ -451,7 +455,23 @@ const EventRegister: React.FC = () => {
 						}))
 					);
 
-					const allMembers = [...pasukanWithPhotos, dantonData, ...cadanganWithPhotos];
+					const officialWithPhotos = await Promise.all(
+						team.official.map(async (m) => ({
+							name: m.name.trim(),
+							photo: await uploadMemberPhoto(m.photo),
+							role: "OFFICIAL",
+						}))
+					);
+
+					const pelatihWithPhotos = await Promise.all(
+						team.pelatih.map(async (m) => ({
+							name: m.name.trim(),
+							photo: await uploadMemberPhoto(m.photo),
+							role: "PELATIH",
+						}))
+					);
+
+					const allMembers = [...pasukanWithPhotos, dantonData, ...cadanganWithPhotos, ...officialWithPhotos, ...pelatihWithPhotos];
 					const memberNames = allMembers.filter(m => m.name).map(m => m.name);
 					const totalMembers = allMembers.length;
 
@@ -1021,6 +1041,139 @@ const EventRegister: React.FC = () => {
 												</button>
 												</div>
 											</div>
+
+											{/* Official Section */}
+											<div className="mb-4">
+												<div className="mb-3">
+													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+														Official ({team.official.length} orang)
+													</h4>
+												</div>
+												<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+													{team.official.map((member, idx) => (
+														<div
+															key={member.id}
+															className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 sm:p-3 relative group border border-blue-200 dark:border-blue-700"
+														>
+															<button
+																type="button"
+																onClick={() => removeMemberFromRole(team.id, "official", member.id)}
+																className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+															>
+																×
+															</button>
+															<div className="flex justify-center mb-2">
+																<label className="relative cursor-pointer">
+																	<div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-500">
+																		{member.photoPreview ? (
+																			<img
+																				src={member.photoPreview}
+																				alt={member.name || `Official ${idx + 1}`}
+																				className="w-full h-full object-cover"
+																			/>
+																		) : (
+																			<CameraIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+																		)}
+																	</div>
+																	<input
+																		type="file"
+																		accept="image/jpeg,image/png,image/jpg"
+																		onChange={(e) => {
+																			const file = e.target.files?.[0];
+																			if (file) handleMemberPhoto(team.id, "official", member.id, file);
+																		}}
+																		className="hidden"
+																	/>
+																</label>
+															</div>
+															<input
+																type="text"
+																value={member.name}
+																onChange={(e) =>
+																	updateMember(team.id, "official", member.id, "name", e.target.value)
+																}
+																placeholder={`Official ${idx + 1}`}
+																className="w-full px-2 py-1 text-xs border border-blue-300 dark:border-blue-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
+															/>
+														</div>
+													))}
+												<button
+													type="button"
+													onClick={() => addMemberToRole(team.id, "official")}
+													className="flex flex-col items-center justify-center bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-500 transition-colors min-h-[90px]"
+												>
+													<PlusIcon className="w-5 h-5 text-blue-400 hover:text-blue-500" />
+													<span className="text-xs text-blue-500 dark:text-blue-400 mt-1">Tambah</span>
+												</button>
+												</div>
+											</div>
+
+											{/* Pelatih Section */}
+											<div className="mb-4">
+												<div className="mb-3">
+													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+														Pelatih ({team.pelatih.length} orang)
+													</h4>
+												</div>
+												<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+													{team.pelatih.map((member, idx) => (
+														<div
+															key={member.id}
+															className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 sm:p-3 relative group border border-green-200 dark:border-green-700"
+														>
+															<button
+																type="button"
+																onClick={() => removeMemberFromRole(team.id, "pelatih", member.id)}
+																className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+															>
+																×
+															</button>
+															<div className="flex justify-center mb-2">
+																<label className="relative cursor-pointer">
+																	<div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-green-300 dark:border-green-600 hover:border-green-500">
+																		{member.photoPreview ? (
+																			<img
+																				src={member.photoPreview}
+																				alt={member.name || `Pelatih ${idx + 1}`}
+																				className="w-full h-full object-cover"
+																			/>
+																		) : (
+																			<CameraIcon className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+																		)}
+																	</div>
+																	<input
+																		type="file"
+																		accept="image/jpeg,image/png,image/jpg"
+																		onChange={(e) => {
+																			const file = e.target.files?.[0];
+																			if (file) handleMemberPhoto(team.id, "pelatih", member.id, file);
+																		}}
+																		className="hidden"
+																	/>
+																</label>
+															</div>
+															<input
+																type="text"
+																value={member.name}
+																onChange={(e) =>
+																	updateMember(team.id, "pelatih", member.id, "name", e.target.value)
+																}
+																placeholder={`Pelatih ${idx + 1}`}
+																className="w-full px-2 py-1 text-xs border border-green-300 dark:border-green-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
+															/>
+														</div>
+													))}
+												<button
+													type="button"
+													onClick={() => addMemberToRole(team.id, "pelatih")}
+													className="flex flex-col items-center justify-center bg-green-50 dark:bg-green-900/10 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-green-300 dark:border-green-600 hover:border-green-500 transition-colors min-h-[90px]"
+												>
+													<PlusIcon className="w-5 h-5 text-green-400 hover:text-green-500" />
+													<span className="text-xs text-green-500 dark:text-green-400 mt-1">Tambah</span>
+												</button>
+												</div>
+											</div>
+
 											<div>
 												<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 													Catatan (Opsional)
@@ -1075,6 +1228,18 @@ const EventRegister: React.FC = () => {
 											<span className="text-gray-500 dark:text-gray-400 text-xs">Cadangan</span>
 											<span className="font-medium text-gray-900 dark:text-white text-xs">
 												{teams.reduce((sum, t) => sum + t.cadangan.length, 0)} orang
+											</span>
+										</div>
+										<div className="flex justify-between pl-2">
+											<span className="text-gray-500 dark:text-gray-400 text-xs">Official</span>
+											<span className="font-medium text-gray-900 dark:text-white text-xs">
+												{teams.reduce((sum, t) => sum + t.official.length, 0)} orang
+											</span>
+										</div>
+										<div className="flex justify-between pl-2">
+											<span className="text-gray-500 dark:text-gray-400 text-xs">Pelatih</span>
+											<span className="font-medium text-gray-900 dark:text-white text-xs">
+												{teams.reduce((sum, t) => sum + t.pelatih.length, 0)} orang
 											</span>
 										</div>
 									</div>
