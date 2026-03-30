@@ -4,7 +4,7 @@ import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
 import { TicketedEvent } from "../types/ticket";
-import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload } from "react-icons/lu";
+import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload, LuSend } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 
@@ -34,6 +34,10 @@ const ETicketingPage: React.FC = () => {
 	const [buyerEmail, setBuyerEmail] = useState(user?.email || "");
 	const [buyerPhone, setBuyerPhone] = useState("");
 	const [quantity, setQuantity] = useState(1);
+
+	// Send ticket to email
+	const [sendEmail, setSendEmail] = useState("");
+	const [sendingEmail, setSendingEmail] = useState(false);
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -133,7 +137,39 @@ const ETicketingPage: React.FC = () => {
 	const openPurchaseModal = (event: TicketedEvent) => {
 		setSelectedEvent(event);
 		setQuantity(1);
+		setSendEmail("");
 		setShowPurchaseModal(true);
+	};
+
+	const handleSendEmail = async () => {
+		if (!ticketResult || !sendEmail.trim()) {
+			Swal.fire("Error", "Masukkan email tujuan", "error");
+			return;
+		}
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(sendEmail.trim())) {
+			Swal.fire("Error", "Format email tidak valid", "error");
+			return;
+		}
+
+		try {
+			setSendingEmail(true);
+			// Generate QR code as base64 from hidden canvas
+			const qrCanvas = document.getElementById("ticket-qr-canvas") as HTMLCanvasElement;
+			const qrImageBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
+
+			await api.post("/tickets/send-email", {
+				ticketCode: ticketResult.ticketCode,
+				email: sendEmail.trim(),
+				qrImageBase64,
+			});
+
+			Swal.fire("Berhasil", `Tiket berhasil dikirim ke ${sendEmail.trim()}`, "success");
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengirim email", "error");
+		} finally {
+			setSendingEmail(false);
+		}
 	};
 
 	const handlePurchase = async () => {
@@ -666,6 +702,30 @@ const ETicketingPage: React.FC = () => {
 							</p>
 						</div>
 
+						{/* Send to Email */}
+						<div className="px-6 pb-3">
+							<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5 text-left">
+								Kirim tiket ke email
+							</label>
+							<div className="flex gap-2">
+								<input
+									type="email"
+									value={sendEmail}
+									onChange={(e) => setSendEmail(e.target.value)}
+									placeholder="Masukkan email tujuan"
+									className="flex-1 px-3 py-2 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+								/>
+								<button
+									onClick={handleSendEmail}
+									disabled={sendingEmail || !sendEmail.trim()}
+									className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+								>
+									<LuSend className="w-4 h-4" />
+									{sendingEmail ? "Mengirim..." : "Kirim"}
+								</button>
+							</div>
+						</div>
+
 						{/* Download Button */}
 						<div className="px-6 pb-6">
 							<button
@@ -766,12 +826,17 @@ const ETicketingPage: React.FC = () => {
 									link.download = `ticket-${ticketResult.ticketCode}.png`;
 									link.href = canvas.toDataURL("image/png");
 									link.click();
-									setTicketResult(null);
 								}}
 								className="w-full flex items-center justify-center gap-2 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors"
 							>
 								<LuDownload className="w-5 h-5" />
 								Unduh Tiket
+							</button>
+							<button
+								onClick={() => setTicketResult(null)}
+								className="w-full py-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm font-medium transition-colors"
+							>
+								Tutup
 							</button>
 						</div>
 					</div>

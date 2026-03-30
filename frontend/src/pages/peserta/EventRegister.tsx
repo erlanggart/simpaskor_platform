@@ -485,7 +485,11 @@ const EventRegister: React.FC = () => {
 				if (snapToken && isSnapReady) {
 					await new Promise<void>((resolve) => {
 						pay(snapToken, {
-							onSuccess: () => {
+							onSuccess: async () => {
+								// Verify payment status directly with Midtrans to avoid race condition with webhook
+								try {
+									await api.post(`/registrations/${registration.id}/verify-payment`);
+								} catch {}
 								Swal.fire({
 									icon: "success",
 									title: "Pembayaran Berhasil!",

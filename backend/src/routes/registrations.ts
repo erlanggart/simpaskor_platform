@@ -7,6 +7,8 @@ import {
 	generateMidtransOrderId,
 	isMidtransConfigured,
 	PaymentPrefix,
+	coreApi,
+	resolvePaymentStatus,
 } from "../lib/midtrans";
 
 const router = express.Router();
@@ -489,6 +491,57 @@ router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => 
 	} catch (error) {
 		console.error("Error initiating payment:", error);
 		res.status(500).json({ error: "Failed to initiate payment" });
+	}
+});
+
+// POST /api/registrations/:id/verify-payment - Verify payment status directly with Midtrans
+router.post("/:id/verify-payment", authenticate, async (req: AuthenticatedRequest, res) => {
+	try {
+		const userId = req.user!.userId;
+		const { id } = req.params;
+
+		const payment = await prisma.registrationPayment.findFirst({
+			where: { participationId: id, userId },
+		});
+
+		if (!payment) {
+			return res.status(404).json({ error: "Payment not found" });
+		}
+
+		if (payment.status === "PAID") {
+			return res.json({ status: "PAID", message: "Pembayaran sudah dikonfirmasi" });
+		}
+
+		if (!payment.midtransOrderId) {
+			return res.status(400).json({ error: "No Midtrans order ID" });
+		}
+
+		// Check status directly with Midtrans
+		const txStatus = await coreApi.transaction.status(payment.midtransOrderId);
+		const result = resolvePaymentStatus(txStatus.transaction_status, txStatus.fraud_status);
+
+		if (result === "success" && payment.status !== "PAID") {
+			await prisma.$transaction(async (tx) => {
+				await tx.registrationPayment.update({
+					where: { id: payment.id },
+					data: {
+						status: "PAID",
+						paymentType: txStatus.payment_type || null,
+						paidAt: new Date(),
+					},
+				});
+				await tx.eventParticipation.update({
+					where: { id: payment.participationId },
+					data: { status: "REGISTERED" },
+				});
+			});
+			return res.json({ status: "PAID", message: "Pembayaran berhasil dikonfirmasi" });
+		}
+
+		res.json({ status: payment.status, midtransStatus: txStatus.transaction_status });
+	} catch (error) {
+		console.error("Error verifying payment:", error);
+		res.status(500).json({ error: "Gagal memverifikasi pembayaran" });
 	}
 });
 

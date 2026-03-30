@@ -12,6 +12,7 @@ import {
 	generateMidtransOrderId,
 	PaymentPrefix,
 } from "../lib/midtrans";
+import { sendTicketEmail } from "../lib/email";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -323,6 +324,57 @@ router.get("/check/:ticketCode", async (req: AuthenticatedRequest, res: Response
 	} catch (error) {
 		console.error("Error checking ticket:", error);
 		res.status(500).json({ error: "Gagal memeriksa tiket" });
+	}
+});
+
+// ==========================================
+// SEND TICKET TO EMAIL
+// ==========================================
+
+// POST /api/tickets/send-email - Send ticket QR code to email
+router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const { ticketCode, email, qrImageBase64 } = req.body;
+
+		if (!ticketCode || !email || !qrImageBase64) {
+			return res.status(400).json({ error: "Kode tiket, email, dan QR code wajib diisi" });
+		}
+
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			return res.status(400).json({ error: "Format email tidak valid" });
+		}
+
+		const ticket = await prisma.ticketPurchase.findUnique({
+			where: { ticketCode },
+			include: {
+				event: {
+					select: { title: true, startDate: true, venue: true, city: true },
+				},
+			},
+		});
+
+		if (!ticket) {
+			return res.status(404).json({ error: "Tiket tidak ditemukan" });
+		}
+
+		await sendTicketEmail({
+			to: email,
+			buyerName: ticket.buyerName,
+			ticketCode: ticket.ticketCode,
+			eventTitle: ticket.event.title,
+			eventDate: ticket.event.startDate.toISOString(),
+			venue: ticket.event.venue,
+			city: ticket.event.city,
+			quantity: ticket.quantity,
+			totalAmount: ticket.totalAmount,
+			qrImageBase64,
+		});
+
+		res.json({ message: "Tiket berhasil dikirim ke email" });
+	} catch (error: any) {
+		console.error("Error sending ticket email:", error);
+		res.status(500).json({ error: "Gagal mengirim email. Pastikan konfigurasi SMTP sudah benar." });
 	}
 });
 
