@@ -12,7 +12,7 @@ import {
 	generateMidtransOrderId,
 	PaymentPrefix,
 } from "../lib/midtrans";
-import { sendTicketEmail } from "../lib/email";
+import { sendTicketEmail, sendTicketEmailFromServer } from "../lib/email";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -266,8 +266,27 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			}
 		}
 
+		// Send email for free tickets (paid tickets get email via webhook)
+		if (result.totalAmount === 0) {
+			try {
+				await sendTicketEmailFromServer({
+					to: buyerEmail,
+					buyerName,
+					ticketCode: result.ticketCode,
+					eventTitle: result.event?.title || "Event",
+					eventDate: result.event?.startDate?.toISOString() || new Date().toISOString(),
+					venue: result.event?.venue || null,
+					city: result.event?.city || null,
+					quantity: result.quantity,
+					totalAmount: 0,
+				});
+			} catch (emailError) {
+				console.error("Failed to send free ticket email:", emailError);
+			}
+		}
+
 		res.status(201).json({
-			message: result.totalAmount === 0 ? "Tiket berhasil didapatkan!" : "Pesanan tiket berhasil dibuat!",
+			message: result.totalAmount === 0 ? "Tiket berhasil didapatkan! E-Ticket dikirim ke email Anda." : "Pesanan tiket berhasil dibuat!",
 			ticket: { ...result, snapToken, midtransOrderId },
 		});
 	} catch (error: any) {

@@ -203,7 +203,7 @@ const EVotingPage: React.FC = () => {
 								<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
 								<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
 								<p><strong>Total:</strong> ${formatCurrency(totalAmount)}</p>
-								<p class="text-sm text-gray-500 mt-3">Simpan kode ini untuk melakukan vote</p>
+								<p class="text-sm text-gray-500 mt-3">Kode vote juga akan dikirim ke email Anda.</p>
 							</div>`,
 							icon: "success",
 							confirmButtonColor: "#dc2626",
@@ -212,10 +212,7 @@ const EVotingPage: React.FC = () => {
 					onPending: () => {
 						Swal.fire({
 							title: "Menunggu Pembayaran",
-							html: `<div class="text-left space-y-2">
-								<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
-								<p class="text-sm text-gray-500 mt-3">Vote akan aktif setelah pembayaran dikonfirmasi</p>
-							</div>`,
+							html: `<p>Pembayaran sedang diproses. Kode vote akan dikirim ke email Anda setelah pembayaran dikonfirmasi.</p>`,
 							icon: "info",
 							confirmButtonColor: "#dc2626",
 						});
@@ -224,7 +221,7 @@ const EVotingPage: React.FC = () => {
 						Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Vote tidak aktif.", "error");
 					},
 					onClose: () => {
-						Swal.fire("Pembayaran Belum Selesai", "Vote belum aktif karena pembayaran belum dilakukan.", "warning");
+						Swal.fire("Pembayaran Belum Selesai", "Pembayaran belum dilakukan. Kode vote akan dikirim ke email Anda setelah pembayaran berhasil.", "warning");
 					},
 				});
 			} else {

@@ -40,29 +40,13 @@ const ETicketingPage: React.FC = () => {
 	const [sendingEmail, setSendingEmail] = useState(false);
 	const [autoEmailSent, setAutoEmailSent] = useState(false);
 
-	// Auto-send ticket email to buyer after purchase
+	// Email is now sent automatically from the backend (webhook for paid, purchase endpoint for free)
+	// The autoEmailSent state is kept to display confirmation in the UI
 	useEffect(() => {
-		if (!ticketResult || autoEmailSent || !buyerEmail.trim()) return;
-
-		const timer = setTimeout(async () => {
-			try {
-				const qrCanvas = document.getElementById("ticket-qr-canvas") as HTMLCanvasElement;
-				const qrImageBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
-				if (!qrImageBase64) return;
-
-				await api.post("/tickets/send-email", {
-					ticketCode: ticketResult.ticketCode,
-					email: buyerEmail.trim(),
-					qrImageBase64,
-				});
-				setAutoEmailSent(true);
-			} catch (err) {
-				console.error("Auto-send ticket email failed:", err);
-			}
-		}, 1000); // Wait for QR canvas to render
-
-		return () => clearTimeout(timer);
-	}, [ticketResult, autoEmailSent, buyerEmail]);
+		if (ticketResult && buyerEmail.trim()) {
+			setAutoEmailSent(true);
+		}
+	}, [ticketResult, buyerEmail]);
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -248,18 +232,16 @@ const ETicketingPage: React.FC = () => {
 							buyerName: buyerName.trim(),
 							quantity,
 							totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
-							message: "Pembayaran berhasil! Tiket Anda sudah aktif.",
+							message: "Pembayaran berhasil! Tiket Anda sudah aktif. E-Ticket akan dikirim ke email Anda.",
 						});
 						fetchEvents();
 					},
 					onPending: () => {
-						setTicketResult({
-							ticketCode: res.data.ticket.ticketCode,
-							eventTitle: selectedEvent.title,
-							buyerName: buyerName.trim(),
-							quantity,
-							totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
-							message: "Menunggu pembayaran. Tiket akan aktif setelah pembayaran dikonfirmasi.",
+						Swal.fire({
+							title: "Menunggu Pembayaran",
+							html: "Pembayaran sedang diproses. Tiket dan barcode akan dikirim ke email Anda setelah pembayaran dikonfirmasi.",
+							icon: "info",
+							confirmButtonColor: "#dc2626",
 						});
 						fetchEvents();
 					},
@@ -268,7 +250,7 @@ const ETicketingPage: React.FC = () => {
 						fetchEvents();
 					},
 					onClose: () => {
-						Swal.fire("Pembayaran Belum Selesai", "Tiket belum aktif karena pembayaran belum dilakukan.", "warning");
+						Swal.fire("Pembayaran Belum Selesai", "Pembayaran belum dilakukan. Tiket dan barcode akan dikirim ke email Anda setelah pembayaran berhasil.", "warning");
 						fetchEvents();
 					},
 				});

@@ -7,6 +7,7 @@ import {
 	MIDTRANS_CLIENT_KEY,
 	MIDTRANS_IS_PRODUCTION,
 } from "../lib/midtrans";
+import { sendTicketEmailFromServer, sendVotingPurchaseEmail } from "../lib/email";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -138,6 +139,11 @@ async function handleTicketPayment(
 ) {
 	const ticket = await prisma.ticketPurchase.findUnique({
 		where: { midtransOrderId },
+		include: {
+			event: {
+				select: { title: true, startDate: true, venue: true, city: true },
+			},
+		},
 	});
 	if (!ticket) {
 		console.warn(`[Midtrans] Ticket not found: ${midtransOrderId}`);
@@ -160,6 +166,24 @@ async function handleTicketPayment(
 				data: { soldCount: { increment: ticket.quantity } },
 			});
 		});
+
+		// Send ticket email with QR code to buyer
+		try {
+			await sendTicketEmailFromServer({
+				to: ticket.buyerEmail,
+				buyerName: ticket.buyerName,
+				ticketCode: ticket.ticketCode,
+				eventTitle: ticket.event.title,
+				eventDate: ticket.event.startDate.toISOString(),
+				venue: ticket.event.venue,
+				city: ticket.event.city,
+				quantity: ticket.quantity,
+				totalAmount: ticket.totalAmount,
+			});
+			console.log(`[Email] Ticket email sent to ${ticket.buyerEmail} for ${ticket.ticketCode}`);
+		} catch (emailError) {
+			console.error(`[Email] Failed to send ticket email to ${ticket.buyerEmail}:`, emailError);
+		}
 	} else if (result === "failed" || result === "expired") {
 		// Payment failed/expired: just cancel (soldCount was never incremented for paid tickets)
 		await prisma.ticketPurchase.update({
@@ -179,6 +203,11 @@ async function handleVotingPayment(
 ) {
 	const purchase = await prisma.votingPurchase.findUnique({
 		where: { midtransOrderId },
+		include: {
+			event: {
+				select: { title: true },
+			},
+		},
 	});
 	if (!purchase) {
 		console.warn(`[Midtrans] Voting purchase not found: ${midtransOrderId}`);
@@ -194,6 +223,21 @@ async function handleVotingPayment(
 				paidAt: new Date(),
 			},
 		});
+
+		// Send voting purchase code email to buyer
+		try {
+			await sendVotingPurchaseEmail({
+				to: purchase.buyerEmail,
+				buyerName: purchase.buyerName,
+				purchaseCode: purchase.purchaseCode,
+				eventTitle: purchase.event.title,
+				voteCount: purchase.voteCount,
+				totalAmount: purchase.totalAmount,
+			});
+			console.log(`[Email] Voting email sent to ${purchase.buyerEmail} for ${purchase.purchaseCode}`);
+		} catch (emailError) {
+			console.error(`[Email] Failed to send voting email to ${purchase.buyerEmail}:`, emailError);
+		}
 	} else if (result === "failed" || result === "expired") {
 		await prisma.votingPurchase.update({
 			where: { id: purchase.id },
