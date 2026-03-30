@@ -20,21 +20,17 @@ const registerSchema = z.object({
 	email: z.string().email("Format email tidak valid"),
 	password: z.string().min(8, "Password minimal 8 karakter"),
 	name: z.string().min(1, "Nama harus diisi"),
-	role: z.enum(["PESERTA", "JURI", "PELATIH"]).default("PESERTA"),
 	phone: z.string().optional(),
 	institution: z.string().optional(),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
-type UserRole = "PESERTA" | "JURI" | "PELATIH";
-
 const Register = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
 	const [showPassword, setShowPassword] = useState(false);
-	const [selectedRole, setSelectedRole] = useState<UserRole>("PESERTA");
 	const { register: registerUser, setAuth } = useAuth();
 	const navigate = useNavigate();
 	const { executeRecaptcha } = useGoogleReCaptcha();
@@ -42,16 +38,10 @@ const Register = () => {
 	const {
 		register,
 		handleSubmit,
-		watch,
 		formState: { errors },
 	} = useForm<RegisterForm>({
 		resolver: zodResolver(registerSchema),
-		defaultValues: {
-			role: "PESERTA",
-		},
 	});
-
-	const watchedRole = watch("role");
 
 	// Initialize Google Sign-In
 	useEffect(() => {
@@ -93,13 +83,9 @@ const Register = () => {
 			});
 
 			if (result.data.isNewUser) {
-				// New user registered via Google - show success and redirect to login
-				setSuccess(
-					"Berhasil mendaftar dengan Google! Silakan login untuk melanjutkan."
-				);
-				setTimeout(() => {
-					navigate("/login");
-				}, 2000);
+				// New user registered via Google - log in and redirect to role selection
+				setAuth(result.data.user, result.data.token);
+				navigate("/select-role");
 			} else {
 				// Existing user - log them in directly
 				setAuth(result.data.user, result.data.token);
@@ -149,7 +135,7 @@ const Register = () => {
 			};
 
 			await registerUser(registrationData);
-			navigate("/dashboard");
+			navigate("/select-role");
 		} catch (err: any) {
 			const errorMessage = err.response?.data?.message;
 
@@ -332,49 +318,15 @@ const Register = () => {
 						</div>
 					</div>
 				</div>
-				{/* Role Selection */}
-				<div className="space-y-2">
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-						Daftar sebagai
-					</label>
-					<div className="grid grid-cols-3 gap-2">
-						<label className="relative cursor-pointer">
-							<input
-								type="radio"
-								{...register("role")}
-								value="PESERTA"
-								className="peer sr-only"
-								defaultChecked
-							/>
-							<div className="flex flex-col items-center justify-center px-3 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 peer-checked:border-red-500 peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 transition-all">
-								<LuTrophy className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-								<span className="text-xs font-medium text-gray-700 dark:text-gray-300">Peserta</span>
-							</div>
-						</label>
-						<label className="relative cursor-pointer">
-							<input
-								type="radio"
-								{...register("role")}
-								value="JURI"
-								className="peer sr-only"
-							/>
-							<div className="flex flex-col items-center justify-center px-3 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 peer-checked:border-red-500 peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 transition-all">
-								<LuGavel className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-								<span className="text-xs font-medium text-gray-700 dark:text-gray-300">Juri</span>
-							</div>
-						</label>
-						<label className="relative cursor-pointer">
-							<input
-								type="radio"
-								{...register("role")}
-								value="PELATIH"
-								className="peer sr-only"
-							/>
-							<div className="flex flex-col items-center justify-center px-3 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 peer-checked:border-red-500 peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 transition-all">
-								<LuGraduationCap className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-								<span className="text-xs font-medium text-gray-700 dark:text-gray-300">Pelatih</span>
-							</div>
-						</label>
+				{/* Divider */}
+				<div className="relative">
+					<div className="absolute inset-0 flex items-center">
+						<div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+					</div>
+					<div className="relative flex justify-center text-sm">
+						<span className="px-2 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-500 dark:text-gray-400">
+							Buat Akun Baru
+						</span>
 					</div>
 				</div>
 

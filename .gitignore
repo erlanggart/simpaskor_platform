@@ -102,6 +102,9 @@ public
 dist/
 dist-ssr/
 
+# Vite local config overrides
+frontend/vite.config.local.*
+
 # Rollup build output
 build/
 

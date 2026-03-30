@@ -98,6 +98,11 @@ const Dashboard = () => {
 		return <Navigate to="/login" replace />;
 	}
 
+	// Redirect new users (status PENDING) to role selection
+	if (user.status === "PENDING") {
+		return <Navigate to="/select-role" replace />;
+	}
+
 	// For PANITIA, check if they have active event assignment
 	if (user.role === "PANITIA" && activeEvent && activeEvent.event) {
 		return (

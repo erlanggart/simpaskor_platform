@@ -109,3 +109,29 @@ export function countOfflineData(): number {
 export function isOnline(): boolean {
 	return navigator.onLine;
 }
+
+// ============ API Response Cache for Offline Mode ============
+const CACHE_PREFIX = 'simpaskor_cache_';
+
+export function cacheApiResponse(key: string, data: unknown): void {
+	try {
+		localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({
+			data,
+			cachedAt: new Date().toISOString(),
+		}));
+	} catch (error) {
+		console.error('Error caching API response:', error);
+	}
+}
+
+export function getCachedApiResponse<T = unknown>(key: string): { data: T; cachedAt: string } | null {
+	try {
+		const stored = localStorage.getItem(CACHE_PREFIX + key);
+		if (stored) {
+			return JSON.parse(stored);
+		}
+	} catch (error) {
+		console.error('Error reading cached API response:', error);
+	}
+	return null;
+}

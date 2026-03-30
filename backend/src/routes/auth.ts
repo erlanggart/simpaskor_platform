@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { registrationLimiter } from "../middleware/rateLimiter";
 import { verifyRecaptcha } from "../middleware/recaptcha";
 import { GoogleAuthUtils } from "../utils/googleAuth";
+import { authenticate, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -15,10 +16,6 @@ const registerSchema = z.object({
 	email: z.string().email("Invalid email format"),
 	password: z.string().min(8, "Password must be at least 8 characters"),
 	name: z.string().min(1, "Name is required"),
-	role: z
-		.enum(["PESERTA", "PELATIH", "JURI", "PANITIA"])
-		.optional()
-		.default("PESERTA"),
 	phone: z.string().optional(),
 	institution: z.string().optional(),
 });
@@ -68,7 +65,7 @@ router.post(
 					email: validatedData.email,
 					passwordHash,
 					name: validatedData.name,
-					role: validatedData.role as UserRole,
+					role: UserRole.PESERTA,
 					phone: validatedData.phone,
 					status: UserStatus.PENDING,
 					profile: {
@@ -373,6 +370,73 @@ router.post(
 				error: "Reset failed",
 				message: "Internal server error",
 			});
+		}
+	}
+);
+
+// Select role for new users (status PENDING)
+router.patch(
+	"/select-role",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response): Promise<void | Response> => {
+		try {
+			const schema = z.object({
+				role: z.enum(["PESERTA", "JURI", "PELATIH"]),
+			});
+
+			const { role } = schema.parse(req.body);
+			const userId = req.user?.userId;
+
+			if (!userId) {
+				return res.status(401).json({ error: "Unauthorized" });
+			}
+
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+			});
+
+			if (!user) {
+				return res.status(404).json({ error: "User not found" });
+			}
+
+			if (user.status !== UserStatus.PENDING) {
+				return res.status(400).json({
+					error: "Role already selected",
+					message: "Anda sudah memilih role sebelumnya",
+				});
+			}
+
+			const updatedUser = await prisma.user.update({
+				where: { id: userId },
+				data: {
+					role: role as UserRole,
+					status: UserStatus.ACTIVE,
+				},
+				include: { profile: true },
+			});
+
+			// Generate new token with updated role
+			const token = AuthUtils.generateToken({
+				userId: updatedUser.id,
+				email: updatedUser.email,
+				role: updatedUser.role,
+				name: updatedUser.name,
+			});
+
+			res.json({
+				message: "Role berhasil dipilih",
+				user: AuthUtils.sanitizeUser(updatedUser),
+				token,
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res.status(400).json({
+					error: "Validation error",
+					details: error.errors,
+				});
+			}
+			console.error("Select role error:", error);
+			res.status(500).json({ error: "Internal server error" });
 		}
 	}
 );

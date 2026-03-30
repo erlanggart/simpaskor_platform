@@ -1,37 +1,29 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, Link, useNavigate, useOutletContext } from "react-router-dom";
 import {
-	ArrowLeftIcon,
-	UserGroupIcon,
-	CheckCircleIcon,
-	XCircleIcon,
-	CloudArrowUpIcon,
-	ExclamationCircleIcon,
-	SignalSlashIcon,
-} from "@heroicons/react/24/outline";
+	LuArrowLeft,
+	LuUsers,
+	LuCircleX,
+	LuCloudUpload,
+	LuTriangleAlert,
+	LuWifiOff,
+	LuWifi,
+	LuSave,
+} from "react-icons/lu";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import { 
 	saveOfflineData, 
 	removeOfflineData, 
+	cacheApiResponse,
+	getCachedApiResponse,
 	type OfflineParticipantData 
 } from "../../utils/offlineStorage";
-
-interface ScoreOption {
-	name: string;
-	score: number;
-	order: number;
-}
-
-interface ScoreCategory {
-	name: string;
-	color: string;
-	order: number;
-	options: ScoreOption[];
-}
+import type { PenilaianOutletContext } from "./EventPenilaian";
 
 interface ExistingEvaluation {
 	id: string;
+	materialId: string;
 	score: number | null;
 	scoreCategoryName: string | null;
 	isSkipped: boolean;
@@ -39,19 +31,22 @@ interface ExistingEvaluation {
 	notes: string | null;
 }
 
-interface Material {
-	id: string;
-	number: number;
-	name: string;
-	description: string | null;
-	scoreCategories: ScoreCategory[];
-	existingEvaluation: ExistingEvaluation | null;
-}
-
 interface CategoryWithMaterials {
 	categoryId: string;
 	categoryName: string;
-	materials: Material[];
+	categoryOrder?: number;
+	materials: {
+		id: string;
+		number: number;
+		name: string;
+		description: string | null;
+		scoreCategories: {
+			name: string;
+			color: string;
+			order: number;
+			options: { name: string; score: number; order: number }[];
+		}[];
+	}[];
 }
 
 interface MaterialScore {
@@ -61,20 +56,7 @@ interface MaterialScore {
 	isSkipped: boolean;
 	skipReason: string | null;
 	notes: string;
-	scoredAt: string | null; // ISO timestamp when jury clicked score
-}
-
-interface Participant {
-	id: string;
-	teamName: string;
-	schoolCategory: {
-		id: string;
-		name: string;
-	} | null;
-	registrant: {
-		name: string;
-		institution: string | null;
-	};
+	scoredAt: string | null;
 }
 
 const MaterialScoring: React.FC = () => {
@@ -83,23 +65,56 @@ const MaterialScoring: React.FC = () => {
 		participantId: string;
 	}>();
 	const navigate = useNavigate();
+	const { eventId: ctxEventId, eventTitle: ctxEventTitle, allCategories, participants, refreshStatus } = useOutletContext<PenilaianOutletContext>();
 
-	const [eventId, setEventId] = useState<string>("");
-	const [eventTitle, setEventTitle] = useState("");
-	const [categories, setCategories] = useState<CategoryWithMaterials[]>([]);
-	const [participant, setParticipant] = useState<Participant | null>(null);
+	// Find participant from context
+	const participant = useMemo(() => {
+		return participants.find(p => p.id === participantId) || null;
+	}, [participants, participantId]);
+
+	// Filter materials by participant's school category (client-side)
+	const categories: CategoryWithMaterials[] = useMemo(() => {
+		if (!participant) return [];
+		const schoolCatId = participant.schoolCategory?.id || null;
+		return allCategories.map(cat => ({
+			categoryId: cat.categoryId,
+			categoryName: cat.categoryName,
+			categoryOrder: cat.categoryOrder,
+			materials: cat.materials.filter(m => {
+				const matSchoolCatIds = m.schoolCategoryIds || [];
+				if (matSchoolCatIds.length === 0) return true; // no restriction
+				if (!schoolCatId) return true; // participant has no school category
+				return matSchoolCatIds.includes(schoolCatId);
+			}).map(m => ({
+				id: m.id,
+				number: m.number,
+				name: m.name,
+				description: m.description,
+				scoreCategories: m.scoreCategories,
+			})),
+		})).filter(cat => cat.materials.length > 0);
+	}, [allCategories, participant]);
+
 	const [scores, setScores] = useState<MaterialScore[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
-	const [activeCategory, setActiveCategory] = useState<string | null>(null);
 	const [hasLocalChanges, setHasLocalChanges] = useState(false);
 	const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 	const [isOnline, setIsOnline] = useState(navigator.onLine);
+	const [showReconnected, setShowReconnected] = useState(false);
 
 	// Listen for online/offline events
 	useEffect(() => {
-		const handleOnline = () => setIsOnline(true);
-		const handleOffline = () => setIsOnline(false);
+		const handleOnline = () => {
+			setIsOnline(true);
+			if (hasLocalChanges) {
+				setShowReconnected(true);
+			}
+		};
+		const handleOffline = () => {
+			setIsOnline(false);
+			setShowReconnected(false);
+		};
 		
 		window.addEventListener('online', handleOnline);
 		window.addEventListener('offline', handleOffline);
@@ -108,7 +123,7 @@ const MaterialScoring: React.FC = () => {
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);
 		};
-	}, []);
+	}, [hasLocalChanges]);
 
 	// Generate localStorage key for this participant
 	const getLocalStorageKey = useCallback(() => {
@@ -140,7 +155,6 @@ const MaterialScoring: React.FC = () => {
 			const stored = localStorage.getItem(key);
 			if (stored) {
 				const data = JSON.parse(stored);
-				// Validate the data is for the same participant
 				if (data.eventSlug === eventSlug && data.participantId === participantId) {
 					return {
 						scores: data.scores,
@@ -166,49 +180,69 @@ const MaterialScoring: React.FC = () => {
 		}
 	}, [getLocalStorageKey]);
 
+	// Fetch only existing evaluations for this participant (materials come from context)
 	useEffect(() => {
-		if (eventSlug && participantId) {
-			fetchData();
+		if (eventSlug && participantId && categories.length > 0) {
+			fetchEvaluations();
 		}
-	}, [eventSlug, participantId]);
+	}, [eventSlug, participantId, categories]);
 
-	const fetchData = async () => {
+	const fetchEvaluations = async () => {
 		try {
 			setLoading(true);
 
-			// Fetch materials and existing evaluations
-			const materialsRes = await api.get(
-				`/evaluations/materials/event/${eventSlug}/participant/${participantId}`
-			);
-			
-			setEventId(materialsRes.data.eventId);
-			setEventTitle(materialsRes.data.eventTitle);
-			setCategories(materialsRes.data.categories);
+			const allMaterials = categories.flatMap(cat => cat.materials);
 
-			// Set first category as active
-			if (materialsRes.data.categories.length > 0) {
-				setActiveCategory(materialsRes.data.categories[0].categoryId);
-			}
-
-			// Initialize scores from existing evaluations or empty
-			const allMaterials = materialsRes.data.categories.flatMap(
-				(cat: CategoryWithMaterials) => cat.materials
-			);
-
-			const serverScores: MaterialScore[] = allMaterials.map((m: Material) => ({
+			// Build default scores (no evaluations yet)
+			const defaultScores: MaterialScore[] = allMaterials.map(m => ({
 				materialId: m.id,
-				score: m.existingEvaluation?.score ?? null,
-				scoreCategoryName: m.existingEvaluation?.scoreCategoryName ?? null,
-				isSkipped: m.existingEvaluation?.isSkipped ?? false,
-				skipReason: m.existingEvaluation?.skipReason ?? null,
-				notes: m.existingEvaluation?.notes ?? "",
-				scoredAt: null, // Will be set when jury clicks score
+				score: null,
+				scoreCategoryName: null,
+				isSkipped: false,
+				skipReason: null,
+				notes: "",
+				scoredAt: null,
 			}));
 
-			// Check for localStorage data
+			let serverEvaluations: ExistingEvaluation[] = [];
+			const evalCacheKey = `evaluations_${eventSlug}_${participantId}`;
+
+			if (navigator.onLine) {
+				try {
+					const res = await api.get(
+						`/evaluations/materials/event/${eventSlug}/participant/${participantId}/existing`
+					);
+					serverEvaluations = res.data.evaluations || [];
+					cacheApiResponse(evalCacheKey, serverEvaluations);
+				} catch {
+					const cached = getCachedApiResponse<ExistingEvaluation[]>(evalCacheKey);
+					if (cached) serverEvaluations = cached.data;
+				}
+			} else {
+				const cached = getCachedApiResponse<ExistingEvaluation[]>(evalCacheKey);
+				if (cached) serverEvaluations = cached.data;
+			}
+
+			// Merge server evaluations into scores
+			const evalMap = new Map(serverEvaluations.map(e => [e.materialId, e]));
+			const serverScores: MaterialScore[] = defaultScores.map(s => {
+				const evaluation = evalMap.get(s.materialId);
+				if (evaluation) {
+					return {
+						...s,
+						score: evaluation.score ?? null,
+						scoreCategoryName: evaluation.scoreCategoryName ?? null,
+						isSkipped: evaluation.isSkipped ?? false,
+						skipReason: evaluation.skipReason ?? null,
+						notes: evaluation.notes ?? "",
+					};
+				}
+				return s;
+			});
+
+			// Check for local changes
 			const localData = loadFromLocalStorage();
 			if (localData && localData.scores.length > 0) {
-				// Check if there are any local changes that differ from server
 				const hasChanges = localData.scores.some((localScore) => {
 					const serverScore = serverScores.find(s => s.materialId === localScore.materialId);
 					if (!serverScore) return false;
@@ -220,7 +254,6 @@ const MaterialScoring: React.FC = () => {
 				});
 
 				if (hasChanges) {
-					// Merge local scores with server scores (local takes priority for materials that exist)
 					const mergedScores = serverScores.map((serverScore) => {
 						const localScore = localData.scores.find(s => s.materialId === serverScore.materialId);
 						if (localScore && (localScore.score !== null || localScore.isSkipped)) {
@@ -232,42 +265,32 @@ const MaterialScoring: React.FC = () => {
 					setHasLocalChanges(true);
 					setLastSavedAt(localData.savedAt);
 					
-					// Show notification about restored data
-					Swal.fire({
-						icon: "info",
-						title: "Data Lokal Ditemukan",
-						html: `<p>Ditemukan nilai yang belum disimpan ke server.</p>
-							   <p class="text-sm text-gray-500 mt-2">Terakhir disimpan: ${localData.savedAt.toLocaleString("id-ID")}</p>
-							   <p class="text-sm text-yellow-600 mt-2">Klik "Simpan Nilai" untuk menyimpan ke server.</p>`,
-						confirmButtonText: "Lanjutkan Penilaian",
-						showCancelButton: true,
-						cancelButtonText: "Gunakan Data Server",
-					}).then((result) => {
-						if (!result.isConfirmed) {
-							// User wants to use server data, clear local storage
-							clearLocalStorage();
-							setScores(serverScores);
-						}
-					});
+					if (navigator.onLine) {
+						Swal.fire({
+							icon: "info",
+							title: "Data Lokal Ditemukan",
+							html: `<p>Ditemukan nilai yang belum disimpan ke server.</p>
+								   <p class="text-sm text-gray-500 mt-2">Terakhir disimpan: ${localData.savedAt.toLocaleString("id-ID")}</p>
+								   <p class="text-sm text-yellow-600 mt-2">Klik "Simpan Nilai" untuk menyimpan ke server.</p>`,
+							confirmButtonText: "Lanjutkan Penilaian",
+							showCancelButton: true,
+							cancelButtonText: "Gunakan Data Server",
+						}).then((result) => {
+							if (!result.isConfirmed) {
+								clearLocalStorage();
+								setScores(serverScores);
+							}
+						});
+					}
 				} else {
-					// No changes, use server scores and clear localStorage
 					clearLocalStorage();
 					setScores(serverScores);
 				}
 			} else {
 				setScores(serverScores);
 			}
-
-			// Fetch participant info
-			const participantsRes = await api
-				.get(`/juries/events/${eventSlug}/peserta`)
-				.catch(() => ({ data: [] }));
-			const targetParticipant = participantsRes.data.find(
-				(p: Participant) => p.id === participantId
-			);
-			setParticipant(targetParticipant || null);
 		} catch (error) {
-			console.error("Error fetching data:", error);
+			console.error("Error fetching evaluations:", error);
 			Swal.fire({
 				icon: "error",
 				title: "Gagal Memuat Data",
@@ -296,7 +319,7 @@ const MaterialScoring: React.FC = () => {
 							scoreCategoryName: categoryName,
 							isSkipped: false,
 							skipReason: null,
-							scoredAt: new Date().toISOString(), // Record timestamp when jury clicks
+							scoredAt: new Date().toISOString(),
 					  }
 					: s
 			);
@@ -315,7 +338,7 @@ const MaterialScoring: React.FC = () => {
 							scoreCategoryName: null,
 							isSkipped: true,
 							skipReason: reason,
-							scoredAt: new Date().toISOString(), // Record timestamp when jury clicks
+							scoredAt: new Date().toISOString(),
 					  }
 					: s
 			);
@@ -334,7 +357,7 @@ const MaterialScoring: React.FC = () => {
 							scoreCategoryName: null,
 							isSkipped: false,
 							skipReason: null,
-							scoredAt: null, // Clear timestamp when clearing score
+							scoredAt: null,
 					  }
 					: s
 			);
@@ -344,59 +367,54 @@ const MaterialScoring: React.FC = () => {
 	};
 
 	const getColorClasses = (color: string, isSelected: boolean) => {
-		const baseColors: Record<string, { bg: string; selected: string; text: string }> = {
+		const baseColors: Record<string, { bg: string; selected: string }> = {
 			red: {
-				bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
-				selected: "bg-red-500 text-white border-red-600",
-				text: "text-red-700 dark:text-red-300",
+				bg: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300",
+				selected: "bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/25",
 			},
 			orange: {
-				bg: "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800",
-				selected: "bg-orange-500 text-white border-orange-600",
-				text: "text-orange-700 dark:text-orange-300",
+				bg: "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300",
+				selected: "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/25",
 			},
 			yellow: {
-				bg: "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800",
-				selected: "bg-yellow-500 text-white border-yellow-600",
-				text: "text-yellow-700 dark:text-yellow-300",
+				bg: "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-300",
+				selected: "bg-yellow-500 text-white border-yellow-500 shadow-lg shadow-yellow-500/25",
 			},
 			green: {
-				bg: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800",
-				selected: "bg-green-500 text-white border-green-600",
-				text: "text-green-700 dark:text-green-300",
+				bg: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-300",
+				selected: "bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/25",
 			},
 			blue: {
-				bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
-				selected: "bg-blue-500 text-white border-blue-600",
-				text: "text-blue-700 dark:text-blue-300",
+				bg: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300",
+				selected: "bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/25",
 			},
 			purple: {
-				bg: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800",
-				selected: "bg-purple-500 text-white border-purple-600",
-				text: "text-purple-700 dark:text-purple-300",
+				bg: "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800/50 text-purple-700 dark:text-purple-300",
+				selected: "bg-purple-500 text-white border-purple-500 shadow-lg shadow-purple-500/25",
 			},
 			gray: {
-				bg: "bg-gray-50 dark:bg-gray-900/20 border-gray-200/60 dark:border-gray-700/40",
-				selected: "bg-gray-500 text-white border-gray-600",
-				text: "text-gray-700 dark:text-gray-300",
+				bg: "bg-gray-50 dark:bg-gray-900/20 border-gray-200/60 dark:border-gray-700/40 text-gray-700 dark:text-gray-300",
+				selected: "bg-gray-500 text-white border-gray-500 shadow-lg shadow-gray-500/25",
 			},
 		};
-		const colorSet = baseColors[color] || baseColors.gray;
+		const colorSet = baseColors[color] || baseColors.gray!;
 		return isSelected ? colorSet!.selected : colorSet!.bg;
 	};
 
-	const getHeaderColorClasses = (color: string) => {
+	const getCategoryLabelColor = (color: string) => {
 		const colors: Record<string, string> = {
-			red: "bg-red-500 text-white",
-			orange: "bg-orange-500 text-white",
-			yellow: "bg-yellow-500 text-white",
-			green: "bg-green-500 text-white",
-			blue: "bg-blue-500 text-white",
-			purple: "bg-purple-500 text-white",
-			gray: "bg-gray-500 text-white",
+			red: "text-red-600 dark:text-red-400",
+			orange: "text-orange-600 dark:text-orange-400",
+			yellow: "text-yellow-600 dark:text-yellow-400",
+			green: "text-green-600 dark:text-green-400",
+			blue: "text-blue-600 dark:text-blue-400",
+			purple: "text-purple-600 dark:text-purple-400",
+			gray: "text-gray-600 dark:text-gray-400",
 		};
 		return colors[color] || colors.gray;
 	};
+
+
 
 	const isFormComplete = () => {
 		return scores.every(
@@ -413,7 +431,6 @@ const MaterialScoring: React.FC = () => {
 	};
 
 	const handleSubmit = async () => {
-		// Validate all materials are scored
 		const incomplete = scores.filter(
 			(s) => s.score === null && !s.isSkipped
 		);
@@ -433,7 +450,6 @@ const MaterialScoring: React.FC = () => {
 			}
 		}
 
-		// Filter only completed scores
 		const evaluationsToSubmit = scores
 			.filter((s) => s.score !== null || s.isSkipped)
 			.map((s) => ({
@@ -446,13 +462,11 @@ const MaterialScoring: React.FC = () => {
 				scoredAt: s.scoredAt,
 			}));
 
-		// Check if offline
 		if (!navigator.onLine) {
-			// Save to offline storage
 			const offlineData: OfflineParticipantData = {
 				participantId: participantId!,
 				eventSlug: eventSlug!,
-				eventId,
+				eventId: ctxEventId,
 				scores: evaluationsToSubmit.map(e => ({
 					...e,
 					notes: e.notes || '',
@@ -479,15 +493,16 @@ const MaterialScoring: React.FC = () => {
 			setSaving(true);
 
 			await api.post("/evaluations/materials/submit", {
-				eventId,
+				eventId: ctxEventId,
 				participantId,
 				evaluations: evaluationsToSubmit,
 			});
 
-			// Clear localStorage after successful submission
 			clearLocalStorage();
-			// Also remove from offline storage if exists
 			removeOfflineData(eventSlug!, participantId!);
+
+			// Refresh parent status so participant list shows updated progress
+			refreshStatus();
 
 			await Swal.fire({
 				icon: "success",
@@ -501,11 +516,10 @@ const MaterialScoring: React.FC = () => {
 		} catch (error) {
 			console.error("Error submitting evaluations:", error);
 			
-			// If network error, save offline
 			const offlineData: OfflineParticipantData = {
 				participantId: participantId!,
 				eventSlug: eventSlug!,
-				eventId,
+				eventId: ctxEventId,
 				scores: evaluationsToSubmit.map(e => ({
 					...e,
 					notes: e.notes || '',
@@ -532,333 +546,388 @@ const MaterialScoring: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+			<div className="min-h-screen flex items-center justify-center">
+				<div className="text-center">
+					<div className="animate-spin rounded-full h-10 w-10 border-2 border-red-500/30 border-t-red-500 mx-auto"></div>
+					<p className="mt-4 text-sm text-gray-500 dark:text-gray-500">Memuat data penilaian...</p>
+				</div>
 			</div>
 		);
 	}
 
 	const { completed, total } = getCompletionStatus();
-	const activeData = categories.find((c) => c.categoryId === activeCategory);
+	const completionPercentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+	const sortedCategories = [...categories].sort((a, b) => (a.categoryOrder ?? 0) - (b.categoryOrder ?? 0));
 
 	return (
-		<div className="min-h-screen">
-			{/* Header */}
-			<div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-4">
-							<Link
-								to={`/juri/events/${eventSlug}/penilaian`}
-								className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-							>
-								<ArrowLeftIcon className="h-5 w-5" />
-							</Link>
-							<div>
-								<h1 className="text-xl font-bold text-gray-900 dark:text-white">
-									Penilaian Materi
-								</h1>
-								<p className="text-sm text-gray-500 dark:text-gray-400">
-									{eventTitle}
-								</p>
+		<div className="min-h-screen transition-colors">
+			{/* Sticky Header */}
+			<div className="sticky top-0 z-20">
+				{/* Top Bar */}
+				<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border-b border-gray-200/50 dark:border-white/[0.06]">
+					<div className="w-full px-4 py-3">
+						<div className="flex items-center justify-between gap-3">
+							{/* Left: Back + Title */}
+							<div className="flex items-center gap-3 min-w-0">
+								<Link
+									to={`/juri/events/${eventSlug}/penilaian`}
+									className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+								>
+									<LuArrowLeft className="w-5 h-5" />
+								</Link>
+								<div className="min-w-0">
+									<h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+										Penilaian Materi
+									</h1>
+									<p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+										{ctxEventTitle}
+									</p>
+								</div>
+							</div>
+
+							{/* Right: Status + Save */}
+							<div className="flex items-center gap-2 flex-shrink-0">
+								{/* Online/Offline Badge */}
+								<div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+									isOnline
+										? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+										: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+								}`}>
+									{isOnline ? (
+										<LuWifi className="w-3.5 h-3.5" />
+									) : (
+										<LuWifiOff className="w-3.5 h-3.5" />
+									)}
+									<span className="hidden sm:inline">{isOnline ? "Online" : "Offline"}</span>
+								</div>
+
+								{/* Save button (desktop) */}
+								<button
+									onClick={handleSubmit}
+									disabled={saving || !isFormComplete()}
+									className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
+										isFormComplete()
+											? isOnline
+												? "bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-500/20"
+												: "bg-yellow-600 text-white hover:bg-yellow-700 shadow-lg shadow-yellow-500/20"
+											: "bg-gray-200 dark:bg-white/[0.06] text-gray-400 dark:text-gray-500 cursor-not-allowed"
+									}`}
+								>
+									{!isOnline ? (
+										<LuWifiOff className="w-4 h-4" />
+									) : hasLocalChanges ? (
+										<LuCloudUpload className="w-4 h-4" />
+									) : (
+										<LuSave className="w-4 h-4" />
+									)}
+									{saving ? "Menyimpan..." : !isOnline ? "Simpan Offline" : hasLocalChanges ? "Kirim ke Server" : "Simpan"}
+								</button>
 							</div>
 						</div>
 
-						<div className="flex items-center gap-4">
-							{/* Online/Offline Indicator */}
-							{!isOnline && (
-								<div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm">
-									<SignalSlashIcon className="h-4 w-4" />
-									<span className="hidden sm:inline">Offline</span>
+						{/* Participant Info */}
+						{participant && (
+							<div className="mt-2 flex items-center gap-3 p-3 bg-red-50/50 dark:bg-white/[0.03] rounded-xl border border-gray-200/50 dark:border-white/[0.06]">
+								<LuUsers className="w-5 h-5 text-red-500 flex-shrink-0" />
+								<div className="min-w-0 flex-1">
+									<p className="font-bold text-gray-900 dark:text-white text-sm truncate">
+										{participant.teamName}
+									</p>
+									<p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+										{participant.schoolCategory?.name} • {participant.registrant.institution}
+									</p>
 								</div>
-							)}
-
-							{/* Local Changes Indicator */}
-							{hasLocalChanges && (
-								<div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-lg text-sm">
-									<ExclamationCircleIcon className="h-4 w-4" />
-									<span className="hidden sm:inline">
-										Belum tersimpan ke server
-										{lastSavedAt && (
-											<span className="text-xs ml-1">
-												(lokal: {lastSavedAt.toLocaleTimeString("id-ID")})
-											</span>
-										)}
+								{/* Mini Progress */}
+								<div className="flex items-center gap-2 flex-shrink-0">
+									<div className="w-16 h-1.5 bg-gray-200 dark:bg-white/[0.06] rounded-full overflow-hidden">
+										<div
+											className="h-full bg-green-500 transition-all duration-300 rounded-full"
+											style={{ width: `${completionPercentage}%` }}
+										/>
+									</div>
+									<span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+										{completed}/{total}
 									</span>
-									<span className="sm:hidden">Lokal</span>
 								</div>
-							)}
-
-							{/* Progress */}
-							<div className="text-sm text-gray-600 dark:text-gray-400">
-								<span className="font-medium">{completed}</span>
-								<span> / {total} materi</span>
 							</div>
-							
+						)}
+					</div>
+				</div>
+
+				{/* Reconnection Banner */}
+				{showReconnected && hasLocalChanges && (
+					<div className="bg-green-50 dark:bg-green-900/20 border-b border-green-200/50 dark:border-green-800/30">
+						<div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
+							<div className="flex items-center gap-2 text-green-700 dark:text-green-300 text-sm">
+								<LuWifi className="w-4 h-4" />
+								<span>Koneksi kembali! Klik <strong>Simpan</strong> untuk mengirim nilai ke server.</span>
+							</div>
 							<button
-								onClick={handleSubmit}
-								disabled={saving || !isFormComplete()}
-								className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-									isFormComplete()
-										? isOnline 
-											? "bg-green-600 text-white hover:bg-green-700"
-											: "bg-yellow-600 text-white hover:bg-yellow-700"
-										: "bg-gray-300 text-gray-500 cursor-not-allowed"
-								}`}
+								onClick={() => setShowReconnected(false)}
+								className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 p-1"
 							>
-								{!isOnline ? (
-									<SignalSlashIcon className="h-5 w-5" />
-								) : hasLocalChanges ? (
-									<CloudArrowUpIcon className="h-5 w-5" />
-								) : (
-									<CheckCircleIcon className="h-5 w-5" />
-								)}
-								{saving ? "Menyimpan..." : !isOnline ? "Simpan Offline" : hasLocalChanges ? "Simpan ke Server" : "Simpan Nilai"}
+								<LuCircleX className="w-4 h-4" />
 							</button>
 						</div>
 					</div>
+				)}
 
-					{/* Participant Info */}
-					{participant && (
-						<div className="mt-3 flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-							<UserGroupIcon className="h-6 w-6 text-red-500" />
-							<div>
-								<p className="font-semibold text-gray-900 dark:text-white">
-									{participant.teamName}
-								</p>
-								<p className="text-sm text-gray-500 dark:text-gray-400">
-									{participant.schoolCategory?.name} • {participant.registrant.institution}
-								</p>
-							</div>
-						</div>
-					)}
-				</div>
-
-				{/* Category Tabs */}
-				<div className="border-t border-gray-200/60 dark:border-gray-700/40">
-					<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-						<div className="flex gap-1 overflow-x-auto py-2">
-							{categories.map((cat) => {
-								const catScores = scores.filter((s) =>
-									cat.materials.some((m) => m.id === s.materialId)
-								);
-								const catCompleted = catScores.filter(
-									(s) => s.score !== null || s.isSkipped
-								).length;
-
-								return (
-									<button
-										key={cat.categoryId}
-										onClick={() => setActiveCategory(cat.categoryId)}
-										className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
-											activeCategory === cat.categoryId
-												? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
-												: "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-										}`}
-									>
-										{cat.categoryName}
-										<span
-											className={`text-xs px-1.5 py-0.5 rounded-full ${
-												catCompleted === cat.materials.length
-													? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-													: "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
-											}`}
-										>
-											{catCompleted}/{cat.materials.length}
-										</span>
-									</button>
-								);
-							})}
+				{/* Unsaved Changes Banner */}
+				{hasLocalChanges && !showReconnected && (
+					<div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200/50 dark:border-yellow-800/30">
+						<div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-2 text-yellow-700 dark:text-yellow-300 text-sm">
+							<LuTriangleAlert className="w-4 h-4 flex-shrink-0" />
+							<span>
+								Perubahan belum dikirim ke server
+								{lastSavedAt && (
+									<span className="text-xs ml-1 opacity-75">
+										(lokal: {lastSavedAt.toLocaleTimeString("id-ID")})
+									</span>
+								)}
+							</span>
 						</div>
 					</div>
-				</div>
+				)}
 			</div>
 
-			{/* Materials Grid */}
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-				{activeData && (
-					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow overflow-hidden">
-						{/* Table Header */}
-						<div className="overflow-x-auto">
-							<table className="min-w-full">
-								<thead>
-									<tr className="bg-gray-900 dark:bg-gray-950">
-										<th className="px-4 py-3 text-left text-sm font-semibold text-white w-80">
-											Kriteria Penilaian
-										</th>
-										{/* Dynamic columns based on first material's score categories */}
-										{activeData.materials[0]?.scoreCategories
+			{/* All Categories - Table-like Layout */}
+			<div className="w-full px-2 sm:px-4 py-4 pb-32 space-y-6">
+				{sortedCategories.map((cat, catIndex) => {
+					const catScores = scores.filter((s) =>
+						cat.materials.some((m) => m.id === s.materialId)
+					);
+					const catCompleted = catScores.filter(
+						(s) => s.score !== null || s.isSkipped
+					).length;
+
+					return (
+						<div key={cat.categoryId}>
+							{/* Category Separator / Header */}
+							<div className={`flex items-center gap-3 px-4 py-3 mb-2 bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-sm ${catIndex > 0 ? "mt-8" : ""}`}>
+								<div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+									<LuUsers className="w-4 h-4 text-red-600 dark:text-red-400" />
+								</div>
+								<div className="flex-1 min-w-0">
+									<h2 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wide truncate">
+										{cat.categoryName}
+									</h2>
+								</div>
+								<span className={`px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 ${
+									catCompleted === cat.materials.length
+										? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+										: "bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400"
+								}`}>
+									{catCompleted}/{cat.materials.length}
+								</span>
+							</div>
+
+							{/* Score Category Column Headers */}
+							{cat.materials.length > 0 && cat.materials[0]!.scoreCategories.length > 0 && (
+								<div className="flex items-stretch gap-0 mb-1 px-1">
+									{/* Material name column header */}
+									<div className="w-[140px] sm:w-[180px] flex-shrink-0 px-2 py-2">
+										<span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+											Kriteria
+										</span>
+									</div>
+									{/* Score category column headers */}
+									<div className="flex-1 flex gap-0">
+										{[...cat.materials[0]!.scoreCategories]
 											.sort((a, b) => a.order - b.order)
-											.map((cat) => (
-												<th
-													key={cat.name}
-													className={`px-4 py-3 text-center text-sm font-semibold ${getHeaderColorClasses(
-														cat.color
-													)}`}
+											.map((sc) => (
+												<div
+													key={sc.name}
+													className="flex-1 text-center px-1 py-2"
 												>
-													{cat.name}
-												</th>
+													<span className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${getCategoryLabelColor(sc.color)}`}>
+														{sc.name}
+													</span>
+												</div>
 											))}
-										<th className="px-4 py-3 text-center text-sm font-semibold bg-gray-600 text-white w-24">
-											Kosong
-										</th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-									{activeData.materials
-										.sort((a, b) => a.number - b.number)
-										.map((material) => {
-											const currentScore = getScoreForMaterial(material.id);
-											const scoreCategories = material.scoreCategories.sort(
-												(a, b) => a.order - b.order
-											);
+										{/* Kosong column header */}
+										<div className="w-[44px] sm:w-[52px] flex-shrink-0 text-center px-1 py-2">
+											<span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+												Kosong
+											</span>
+										</div>
+									</div>
+								</div>
+							)}
 
-											return (
-												<tr
-													key={material.id}
-													className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-												>
-													{/* Material Name */}
-													<td className="px-4 py-3">
-														<div className="flex items-center gap-3">
-															<span className="flex items-center justify-center w-7 h-7 bg-gray-100 dark:bg-gray-700 rounded-full text-sm font-semibold text-gray-600 dark:text-gray-300">
-																{material.number}
-															</span>
-															<div>
-																<p className="font-medium text-gray-900 dark:text-white uppercase">
-																	{material.name}
-																</p>
-																{material.description && (
-																	<p className="text-xs text-gray-500 dark:text-gray-400">
-																		{material.description}
-																	</p>
-																)}
-															</div>
+							{/* Material Rows */}
+							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-sm overflow-hidden divide-y divide-gray-200/50 dark:divide-white/[0.06]">
+								{cat.materials
+									.sort((a, b) => a.number - b.number)
+									.map((material) => {
+										const currentScore = getScoreForMaterial(material.id);
+										const isScored = currentScore?.score !== null && currentScore?.score !== undefined && !currentScore?.isSkipped;
+										const isSkipped = currentScore?.isSkipped ?? false;
+										const scoreCategories = [...material.scoreCategories].sort(
+											(a, b) => a.order - b.order
+										);
+
+										return (
+											<div
+												key={material.id}
+												className={`flex items-stretch gap-0 transition-colors ${
+													isScored
+														? "bg-green-50/30 dark:bg-green-900/5"
+														: isSkipped
+														? "bg-yellow-50/30 dark:bg-yellow-900/5"
+														: "hover:bg-gray-50/50 dark:hover:bg-white/[0.01]"
+												}`}
+											>
+												{/* Material Name */}
+												<div className="w-[140px] sm:w-[180px] flex-shrink-0 flex items-center gap-2 px-3 py-2.5">
+													<span className={`text-xs font-bold flex-shrink-0 ${
+														isScored
+															? "text-green-600 dark:text-green-400"
+															: isSkipped
+															? "text-yellow-600 dark:text-yellow-400"
+															: "text-gray-400 dark:text-gray-500"
+													}`}>
+														{material.number}.
+													</span>
+													<span className={`text-xs sm:text-sm font-semibold uppercase leading-tight ${
+														isScored
+															? "text-green-700 dark:text-green-300"
+															: isSkipped
+															? "text-yellow-700 dark:text-yellow-300"
+															: "text-gray-700 dark:text-gray-300"
+													}`}>
+														{material.name}
+													</span>
+												</div>
+
+												{/* Score Buttons Row */}
+												<div className="flex-1 flex gap-0">
+													{scoreCategories.map((sc) => (
+														<div
+															key={sc.name}
+															className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1 px-0.5 py-2"
+														>
+															{sc.options
+																.sort((a, b) => a.order - b.order)
+																.map((opt) => {
+																	const isSelected =
+																		currentScore?.score === opt.score &&
+																		currentScore?.scoreCategoryName === sc.name &&
+																		!currentScore?.isSkipped;
+
+																	return (
+																		<button
+																			key={`${sc.name}-${opt.score}`}
+																			onClick={() =>
+																				setMaterialScore(material.id, opt.score, sc.name)
+																			}
+																			className={`flex-1 h-10 sm:h-11 rounded-lg font-bold text-sm sm:text-base border transition-all min-w-0 ${getColorClasses(
+																				sc.color,
+																				isSelected
+																			)} ${
+																				isSelected
+																					? "ring-2 ring-offset-1 dark:ring-offset-gray-900 ring-gray-400 scale-[1.02] z-10"
+																					: "hover:scale-[1.02] active:scale-95"
+																			}`}
+																			title={opt.name || `${sc.name}: ${opt.score}`}
+																		>
+																			{opt.score}
+																		</button>
+																	);
+																})}
 														</div>
-													</td>
-
-													{/* Score Options */}
-													{scoreCategories.map((cat) => (
-														<td key={cat.name} className="px-2 py-3">
-															<div className="flex justify-center gap-1">
-																{cat.options
-																	.sort((a, b) => a.order - b.order)
-																	.map((opt) => {
-																		const isSelected =
-																			currentScore?.score === opt.score &&
-																			currentScore?.scoreCategoryName === cat.name &&
-																			!currentScore?.isSkipped;
-
-																		return (
-																			<button
-																				key={`${cat.name}-${opt.score}`}
-																				onClick={() =>
-																					setMaterialScore(material.id, opt.score, cat.name)
-																				}
-																				className={`min-w-10 px-2 py-2 text-sm font-semibold rounded border-2 transition-all ${getColorClasses(
-																					cat.color,
-																					isSelected
-																				)} ${
-																					isSelected
-																						? "ring-2 ring-offset-1 ring-gray-400"
-																						: "hover:opacity-80"
-																				}`}
-																				title={opt.name || `${cat.name}: ${opt.score}`}
-																			>
-																				{opt.score}
-																			</button>
-																		);
-																	})}
-															</div>
-														</td>
 													))}
 
-													{/* Skip/Empty Option */}
-													<td className="px-2 py-3">
-														<div className="flex flex-col items-center gap-1">
-															<button
-																onClick={() => {
-																	if (currentScore?.isSkipped) {
-																		clearMaterialScore(material.id);
-																	} else {
-																		// Show skip reason selection
-																		Swal.fire({
-																			title: "Alasan Tidak Menilai",
-																			input: "select",
-																			inputOptions: {
-																				TIDAK_SESUAI: "Materi tidak sesuai",
-																				TIDAK_DIJALANKAN: "Materi tidak dijalankan",
-																			},
-																			inputPlaceholder: "Pilih alasan",
-																			showCancelButton: true,
-																			confirmButtonText: "Konfirmasi",
-																			cancelButtonText: "Batal",
-																		}).then((result) => {
-																			if (result.isConfirmed && result.value) {
-																				setMaterialSkipped(material.id, result.value);
-																			}
-																		});
-																	}
-																}}
-																className={`w-10 h-10 flex items-center justify-center rounded border-2 transition-all ${
-																	currentScore?.isSkipped
-																		? "bg-gray-500 text-white border-gray-600 ring-2 ring-offset-1 ring-gray-400"
-																		: "bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
-																}`}
-																title={
-																	currentScore?.isSkipped
-																		? currentScore.skipReason === "TIDAK_SESUAI"
-																			? "Materi tidak sesuai"
-																			: "Materi tidak dijalankan"
-																		: "Tidak dinilai"
+													{/* Kosong / Skip button */}
+													<div className="w-[44px] sm:w-[52px] flex-shrink-0 flex items-center justify-center px-0.5 py-2">
+														<button
+															onClick={() => {
+																if (currentScore?.isSkipped) {
+																	clearMaterialScore(material.id);
+																} else {
+																	Swal.fire({
+																		title: "Alasan Tidak Menilai",
+																		input: "select",
+																		inputOptions: {
+																			TIDAK_SESUAI: "Materi tidak sesuai",
+																			TIDAK_DIJALANKAN: "Materi tidak dijalankan",
+																		},
+																		inputPlaceholder: "Pilih alasan",
+																		showCancelButton: true,
+																		confirmButtonText: "Konfirmasi",
+																		cancelButtonText: "Batal",
+																	}).then((result) => {
+																		if (result.isConfirmed && result.value) {
+																			setMaterialSkipped(material.id, result.value);
+																		}
+																	});
 																}
-															>
-																{currentScore?.isSkipped ? (
-																	<XCircleIcon className="h-5 w-5" />
-																) : (
-																	<span className="text-sm font-semibold">0</span>
-																)}
-															</button>
-															{currentScore?.isSkipped && (
-																<span className="text-xs text-gray-500 dark:text-gray-400">
-																	{currentScore.skipReason === "TIDAK_SESUAI"
-																		? "Tidak sesuai"
-																		: "Tidak jalan"}
-																</span>
-															)}
-														</div>
-													</td>
-												</tr>
-											);
-										})}
-								</tbody>
-							</table>
+															}}
+															className={`w-full h-10 sm:h-11 rounded-lg font-bold text-sm border transition-all ${
+																isSkipped
+																	? "bg-gray-500 text-white border-gray-500 shadow-md"
+																	: "bg-gray-50 dark:bg-white/[0.04] text-gray-400 dark:text-gray-500 border-gray-200/60 dark:border-white/[0.08] hover:bg-gray-100 dark:hover:bg-white/[0.08]"
+															}`}
+															title="Tidak Dinilai"
+														>
+															0
+														</button>
+													</div>
+												</div>
+											</div>
+										);
+									})}
+							</div>
 						</div>
-					</div>
-				)}
+					);
+				})}
 			</div>
 
-			{/* Floating Submit Button (Mobile) */}
-			<div className="fixed bottom-4 right-4 sm:hidden">
-				{hasLocalChanges && (
-					<div className="absolute -top-2 -left-2 w-4 h-4 bg-yellow-500 rounded-full animate-pulse" title="Ada perubahan lokal" />
-				)}
-				<button
-					onClick={handleSubmit}
-					disabled={saving || !isFormComplete()}
-					className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium shadow-lg transition-colors ${
-						isFormComplete()
-							? "bg-green-600 text-white hover:bg-green-700"
-							: "bg-gray-300 text-gray-500 cursor-not-allowed"
-					}`}
-				>
-					{hasLocalChanges ? (
-						<CloudArrowUpIcon className="h-5 w-5" />
-					) : (
-						<CheckCircleIcon className="h-5 w-5" />
-					)}
-					{saving ? "..." : "Simpan"}
-				</button>
+			{/* Floating Action Bar */}
+			<div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30">
+				<div className="flex items-center gap-3 px-5 py-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 dark:border-white/[0.1]">
+					{/* Progress */}
+					<div className="flex items-center gap-2 pr-3 border-r border-gray-200/50 dark:border-white/[0.1]">
+						<div className="w-20 h-2 bg-gray-200 dark:bg-white/[0.06] rounded-full overflow-hidden">
+							<div
+								className="h-full bg-green-500 transition-all duration-300 rounded-full"
+								style={{ width: `${completionPercentage}%` }}
+							/>
+						</div>
+						<span className="text-xs font-bold text-gray-600 dark:text-gray-400 whitespace-nowrap">
+							{completed}/{total}
+						</span>
+					</div>
+
+					{/* Save button */}
+					<button
+						onClick={handleSubmit}
+						disabled={saving || !isFormComplete()}
+						className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all whitespace-nowrap ${
+							isFormComplete()
+								? isOnline
+									? "bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-500/20"
+									: "bg-yellow-600 text-white hover:bg-yellow-700 shadow-lg shadow-yellow-500/20"
+								: "bg-gray-200 dark:bg-white/[0.06] text-gray-400 dark:text-gray-500 cursor-not-allowed"
+						}`}
+					>
+						{saving ? (
+							<div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+						) : !isOnline ? (
+							<LuWifiOff className="w-4 h-4" />
+						) : hasLocalChanges ? (
+							<LuCloudUpload className="w-4 h-4" />
+						) : (
+							<LuSave className="w-4 h-4" />
+						)}
+						{saving
+							? "Menyimpan..."
+							: !isOnline
+							? "Simpan Offline"
+							: hasLocalChanges
+							? "Kirim ke Server"
+							: "Simpan Nilai"}
+					</button>
+				</div>
 			</div>
 		</div>
 	);

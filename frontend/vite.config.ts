@@ -1,47 +1,63 @@
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
+import path from "path";
 
-const isDocker = process.env.DOCKER === "true" || process.env.NODE_ENV === "production";
-const backendTarget = isDocker ? "http://backend:3001" : "http://localhost:3001";
+// Load local overrides from vite.config.local.json if exists (gitignored)
+let localConfig: { https?: boolean; backendTarget?: string } = {};
+const localJsonPath = path.resolve(__dirname, "vite.config.local.json");
+if (fs.existsSync(localJsonPath)) {
+	localConfig = JSON.parse(fs.readFileSync(localJsonPath, "utf-8"));
+}
+
+const useHttps = localConfig.https ?? false;
+const backendTarget = localConfig.backendTarget ?? "http://localhost:3001";
 
 // https://vitejs.dev/config/
-export default defineConfig({
-	plugins: [
+export default defineConfig(async () => {
+	const plugins: any[] = [
 		react({
 			jsxRuntime: "automatic",
 		}),
-	],
-	server: {
-		port: 5173,
-		host: true,
-		allowedHosts: ["simpaskor.id", "www.simpaskor.id"],
-		hmr: isDocker
-			? { host: "simpaskor.id", protocol: "wss", clientPort: 443 }
-			: true,
-		watch: {
-			usePolling: true,
-		},
-		proxy: {
-			"/api": {
-				target: backendTarget,
-				changeOrigin: true,
-				secure: false,
+	];
+
+	if (useHttps) {
+		const basicSsl = await import("@vitejs/plugin-basic-ssl");
+		plugins.push(basicSsl.default());
+	}
+
+	const config: UserConfig = {
+		plugins,
+		server: {
+			port: 5173,
+			host: true,
+			watch: {
+				usePolling: true,
 			},
-			"/uploads": {
-				target: backendTarget,
-				changeOrigin: true,
-				secure: false,
-			},
-		},
-	},
-	build: {
-		target: "es2022",
-		rollupOptions: {
-			output: {
-				manualChunks: {
-					"react-vendor": ["react", "react-dom", "react-router-dom"],
+			proxy: {
+				"/api": {
+					target: backendTarget,
+					changeOrigin: true,
+					secure: false,
+				},
+				"/uploads": {
+					target: backendTarget,
+					changeOrigin: true,
+					secure: false,
 				},
 			},
 		},
-	},
+		build: {
+			target: "es2022",
+			rollupOptions: {
+				output: {
+					manualChunks: {
+						"react-vendor": ["react", "react-dom", "react-router-dom"],
+					},
+				},
+			},
+		},
+	};
+
+	return config;
 });

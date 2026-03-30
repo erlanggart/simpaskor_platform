@@ -301,6 +301,166 @@ router.get(
 
 // ==================== MATERIAL EVALUATION ROUTES ====================
 
+// GET /api/evaluations/materials/event/:eventSlug/all-materials
+// Get ALL materials for juri's assigned categories (no school category filtering, no evaluations)
+// Used by EventPenilaian to fetch materials once for all participants
+router.get(
+	"/materials/event/:eventSlug/all-materials",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { eventSlug } = req.params;
+
+			if (!user || user.role !== "JURI") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			const event = await prisma.event.findUnique({
+				where: { slug: eventSlug },
+				select: { id: true, title: true },
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event tidak ditemukan" });
+			}
+
+			const assignment = await prisma.juryEventAssignment.findFirst({
+				where: {
+					juryId: user.userId,
+					eventId: event.id,
+					status: "CONFIRMED",
+				},
+				include: {
+					assignedCategories: {
+						include: {
+							assessmentCategory: true,
+						},
+					},
+				},
+			});
+
+			if (!assignment) {
+				return res.status(403).json({ error: "Anda tidak memiliki akses ke event ini" });
+			}
+
+			const assignedCategoryIds = assignment.assignedCategories.map(
+				(c) => c.assessmentCategoryId
+			);
+
+			const eventAssessmentCategories = await prisma.eventAssessmentCategory.findMany({
+				where: {
+					eventId: event.id,
+					assessmentCategoryId: { in: assignedCategoryIds },
+				},
+				include: {
+					assessmentCategory: true,
+				},
+			});
+
+			const assignedEventCategoryIds = eventAssessmentCategories.map((c) => c.id);
+
+			const materials = await prisma.eventMaterial.findMany({
+				where: {
+					eventId: event.id,
+					eventAssessmentCategoryId: { in: assignedEventCategoryIds },
+				},
+				orderBy: [
+					{ eventAssessmentCategoryId: "asc" },
+					{ number: "asc" },
+				],
+			});
+
+			const categorizedMaterials = eventAssessmentCategories
+				.sort((a, b) => (a.assessmentCategory.order ?? 0) - (b.assessmentCategory.order ?? 0))
+				.map((eac) => ({
+					categoryId: eac.id,
+					categoryName: eac.assessmentCategory.name,
+					categoryOrder: eac.assessmentCategory.order ?? 0,
+					materials: materials
+						.filter((m) => m.eventAssessmentCategoryId === eac.id)
+						.map((m) => ({
+							id: m.id,
+							number: m.number,
+							name: m.name,
+							description: m.description,
+							scoreCategories: m.scoreCategories,
+							schoolCategoryIds: m.schoolCategoryIds,
+						})),
+				}));
+
+			res.json({
+				eventId: event.id,
+				eventTitle: event.title,
+				categories: categorizedMaterials,
+			});
+		} catch (error) {
+			console.error("Error fetching all materials:", error);
+			res.status(500).json({ error: "Failed to fetch materials" });
+		}
+	}
+);
+
+// GET /api/evaluations/materials/event/:eventSlug/participant/:participantId/existing
+// Get only existing evaluations for a participant (lightweight, no materials data)
+router.get(
+	"/materials/event/:eventSlug/participant/:participantId/existing",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { eventSlug, participantId } = req.params;
+
+			if (!user || user.role !== "JURI") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			const event = await prisma.event.findUnique({
+				where: { slug: eventSlug },
+				select: { id: true },
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event tidak ditemukan" });
+			}
+
+			const assignment = await prisma.juryEventAssignment.findFirst({
+				where: {
+					juryId: user.userId,
+					eventId: event.id,
+					status: "CONFIRMED",
+				},
+			});
+
+			if (!assignment) {
+				return res.status(403).json({ error: "Anda tidak memiliki akses ke event ini" });
+			}
+
+			const existingEvaluations = await prisma.materialEvaluation.findMany({
+				where: {
+					eventId: event.id,
+					juryId: user.userId,
+					participantId,
+				},
+				select: {
+					id: true,
+					materialId: true,
+					score: true,
+					scoreCategoryName: true,
+					isSkipped: true,
+					skipReason: true,
+					notes: true,
+				},
+			});
+
+			res.json({ evaluations: existingEvaluations });
+		} catch (error) {
+			console.error("Error fetching existing evaluations:", error);
+			res.status(500).json({ error: "Failed to fetch evaluations" });
+		}
+	}
+);
+
 // GET /api/evaluations/materials/event/:eventSlug/participant/:participantId
 // Get materials and existing evaluations for a participant
 router.get(
@@ -414,10 +574,13 @@ router.get(
 				existingEvaluations.map((e) => [e.materialId, e])
 			);
 
-			// Build response with materials grouped by assessment category
-			const categorizedMaterials = eventAssessmentCategories.map((eac) => ({
+			// Build response with materials grouped by assessment category, sorted by order
+			const categorizedMaterials = eventAssessmentCategories
+				.sort((a, b) => (a.assessmentCategory.order ?? 0) - (b.assessmentCategory.order ?? 0))
+				.map((eac) => ({
 				categoryId: eac.id,
 				categoryName: eac.assessmentCategory.name,
+				categoryOrder: eac.assessmentCategory.order ?? 0,
 				materials: filteredMaterials
 					.filter((m) => m.eventAssessmentCategoryId === eac.id)
 					.map((m) => ({

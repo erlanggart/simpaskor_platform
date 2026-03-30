@@ -9,7 +9,7 @@ import "./App.css";
 const MainLayout = lazy(() => import("./layouts/MainLayout").then(m => ({ default: m.MainLayout })));
 const AuthLayout = lazy(() => import("./layouts/AuthLayout").then(m => ({ default: m.AuthLayout })));
 const DashboardLayout = lazy(() => import("./layouts/DashboardLayout").then(m => ({ default: m.DashboardLayout })));
-const ScoringLayout = lazy(() => import("./layouts/ScoringLayout").then(m => ({ default: m.ScoringLayout })));
+
 const PreAssignLayout = lazy(() => import("./layouts/PreAssignLayout").then(m => ({ default: m.PreAssignLayout })));
 
 // Public Pages
@@ -30,6 +30,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const RoleSelection = lazy(() => import("./pages/RoleSelection"));
 
 // Dashboard Pages
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -108,7 +109,16 @@ function App() {
 						<Route path="register" element={<Register />} />
 						<Route path="forgot-password" element={<ForgotPassword />} />
 						<Route path="reset-password" element={<ResetPassword />} />
-					</Route>{" "}
+					</Route>
+					{/* Role Selection - Protected, no layout */}
+					<Route
+						path="select-role"
+						element={
+							<ProtectedRoute>
+								<RoleSelection />
+							</ProtectedRoute>
+						}
+					/>
 					{/* SuperAdmin Routes - Dashboard Layout */}
 					<Route
 						element={
@@ -120,7 +130,7 @@ function App() {
 						<Route path="admin">
 							<Route path="dashboard" element={<AdminDashboard />} />
 							<Route path="users" element={<UserManagement />} />
-						<Route path="users/:userId" element={<UserDetail />} />
+								<Route path="users/:userId" element={<UserDetail />} />
 							<Route path="coupons" element={<CouponManagement />} />
 							<Route path="events" element={<EventManagement />} />
 							<Route path="events/:eventId/edit" element={<AdminEditEvent />} />
@@ -267,17 +277,16 @@ function App() {
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
-					{/* Juri Scoring Routes - Minimal Scoring Layout for Tablets */}
+					{/* Juri Scoring Routes - No layout wrapper, header in each page */}
 					<Route
 						element={
-							<ProtectedRoute allowedRoles={["JURI"]}>
-								<ScoringLayout />
-							</ProtectedRoute>
+							<ProtectedRoute allowedRoles={["JURI"]} />
 						}
 					>
 						<Route path="juri">
-							<Route path="events/:eventSlug/penilaian" element={<JuriEventPenilaian />} />
-							<Route path="events/:eventSlug/penilaian/:participantId" element={<JuriMaterialScoring />} />
+							<Route path="events/:eventSlug/penilaian" element={<JuriEventPenilaian />}>
+								<Route path=":participantId" element={<JuriMaterialScoring />} />
+							</Route>
 							<Route path="events/:eventSlug/penilaian/:participantId/kategori" element={<JuriPenilaianDetail />} />
 						</Route>
 					</Route>

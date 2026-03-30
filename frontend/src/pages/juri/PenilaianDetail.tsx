@@ -10,6 +10,8 @@ import {
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
+import { Logo } from "../../components/Logo";
+import { ThemeToggle } from "../../components/ThemeToggle";
 
 interface AssessmentCategory {
 	id: string;
@@ -81,6 +83,18 @@ const PenilaianDetail: React.FC = () => {
 	const [scores, setScores] = useState<ScoreInput[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+	useEffect(() => {
+		const handleOnline = () => setIsOnline(true);
+		const handleOffline = () => setIsOnline(false);
+		window.addEventListener('online', handleOnline);
+		window.addEventListener('offline', handleOffline);
+		return () => {
+			window.removeEventListener('online', handleOnline);
+			window.removeEventListener('offline', handleOffline);
+		};
+	}, []);
 
 	useEffect(() => {
 		if (eventSlug && participantId) {
@@ -248,6 +262,20 @@ const PenilaianDetail: React.FC = () => {
 	}
 
 	return (
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+			<header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+				<div className="px-4 py-3 flex items-center justify-between">
+					<button
+						onClick={() => navigate(`/juri/events/${eventSlug}/info`)}
+						disabled={!isOnline}
+						className={`flex items-center gap-2 transition-opacity ${isOnline ? "hover:opacity-80" : "opacity-50 cursor-not-allowed"}`}
+					>
+						<Logo size="md" showText variant="auto" />
+					</button>
+					<ThemeToggle />
+				</div>
+			</header>
+			<main className="flex-1">
 		<div className="min-h-screen">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{/* Back Button */}
@@ -464,6 +492,8 @@ const PenilaianDetail: React.FC = () => {
 					</div>
 				</div>
 			</div>
+		</div>
+			</main>
 		</div>
 	);
 };

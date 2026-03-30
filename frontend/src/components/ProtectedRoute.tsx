@@ -1,8 +1,8 @@
 import { useAuth } from "../hooks/useAuth";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 interface ProtectedRouteProps {
-	children: React.ReactNode;
+	children?: React.ReactNode;
 	allowedRoles?: string[];
 }
 
@@ -25,6 +25,11 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 		return <Navigate to="/login" state={{ from: location }} replace />;
 	}
 
+	// Redirect PENDING users to role selection (except if already on /select-role)
+	if (user?.status === "PENDING" && location.pathname !== "/select-role") {
+		return <Navigate to="/select-role" replace />;
+	}
+
 	if (allowedRoles && user && !allowedRoles.includes(user.role)) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">
@@ -38,7 +43,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 		);
 	}
 
-	return <>{children}</>;
+	return children ? <>{children}</> : <Outlet />;
 };
 
 export default ProtectedRoute;
