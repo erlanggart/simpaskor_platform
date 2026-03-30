@@ -17,8 +17,10 @@ import {
 	ShieldCheckIcon,
 	ShieldExclamationIcon,
 	StarIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
+import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
 interface User {
@@ -151,6 +153,26 @@ const UserManagement: React.FC = () => {
 			fetchUsers();
 		} catch (error: any) {
 			showError(error.response?.data?.message || "Gagal mengubah status pin");
+		}
+	};
+
+	const handleDeleteUser = async (user: User) => {
+		const result = await Swal.fire({
+			icon: "warning",
+			title: "Hapus Akun?",
+			html: `<p>Apakah Anda yakin ingin menghapus akun <strong>${user.name}</strong> (${user.email})?</p><p class="text-sm text-red-600 mt-2">Semua data terkait (pendaftaran, evaluasi, dll) akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.</p>`,
+			showCancelButton: true,
+			confirmButtonColor: "#dc2626",
+			cancelButtonText: "Batal",
+			confirmButtonText: "Ya, Hapus",
+		});
+		if (!result.isConfirmed) return;
+		try {
+			await api.delete(`/users/${user.id}`);
+			showSuccess("Akun berhasil dihapus");
+			fetchUsers();
+		} catch (error: any) {
+			showError(error.response?.data?.message || "Gagal menghapus akun");
 		}
 	};
 
@@ -588,6 +610,16 @@ const UserManagement: React.FC = () => {
 													>
 														<TicketIcon className="w-4 h-4" />
 														Assign Kupon
+													</button>
+												)}
+												{user.role !== "SUPERADMIN" && (
+													<button
+														onClick={() => handleDeleteUser(user)}
+														title="Hapus Akun"
+														className="flex items-center gap-1 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-xs font-medium"
+													>
+														<TrashIcon className="w-4 h-4" />
+														Hapus
 													</button>
 												)}
 											</div>

@@ -506,20 +506,75 @@ router.delete(
 		try {
 			const { userId } = req.params;
 
-			// Don't allow deleting superadmin
 			const user = await prisma.user.findUnique({
 				where: { id: userId },
 			});
 
-			if (user?.role === UserRole.SUPERADMIN && req.user?.userId !== userId) {
+			if (!user) {
+				return res.status(404).json({
+					error: "Not found",
+					message: "User not found",
+				});
+			}
+
+			// Don't allow deleting other superadmin accounts
+			if (user.role === UserRole.SUPERADMIN && req.user?.userId !== userId) {
 				return res.status(403).json({
 					error: "Forbidden",
 					message: "Cannot delete other superadmin accounts",
 				});
 			}
 
-			await prisma.user.delete({
-				where: { id: userId },
+			// Don't allow deleting yourself
+			if (req.user?.userId === userId) {
+				return res.status(403).json({
+					error: "Forbidden",
+					message: "Cannot delete your own account",
+				});
+			}
+
+			// Check if user created events (block deletion if events have participants)
+			const createdEvents = await prisma.event.findMany({
+				where: { createdById: userId },
+				include: { _count: { select: { participations: true } } },
+			});
+			const eventsWithParticipants = createdEvents.filter(
+				(e) => e._count.participations > 0
+			);
+			if (eventsWithParticipants.length > 0) {
+				return res.status(400).json({
+					error: "Cannot delete user",
+					message: `User has created ${eventsWithParticipants.length} event(s) with active participants. Reassign or delete those events first.`,
+				});
+			}
+
+			// Use transaction to clean up all FK references then delete user
+			await prisma.$transaction(async (tx) => {
+				// Delete evaluations by this jury
+				await tx.evaluation.deleteMany({ where: { juryId: userId } });
+				await tx.materialEvaluation.deleteMany({ where: { juryId: userId } });
+
+				// Nullify coupon references
+				await tx.eventCoupon.updateMany({
+					where: { usedById: userId },
+					data: { usedById: null, isUsed: false },
+				});
+
+				// Delete coupons created by this admin (only if unused)
+				await tx.eventCoupon.deleteMany({
+					where: { createdByAdminId: userId, isUsed: false },
+				});
+				// Reassign used coupons created by this admin to the requesting superadmin
+				await tx.eventCoupon.updateMany({
+					where: { createdByAdminId: userId },
+					data: { createdByAdminId: req.user!.userId },
+				});
+
+				// Delete events created by this user (only those with no participants, already checked above)
+				await tx.event.deleteMany({ where: { createdById: userId } });
+
+				// Delete the user (cascade handles: profile, sessions, participations, juryAssignments, comments, likes, orders, ticketPurchases)
+				await tx.user.delete({ where: { id: userId } });
 			});
 
 			res.json({
