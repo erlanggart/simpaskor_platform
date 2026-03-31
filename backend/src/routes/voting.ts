@@ -1,5 +1,5 @@
 import { Router, Response } from "express";
-import { PrismaClient, VotingPurchaseStatus } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import {
 	authenticate,
 	authorize,
