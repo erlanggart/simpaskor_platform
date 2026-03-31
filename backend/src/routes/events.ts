@@ -256,6 +256,12 @@ router.get("/pinned/carousel", async (req: Request, res: Response) => {
 				pinnedOrder: true,
 				registrationDeadline: true,
 				status: true,
+				_count: {
+					select: {
+						likes: true,
+						comments: true,
+					},
+				},
 			},
 			orderBy: [{ pinnedOrder: "asc" }, { createdAt: "desc" }],
 			take: 10, // Maximum 10 pinned events in carousel
@@ -265,6 +271,8 @@ router.get("/pinned/carousel", async (req: Request, res: Response) => {
 		const eventsWithStatus = events.map(event => ({
 			...event,
 			status: computeEventStatus(event),
+			likesCount: event._count.likes,
+			commentsCount: event._count.comments,
 		}));
 
 		res.json(eventsWithStatus);

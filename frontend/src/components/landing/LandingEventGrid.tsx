@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { LuCalendar, LuMapPin } from "react-icons/lu";
+import { LuCalendar, LuMapPin, LuHeart, LuMessageCircle } from "react-icons/lu";
 import { api } from "../../utils/api";
 import { Event } from "../../types/landing";
 import { config } from "../../utils/config";
@@ -16,6 +16,8 @@ interface PinnedEvent {
 	location: string | null;
 	venue: string | null;
 	pinnedOrder: number | null;
+	likesCount?: number;
+	commentsCount?: number;
 }
 
 const MAX_ITEMS = 10;
@@ -58,6 +60,8 @@ const LandingEventGrid: React.FC = () => {
 			location: string | null;
 			status: string;
 			isPinned: boolean;
+			likesCount: number;
+			commentsCount: number;
 		}[] = [];
 		const usedIds = new Set<string>();
 
@@ -73,6 +77,8 @@ const LandingEventGrid: React.FC = () => {
 				location: pe.location,
 				status: "PINNED",
 				isPinned: true,
+				likesCount: pe.likesCount || 0,
+				commentsCount: pe.commentsCount || 0,
 			});
 			usedIds.add(pe.id);
 		}
@@ -90,6 +96,8 @@ const LandingEventGrid: React.FC = () => {
 				location: e.location,
 				status: e.status,
 				isPinned: false,
+				likesCount: e.likesCount || 0,
+				commentsCount: e.commentsCount || 0,
 			});
 			usedIds.add(e.id);
 		}
@@ -107,6 +115,8 @@ const LandingEventGrid: React.FC = () => {
 				location: e.location,
 				status: e.status,
 				isPinned: false,
+				likesCount: e.likesCount || 0,
+				commentsCount: e.commentsCount || 0,
 			});
 			usedIds.add(e.id);
 		}
@@ -207,6 +217,18 @@ const LandingEventGrid: React.FC = () => {
 										{status.label}
 									</span>
 								</div>
+								<div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1.5 pt-4">
+									<div className="flex items-center gap-2 text-white/80">
+										<div className="flex items-center gap-0.5">
+											<LuHeart className="w-2.5 h-2.5" />
+											<span className="text-[7px] lg:text-[8px] font-medium">{event.likesCount}</span>
+										</div>
+										<div className="flex items-center gap-0.5">
+											<LuMessageCircle className="w-2.5 h-2.5" />
+											<span className="text-[7px] lg:text-[8px] font-medium">{event.commentsCount}</span>
+										</div>
+									</div>
+								</div>
 							</div>
 
 							<div className="p-1.5 lg:p-2">
@@ -226,8 +248,8 @@ const LandingEventGrid: React.FC = () => {
 											{event.location}
 										</span>
 									</div>
-								)}
-							</div>
+							)}
+						</div>
 						</Link>
 					);
 				})}

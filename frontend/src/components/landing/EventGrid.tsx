@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuFlame, LuClock, LuFilter } from "react-icons/lu";
+import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuFlame, LuClock, LuFilter, LuHeart, LuMessageCircle } from "react-icons/lu";
 import { calculateDistance, getCityByName } from "../../utils/indonesiaCities";
 import { Event } from "../../types/landing";
 import { config } from "../../utils/config";
@@ -354,6 +354,18 @@ const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 											>
 												{status.label}
 											</span>
+										</div>
+										<div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-5">
+											<div className="flex items-center gap-2.5 text-white/80">
+												<div className="flex items-center gap-0.5">
+													<LuHeart className="w-3 h-3" />
+													<span className="text-[8px] lg:text-[9px] font-medium">{event.likesCount || 0}</span>
+												</div>
+												<div className="flex items-center gap-0.5">
+													<LuMessageCircle className="w-3 h-3" />
+													<span className="text-[8px] lg:text-[9px] font-medium">{event.commentsCount || 0}</span>
+												</div>
+											</div>
 										</div>
 									</div>
 
