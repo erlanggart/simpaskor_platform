@@ -75,7 +75,7 @@ const EventVoting: React.FC = () => {
 	useEffect(() => {
 		const fetchEvent = async () => {
 			try {
-				const res = await api.get(`/events/slug/${eventSlug}`);
+				const res = await api.get(`/events/${eventSlug}`);
 				setEventId(res.data.id);
 			} catch {
 				if (eventSlug) setEventId(eventSlug);
