@@ -686,9 +686,7 @@ const EventTicketing: React.FC = () => {
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
 												Tanggal
 											</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-												Aksi
-											</th>
+
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -716,37 +714,30 @@ const EventTicketing: React.FC = () => {
 													{purchase.totalAmount === 0 ? "GRATIS" : formatCurrency(purchase.totalAmount)}
 												</td>
 												<td className="px-4 py-3">
-													{getStatusBadge(purchase.status)}
+													<div className="flex items-center gap-2">
+														{getStatusBadge(purchase.status)}
+														{(purchase.status === "PAID") && (
+															<>
+																<button
+																	onClick={() => handleUpdatePurchaseStatus(purchase.id, "USED")}
+																	title="Tandai Digunakan"
+																	className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+																>
+																	<ClockIcon className="w-5 h-5" />
+																</button>
+																<button
+																	onClick={() => handleUpdatePurchaseStatus(purchase.id, "CANCELLED")}
+																	title="Batalkan"
+																	className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+																>
+																	<XCircleIcon className="w-5 h-5" />
+																</button>
+															</>
+														)}
+													</div>
 												</td>
 												<td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
 													{formatDate(purchase.createdAt || "")}
-												</td>
-												<td className="px-4 py-3">
-													<div className="flex gap-1">
-														{purchase.status === "PENDING" && (
-															<span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-lg">
-																Menunggu pembayaran
-															</span>
-														)}
-														{(purchase.status === "PAID") && (
-															<button
-																onClick={() => handleUpdatePurchaseStatus(purchase.id, "USED")}
-																title="Tandai Digunakan"
-																className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
-															>
-																<ClockIcon className="w-5 h-5" />
-															</button>
-														)}
-														{(purchase.status === "PAID") && (
-															<button
-																onClick={() => handleUpdatePurchaseStatus(purchase.id, "CANCELLED")}
-																title="Batalkan"
-																className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-															>
-																<XCircleIcon className="w-5 h-5" />
-															</button>
-														)}
-													</div>
 												</td>
 											</tr>
 										))}
