@@ -295,32 +295,6 @@ const EventVoting: React.FC = () => {
 		}
 	};
 
-	const handleUpdatePurchaseStatus = async (purchaseId: string, status: string) => {
-		const labels: Record<string, string> = {
-			PAID: "Tandai Sudah Bayar",
-			CANCELLED: "Batalkan Pembelian",
-		};
-
-		const result = await Swal.fire({
-			title: labels[status] || `Ubah status ke ${status}?`,
-			icon: status === "CANCELLED" ? "warning" : "question",
-			showCancelButton: true,
-			confirmButtonText: "Ya",
-			cancelButtonText: "Batal",
-			confirmButtonColor: status === "CANCELLED" ? "#dc2626" : "#16a34a",
-		});
-
-		if (!result.isConfirmed) return;
-
-		try {
-			await api.patch(`/voting/admin/purchases/${purchaseId}/status`, { status });
-			fetchPurchases();
-			Swal.fire({ title: "Berhasil!", icon: "success", timer: 1500, showConfirmButton: false });
-		} catch (err: any) {
-			Swal.fire("Error", err.response?.data?.error || "Gagal mengubah status", "error");
-		}
-	};
-
 	const resetCategoryForm = () => {
 		setCategoryForm({
 			title: "",
@@ -969,20 +943,14 @@ const EventVoting: React.FC = () => {
 										<span className="text-xs text-gray-500">{formatDate(p.createdAt)}</span>
 										<div className="flex gap-2">
 											{p.status === "PENDING" && (
-												<>
-													<button
-														onClick={() => handleUpdatePurchaseStatus(p.id, "PAID")}
-														className="text-xs px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700"
-													>
-														Konfirmasi Bayar
-													</button>
-													<button
-														onClick={() => handleUpdatePurchaseStatus(p.id, "CANCELLED")}
-														className="text-xs px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700"
-													>
-														Batalkan
-													</button>
-												</>
+												<span className="text-xs px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-lg">
+													Menunggu pembayaran via Midtrans
+												</span>
+											)}
+											{p.status === "PAID" && (
+												<span className="text-xs px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg">
+													Pembayaran dikonfirmasi otomatis
+												</span>
 											)}
 										</div>
 									</div>

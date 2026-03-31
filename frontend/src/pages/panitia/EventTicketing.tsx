@@ -134,6 +134,22 @@ const EventTicketing: React.FC = () => {
 		};
 	}, [activeTab]);
 
+	const stopScanner = useCallback(async () => {
+		if (scannerRef.current) {
+			try {
+				const state = scannerRef.current.getState();
+				if (state === 2) { // SCANNING
+					await scannerRef.current.stop();
+				}
+				scannerRef.current.clear();
+			} catch {
+				// ignore cleanup errors
+			}
+			scannerRef.current = null;
+		}
+		setScanning(false);
+	}, []);
+
 	const startScanner = useCallback(async (mode?: "environment" | "user") => {
 		const selectedMode = mode || facingModeRef.current;
 		try {
@@ -175,22 +191,6 @@ const EventTicketing: React.FC = () => {
 		// Small delay to let the DOM re-render after stopping
 		setTimeout(() => startScanner(newMode), 300);
 	}, [stopScanner, startScanner]);
-
-	const stopScanner = useCallback(async () => {
-		if (scannerRef.current) {
-			try {
-				const state = scannerRef.current.getState();
-				if (state === 2) { // SCANNING
-					await scannerRef.current.stop();
-				}
-				scannerRef.current.clear();
-			} catch {
-				// ignore cleanup errors
-			}
-			scannerRef.current = null;
-		}
-		setScanning(false);
-	}, []);
 
 	const handleScanTicket = async (ticketCode: string) => {
 		if (!ticketCode.trim() || scanProcessing) return;
