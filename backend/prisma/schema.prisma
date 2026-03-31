@@ -854,3 +854,42 @@ model RegistrationPayment {
   @@index([userId])
   @@map("registration_payments")
 }
+
+// ===== Guide System =====
+
+enum GuideRole {
+  PANITIA
+  JURI
+  PESERTA
+}
+
+model Guide {
+  id          String    @id @default(uuid())
+  role        GuideRole
+  title       String
+  description String?
+  icon        String?   // icon name e.g. "LuCalendarPlus"
+  order       Int       @default(0)
+  isPublished Boolean   @default(false) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  slides      GuideSlide[]
+
+  @@index([role])
+  @@map("guides")
+}
+
+model GuideSlide {
+  id          String   @id @default(uuid())
+  guideId     String   @map("guide_id")
+  guide       Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  order       Int      @default(0)
+  title       String
+  description String   @db.Text
+  imageUrl    String?  @map("image_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([guideId])
+  @@map("guide_slides")
+}

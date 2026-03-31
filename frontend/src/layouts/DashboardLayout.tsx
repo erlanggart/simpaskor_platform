@@ -24,6 +24,7 @@ import {
 	LuThumbsUp,
 	LuArrowRightFromLine,
 	LuEllipsis,
+	LuBookOpen,
 } from "react-icons/lu";
 import "../components/landing/LandingPage.css";
 
@@ -164,6 +165,7 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Event", icon: LuCalendar, path: "/admin/events" },
 					{ name: "Produk", icon: LuShoppingBag, path: "/admin/products" },
 					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
+					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Statistik", icon: LuChartBar, path: "/admin/statistics" },
 					{ name: "Setting", icon: LuSettings, path: "/admin/settings" }
 				);

@@ -8,7 +8,7 @@ import {
 	ClockIcon,
 	ArrowTrendingUpIcon,
 } from "@heroicons/react/24/outline";
-import { LuChevronRight } from "react-icons/lu";
+import { LuChevronRight, LuBookOpen } from "react-icons/lu";
 import { api } from "../../utils/api";
 import { useAuth } from "../../hooks/useAuth";
 import "../../components/landing/LandingPage.css";
@@ -119,7 +119,16 @@ const PanitiaDashboard: React.FC = () => {
 						<p className="text-xs md:text-sm text-gray-500 dark:text-gray-500 font-medium">
 							{user?.email}
 						</p>
-						<div className="w-12 h-[1px] bg-gradient-to-r from-red-500/50 to-transparent mt-4" />
+						<div className="flex items-center gap-3 mt-4">
+							<div className="w-12 h-[1px] bg-gradient-to-r from-red-500/50 to-transparent" />
+							<Link
+								to="/panitia/panduan"
+								className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition-colors text-xs font-bold"
+							>
+								<LuBookOpen className="w-4 h-4" />
+								Panduan Penggunaan
+							</Link>
+						</div>
 					</div>
 					<div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-red-500/[0.04] to-transparent pointer-events-none" />
 				</div>

@@ -47,9 +47,11 @@ const AdminManageEvent = lazy(() => import("./pages/admin/ManageEvent"));
 const AdminEditEvent = lazy(() => import("./pages/admin/EditEvent"));
 const ProductManagement = lazy(() => import("./pages/admin/ProductManagement"));
 const OrderManagement = lazy(() => import("./pages/admin/OrderManagement"));
+const GuideManagement = lazy(() => import("./pages/admin/GuideManagement"));
 const PanitiaDashboard = lazy(() => import("./pages/panitia/Dashboard"));
 const PanitiaEventsList = lazy(() => import("./pages/panitia/Events"));
 const PanitiaCoupons = lazy(() => import("./pages/panitia/Coupons"));
+const PanitiaPanduan = lazy(() => import("./pages/panitia/Panduan"));
 const CreateEventWizard = lazy(() => import("./pages/panitia/CreateEventWizard"));
 const EditEventForm = lazy(() => import("./pages/panitia/EditEvent"));
 const ManageEvent = lazy(() => import("./pages/panitia/ManageEvent"));
@@ -151,6 +153,7 @@ function App() {
 							/>
 							<Route path="products" element={<ProductManagement />} />
 							<Route path="orders" element={<OrderManagement />} />
+							<Route path="guides" element={<GuideManagement />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
@@ -193,6 +196,7 @@ function App() {
 							<Route path="dashboard" element={<PanitiaDashboard />} />
 							<Route path="events-list" element={<PanitiaEventsList />} />
 							<Route path="coupons" element={<PanitiaCoupons />} />
+							<Route path="panduan" element={<PanitiaPanduan />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 
