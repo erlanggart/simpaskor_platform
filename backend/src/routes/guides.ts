@@ -223,7 +223,7 @@ router.post(
 
 			const slide = await prisma.guideSlide.create({
 				data: {
-					guideId: req.params.id,
+					guide: { connect: { id: req.params.id } },
 					title,
 					description,
 					order: order ?? 0,
