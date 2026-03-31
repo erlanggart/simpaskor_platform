@@ -1,5 +1,5 @@
 import { Router, Response } from "express";
-import { PrismaClient, VotingPurchaseStatus } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import {
 	authenticate,
 	authorize,
@@ -1053,50 +1053,7 @@ router.get(
 	}
 );
 
-// PATCH /api/voting/admin/purchases/:purchaseId/status - Update purchase status
-router.patch(
-	"/admin/purchases/:purchaseId/status",
-	authenticate,
-	authorize("SUPERADMIN", "PANITIA"),
-	async (req: AuthenticatedRequest, res: Response) => {
-		try {
-			const { status } = req.body;
-			const validStatuses: VotingPurchaseStatus[] = ["PENDING", "PAID", "EXPIRED", "CANCELLED"];
-
-			if (!validStatuses.includes(status)) {
-				return res.status(400).json({ error: "Status tidak valid" });
-			}
-
-			const purchase = await prisma.votingPurchase.findUnique({
-				where: { id: req.params.purchaseId },
-			});
-
-			if (!purchase) {
-				return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
-			}
-
-			// Prevent marking as PAID if not yet paid via Midtrans
-			if (status === "PAID" && !purchase.paidAt && purchase.status === "PENDING" && purchase.totalAmount > 0) {
-				return res.status(400).json({ error: "Vote belum dibayar via Midtrans. Tidak bisa dikonfirmasi sebelum pembayaran diterima." });
-			}
-
-			const updateData: any = { status };
-
-			if (status === "PAID") {
-				updateData.paidAt = new Date();
-			}
-
-			const updated = await prisma.votingPurchase.update({
-				where: { id: req.params.purchaseId },
-				data: updateData,
-			});
-
-			res.json(updated);
-		} catch (error) {
-			console.error("Error updating purchase status:", error);
-			res.status(500).json({ error: "Gagal mengubah status pembelian" });
-		}
-	}
-);
+// Purchase status is managed automatically by Midtrans payment webhook
+// No manual confirmation/cancellation endpoint needed
 
 export default router;

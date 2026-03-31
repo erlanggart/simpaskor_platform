@@ -79,7 +79,7 @@ const EventTicketing: React.FC = () => {
 	useEffect(() => {
 		const fetchEvent = async () => {
 			try {
-				const res = await api.get(`/events/slug/${eventSlug}`);
+				const res = await api.get(`/events/${eventSlug}`);
 				setEventId(res.data.id);
 			} catch {
 				// Try direct ID
@@ -134,6 +134,22 @@ const EventTicketing: React.FC = () => {
 		};
 	}, [activeTab]);
 
+	const stopScanner = useCallback(async () => {
+		if (scannerRef.current) {
+			try {
+				const state = scannerRef.current.getState();
+				if (state === 2) { // SCANNING
+					await scannerRef.current.stop();
+				}
+				scannerRef.current.clear();
+			} catch {
+				// ignore cleanup errors
+			}
+			scannerRef.current = null;
+		}
+		setScanning(false);
+	}, []);
+
 	const startScanner = useCallback(async (mode?: "environment" | "user") => {
 		const selectedMode = mode || facingModeRef.current;
 		try {
@@ -175,22 +191,6 @@ const EventTicketing: React.FC = () => {
 		// Small delay to let the DOM re-render after stopping
 		setTimeout(() => startScanner(newMode), 300);
 	}, [stopScanner, startScanner]);
-
-	const stopScanner = useCallback(async () => {
-		if (scannerRef.current) {
-			try {
-				const state = scannerRef.current.getState();
-				if (state === 2) { // SCANNING
-					await scannerRef.current.stop();
-				}
-				scannerRef.current.clear();
-			} catch {
-				// ignore cleanup errors
-			}
-			scannerRef.current = null;
-		}
-		setScanning(false);
-	}, []);
 
 	const handleScanTicket = async (ticketCode: string) => {
 		if (!ticketCode.trim() || scanProcessing) return;
@@ -294,7 +294,6 @@ const EventTicketing: React.FC = () => {
 
 	const handleUpdatePurchaseStatus = async (purchaseId: string, status: string) => {
 		const labels: Record<string, string> = {
-			PAID: "Tandai sebagai Sudah Bayar",
 			USED: "Tandai sebagai Sudah Digunakan",
 			CANCELLED: "Batalkan Tiket",
 		};
@@ -687,9 +686,7 @@ const EventTicketing: React.FC = () => {
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
 												Tanggal
 											</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-												Aksi
-											</th>
+
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -717,41 +714,30 @@ const EventTicketing: React.FC = () => {
 													{purchase.totalAmount === 0 ? "GRATIS" : formatCurrency(purchase.totalAmount)}
 												</td>
 												<td className="px-4 py-3">
-													{getStatusBadge(purchase.status)}
+													<div className="flex items-center gap-2">
+														{getStatusBadge(purchase.status)}
+														{(purchase.status === "PAID") && (
+															<>
+																<button
+																	onClick={() => handleUpdatePurchaseStatus(purchase.id, "USED")}
+																	title="Tandai Digunakan"
+																	className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+																>
+																	<ClockIcon className="w-5 h-5" />
+																</button>
+																<button
+																	onClick={() => handleUpdatePurchaseStatus(purchase.id, "CANCELLED")}
+																	title="Batalkan"
+																	className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+																>
+																	<XCircleIcon className="w-5 h-5" />
+																</button>
+															</>
+														)}
+													</div>
 												</td>
 												<td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
 													{formatDate(purchase.createdAt || "")}
-												</td>
-												<td className="px-4 py-3">
-													<div className="flex gap-1">
-														{purchase.status === "PENDING" && (
-															<button
-																onClick={() => handleUpdatePurchaseStatus(purchase.id, "PAID")}
-																title="Konfirmasi Bayar"
-																className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"
-															>
-																<CheckCircleIcon className="w-5 h-5" />
-															</button>
-														)}
-														{(purchase.status === "PAID") && (
-															<button
-																onClick={() => handleUpdatePurchaseStatus(purchase.id, "USED")}
-																title="Tandai Digunakan"
-																className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
-															>
-																<ClockIcon className="w-5 h-5" />
-															</button>
-														)}
-														{(purchase.status === "PENDING" || purchase.status === "PAID") && (
-															<button
-																onClick={() => handleUpdatePurchaseStatus(purchase.id, "CANCELLED")}
-																title="Batalkan"
-																className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-															>
-																<XCircleIcon className="w-5 h-5" />
-															</button>
-														)}
-													</div>
 												</td>
 											</tr>
 										))}
