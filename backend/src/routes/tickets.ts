@@ -574,7 +574,7 @@ router.get(
 	}
 );
 
-// PATCH /api/tickets/admin/purchases/:purchaseId/status - Update purchase status
+// PATCH /api/tickets/admin/purchases/:purchaseId/status - Update purchase status (USED/CANCELLED only)
 router.patch(
 	"/admin/purchases/:purchaseId/status",
 	authenticate,
@@ -582,10 +582,10 @@ router.patch(
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const { status } = req.body;
-			const validStatuses: TicketStatus[] = ["PENDING", "PAID", "USED", "CANCELLED", "EXPIRED"];
+			const validStatuses: TicketStatus[] = ["USED", "CANCELLED"];
 
 			if (!validStatuses.includes(status)) {
-				return res.status(400).json({ error: "Status tidak valid" });
+				return res.status(400).json({ error: "Status tidak valid. Hanya USED dan CANCELLED yang diizinkan." });
 			}
 
 			const purchase = await prisma.ticketPurchase.findUnique({
@@ -596,21 +596,24 @@ router.patch(
 				return res.status(404).json({ error: "Pembelian tiket tidak ditemukan" });
 			}
 
-			// Prevent marking as PAID if not yet paid via Midtrans
-			if (status === "PAID" && !purchase.paidAt && purchase.status === "PENDING" && purchase.totalAmount > 0) {
-				return res.status(400).json({ error: "Tiket belum dibayar via Midtrans. Tidak bisa dikonfirmasi sebelum pembayaran diterima." });
+			// USED only allowed from PAID status
+			if (status === "USED" && purchase.status !== "PAID") {
+				return res.status(400).json({ error: "Hanya tiket yang sudah dibayar yang bisa ditandai digunakan." });
+			}
+
+			// CANCELLED only allowed from PAID status
+			if (status === "CANCELLED" && purchase.status !== "PAID") {
+				return res.status(400).json({ error: "Hanya tiket yang sudah dibayar yang bisa dibatalkan." });
 			}
 
 			const updateData: any = { status };
 
-			if (status === "PAID") {
-				updateData.paidAt = new Date();
-			} else if (status === "USED") {
+			if (status === "USED") {
 				updateData.usedAt = new Date();
 			}
 
 			// If cancelling, restore quota
-			if (status === "CANCELLED" && purchase.status !== "CANCELLED") {
+			if (status === "CANCELLED") {
 				await prisma.eventTicketConfig.update({
 					where: { eventId: purchase.eventId },
 					data: { soldCount: { decrement: purchase.quantity } },

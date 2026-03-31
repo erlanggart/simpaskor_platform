@@ -294,7 +294,6 @@ const EventTicketing: React.FC = () => {
 
 	const handleUpdatePurchaseStatus = async (purchaseId: string, status: string) => {
 		const labels: Record<string, string> = {
-			PAID: "Tandai sebagai Sudah Bayar",
 			USED: "Tandai sebagai Sudah Digunakan",
 			CANCELLED: "Batalkan Tiket",
 		};
@@ -725,13 +724,9 @@ const EventTicketing: React.FC = () => {
 												<td className="px-4 py-3">
 													<div className="flex gap-1">
 														{purchase.status === "PENDING" && (
-															<button
-																onClick={() => handleUpdatePurchaseStatus(purchase.id, "PAID")}
-																title="Konfirmasi Bayar"
-																className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"
-															>
-																<CheckCircleIcon className="w-5 h-5" />
-															</button>
+															<span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-lg">
+																Menunggu pembayaran
+															</span>
 														)}
 														{(purchase.status === "PAID") && (
 															<button
@@ -742,7 +737,7 @@ const EventTicketing: React.FC = () => {
 																<ClockIcon className="w-5 h-5" />
 															</button>
 														)}
-														{(purchase.status === "PENDING" || purchase.status === "PAID") && (
+														{(purchase.status === "PAID") && (
 															<button
 																onClick={() => handleUpdatePurchaseStatus(purchase.id, "CANCELLED")}
 																title="Batalkan"
