@@ -1094,6 +1094,99 @@ router.get("/public/juries", async (req, res: Response) => {
 	}
 });
 
+// Get juri detail with event history (public, no auth)
+router.get("/public/juries/:id", async (req, res: Response) => {
+	try {
+		const { id } = req.params;
+
+		const juri = await prisma.user.findFirst({
+			where: {
+				id,
+				role: UserRole.JURI,
+			},
+			select: {
+				id: true,
+				name: true,
+				profile: {
+					select: {
+						avatar: true,
+						institution: true,
+						city: true,
+						province: true,
+						bio: true,
+					},
+				},
+				juryAssignments: {
+					where: {
+						status: "CONFIRMED",
+					},
+					select: {
+						id: true,
+						invitedAt: true,
+						event: {
+							select: {
+								id: true,
+								title: true,
+								slug: true,
+								thumbnail: true,
+								startDate: true,
+								endDate: true,
+								location: true,
+								status: true,
+							},
+						},
+						assignedCategories: {
+							select: {
+								assessmentCategory: {
+									select: {
+										name: true,
+									},
+								},
+							},
+						},
+					},
+					orderBy: {
+						event: {
+							startDate: "desc",
+						},
+					},
+				},
+			},
+		});
+
+		if (!juri) {
+			return res.status(404).json({ error: "Juri not found" });
+		}
+
+		res.json({
+			id: juri.id,
+			name: juri.name,
+			avatar: juri.profile?.avatar || null,
+			institution: juri.profile?.institution || null,
+			city: juri.profile?.city || null,
+			province: juri.profile?.province || null,
+			bio: juri.profile?.bio || null,
+			eventHistory: juri.juryAssignments.map((a) => ({
+				eventId: a.event.id,
+				title: a.event.title,
+				slug: a.event.slug,
+				thumbnail: a.event.thumbnail,
+				startDate: a.event.startDate,
+				endDate: a.event.endDate,
+				location: a.event.location,
+				status: a.event.status,
+				categories: a.assignedCategories.map((c) => c.assessmentCategory.name),
+			})),
+		});
+	} catch (error) {
+		console.error("Get juri detail error:", error);
+		res.status(500).json({
+			error: "Failed to fetch juri detail",
+			message: "Internal server error",
+		});
+	}
+});
+
 // Get all pelatih (public, no auth) - for "View All Pelatih" page
 router.get("/public/pelatih", async (req, res: Response) => {
 	try {

@@ -455,27 +455,18 @@ const ManageMateri: React.FC = () => {
 			});
 			allScoreCategories.sort((a, b) => a.order - b.order);
 
-			// Build multi-level headers
-			// Row 1: No | Kriteria | [category name spans across its options] | ...
-			// Row 2: No | Kriteria | [opt1] [opt2] ... | [opt1] [opt2] ... | ...
-			const headerRow1: any[] = [
-				{ content: "No", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
-				{ content: "Kriteria", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+			// Build header row: No | Kriteria | [category name spans across its options] | ...
+			const headerRow: any[] = [
+				{ content: "No", styles: { halign: "center", valign: "middle" } },
+				{ content: "Kriteria", styles: { halign: "center", valign: "middle" } },
 			];
-			const headerRow2: any[] = [];
 
 			allScoreCategories.forEach((sc) => {
-				headerRow1.push({
+				headerRow.push({
 					content: sc.name.toUpperCase(),
 					colSpan: sc.maxOptions,
 					styles: { halign: "center", valign: "middle", fontSize: 7 },
 				});
-				for (let i = 0; i < sc.maxOptions; i++) {
-					headerRow2.push({
-						content: "",
-						styles: { halign: "center", fontSize: 6 },
-					});
-				}
 			});
 
 			// Build body rows
@@ -509,24 +500,6 @@ const ManageMateri: React.FC = () => {
 				return row;
 			});
 
-			// Fill headerRow2 with score option labels from first material that has all categories
-			allScoreCategories.forEach((sc, scIdx) => {
-				const refMaterial = sortedMaterials.find((m) => m.scoreCategories.some((s) => s.name === sc.name));
-				if (refMaterial) {
-					const refSc = refMaterial.scoreCategories.find((s) => s.name === sc.name);
-					if (refSc) {
-						const sortedOpts = [...refSc.options].sort((a, b) => a.order - b.order);
-						let startIdx = 0;
-						for (let i = 0; i < scIdx; i++) startIdx += allScoreCategories[i].maxOptions;
-						sortedOpts.forEach((opt, optIdx) => {
-							if (startIdx + optIdx < headerRow2.length) {
-								headerRow2[startIdx + optIdx].content = opt.name || opt.score.toString();
-							}
-						});
-					}
-				}
-			});
-
 			// Calculate column widths
 			const tableWidth = pageWidth - 28;
 			const noWidth = 8;
@@ -558,7 +531,7 @@ const ManageMateri: React.FC = () => {
 			};
 
 			autoTable(doc, {
-				head: [headerRow1, headerRow2],
+				head: [headerRow],
 				body: bodyRows,
 				startY: 39,
 				styles: {
@@ -573,7 +546,7 @@ const ManageMateri: React.FC = () => {
 					textColor: 255,
 					fontStyle: "bold",
 					halign: "center",
-					minCellHeight: 8,
+					minCellHeight: 10,
 				},
 				bodyStyles: {
 					textColor: [50, 50, 50],
@@ -585,29 +558,13 @@ const ManageMateri: React.FC = () => {
 				},
 				columnStyles,
 				didParseCell: (data) => {
-					// Color category header cells in row 0
-					if (data.section === "head" && data.row.index === 0 && data.column.index >= 2) {
+					// Color category header cells
+					if (data.section === "head" && data.column.index >= 2) {
 						let optCount = 0;
 						for (const sc of allScoreCategories) {
 							if (data.column.index >= 2 + optCount && data.column.index < 2 + optCount + sc.maxOptions) {
 								const catColor = colorMap[sc.color] || primaryRed;
 								data.cell.styles.fillColor = catColor;
-								break;
-							}
-							optCount += sc.maxOptions;
-						}
-					}
-					// Lighter color for sub-header row
-					if (data.section === "head" && data.row.index === 1) {
-						let optCount = 0;
-						for (const sc of allScoreCategories) {
-							if (data.column.index >= optCount && data.column.index < optCount + sc.maxOptions) {
-								const catColor = colorMap[sc.color] || primaryRed;
-								data.cell.styles.fillColor = [
-									Math.min(255, catColor[0] + 40),
-									Math.min(255, catColor[1] + 40),
-									Math.min(255, catColor[2] + 40),
-								];
 								break;
 							}
 							optCount += sc.maxOptions;

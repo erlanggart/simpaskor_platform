@@ -13,6 +13,7 @@ interface PinnedPersonCarouselProps {
 	persons: Person[];
 	accentColor: "purple" | "blue";
 	linkPrefix: string;
+	onPersonClick?: (personId: string) => void;
 }
 
 const getPositionStyle = (
@@ -89,6 +90,7 @@ const PinnedPersonCarousel: React.FC<PinnedPersonCarouselProps> = ({
 	persons,
 	accentColor,
 	linkPrefix,
+	onPersonClick,
 }) => {
 	const [currentIndex, setCurrentIndex] = useState(0);
 	const [isAutoPlaying, setIsAutoPlaying] = useState(true);
@@ -224,12 +226,20 @@ const PinnedPersonCarousel: React.FC<PinnedPersonCarouselProps> = ({
 													<span className="line-clamp-1">{person.institution}</span>
 												</div>
 											)}
-											<a
-												href={linkPrefix}
+											<button
+												type="button"
+												onClick={(e) => {
+													e.stopPropagation();
+													if (onPersonClick) {
+														onPersonClick(person.id);
+													} else {
+														window.location.href = linkPrefix;
+													}
+												}}
 												className="block w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white text-center text-xs font-semibold rounded-lg transition-colors"
 											>
 												Lihat Profil
-											</a>
+											</button>
 										</div>
 									</div>
 								</div>

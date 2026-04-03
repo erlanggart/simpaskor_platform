@@ -17,6 +17,7 @@ import { useLandingData } from "../hooks/useLandingData";
 import HeroSection from "../components/landing/HeroSection";
 import EventSection from "../components/landing/EventSection";
 import PinnedPersonCarousel from "../components/landing/PinnedPersonCarousel";
+import JuriDetailModal from "../components/landing/JuriDetailModal";
 import PricingSection from "../components/landing/PricingSection";
 import "../components/landing/LandingPage.css";
 
@@ -35,6 +36,7 @@ const LandingPage: React.FC = () => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sectionRefs = useRef<(HTMLElement | null)[]>([]);
 	const { pinnedEvents, publicStats, juries, pelatih, loading } = useLandingData();
+	const [selectedJuriId, setSelectedJuriId] = useState<string | null>(null);
 
 	const scrollToSection = useCallback((index: number) => {
 		sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth" });
@@ -256,7 +258,7 @@ const LandingPage: React.FC = () => {
 
 							{/* Right: Pinned Juri Carousel */}
 							<div className="flex-shrink-0 hidden lg:flex flex-col items-center gap-6">
-								<PinnedPersonCarousel persons={juries} accentColor="purple" linkPrefix="/juries" />
+								<PinnedPersonCarousel persons={juries} accentColor="purple" linkPrefix="/juries" onPersonClick={(id) => setSelectedJuriId(id)} />
 							</div>
 						</div>
 					</div>
@@ -330,6 +332,14 @@ const LandingPage: React.FC = () => {
 				{/* Ping ring animation */}
 				<span className="absolute inset-0 rounded-full bg-[#25D366] animate-wa-ping opacity-0" />
 			</a>
+
+			{/* Juri Detail Modal */}
+			{selectedJuriId && (
+				<JuriDetailModal
+					juriId={selectedJuriId}
+					onClose={() => setSelectedJuriId(null)}
+				/>
+			)}
 		</div>
 	);
 };
