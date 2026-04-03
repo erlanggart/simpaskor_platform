@@ -5,11 +5,14 @@ import {
 	PlusIcon,
 	PencilIcon,
 	TrashIcon,
+	ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import { PBBTemplateRecommendation } from "../../components/materials/PBBTemplateImporter";
 import MaterialForm, { ScoreCategoryInput, SchoolCategory } from "../../components/materials/MaterialForm";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ScoreOption {
 	id?: string;
@@ -373,6 +376,142 @@ const ManageMateri: React.FC = () => {
 		/>
 	);
 
+	// Export all materials to PDF
+	const exportToPDF = () => {
+		if (categories.length === 0) return;
+
+		const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+		const pageWidth = doc.internal.pageSize.getWidth();
+		const primaryRed: [number, number, number] = [220, 38, 38];
+
+		let isFirstPage = true;
+
+		categories.forEach((category) => {
+			if (category.materials.length === 0) return;
+
+			if (!isFirstPage) {
+				doc.addPage();
+			}
+			isFirstPage = false;
+
+			// Header
+			doc.setFontSize(16);
+			doc.setTextColor(primaryRed[0], primaryRed[1], primaryRed[2]);
+			doc.setFont("helvetica", "bold");
+			doc.text("DAFTAR MATERI PENILAIAN", 14, 15);
+
+			doc.setFontSize(12);
+			doc.setTextColor(60, 60, 60);
+			doc.setFont("helvetica", "normal");
+			doc.text(`Kategori: ${category.categoryName}`, 14, 22);
+
+			doc.setFontSize(9);
+			doc.setTextColor(120, 120, 120);
+			doc.text(`Total Materi: ${category.materials.length}`, 14, 28);
+
+			// Date on right
+			const dateStr = new Date().toLocaleDateString("id-ID", {
+				day: "numeric",
+				month: "long",
+				year: "numeric",
+			});
+			doc.text(`Dicetak: ${dateStr}`, pageWidth - 14, 15, { align: "right" });
+
+			// Max score info
+			if (category.maxScoreBreakdown && category.maxScoreBreakdown.length > 0) {
+				const maxInfo = category.maxScoreBreakdown
+					.map((b) => `${b.schoolCategoryName}: ${b.maxScore} (×${b.juryCount} juri = ${b.totalMaxScore})`)
+					.join("  |  ");
+				doc.setFontSize(8);
+				doc.setTextColor(100, 100, 100);
+				doc.text(`Maks. Nilai: ${maxInfo}`, pageWidth - 14, 22, { align: "right" });
+			}
+
+			// Line
+			doc.setDrawColor(primaryRed[0], primaryRed[1], primaryRed[2]);
+			doc.setLineWidth(0.8);
+			doc.line(14, 31, pageWidth - 14, 31);
+
+			// Build table
+			const headers = ["No", "Nama Materi", "Deskripsi", "Kategori Sekolah", "Pilihan Nilai", "Maks"];
+
+			const sortedMaterials = [...category.materials].sort((a, b) => a.number - b.number);
+
+			const rows = sortedMaterials.map((material) => {
+				const schoolCats = material.schoolCategories.length > 0
+					? material.schoolCategories.map((sc) => sc.name).join(", ")
+					: "Semua";
+
+				// Build score options string
+				const scoreOptions = material.scoreCategories
+					.map((cat) => {
+						const opts = cat.options.map((o) => o.score).join(", ");
+						return `${cat.name}: [${opts}]`;
+					})
+					.join("\n");
+
+				// Max score for this material
+				let materialMax = 0;
+				material.scoreCategories.forEach((cat) => {
+					cat.options.forEach((opt) => {
+						if (opt.score > materialMax) materialMax = opt.score;
+					});
+				});
+
+				return [
+					material.number,
+					material.name,
+					material.description || "-",
+					schoolCats,
+					scoreOptions,
+					materialMax,
+				];
+			});
+
+			autoTable(doc, {
+				head: [headers],
+				body: rows,
+				startY: 34,
+				styles: {
+					fontSize: 8,
+					cellPadding: 2.5,
+					lineColor: [200, 200, 200],
+					lineWidth: 0.1,
+					overflow: "linebreak",
+				},
+				headStyles: {
+					fillColor: primaryRed,
+					textColor: 255,
+					fontStyle: "bold",
+					halign: "center",
+				},
+				bodyStyles: {
+					textColor: [50, 50, 50],
+				},
+				alternateRowStyles: {
+					fillColor: [254, 242, 242],
+				},
+				columnStyles: {
+					0: { halign: "center", cellWidth: 10 },
+					1: { cellWidth: 50 },
+					2: { cellWidth: 50 },
+					3: { cellWidth: 35 },
+					4: { cellWidth: 80, fontSize: 7 },
+					5: { halign: "center", cellWidth: 15 },
+				},
+				didParseCell: (data) => {
+					// Bold max column
+					if (data.column.index === 5 && data.section === "body") {
+						data.cell.styles.fontStyle = "bold";
+						data.cell.styles.textColor = primaryRed;
+					}
+				},
+			});
+		});
+
+		doc.save("materi-penilaian.pdf");
+	};
+
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -394,6 +533,15 @@ const ManageMateri: React.FC = () => {
 							Atur materi, kategori sekolah, dan pilihan penilaian per materi
 						</p>
 					</div>
+					{categories.some((c) => c.materials.length > 0) && (
+						<button
+							onClick={exportToPDF}
+							className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+						>
+							<ArrowDownTrayIcon className="w-4 h-4" />
+							Ekspor PDF
+						</button>
+					)}
 				</div>
 
 				{/* Event School Categories Info

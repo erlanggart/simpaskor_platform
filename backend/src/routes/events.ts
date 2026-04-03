@@ -2399,4 +2399,55 @@ router.post(
 	}
 );
 
+// DELETE /api/events/:id - Delete event (SuperAdmin only)
+router.delete(
+	"/:id",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { id } = req.params;
+
+			if (!user || user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Only SuperAdmin can delete events",
+				});
+			}
+
+			const event = await prisma.event.findUnique({
+				where: { id },
+			});
+
+			if (!event) {
+				return res.status(404).json({ message: "Event not found" });
+			}
+
+			// Delete event (cascade will handle related records)
+			await prisma.$transaction([
+				prisma.event.delete({
+					where: { id },
+				}),
+				// Restore coupon if exists
+				...(event.couponId
+					? [
+							prisma.eventCoupon.update({
+								where: { id: event.couponId },
+								data: {
+									isUsed: false,
+									usedById: null,
+									usedAt: null,
+								},
+							}),
+					  ]
+					: []),
+			]);
+
+			res.json({ message: "Event deleted successfully" });
+		} catch (error) {
+			console.error("Error deleting event:", error);
+			res.status(500).json({ message: "Failed to delete event" });
+		}
+	}
+);
+
 export default router;

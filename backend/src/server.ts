@@ -27,6 +27,7 @@ import votingRoutes from "./routes/voting";
 import paymentRoutes from "./routes/payments";
 import registrationPaymentRoutes from "./routes/registrationPayments";
 import guideRoutes from "./routes/guides";
+import eventSubmissionRoutes from "./routes/eventSubmissions";
 
 dotenv.config();
 
@@ -146,6 +147,7 @@ app.use("/api/voting", votingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/registration-payments", registrationPaymentRoutes);
 app.use("/api/guides", guideRoutes);
+app.use("/api/event-submissions", eventSubmissionRoutes);
 
 // Error handling middleware
 app.use(

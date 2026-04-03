@@ -13,6 +13,7 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	Cog6ToothIcon,
+	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { api } from "../../utils/api";
@@ -89,6 +90,24 @@ const EventManagement: React.FC = () => {
 			showError("Gagal memuat data event");
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
+		const confirmed = await showConfirm(
+			"Hapus Event?",
+			`Apakah Anda yakin ingin menghapus event "${eventTitle}"? Semua data terkait (peserta, penilaian, materi, dll) akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.`
+		);
+
+		if (!confirmed) return;
+
+		try {
+			await api.delete(`/events/${eventId}`);
+			showSuccess("Event berhasil dihapus");
+			fetchEvents();
+		} catch (error: any) {
+			console.error("Error deleting event:", error);
+			showError(error.response?.data?.message || "Gagal menghapus event");
 		}
 	};
 
@@ -453,7 +472,8 @@ const EventManagement: React.FC = () => {
 											key={event.id}
 											event={event}
 											onTogglePin={handleTogglePin}
-											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											canMoveUp={index > 0}
+											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											onDelete={handleDeleteEvent}
+											canMoveUp={index > 0}
 											canMoveDown={index < pinnedEvents.length - 1}
 											getImageUrl={getImageUrl}
 											formatDate={formatDate}
@@ -476,7 +496,8 @@ const EventManagement: React.FC = () => {
 											key={event.id}
 											event={event}
 											onTogglePin={handleTogglePin}
-											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											canMoveUp={false}
+											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											onDelete={handleDeleteEvent}
+											canMoveUp={false}
 											canMoveDown={false}
 											getImageUrl={getImageUrl}
 											formatDate={formatDate}
@@ -580,6 +601,7 @@ interface EventCardProps {
 	onTogglePin: (eventId: string, currentPinned: boolean) => void;
 	onUpdateOrder: (eventId: string, direction: "up" | "down") => void;
 	onManage: (event: Event) => void;
+	onDelete: (eventId: string, eventTitle: string) => void;
 	canMoveUp: boolean;
 	canMoveDown: boolean;
 	getImageUrl: (thumbnail: string | null) => string | null;
@@ -592,6 +614,7 @@ const EventCard: React.FC<EventCardProps> = ({
 	onTogglePin,
 	onUpdateOrder,
 	onManage,
+	onDelete,
 	canMoveUp,
 	canMoveDown,
 	getImageUrl,
@@ -764,6 +787,16 @@ const EventCard: React.FC<EventCardProps> = ({
 							<EyeIcon className="w-4 h-4" />
 							Lihat Event
 						</Link>
+
+						{/* Delete Event */}
+						<button
+							onClick={() => onDelete(event.id, event.title)}
+							className="flex items-center gap-2 px-4 py-2 bg-red-800 dark:bg-red-900 text-white rounded-lg hover:bg-red-900 dark:hover:bg-red-950 transition-colors"
+							title="Hapus Event"
+						>
+							<TrashIcon className="w-4 h-4" />
+							Hapus
+						</button>
 					</div>
 				</div>
 			</div>

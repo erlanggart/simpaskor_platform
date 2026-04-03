@@ -14,12 +14,14 @@ interface HeroSectionProps {
 		icon: React.ComponentType<{ className?: string }>;
 	}[];
 	onScrollNext: () => void;
+	onScrollToPricing?: () => void;
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({
 	pinnedEvents,
 	stats,
 	onScrollNext,
+	onScrollToPricing,
 }) => {
 	return (
 		<>
@@ -42,13 +44,22 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 							dengan teknologi digital terkini untuk membentuk generasi muda
 							yang disiplin, tangguh, dan berkarakter.
 						</p>
-						<Link
-							to="/events"
-							className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-xs md:text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
-						>
-							<span>Jelajahi Event</span>
-							<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-						</Link>
+						<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+							<Link
+								to="/events"
+								className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-xs md:text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
+							>
+								<span>Jelajahi Event</span>
+								<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+							</Link>
+							<button
+								onClick={onScrollToPricing}
+								className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-xs md:text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 group"
+							>
+								<span>Selenggarakan Event Anda</span>
+								<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+							</button>
+						</div>
 
 						{/* Stats */}
 						<div className="mt-8 md:mt-12">

@@ -1101,6 +1101,7 @@ router.get(
 					id: true,
 					eventAssessmentCategoryId: true,
 					name: true,
+					scoreCategories: true,
 				},
 			});
 
@@ -1108,6 +1109,32 @@ router.get(
 			const materialToCategoryMap = new Map(
 				eventMaterials.map((m) => [m.id, m.eventAssessmentCategoryId])
 			);
+
+			// Compute real max score per event assessment category from materials
+			const computedMaxScorePerEAC = new Map<string, number>();
+			for (const eac of event.assessmentCategories) {
+				const categoryMaterials = eventMaterials.filter(
+					(m) => m.eventAssessmentCategoryId === eac.id
+				);
+				let categoryMax = 0;
+				categoryMaterials.forEach((material) => {
+					let materialMaxScore = 0;
+					const scoreCats = material.scoreCategories as any[];
+					if (Array.isArray(scoreCats)) {
+						scoreCats.forEach((scoreCat: any) => {
+							if (Array.isArray(scoreCat.options)) {
+								scoreCat.options.forEach((opt: any) => {
+									if ((opt.score || 0) > materialMaxScore) {
+										materialMaxScore = opt.score || 0;
+									}
+								});
+							}
+						});
+					}
+					categoryMax += materialMaxScore;
+				});
+				computedMaxScorePerEAC.set(eac.id, categoryMax);
+			}
 
 			// Group material evaluations by participant, assessmentCategory, jury
 			const materialEvalsByParticipant = materialEvaluations.reduce((acc, me) => {
@@ -1188,13 +1215,14 @@ router.get(
 						const materialEval = materialEvalsByParticipant[materialKey];
 
 						let score: number | null = null;
-						let maxScore = eac.customMaxScore || 100;
+						// Use computed max from materials, fall back to customMaxScore or 100
+						let maxScore = computedMaxScorePerEAC.get(eac.id) || eac.customMaxScore || 100;
 						let notes: string | null = null;
 						let scoredMaterials: number | undefined;
 
 						if (evaluation) {
 							score = evaluation.score;
-							maxScore = evaluation.maxScore;
+							// Keep computed maxScore from materials (don't use stale evaluation.maxScore)
 							notes = evaluation.notes;
 						} else if (materialEval && materialEval.count > 0) {
 							score = materialEval.totalScore;
@@ -1343,6 +1371,8 @@ router.get(
 					eventAssessmentCategoryId: true,
 					name: true,
 					number: true,
+					scoreCategories: true,
+					schoolCategoryIds: true,
 				},
 			});
 
@@ -1356,6 +1386,32 @@ router.get(
 				const count = materialsPerCategory.get(m.eventAssessmentCategoryId) || 0;
 				materialsPerCategory.set(m.eventAssessmentCategoryId, count + 1);
 			});
+
+			// Compute real max score per category from materials' scoreCategories
+			const computedMaxScorePerCategory = new Map<string, number>();
+			for (const eac of event.assessmentCategories) {
+				const categoryMaterials = eventMaterials.filter(
+					(m) => m.eventAssessmentCategoryId === eac.id
+				);
+				let categoryMax = 0;
+				categoryMaterials.forEach((material) => {
+					let materialMaxScore = 0;
+					const scoreCats = material.scoreCategories as any[];
+					if (Array.isArray(scoreCats)) {
+						scoreCats.forEach((scoreCat: any) => {
+							if (Array.isArray(scoreCat.options)) {
+								scoreCat.options.forEach((opt: any) => {
+									if ((opt.score || 0) > materialMaxScore) {
+										materialMaxScore = opt.score || 0;
+									}
+								});
+							}
+						});
+					}
+					categoryMax += materialMaxScore;
+				});
+				computedMaxScorePerCategory.set(eac.id, categoryMax);
+			}
 
 			// Get ALL material evaluations with full detail
 			const materialEvaluations = await prisma.materialEvaluation.findMany({
@@ -1478,7 +1534,7 @@ router.get(
 				}
 			}
 
-			// Check for direct evaluations that exceed maxScore
+			// Check for direct evaluations that exceed the computed maxScore
 			const directEvaluations = await prisma.evaluation.findMany({
 				where: { eventId: event.id },
 				select: {
@@ -1491,10 +1547,12 @@ router.get(
 			});
 
 			for (const ev of directEvaluations) {
-				if (ev.score > ev.maxScore) {
-					const eac = event.assessmentCategories.find(
-						(c) => c.assessmentCategoryId === ev.assessmentCategoryId
-					);
+				const eac = event.assessmentCategories.find(
+					(c) => c.assessmentCategoryId === ev.assessmentCategoryId
+				);
+				// Use computed max from materials, fall back to stored maxScore
+				const realMaxScore = eac ? (computedMaxScorePerCategory.get(eac.id) || ev.maxScore) : ev.maxScore;
+				if (ev.score > realMaxScore && realMaxScore > 0) {
 					issues.push({
 						type: "score_exceeds_max",
 						severity: "error",
@@ -1504,13 +1562,13 @@ router.get(
 						juryId: ev.juryId,
 						juryName: juryNameMap.get(ev.juryId) || "Unknown",
 						eventCategoryId: eac?.id,
-						message: `Nilai (${ev.score}) melebihi batas maksimum (${ev.maxScore}) di kategori "${eac?.assessmentCategory.name}"`,
+						message: `Nilai juri "${juryNameMap.get(ev.juryId)}" (${ev.score}) melebihi batas maksimum (${realMaxScore}) di kategori "${eac?.assessmentCategory.name}" — kemungkinan nilai materi terhitung ganda!`,
 						fixAction: "delete_jury_category",
 					});
 				}
 			}
 
-			// Also check summed material scores against maxScore
+			// Also check summed material scores against computed maxScore
 			for (const [key, evalData] of materialCountMap) {
 				const parts = key.split(":");
 				const participantId = parts[0]!;
@@ -1519,7 +1577,8 @@ router.get(
 				const eac = event.assessmentCategories.find((c) => c.id === eacId);
 				if (!eac) continue;
 
-				const maxScore = eac.customMaxScore || 100;
+				// Use computed max from materials instead of customMaxScore or default 100
+				const maxScore = computedMaxScorePerCategory.get(eacId) || eac.customMaxScore || 100;
 
 				// Sum scores for this combo
 				const relevantEvals = materialEvaluations.filter(

@@ -893,3 +893,39 @@ model GuideSlide {
   @@index([guideId])
   @@map("guide_slides")
 }
+
+// ===== Event Submission (Landing Page Registration) =====
+
+enum EventSubmissionStatus {
+  PENDING
+  CONTACTED
+  CONFIRMED
+  REJECTED
+}
+
+enum PackageTier {
+  BRONZE
+  SILVER
+  GOLD
+}
+
+model EventSubmission {
+  id            String                @id @default(uuid())
+  namaPanitia   String                @map("nama_panitia")
+  email         String
+  phone         String?
+  namaEvent     String                @map("nama_event")
+  lokasiEvent   String                @map("lokasi_event")
+  namaInstansi  String                @map("nama_instansi")
+  packageTier   PackageTier           @map("package_tier")
+  status        EventSubmissionStatus @default(PENDING)
+  notes         String?               @db.Text
+  createdUserId String?               @map("created_user_id")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([packageTier])
+  @@index([email])
+  @@map("event_submissions")
+}
