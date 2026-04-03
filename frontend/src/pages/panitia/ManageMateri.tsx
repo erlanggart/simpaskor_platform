@@ -376,11 +376,11 @@ const ManageMateri: React.FC = () => {
 		/>
 	);
 
-	// Export all materials to PDF
+	// Export all materials to PDF (format like Juri scoring layout)
 	const exportToPDF = () => {
 		if (categories.length === 0) return;
 
-		const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+		const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 		const pageWidth = doc.internal.pageSize.getWidth();
 		const primaryRed: [number, number, number] = [220, 38, 38];
 
@@ -395,86 +395,175 @@ const ManageMateri: React.FC = () => {
 			isFirstPage = false;
 
 			// Header
-			doc.setFontSize(16);
+			doc.setFontSize(14);
 			doc.setTextColor(primaryRed[0], primaryRed[1], primaryRed[2]);
 			doc.setFont("helvetica", "bold");
-			doc.text("DAFTAR MATERI PENILAIAN", 14, 15);
+			doc.text("LEMBAR PENILAIAN MATERI", pageWidth / 2, 15, { align: "center" });
 
-			doc.setFontSize(12);
+			doc.setFontSize(11);
 			doc.setTextColor(60, 60, 60);
-			doc.setFont("helvetica", "normal");
-			doc.text(`Kategori: ${category.categoryName}`, 14, 22);
+			doc.setFont("helvetica", "bold");
+			doc.text(`Kategori: ${category.categoryName}`, pageWidth / 2, 22, { align: "center" });
 
-			doc.setFontSize(9);
-			doc.setTextColor(120, 120, 120);
-			doc.text(`Total Materi: ${category.materials.length}`, 14, 28);
-
-			// Date on right
+			// Date on right, total on left
 			const dateStr = new Date().toLocaleDateString("id-ID", {
 				day: "numeric",
 				month: "long",
 				year: "numeric",
 			});
-			doc.text(`Dicetak: ${dateStr}`, pageWidth - 14, 15, { align: "right" });
+			doc.setFontSize(8);
+			doc.setFont("helvetica", "normal");
+			doc.setTextColor(120, 120, 120);
+			doc.text(`Total Materi: ${category.materials.length}`, 14, 28);
+			doc.text(`Dicetak: ${dateStr}`, pageWidth - 14, 28, { align: "right" });
 
 			// Max score info
 			if (category.maxScoreBreakdown && category.maxScoreBreakdown.length > 0) {
 				const maxInfo = category.maxScoreBreakdown
 					.map((b) => `${b.schoolCategoryName}: ${b.maxScore} (×${b.juryCount} juri = ${b.totalMaxScore})`)
 					.join("  |  ");
-				doc.setFontSize(8);
+				doc.setFontSize(7);
 				doc.setTextColor(100, 100, 100);
-				doc.text(`Maks. Nilai: ${maxInfo}`, pageWidth - 14, 22, { align: "right" });
+				doc.text(`Maks. Nilai: ${maxInfo}`, pageWidth / 2, 33, { align: "center" });
 			}
 
 			// Line
 			doc.setDrawColor(primaryRed[0], primaryRed[1], primaryRed[2]);
 			doc.setLineWidth(0.8);
-			doc.line(14, 31, pageWidth - 14, 31);
+			doc.line(14, 36, pageWidth - 14, 36);
 
-			// Build table
-			const headers = ["No", "Nama Materi", "Deskripsi", "Kategori Sekolah", "Pilihan Nilai", "Maks"];
-
+			// Build table matching Juri scoring layout:
+			// | No | Kriteria | ScoreCategory1 options... | ScoreCategory2 options... | ... |
 			const sortedMaterials = [...category.materials].sort((a, b) => a.number - b.number);
 
-			const rows = sortedMaterials.map((material) => {
-				const schoolCats = material.schoolCategories.length > 0
-					? material.schoolCategories.map((sc) => sc.name).join(", ")
-					: "Semua";
-
-				// Build score options string
-				const scoreOptions = material.scoreCategories
-					.map((cat) => {
-						const opts = cat.options.map((o) => o.score).join(", ");
-						return `${cat.name}: [${opts}]`;
-					})
-					.join("\n");
-
-				// Max score for this material
-				let materialMax = 0;
-				material.scoreCategories.forEach((cat) => {
-					cat.options.forEach((opt) => {
-						if (opt.score > materialMax) materialMax = opt.score;
-					});
+			// Collect all unique score categories across materials (sorted by order)
+			const allScoreCategories: { name: string; color: string; order: number; maxOptions: number }[] = [];
+			sortedMaterials.forEach((material) => {
+				material.scoreCategories.forEach((sc) => {
+					const existing = allScoreCategories.find((a) => a.name === sc.name);
+					if (!existing) {
+						allScoreCategories.push({
+							name: sc.name,
+							color: sc.color,
+							order: sc.order,
+							maxOptions: sc.options.length,
+						});
+					} else if (sc.options.length > existing.maxOptions) {
+						existing.maxOptions = sc.options.length;
+					}
 				});
+			});
+			allScoreCategories.sort((a, b) => a.order - b.order);
 
-				return [
-					material.number,
-					material.name,
-					material.description || "-",
-					schoolCats,
-					scoreOptions,
-					materialMax,
-				];
+			// Build multi-level headers
+			// Row 1: No | Kriteria | [category name spans across its options] | ...
+			// Row 2: No | Kriteria | [opt1] [opt2] ... | [opt1] [opt2] ... | ...
+			const headerRow1: any[] = [
+				{ content: "No", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+				{ content: "Kriteria", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+			];
+			const headerRow2: any[] = [];
+
+			allScoreCategories.forEach((sc) => {
+				headerRow1.push({
+					content: sc.name.toUpperCase(),
+					colSpan: sc.maxOptions,
+					styles: { halign: "center", valign: "middle", fontSize: 7 },
+				});
+				for (let i = 0; i < sc.maxOptions; i++) {
+					headerRow2.push({
+						content: "",
+						styles: { halign: "center", fontSize: 6 },
+					});
+				}
 			});
 
+			// Build body rows
+			const bodyRows = sortedMaterials.map((material) => {
+				const row: any[] = [
+					{ content: material.number, styles: { halign: "center", fontStyle: "bold" } },
+					{ content: material.name.toUpperCase(), styles: { fontStyle: "bold", fontSize: 7 } },
+				];
+
+				allScoreCategories.forEach((sc) => {
+					const materialSc = material.scoreCategories.find((s) => s.name === sc.name);
+					if (materialSc) {
+						const sortedOptions = [...materialSc.options].sort((a, b) => a.order - b.order);
+						for (let i = 0; i < sc.maxOptions; i++) {
+							if (i < sortedOptions.length) {
+								row.push({
+									content: sortedOptions[i].score.toString(),
+									styles: { halign: "center", fontSize: 8, fontStyle: "bold" },
+								});
+							} else {
+								row.push({ content: "", styles: { halign: "center" } });
+							}
+						}
+					} else {
+						for (let i = 0; i < sc.maxOptions; i++) {
+							row.push({ content: "-", styles: { halign: "center", textColor: [180, 180, 180] } });
+						}
+					}
+				});
+
+				return row;
+			});
+
+			// Fill headerRow2 with score option labels from first material that has all categories
+			allScoreCategories.forEach((sc, scIdx) => {
+				const refMaterial = sortedMaterials.find((m) => m.scoreCategories.some((s) => s.name === sc.name));
+				if (refMaterial) {
+					const refSc = refMaterial.scoreCategories.find((s) => s.name === sc.name);
+					if (refSc) {
+						const sortedOpts = [...refSc.options].sort((a, b) => a.order - b.order);
+						let startIdx = 0;
+						for (let i = 0; i < scIdx; i++) startIdx += allScoreCategories[i].maxOptions;
+						sortedOpts.forEach((opt, optIdx) => {
+							if (startIdx + optIdx < headerRow2.length) {
+								headerRow2[startIdx + optIdx].content = opt.name || opt.score.toString();
+							}
+						});
+					}
+				}
+			});
+
+			// Calculate column widths
+			const tableWidth = pageWidth - 28;
+			const noWidth = 8;
+			const kriteriaWidth = 30;
+			const remainingWidth = tableWidth - noWidth - kriteriaWidth;
+			const totalOptionCols = allScoreCategories.reduce((sum, sc) => sum + sc.maxOptions, 0);
+			const optColWidth = totalOptionCols > 0 ? remainingWidth / totalOptionCols : 15;
+
+			const columnStyles: any = {
+				0: { cellWidth: noWidth },
+				1: { cellWidth: kriteriaWidth },
+			};
+			let colIdx = 2;
+			allScoreCategories.forEach((sc) => {
+				for (let i = 0; i < sc.maxOptions; i++) {
+					columnStyles[colIdx] = { cellWidth: optColWidth };
+					colIdx++;
+				}
+			});
+
+			// Color mapping for category headers
+			const colorMap: Record<string, [number, number, number]> = {
+				red: [220, 38, 38],
+				orange: [234, 88, 12],
+				yellow: [202, 138, 4],
+				green: [22, 163, 74],
+				blue: [37, 99, 235],
+				purple: [147, 51, 234],
+			};
+
 			autoTable(doc, {
-				head: [headers],
-				body: rows,
-				startY: 34,
+				head: [headerRow1, headerRow2],
+				body: bodyRows,
+				startY: 39,
 				styles: {
-					fontSize: 8,
-					cellPadding: 2.5,
+					fontSize: 7,
+					cellPadding: 1.5,
 					lineColor: [200, 200, 200],
 					lineWidth: 0.1,
 					overflow: "linebreak",
@@ -484,32 +573,51 @@ const ManageMateri: React.FC = () => {
 					textColor: 255,
 					fontStyle: "bold",
 					halign: "center",
+					minCellHeight: 8,
 				},
 				bodyStyles: {
 					textColor: [50, 50, 50],
+					minCellHeight: 9,
+					valign: "middle",
 				},
 				alternateRowStyles: {
 					fillColor: [254, 242, 242],
 				},
-				columnStyles: {
-					0: { halign: "center", cellWidth: 10 },
-					1: { cellWidth: 50 },
-					2: { cellWidth: 50 },
-					3: { cellWidth: 35 },
-					4: { cellWidth: 80, fontSize: 7 },
-					5: { halign: "center", cellWidth: 15 },
-				},
+				columnStyles,
 				didParseCell: (data) => {
-					// Bold max column
-					if (data.column.index === 5 && data.section === "body") {
-						data.cell.styles.fontStyle = "bold";
-						data.cell.styles.textColor = primaryRed;
+					// Color category header cells in row 0
+					if (data.section === "head" && data.row.index === 0 && data.column.index >= 2) {
+						let optCount = 0;
+						for (const sc of allScoreCategories) {
+							if (data.column.index >= 2 + optCount && data.column.index < 2 + optCount + sc.maxOptions) {
+								const catColor = colorMap[sc.color] || primaryRed;
+								data.cell.styles.fillColor = catColor;
+								break;
+							}
+							optCount += sc.maxOptions;
+						}
+					}
+					// Lighter color for sub-header row
+					if (data.section === "head" && data.row.index === 1) {
+						let optCount = 0;
+						for (const sc of allScoreCategories) {
+							if (data.column.index >= optCount && data.column.index < optCount + sc.maxOptions) {
+								const catColor = colorMap[sc.color] || primaryRed;
+								data.cell.styles.fillColor = [
+									Math.min(255, catColor[0] + 40),
+									Math.min(255, catColor[1] + 40),
+									Math.min(255, catColor[2] + 40),
+								];
+								break;
+							}
+							optCount += sc.maxOptions;
+						}
 					}
 				},
 			});
 		});
 
-		doc.save("materi-penilaian.pdf");
+		doc.save("lembar-penilaian-materi.pdf");
 	};
 
 	if (loading) {
