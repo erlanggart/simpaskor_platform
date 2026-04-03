@@ -8,7 +8,6 @@ import {
 	ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../utils/api";
-import JuriDetailModal from "../components/landing/JuriDetailModal";
 
 interface Juri {
 	id: string;
@@ -30,7 +29,6 @@ const AllJuries: React.FC = () => {
 	const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [currentPage, setCurrentPage] = useState(1);
-	const [selectedJuriId, setSelectedJuriId] = useState<string | null>(null);
 	const ITEMS_PER_PAGE = 20;
 
 	useEffect(() => {
@@ -267,8 +265,7 @@ const AllJuries: React.FC = () => {
 							{paginatedJuries.map((juri) => (
 								<div
 									key={juri.id}
-									onClick={() => setSelectedJuriId(juri.id)}
-									className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-red-400/30 dark:hover:border-red-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+									className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-red-400/30 dark:hover:border-red-500/20 transition-all duration-300 hover:scale-[1.02]"
 								>
 									{/* Poster - 2:3 ratio */}
 									<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-red-900/10 to-red-800/5 overflow-hidden">
@@ -375,14 +372,6 @@ const AllJuries: React.FC = () => {
 					</>
 				)}
 			</div>
-
-			{/* Juri Detail Modal */}
-			{selectedJuriId && (
-				<JuriDetailModal
-					juriId={selectedJuriId}
-					onClose={() => setSelectedJuriId(null)}
-				/>
-			)}
 		</div>
 	);
 };
