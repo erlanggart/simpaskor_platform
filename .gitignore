@@ -106,7 +106,6 @@ dist-ssr/
 # Vite local config overrides
 frontend/vite.config.local.*
 frontend/vite.config.ts
-frontend/tsconfig.node.json
 
 # Rollup build output
 build/
