@@ -202,6 +202,11 @@ router.get(
 			}
 
 			// Transform materials to include schoolCategories names
+			// Build set of valid event school category IDs
+			const validEventSchoolCategoryIds = new Set(
+				eventSchoolCategories.map((esc) => esc.schoolCategory.id)
+			);
+
 			const transformedMaterials = materials.map((m) => {
 				const scoreCategories = parseScoreCategories(m.scoreCategories).map((cat, catIndex) => ({
 					id: `${m.id}-cat-${catIndex}`, // Generate virtual ID for frontend compatibility
@@ -216,7 +221,10 @@ router.get(
 					})),
 				}));
 
-				const schoolCategoryIds = m.schoolCategoryIds || [];
+				// Filter schoolCategoryIds to only include valid event school categories
+				const schoolCategoryIds = (m.schoolCategoryIds || []).filter(
+					(id) => validEventSchoolCategoryIds.has(id)
+				);
 				const schoolCategories = schoolCategoryIds
 					.map(id => schoolCategoryMap.get(id))
 					.filter((cat): cat is { id: string; name: string } => cat !== undefined);

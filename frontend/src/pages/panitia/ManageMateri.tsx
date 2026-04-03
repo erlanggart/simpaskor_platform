@@ -126,9 +126,9 @@ const ManageMateri: React.FC = () => {
 		}
 	}, [eventSlug]);
 
-	const fetchData = async () => {
+	const fetchData = async (isRefresh = false) => {
 		try {
-			setLoading(true);
+			if (!isRefresh) setLoading(true);
 			const res = await api.get(`/materials/event/${eventSlug}`);
 			setCategories(res.data.categories || []);
 			setEventSchoolCategories(res.data.eventSchoolCategories || []);
@@ -278,7 +278,7 @@ const ManageMateri: React.FC = () => {
 			}
 
 			closeMaterialForm();
-			fetchData();
+			fetchData(true);
 
 			Swal.fire({
 				icon: "success",
@@ -312,7 +312,7 @@ const ManageMateri: React.FC = () => {
 		if (result.isConfirmed) {
 			try {
 				await api.delete(`/materials/${material.id}`);
-				fetchData();
+				fetchData(true);
 				Swal.fire({
 					icon: "success",
 					title: "Materi Dihapus",
