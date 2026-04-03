@@ -30,13 +30,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 					{/* Left: Hero Text */}
 					<div className="flex-1 text-center lg:text-left max-w-2xl">
 						<p className="text-[10px] md:text-xs tracking-[0.3em] text-slate-700 dark:text-gray-400 font-medium mb-2 md:mb-4">
-							PLATFORM KOMPETISI TERDEPAN
+							KAMI HADIR SEBAGAI SOLUSI
 						</p>
 						<h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black leading-none mb-2 md:mb-3 landing-title-gradient">
 							SIMPASKOR
 						</h1>
 						<p className="text-xs md:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wide mb-4 md:mb-6">
-							Sistem Paskibra Skor
+							PRESENT
 						</p>
 						<div className="w-12 h-[1px] bg-gradient-to-r from-red-500/50 to-transparent mx-auto lg:mx-0 mb-4 md:mb-6" />
 						<p className="text-xs md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-5 md:mb-8 max-w-lg mx-auto lg:mx-0">
