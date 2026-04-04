@@ -1090,12 +1090,12 @@ router.get("/public/klasemen", async (req, res: Response) => {
 		const scoreMap: Record<string, Record<string, number>> = {};
 		for (const ms of materialScores) {
 			if (!scoreMap[ms.eventId]) scoreMap[ms.eventId] = {};
-			scoreMap[ms.eventId][ms.participantId] = (scoreMap[ms.eventId][ms.participantId] || 0) + (ms._sum.score || 0);
+			scoreMap[ms.eventId]![ms.participantId] = (scoreMap[ms.eventId]![ms.participantId] || 0) + (ms._sum.score || 0);
 		}
 		for (const ls of legacyScores) {
 			if (!scoreMap[ls.eventId]) scoreMap[ls.eventId] = {};
-			if (!scoreMap[ls.eventId][ls.participantId]) {
-				scoreMap[ls.eventId][ls.participantId] = ls._sum.score || 0;
+			if (!scoreMap[ls.eventId]![ls.participantId]) {
+				scoreMap[ls.eventId]![ls.participantId] = ls._sum.score || 0;
 			}
 		}
 
