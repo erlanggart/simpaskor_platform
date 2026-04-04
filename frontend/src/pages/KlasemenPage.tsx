@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { LuArrowLeft, LuTrophy, LuSearch } from "react-icons/lu";
+import { LuArrowLeft, LuTrophy, LuSearch, LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { api } from "../utils/api";
 import type { KlasemenEntry } from "../hooks/useLandingData";
 
@@ -17,10 +17,13 @@ const rankColors = [
 	"from-amber-600 to-amber-700",
 ];
 
+const PER_PAGE = 10;
+
 const KlasemenPage: React.FC = () => {
 	const [data, setData] = useState<KlasemenResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(1);
 	const currentYear = new Date().getFullYear();
 
 	useEffect(() => {
@@ -37,9 +40,36 @@ const KlasemenPage: React.FC = () => {
 		fetchKlasemen();
 	}, [currentYear]);
 
-	const filtered = data?.full.filter((e) =>
-		e.schoolName.toLowerCase().includes(search.toLowerCase())
-	) || [];
+	const filtered = useMemo(() =>
+		data?.full.filter((e) =>
+			e.schoolName.toLowerCase().includes(search.toLowerCase())
+		) || [],
+		[data, search]
+	);
+
+	const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+	const safePage = Math.min(page, totalPages);
+	const paginated = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
+
+	// Reset to page 1 on search change
+	useEffect(() => { setPage(1); }, [search]);
+
+	// Build page numbers to display
+	const getPageNumbers = (): (number | "...")[] => {
+		const pages: (number | "...")[] = [];
+		if (totalPages <= 7) {
+			for (let i = 1; i <= totalPages; i++) pages.push(i);
+		} else {
+			pages.push(1);
+			if (safePage > 3) pages.push("...");
+			const start = Math.max(2, safePage - 1);
+			const end = Math.min(totalPages - 1, safePage + 1);
+			for (let i = start; i <= end; i++) pages.push(i);
+			if (safePage < totalPages - 2) pages.push("...");
+			pages.push(totalPages);
+		}
+		return pages;
+	};
 
 	return (
 		<div className="relative z-10 min-h-screen">
@@ -100,81 +130,141 @@ const KlasemenPage: React.FC = () => {
 						)}
 					</div>
 				) : (
-					<div className="space-y-2">
-						{/* Header row */}
-						<div className="flex items-center gap-3 px-3 py-2 text-[10px] md:text-xs font-medium tracking-wider text-gray-400 dark:text-gray-500 uppercase">
-							<div className="w-9 md:w-10 text-center">#</div>
-							<div className="w-9 md:w-10" />
-							<div className="flex-1">Sekolah</div>
-							<div className="w-16 text-center">Event</div>
-							<div className="w-16 text-center">Poin</div>
+					<>
+						<div className="space-y-2">
+							{/* Header row */}
+							<div className="flex items-center gap-3 px-3 py-2 text-[10px] md:text-xs font-medium tracking-wider text-gray-400 dark:text-gray-500 uppercase">
+								<div className="w-9 md:w-10 text-center">#</div>
+								<div className="w-9 md:w-10" />
+								<div className="flex-1">Sekolah</div>
+								<div className="w-16 text-center">Event</div>
+								<div className="w-16 text-center">Poin</div>
+							</div>
+
+							{paginated.map((entry, idx) => {
+								const globalIndex = (safePage - 1) * PER_PAGE + idx;
+								const isTop3 = globalIndex < 3;
+								return (
+									<div
+										key={entry.schoolName}
+										className={`flex items-center gap-3 p-3 md:p-3.5 rounded-xl border transition-all duration-200 hover:bg-gray-100/60 dark:hover:bg-white/[0.05] ${
+											isTop3
+												? "bg-gray-50/80 dark:bg-white/[0.03] border-gray-200/50 dark:border-white/[0.08]"
+												: "bg-transparent border-gray-100/50 dark:border-white/[0.04]"
+										}`}
+									>
+										{/* Rank */}
+										{isTop3 ? (
+											<div
+												className={`flex-shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-lg bg-gradient-to-br ${rankColors[globalIndex]} flex items-center justify-center shadow-sm`}
+											>
+												<span className="text-white font-bold text-sm">{globalIndex + 1}</span>
+											</div>
+										) : (
+											<div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 flex items-center justify-center">
+												<span className="text-sm font-semibold text-gray-400 dark:text-gray-500">
+													{globalIndex + 1}
+												</span>
+											</div>
+										)}
+
+										{/* Logo */}
+										<div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center overflow-hidden">
+											{entry.avatar ? (
+												<img
+													src={entry.avatar}
+													alt={entry.schoolName}
+													className="w-full h-full object-cover"
+												/>
+											) : (
+												<span className="text-sm font-bold text-gray-400 dark:text-gray-500">
+													{entry.schoolName.charAt(0).toUpperCase()}
+												</span>
+											)}
+										</div>
+
+										{/* Name */}
+										<div className="flex-1 min-w-0">
+											<p className={`text-sm md:text-base truncate ${isTop3 ? "font-bold text-gray-900 dark:text-white" : "font-medium text-gray-700 dark:text-gray-300"}`}>
+												{entry.schoolName}
+											</p>
+										</div>
+
+										{/* Events played */}
+										<div className="flex-shrink-0 w-16 text-center">
+											<span className="text-sm text-gray-500 dark:text-gray-400">
+												{entry.participated || 0}
+											</span>
+										</div>
+
+										{/* Points */}
+										<div className="flex-shrink-0 w-16 text-center">
+											<span className={`text-base font-bold ${isTop3 ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-300"}`}>
+												{entry.wins}
+											</span>
+										</div>
+									</div>
+								);
+							})}
 						</div>
 
-						{filtered.map((entry, i) => {
-							const isTop3 = i < 3;
-							return (
-								<div
-									key={entry.schoolName}
-									className={`flex items-center gap-3 p-3 md:p-3.5 rounded-xl border transition-all duration-200 hover:bg-gray-100/60 dark:hover:bg-white/[0.05] ${
-										isTop3
-											? "bg-gray-50/80 dark:bg-white/[0.03] border-gray-200/50 dark:border-white/[0.08]"
-											: "bg-transparent border-gray-100/50 dark:border-white/[0.04]"
-									}`}
-								>
-									{/* Rank */}
-									{isTop3 ? (
-										<div
-											className={`flex-shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-lg bg-gradient-to-br ${rankColors[i]} flex items-center justify-center shadow-sm`}
-										>
-											<span className="text-white font-bold text-sm">{i + 1}</span>
-										</div>
-									) : (
-										<div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 flex items-center justify-center">
-											<span className="text-sm font-semibold text-gray-400 dark:text-gray-500">
-												{i + 1}
+						{/* Pagination */}
+						{totalPages > 1 && (
+							<div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-100 dark:border-white/[0.06]">
+								{/* Info */}
+								<p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
+									{(safePage - 1) * PER_PAGE + 1}–{Math.min(safePage * PER_PAGE, filtered.length)} dari {filtered.length}
+								</p>
+
+								{/* Page controls */}
+								<div className="flex items-center gap-1.5 mx-auto sm:mx-0">
+									{/* Prev */}
+									<button
+										onClick={() => setPage((p) => Math.max(1, p - 1))}
+										disabled={safePage <= 1}
+										className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 border border-gray-200/50 dark:border-white/[0.08] text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-800 dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none"
+									>
+										<LuChevronLeft className="w-4 h-4" />
+									</button>
+
+									{/* Page numbers */}
+									{getPageNumbers().map((p, i) =>
+										p === "..." ? (
+											<span key={`dots-${i}`} className="w-9 h-9 flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+												···
 											</span>
-										</div>
+										) : (
+											<button
+												key={p}
+												onClick={() => setPage(p)}
+												className={`w-9 h-9 rounded-lg text-sm font-medium transition-all duration-200 ${
+													p === safePage
+														? "bg-red-500 text-white shadow-sm shadow-red-500/25"
+														: "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-800 dark:hover:text-white"
+												}`}
+											>
+												{p}
+											</button>
+										)
 									)}
 
-									{/* Logo */}
-									<div className="flex-shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-lg bg-gray-100 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] flex items-center justify-center overflow-hidden">
-										{entry.avatar ? (
-											<img
-												src={entry.avatar}
-												alt={entry.schoolName}
-												className="w-full h-full object-cover"
-											/>
-										) : (
-											<span className="text-sm font-bold text-gray-400 dark:text-gray-500">
-												{entry.schoolName.charAt(0).toUpperCase()}
-											</span>
-										)}
-									</div>
-
-									{/* Name */}
-									<div className="flex-1 min-w-0">
-										<p className={`text-sm md:text-base truncate ${isTop3 ? "font-bold text-gray-900 dark:text-white" : "font-medium text-gray-700 dark:text-gray-300"}`}>
-											{entry.schoolName}
-										</p>
-									</div>
-
-									{/* Events played */}
-									<div className="flex-shrink-0 w-16 text-center">
-										<span className="text-sm text-gray-500 dark:text-gray-400">
-											{entry.participated || 0}
-										</span>
-									</div>
-
-									{/* Points */}
-									<div className="flex-shrink-0 w-16 text-center">
-										<span className={`text-base font-bold ${isTop3 ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-300"}`}>
-											{entry.wins}
-										</span>
-									</div>
+									{/* Next */}
+									<button
+										onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+										disabled={safePage >= totalPages}
+										className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 border border-gray-200/50 dark:border-white/[0.08] text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-800 dark:hover:text-white disabled:opacity-30 disabled:pointer-events-none"
+									>
+										<LuChevronRight className="w-4 h-4" />
+									</button>
 								</div>
-							);
-						})}
-					</div>
+
+								{/* Mobile info */}
+								<p className="text-xs text-gray-400 dark:text-gray-500 sm:hidden">
+									{safePage}/{totalPages}
+								</p>
+							</div>
+						)}
+					</>
 				)}
 			</div>
 		</div>
