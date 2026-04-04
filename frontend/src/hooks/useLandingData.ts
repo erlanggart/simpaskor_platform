@@ -37,6 +37,21 @@ interface PublicStats {
 	completedEventsCount: number;
 }
 
+export interface KlasemenEntry {
+	schoolName: string;
+	avatar: string | null;
+	wins: number;
+	participated?: number;
+	events?: { title: string; slug: string | null; date: string }[];
+}
+
+export interface KlasemenData {
+	year: number;
+	top5: KlasemenEntry[];
+	full: KlasemenEntry[];
+	totalEvents: number;
+}
+
 interface UseLandingDataReturn {
 	pinnedEvents: PinnedEvent[];
 	events: Event[];
@@ -44,6 +59,7 @@ interface UseLandingDataReturn {
 	juries: Juri[];
 	pelatih: Pelatih[];
 	publicStats: PublicStats;
+	klasemen: KlasemenData;
 	loading: boolean;
 	error: string | null;
 	refetch: () => void;
@@ -62,17 +78,24 @@ export const useLandingData = (): UseLandingDataReturn => {
 		availableEventsCount: 0,
 		completedEventsCount: 0,
 	});
+	const [klasemen, setKlasemen] = useState<KlasemenData>({
+		year: new Date().getFullYear(),
+		top5: [],
+		full: [],
+		totalEvents: 0,
+	});
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			const [pinnedRes, eventsRes, completedRes, statsRes] = await Promise.all([
+			const [pinnedRes, eventsRes, completedRes, statsRes, klasemenRes] = await Promise.all([
 				api.get("/events/pinned/carousel"),
 				api.get("/events?limit=12"),
 				api.get("/events?status=COMPLETED&limit=50"),
 				api.get("/users/public/stats"),
+				api.get("/users/public/klasemen"),
 			]);
 
 			setPinnedEvents(pinnedRes.data);
@@ -83,6 +106,7 @@ export const useLandingData = (): UseLandingDataReturn => {
 			setPublicStats(
 				statsRes.data.stats || { juriCount: 0, pesertaCount: 0, eventsCount: 0, availableEventsCount: 0, completedEventsCount: 0 }
 			);
+			setKlasemen(klasemenRes.data || { year: new Date().getFullYear(), top5: [], full: [], totalEvents: 0 });
 			setError(null);
 		} catch (err: any) {
 			console.error("Error fetching data:", err);
@@ -103,6 +127,7 @@ export const useLandingData = (): UseLandingDataReturn => {
 		juries,
 		pelatih,
 		publicStats,
+		klasemen,
 		loading,
 		error,
 		refetch: fetchData,

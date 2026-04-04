@@ -32,10 +32,22 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 						<p className="text-[10px] md:text-xs tracking-[0.3em] text-slate-700 dark:text-gray-400 font-medium mb-2 md:mb-4">
 							Teamwork Makes The Dream Work
 						</p>
-						<h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black leading-none mb-2 md:mb-3 landing-title-gradient">
-							SIMPASKOR
+						<h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black leading-none mb-0 md:mb-0 simpaskor-animated-title">
+							{"SIMPASKOR".split("").map((letter, i) => (
+								<span
+									key={i}
+									className="simpaskor-letter"
+									style={{
+										"--letter-delay": `${i * 0.08}s`,
+										"--shimmer-offset": `${i * 22}%`,
+									} as React.CSSProperties}
+								>
+									{letter}
+								</span>
+							))}
 						</h1>
-						<div className="w-12 h-[1px] bg-gradient-to-r from-red-500/50 to-transparent mx-auto lg:mx-0 mb-4 md:mb-6" />
+						<div className="simpaskor-underline mx-auto lg:mx-0" />
+
 						<p className="text-xs md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-5 md:mb-8 max-w-lg mx-auto lg:mx-0">
 							Mengelola kompetisi, penilaian, dan pelatihan Paskibra modern
 							dengan teknologi digital terkini untuk membentuk generasi muda

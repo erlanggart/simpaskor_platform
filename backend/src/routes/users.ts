@@ -1049,6 +1049,177 @@ router.get("/public/stats", async (req, res: Response) => {
 	}
 });
 
+// GET /api/users/public/klasemen - Public championship standings for the year
+router.get("/public/klasemen", async (req, res: Response) => {
+	try {
+		const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
+		const startOfYear = new Date(year, 0, 1);
+		const endOfYear = new Date(year + 1, 0, 1);
+
+		// Get all completed events for this year
+		const completedEvents = await prisma.event.findMany({
+			where: {
+				status: "COMPLETED",
+				endDate: { gte: startOfYear, lt: endOfYear },
+			},
+			select: { id: true, title: true, slug: true, endDate: true },
+			orderBy: { endDate: "asc" },
+		});
+
+		if (completedEvents.length === 0) {
+			return res.json({ year, top5: [], full: [], totalEvents: 0 });
+		}
+
+		const eventIds = completedEvents.map((e) => e.id);
+
+		// Aggregate MaterialEvaluation scores per (eventId, participantId)
+		const materialScores = await prisma.materialEvaluation.groupBy({
+			by: ["eventId", "participantId"],
+			where: { eventId: { in: eventIds }, isSkipped: false, score: { not: null } },
+			_sum: { score: true },
+		});
+
+		// Fallback: legacy Evaluation scores for events with no material evals
+		const legacyScores = await prisma.evaluation.groupBy({
+			by: ["eventId", "participantId"],
+			where: { eventId: { in: eventIds } },
+			_sum: { score: true },
+		});
+
+		// Build map: eventId -> participantId -> totalScore
+		const scoreMap: Record<string, Record<string, number>> = {};
+		for (const ms of materialScores) {
+			if (!scoreMap[ms.eventId]) scoreMap[ms.eventId] = {};
+			scoreMap[ms.eventId][ms.participantId] = (scoreMap[ms.eventId][ms.participantId] || 0) + (ms._sum.score || 0);
+		}
+		for (const ls of legacyScores) {
+			if (!scoreMap[ls.eventId]) scoreMap[ls.eventId] = {};
+			if (!scoreMap[ls.eventId][ls.participantId]) {
+				scoreMap[ls.eventId][ls.participantId] = ls._sum.score || 0;
+			}
+		}
+
+		// Find winner (top participantId by score) per event
+		const winnerGroupIds: { groupId: string; eventId: string }[] = [];
+		for (const [eventId, participants] of Object.entries(scoreMap)) {
+			const sorted = Object.entries(participants).sort((a, b) => b[1] - a[1]);
+			if (sorted[0]) winnerGroupIds.push({ groupId: sorted[0][0], eventId });
+		}
+
+		const allGroupIds = winnerGroupIds.map((w) => w.groupId);
+
+		// Look up school info via ParticipationGroup
+		const groups = await prisma.participationGroup.findMany({
+			where: { id: { in: allGroupIds } },
+			select: {
+				id: true,
+				participation: {
+					select: {
+						schoolName: true,
+						teamName: true,
+						user: { select: { name: true, profile: { select: { avatar: true, institution: true } } } },
+					},
+				},
+			},
+		});
+
+		// Also check direct EventParticipation (no groups)
+		const foundGroupIds = new Set(groups.map((g) => g.id));
+		const directIds = allGroupIds.filter((id) => !foundGroupIds.has(id));
+		const directParts = directIds.length > 0
+			? await prisma.eventParticipation.findMany({
+				where: { id: { in: directIds } },
+				select: {
+					id: true,
+					schoolName: true,
+					teamName: true,
+					user: { select: { name: true, profile: { select: { avatar: true, institution: true } } } },
+				},
+			})
+			: [];
+
+		// Build participantId -> school info map
+		const infoMap: Record<string, { schoolName: string; avatar: string | null }> = {};
+		for (const g of groups) {
+			const name = g.participation.schoolName || g.participation.teamName || g.participation.user.profile?.institution || g.participation.user.name;
+			infoMap[g.id] = { schoolName: name, avatar: g.participation.user.profile?.avatar || null };
+		}
+		for (const dp of directParts) {
+			const name = dp.schoolName || dp.teamName || dp.user.profile?.institution || dp.user.name;
+			infoMap[dp.id] = { schoolName: name, avatar: dp.user.profile?.avatar || null };
+		}
+
+		// Aggregate wins per school
+		const eventMap = Object.fromEntries(completedEvents.map((e) => [e.id, e]));
+		const schoolWins: Record<string, { schoolName: string; avatar: string | null; wins: number; events: { title: string; slug: string | null; date: string }[] }> = {};
+
+		for (const w of winnerGroupIds) {
+			const info = infoMap[w.groupId];
+			if (!info) continue;
+			const key = info.schoolName;
+			if (!schoolWins[key]) schoolWins[key] = { schoolName: key, avatar: info.avatar, wins: 0, events: [] };
+			schoolWins[key].wins++;
+			const ev = eventMap[w.eventId];
+			if (ev) schoolWins[key].events.push({ title: ev.title, slug: ev.slug, date: ev.endDate.toISOString() });
+		}
+
+		// Full standings: all schools that participated in completed events this year
+		const allGroups = await prisma.participationGroup.findMany({
+			where: { participation: { eventId: { in: eventIds } }, status: "ACTIVE" },
+			select: {
+				id: true,
+				participation: {
+					select: {
+						schoolName: true,
+						teamName: true,
+						user: { select: { name: true, profile: { select: { avatar: true, institution: true } } } },
+					},
+				},
+			},
+		});
+
+		const allDirect = await prisma.eventParticipation.findMany({
+			where: { eventId: { in: eventIds }, groups: { none: {} } },
+			select: {
+				id: true,
+				schoolName: true,
+				teamName: true,
+				user: { select: { profile: { select: { avatar: true, institution: true } } } },
+			},
+		});
+
+		const fullMap: Record<string, { schoolName: string; avatar: string | null; wins: number; participated: number }> = {};
+		const winnerSet = new Set(winnerGroupIds.map((w) => w.groupId));
+
+		const addToFull = (id: string, schoolName: string, avatar: string | null) => {
+			if (!fullMap[schoolName]) fullMap[schoolName] = { schoolName, avatar, wins: 0, participated: 0 };
+			fullMap[schoolName].participated++;
+			if (winnerSet.has(id)) fullMap[schoolName].wins++;
+		};
+
+		for (const g of allGroups) {
+			const name = g.participation.schoolName || g.participation.teamName || g.participation.user.profile?.institution || g.participation.user.name;
+			addToFull(g.id, name, g.participation.user.profile?.avatar || null);
+		}
+		for (const dp of allDirect) {
+			const name = dp.schoolName || dp.teamName || dp.user.profile?.institution || "Sekolah";
+			addToFull(dp.id, name, dp.user.profile?.avatar || null);
+		}
+
+		const fullSorted = Object.values(fullMap).sort((a, b) => {
+			if (b.wins !== a.wins) return b.wins - a.wins;
+			return b.participated - a.participated;
+		});
+
+		const top5 = Object.values(schoolWins).sort((a, b) => b.wins - a.wins).slice(0, 5);
+
+		res.json({ year, top5, full: fullSorted, totalEvents: completedEvents.length });
+	} catch (error) {
+		console.error("Get klasemen error:", error);
+		res.status(500).json({ error: "Gagal mengambil data klasemen" });
+	}
+});
+
 // Get all juries (public, no auth) - for "View All Juries" page
 router.get("/public/juries", async (req, res: Response) => {
 	try {

@@ -611,3 +611,103 @@ html:not(.dark) .section-icon-glow-blue::before {
 .animate-scroll-bounce {
 	animation: scrollBounce 2s ease-in-out infinite;
 }
+
+/* ===== SIMPASKOR Hero Title Animations ===== */
+
+@keyframes simpaskorShimmer {
+	0%   { background-position: 150% center; }
+	100% { background-position: -150% center; }
+}
+
+@keyframes simpaskorLetterIn {
+	0% {
+		opacity: 0;
+		transform: translateY(32px);
+		filter: blur(8px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+		filter: blur(0);
+	}
+}
+
+@keyframes simpaskorUnderline {
+	0%   { width: 0%; opacity: 0; }
+	100% { width: 6rem; opacity: 1; }
+}
+
+/* Wrapper */
+.simpaskor-animated-title {
+	display: block;
+}
+
+/* Each letter */
+.simpaskor-letter {
+	display: inline-block;
+	background: linear-gradient(
+		105deg,
+		#991b1b 0%,
+		#dc2626 25%,
+		#f87171 45%,
+		#fff1f2 55%,
+		#f87171 70%,
+		#dc2626 85%,
+		#991b1b 100%
+	);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	background-size: 300% auto;
+	animation:
+		simpaskorLetterIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both,
+		simpaskorShimmer 6s linear infinite;
+	animation-delay:
+		var(--letter-delay, 0s),
+		calc(var(--letter-delay, 0s) + 0.6s);
+}
+
+/* Light mode */
+:root:not(.dark) .simpaskor-letter,
+html:not(.dark) .simpaskor-letter {
+	background: linear-gradient(
+		105deg,
+		#7f1d1d 0%,
+		#b91c1c 25%,
+		#dc2626 45%,
+		#450a0a 55%,
+		#dc2626 70%,
+		#b91c1c 85%,
+		#7f1d1d 100%
+	);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	background-size: 300% auto;
+}
+
+/* Underline */
+.simpaskor-underline {
+	height: 1.5px;
+	width: 0;
+	background: linear-gradient(90deg, #dc2626, #f87171 50%, #dc2626);
+	border-radius: 2px;
+	animation: simpaskorUnderline 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+	animation-delay: 0.85s;
+	margin-top: 8px;
+	margin-bottom: 20px;
+	opacity: 0.6;
+}
+
+@media (min-width: 768px) {
+	.simpaskor-underline {
+		margin-bottom: 28px;
+	}
+}
+
+:root:not(.dark) .simpaskor-underline,
+html:not(.dark) .simpaskor-underline {
+	opacity: 0.45;
+}
+
+

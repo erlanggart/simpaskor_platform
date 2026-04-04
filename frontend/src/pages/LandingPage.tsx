@@ -6,16 +6,14 @@ import {
 	LuTrophy,
 	LuCalendar,
 	LuLayoutGrid,
-	LuChartPie,
 	LuGavel,
-	LuChartBar,
-	LuShield,
 	LuHouse,
 	LuPackage,
 } from "react-icons/lu";
 import { useLandingData } from "../hooks/useLandingData";
 import HeroSection from "../components/landing/HeroSection";
 import EventSection from "../components/landing/EventSection";
+import KlasemenSection from "../components/landing/KlasemenSection";
 import PinnedPersonCarousel from "../components/landing/PinnedPersonCarousel";
 import JuriDetailModal from "../components/landing/JuriDetailModal";
 import PricingSection from "../components/landing/PricingSection";
@@ -25,7 +23,7 @@ import "../components/landing/LandingPage.css";
 const sectionNavLabels = [
 	{ id: "hero", label: "Hero", icon: LuHouse },
 	{ id: "events", label: "Event", icon: LuLayoutGrid },
-	{ id: "statistics", label: "Statistik", icon: LuChartPie },
+	{ id: "klasemen", label: "Klasemen", icon: LuTrophy },
 	{ id: "jury", label: "Juri", icon: LuGavel },
 	{ id: "pelatih", label: "Pelatih", icon: LuUsers },
 	{ id: "pricing", label: "Paket", icon: LuPackage },
@@ -35,7 +33,7 @@ const LandingPage: React.FC = () => {
 	const [activeSection, setActiveSection] = useState(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sectionRefs = useRef<(HTMLElement | null)[]>([]);
-	const { pinnedEvents, publicStats, juries, pelatih, loading } = useLandingData();
+	const { pinnedEvents, publicStats, juries, pelatih, klasemen, loading } = useLandingData();
 	const [selectedJuriId, setSelectedJuriId] = useState<string | null>(null);
 
 	const scrollToSection = useCallback((index: number) => {
@@ -158,63 +156,14 @@ const LandingPage: React.FC = () => {
 					<EventSection />
 				</section>
 
-				{/* ===== SECTION 3: STATISTICS ===== */}
+				{/* ===== SECTION 3: KLASEMEN ===== */}
 				<section ref={setSectionRef(2)} className="landing-section-inner">
-					<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
-						<div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-16">
-							{/* Left: Text */}
-							<div className="flex-1 text-center lg:text-left max-w-2xl">
-								<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-4">
-									DATA & STATISTIK
-								</p>
-								<h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-none mb-3 landing-title-gradient-ticketing">
-									STATISTIK
-								</h1>
-								<p className="text-sm md:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wide mb-6">
-									Platform Terpercaya
-								</p>
-								<div className="w-12 h-[1px] bg-gradient-to-r from-yellow-500/50 to-transparent mx-auto lg:mx-0 mb-6" />
-								<p className="text-sm md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0">
-									Simpaskor telah dipercaya oleh ribuan anggota dan puluhan
-									penyelenggara event di seluruh Indonesia. Data real-time yang
-									transparan dan akurat.
-								</p>
-								<Link
-									to="/marketplace"
-									className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
-								>
-									<span>Lihat Selengkapnya</span>
-									<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-								</Link>
-							</div>
-
-							{/* Right: Stats visual placeholder */}
-							<div className="flex-shrink-0 hidden lg:flex flex-col items-center gap-6">
-								<div className="relative section-icon-glow-yellow">
-									<div className="grid grid-cols-2 gap-4">
-										{[
-											{ icon: LuChartBar, label: "Data" },
-											{ icon: LuUsers, label: "Anggota" },
-											{ icon: LuTrophy, label: "Event" },
-											{ icon: LuShield, label: "Terpercaya" },
-										].map((item, i) => (
-											<div
-												key={i}
-												className={`w-20 h-20 xl:w-24 xl:h-24 rounded-2xl bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] flex flex-col items-center justify-center gap-2 transition-all duration-500 hover:bg-gray-200/50 dark:hover:bg-white/[0.08] hover:border-gray-300/50 dark:hover:border-white/[0.12] hover:scale-105 ${
-													i % 2 === 0 ? "animate-float" : "animate-float-delayed"
-												}`}
-											>
-												<item.icon className="w-6 h-6 xl:w-7 xl:h-7 text-gray-500 dark:text-gray-400" />
-												<span className="text-[9px] xl:text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-													{item.label}
-												</span>
-											</div>
-										))}
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
+					<KlasemenSection
+						top5={klasemen.top5}
+						year={klasemen.year}
+						totalEvents={klasemen.totalEvents}
+						loading={loading}
+					/>
 				</section>
 
 				{/* ===== SECTION 4: JURY ===== */}
