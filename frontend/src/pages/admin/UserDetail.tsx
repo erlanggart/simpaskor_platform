@@ -2,15 +2,16 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
 	ArrowLeftIcon,
-	EnvelopeIcon,
 	PhoneIcon,
 	BuildingLibraryIcon,
 	MapPinIcon,
 	CalendarDaysIcon,
+	ArrowPathIcon,
 	CheckCircleIcon,
 	XCircleIcon,
 	KeyIcon,
 	ShieldCheckIcon,
+	ShieldExclamationIcon,
 	UserIcon,
 	TicketIcon,
 	TrophyIcon,
@@ -116,6 +117,9 @@ const UserDetailPage: React.FC = () => {
 	const [roleData, setRoleData] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
 	const [resetLoading, setResetLoading] = useState(false);
+	const [verifyLoading, setVerifyLoading] = useState(false);
+	const [statusUpdating, setStatusUpdating] = useState(false);
+	const [statusDraft, setStatusDraft] = useState("PENDING");
 
 	useEffect(() => {
 		if (userId) {
@@ -128,6 +132,7 @@ const UserDetailPage: React.FC = () => {
 			setLoading(true);
 			const response = await api.get(`/users/${userId}/detail`);
 			setUser(response.data.user);
+			setStatusDraft(response.data.user.status);
 			setRoleData(response.data.roleData);
 		} catch (error: any) {
 			showError(
@@ -136,6 +141,69 @@ const UserDetailPage: React.FC = () => {
 			navigate("/admin/users");
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const statusOptions = [
+		{ value: "ACTIVE", label: "Active" },
+		{ value: "PENDING", label: "Pending" },
+		{ value: "INACTIVE", label: "Inactive" },
+		{ value: "SUSPENDED", label: "Suspended" },
+	];
+
+	const applyUserUpdate = (updatedUser: UserDetail) => {
+		setUser(updatedUser);
+		setStatusDraft(updatedUser.status);
+	};
+
+	const handleToggleVerification = async () => {
+		if (!user) return;
+
+		const result = await showConfirm(
+			user.emailVerified
+				? `Verifikasi untuk ${user.name} akan dicabut dan status akun dikembalikan ke Pending.`
+				: `${user.name} akan diverifikasi dan status akun diaktifkan.`,
+			user.emailVerified ? "Cabut Verifikasi" : "Verifikasi User"
+		);
+
+		if (!result.isConfirmed) return;
+
+		try {
+			setVerifyLoading(true);
+			const response = await api.patch(`/users/${user.id}/verify`);
+			applyUserUpdate(response.data.user);
+			showSuccess(response.data.message || "Status verifikasi berhasil diperbarui");
+		} catch (error: any) {
+			showError(error.response?.data?.message || "Gagal memperbarui verifikasi user");
+		} finally {
+			setVerifyLoading(false);
+		}
+	};
+
+	const handleStatusUpdate = async () => {
+		if (!user || statusDraft === user.status) return;
+
+		const selectedStatusLabel =
+			statusOptions.find((option) => option.value === statusDraft)?.label || statusDraft;
+
+		const result = await showConfirm(
+			`Status ${user.name} akan diubah menjadi ${selectedStatusLabel}.`,
+			"Ubah Status User"
+		);
+
+		if (!result.isConfirmed) return;
+
+		try {
+			setStatusUpdating(true);
+			const response = await api.put(`/users/${user.id}`, {
+				status: statusDraft,
+			});
+			applyUserUpdate(response.data.user);
+			showSuccess("Status user berhasil diperbarui");
+		} catch (error: any) {
+			showError(error.response?.data?.message || "Gagal mengubah status user");
+		} finally {
+			setStatusUpdating(false);
 		}
 	};
 
@@ -199,6 +267,11 @@ const UserDetailPage: React.FC = () => {
 		return colors[status] || "bg-gray-100 text-gray-800";
 	};
 
+	const isUserOnline = (lastActivity: string | null) => {
+		if (!lastActivity) return false;
+		return Date.now() - new Date(lastActivity).getTime() <= 5 * 60 * 1000;
+	};
+
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-64">
@@ -210,137 +283,157 @@ const UserDetailPage: React.FC = () => {
 	if (!user) return null;
 
 	return (
-		<div className="space-y-6 p-6">
+		<div className="space-y-5 p-4 lg:p-6">
 			{/* Back Button & Header */}
-			<div className="flex items-center gap-4">
+			<div className="flex items-center gap-3">
 				<button
 					onClick={() => navigate("/admin/users")}
 					className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
 				>
 					<ArrowLeftIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
 				</button>
-				<div>
-					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-						Detail User
-					</h1>
-					<p className="text-sm text-gray-600 dark:text-gray-400">
-						Informasi lengkap user
-					</p>
-				</div>
+				<h1 className="text-xl font-bold text-gray-900 dark:text-white">Detail User</h1>
 			</div>
 
-			{/* User Info Card */}
-			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-6">
-				<div className="flex flex-col md:flex-row gap-6">
-					{/* Avatar */}
-					<div className="flex-shrink-0">
+			{/* ── Main Grid: Info + Actions ── */}
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+				{/* Left: User Info (2 cols) */}
+				<div className="lg:col-span-2 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow dark:shadow-gray-900/50 p-5">
+					<div className="flex items-start gap-4">
+						{/* Avatar */}
 						{user.profile?.avatar ? (
 							<img
 								src={user.profile.avatar}
 								alt={user.name}
-								className="w-24 h-24 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow"
+								className="w-16 h-16 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow flex-shrink-0"
 							/>
 						) : (
-							<div className="w-24 h-24 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center border-4 border-white dark:border-gray-700 shadow">
-								<UserIcon className="w-12 h-12 text-red-600 dark:text-red-400" />
+							<div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center border-2 border-white dark:border-gray-700 shadow flex-shrink-0">
+								<UserIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
 							</div>
 						)}
-					</div>
-
-					{/* Info */}
-					<div className="flex-1 space-y-4">
-						<div className="flex flex-col sm:flex-row sm:items-center gap-3">
-							<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-								{user.name}
-							</h2>
-							<div className="flex items-center gap-2">
-								<span className={`px-3 py-1 text-xs font-semibold rounded-full ${getRoleBadgeColor(user.role)}`}>
-									{user.role}
-								</span>
-								<span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>
-									{user.status}
-								</span>
+						{/* Name + Badges */}
+						<div className="flex-1 min-w-0">
+							<div className="flex flex-wrap items-center gap-2">
+								<h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">{user.name}</h2>
+								<span className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-full ${getRoleBadgeColor(user.role)}`}>{user.role}</span>
+								<span className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>{user.status}</span>
 								{user.emailVerified ? (
-									<span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-										<CheckCircleIcon className="w-3.5 h-3.5" />
-										Verified
+									<span className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+										<CheckCircleIcon className="w-3.5 h-3.5" />Verified
 									</span>
 								) : (
-									<span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-										<XCircleIcon className="w-3.5 h-3.5" />
-										Unverified
+									<span className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+										<XCircleIcon className="w-3.5 h-3.5" />Unverified
+									</span>
+								)}
+								{isUserOnline(user.lastLogin) && (
+									<span className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+										<span className="h-2 w-2 rounded-full bg-emerald-500"></span>Online
 									</span>
 								)}
 							</div>
+							<p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">{user.email}</p>
 						</div>
+					</div>
 
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+					{/* Detail grid */}
+					<div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 mt-4 text-sm">
+						{user.phone && (
 							<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-								<EnvelopeIcon className="w-4 h-4 flex-shrink-0" />
-								<span className="truncate">{user.email}</span>
+								<PhoneIcon className="w-4 h-4 flex-shrink-0" /><span>{user.phone}</span>
 							</div>
-							{user.phone && (
-								<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-									<PhoneIcon className="w-4 h-4 flex-shrink-0" />
-									<span>{user.phone}</span>
-								</div>
-							)}
-							{user.profile?.institution && (
-								<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-									<BuildingLibraryIcon className="w-4 h-4 flex-shrink-0" />
-									<span>{user.profile.institution}</span>
-								</div>
-							)}
-							{(user.profile?.city || user.profile?.province) && (
-								<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-									<MapPinIcon className="w-4 h-4 flex-shrink-0" />
-									<span>
-										{[user.profile.city, user.profile.province].filter(Boolean).join(", ")}
-									</span>
-								</div>
-							)}
-							<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-								<CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
-								<span>Bergabung {formatDate(user.createdAt)}</span>
-							</div>
-							{user.lastLogin && (
-								<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-									<ShieldCheckIcon className="w-4 h-4 flex-shrink-0" />
-									<span>Login terakhir {formatDateTime(user.lastLogin)}</span>
-								</div>
-							)}
-						</div>
-
-						{user.profile?.bio && (
-							<p className="text-sm text-gray-600 dark:text-gray-400 italic">
-								"{user.profile.bio}"
-							</p>
 						)}
-
+						{user.profile?.institution && (
+							<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+								<BuildingLibraryIcon className="w-4 h-4 flex-shrink-0" /><span className="truncate">{user.profile.institution}</span>
+							</div>
+						)}
+						{(user.profile?.city || user.profile?.province) && (
+							<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+								<MapPinIcon className="w-4 h-4 flex-shrink-0" />
+								<span>{[user.profile.city, user.profile.province].filter(Boolean).join(", ")}</span>
+							</div>
+						)}
+						<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+							<CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
+							<span>Bergabung {formatDate(user.createdAt)}</span>
+						</div>
+						{user.lastLogin && (
+							<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+								<ShieldCheckIcon className="w-4 h-4 flex-shrink-0" />
+								<span>{isUserOnline(user.lastLogin) ? "Online sekarang" : `Aktif ${formatDateTime(user.lastLogin)}`}</span>
+							</div>
+						)}
 						{user.profile?.gender && (
-							<div className="text-sm text-gray-600 dark:text-gray-400">
+							<div className="text-gray-600 dark:text-gray-400">
 								Gender: {user.profile.gender === "MALE" ? "Laki-laki" : user.profile.gender === "FEMALE" ? "Perempuan" : user.profile.gender}
 							</div>
 						)}
-
 						{user.profile?.birthDate && (
-							<div className="text-sm text-gray-600 dark:text-gray-400">
-								Tanggal Lahir: {formatDate(user.profile.birthDate)}
+							<div className="text-gray-600 dark:text-gray-400">
+								Lahir: {formatDate(user.profile.birthDate)}
 							</div>
 						)}
 					</div>
 
-					{/* Actions */}
-					<div className="flex-shrink-0">
-						<button
-							onClick={handleResetPassword}
-							disabled={resetLoading}
-							className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-						>
-							<KeyIcon className="w-4 h-4" />
-							{resetLoading ? "Mereset..." : "Reset Password"}
-						</button>
+					{user.profile?.bio && (
+						<p className="text-sm text-gray-500 dark:text-gray-400 italic mt-3 border-t border-gray-200/60 dark:border-gray-700/40 pt-3">
+							"{user.profile.bio}"
+						</p>
+					)}
+				</div>
+
+				{/* Right: Admin Actions (1 col) */}
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow dark:shadow-gray-900/50 p-4 space-y-3 self-start">
+					<p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Aksi Admin</p>
+
+					<button
+						onClick={handleToggleVerification}
+						disabled={verifyLoading}
+						className={`w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${
+							user.emailVerified
+								? "bg-green-600 hover:bg-green-700 text-white"
+								: "bg-blue-600 hover:bg-blue-700 text-white"
+						}`}
+					>
+						{user.emailVerified ? <ShieldCheckIcon className="w-4 h-4" /> : <ShieldExclamationIcon className="w-4 h-4" />}
+						{verifyLoading ? "Memproses..." : user.emailVerified ? "Cabut Verifikasi" : "Verifikasi User"}
+					</button>
+					<p className="text-[11px] text-gray-500 dark:text-gray-400 -mt-1">
+						{user.emailVerified ? "Mencabut → status kembali ke Pending." : "Verifikasi → status otomatis aktif."}
+					</p>
+
+					<div className="space-y-1.5">
+						<label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Ubah Status</label>
+						<div className="flex gap-2">
+							<select
+								value={statusDraft}
+								onChange={(e) => setStatusDraft(e.target.value)}
+								className="flex-1 px-2.5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/90 dark:bg-gray-800/70 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
+							>
+								{statusOptions.map((o) => (
+									<option key={o.value} value={o.value}>{o.label}</option>
+								))}
+							</select>
+							<button
+								onClick={handleStatusUpdate}
+								disabled={statusUpdating || statusDraft === user.status}
+								className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+							>
+								<ArrowPathIcon className="w-4 h-4" />
+							</button>
+						</div>
 					</div>
+
+					<button
+						onClick={handleResetPassword}
+						disabled={resetLoading}
+						className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+					>
+						<KeyIcon className="w-4 h-4" />
+						{resetLoading ? "Mereset..." : "Reset Password"}
+					</button>
 				</div>
 			</div>
 

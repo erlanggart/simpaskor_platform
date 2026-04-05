@@ -1,6 +1,30 @@
 import { Request, Response, NextFunction } from "express";
+import { prisma } from "../lib/prisma";
 import { AuthUtils, JWTPayload } from "../utils/auth";
 import { UserRole } from "@prisma/client";
+
+const PRESENCE_HEARTBEAT_MS = 60 * 1000;
+const presenceHeartbeatCache = new Map<string, number>();
+
+const touchUserPresence = (userId: string) => {
+	const now = Date.now();
+	const lastHeartbeat = presenceHeartbeatCache.get(userId) || 0;
+
+	if (now - lastHeartbeat < PRESENCE_HEARTBEAT_MS) {
+		return;
+	}
+
+	presenceHeartbeatCache.set(userId, now);
+
+	void prisma.user
+		.update({
+			where: { id: userId },
+			data: { lastLogin: new Date(now) },
+		})
+		.catch(() => {
+			presenceHeartbeatCache.delete(userId);
+		});
+};
 
 export interface AuthenticatedRequest extends Request {
 	user?: JWTPayload;
@@ -25,6 +49,7 @@ export const authenticate = (
 		const decoded = AuthUtils.verifyToken(token);
 
 		req.user = decoded;
+		touchUserPresence(decoded.userId);
 		next();
 	} catch (error) {
 		return res.status(401).json({
@@ -47,6 +72,7 @@ export const optionalAuthenticate = (
 			const token = authHeader.substring(7);
 			const decoded = AuthUtils.verifyToken(token);
 			req.user = decoded;
+			touchUserPresence(decoded.userId);
 		}
 	} catch (error) {
 		// Silently ignore invalid tokens for optional auth

@@ -12,6 +12,21 @@ import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
 const router = Router();
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+const getOnlineThreshold = (referenceDate: Date = new Date()) =>
+	new Date(referenceDate.getTime() - ONLINE_WINDOW_MS);
+
+const isUserOnline = (
+	lastLogin: Date | string | null | undefined,
+	onlineThreshold: Date
+) => {
+	if (!lastLogin) {
+		return false;
+	}
+
+	return new Date(lastLogin).getTime() >= onlineThreshold.getTime();
+};
 
 // Validation schemas
 const createUserSchema = z.object({
@@ -59,12 +74,29 @@ router.get(
 	requireSuperAdmin,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { page = 1, limit = 10, role, status, search } = req.query;
+			const { page = 1, limit = 10, role, status, search, verification, online } = req.query;
 
 			const where: any = {};
+			const referenceTime = new Date();
+			const onlineThreshold = getOnlineThreshold(referenceTime);
 
 			if (role) where.role = role;
 			if (status) where.status = status;
+			if (
+				typeof online === "string" &&
+				["true", "1", "yes"].includes(online.toLowerCase())
+			) {
+				where.lastLogin = { gte: onlineThreshold };
+			}
+			if (typeof verification === "string") {
+				if (verification.toUpperCase() === "VERIFIED") {
+					where.emailVerified = true;
+				}
+
+				if (verification.toUpperCase() === "UNVERIFIED") {
+					where.emailVerified = false;
+				}
+			}
 			if (search) {
 				where.OR = [
 					{ name: { contains: search as string, mode: "insensitive" } },
@@ -79,13 +111,18 @@ router.get(
 				},
 				skip: (Number(page) - 1) * Number(limit),
 				take: Number(limit),
-				orderBy: { createdAt: "desc" },
+				orderBy: where.lastLogin
+					? [{ lastLogin: "desc" }, { createdAt: "desc" }]
+					: { createdAt: "desc" },
 			});
 
 			const total = await prisma.user.count({ where });
 
 			res.json({
-				users: users.map((user) => AuthUtils.sanitizeUser(user)),
+				users: users.map((user) => ({
+					...AuthUtils.sanitizeUser(user),
+					isOnline: isUserOnline(user.lastLogin, onlineThreshold),
+				})),
 				pagination: {
 					page: Number(page),
 					limit: Number(limit),
@@ -110,6 +147,7 @@ router.get(
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const now = new Date();
+			const onlineThreshold = getOnlineThreshold(now);
 			const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 			const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -118,6 +156,7 @@ router.get(
 				usersByRole,
 				usersByStatus,
 				verifiedUsers,
+				onlineUsers,
 				pinnedJuries,
 				newUsersLast7Days,
 				newUsersThisMonth,
@@ -127,6 +166,7 @@ router.get(
 				prisma.user.groupBy({ by: ["role"], _count: { id: true } }),
 				prisma.user.groupBy({ by: ["status"], _count: { id: true } }),
 				prisma.user.count({ where: { emailVerified: true } }),
+				prisma.user.count({ where: { lastLogin: { gte: onlineThreshold } } }),
 				prisma.user.count({ where: { role: UserRole.JURI, isPinned: true } }),
 				prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
 				prisma.user.count({ where: { createdAt: { gte: startOfMonth } } }),
@@ -139,6 +179,7 @@ router.get(
 						status: true,
 						emailVerified: true,
 						isPinned: true,
+						lastLogin: true,
 						createdAt: true,
 					},
 					orderBy: { createdAt: "desc" },
@@ -158,6 +199,7 @@ router.get(
 
 			res.json({
 				total: totalUsers,
+				onlineUsers,
 				byRole: roleMap,
 				byStatus: statusMap,
 				verification: {
@@ -169,7 +211,10 @@ router.get(
 					last7Days: newUsersLast7Days,
 					thisMonth: newUsersThisMonth,
 				},
-				recent: recentUsers,
+				recent: recentUsers.map((user) => ({
+					...user,
+					isOnline: isUserOnline(user.lastLogin, onlineThreshold),
+				})),
 			});
 		} catch (error) {
 			console.error("Get user summary error:", error);
