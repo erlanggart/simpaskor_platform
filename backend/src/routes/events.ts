@@ -11,6 +11,7 @@ router.get("/", async (req: Request, res: Response) => {
 	try {
 		const { search, location, featured, limit, offset, status } = req.query;
 		const now = new Date();
+		const andFilters: any[] = [];
 
 		// Base filter: exclude DRAFT and CANCELLED
 		const where: any = {
@@ -32,27 +33,39 @@ router.get("/", async (req: Request, res: Response) => {
 
 		// Search filter
 		if (search) {
-			where.OR = [
+			andFilters.push({
+				OR: [
 				{ title: { contains: search as string, mode: "insensitive" } },
 				{ description: { contains: search as string, mode: "insensitive" } },
 				{ organizer: { contains: search as string, mode: "insensitive" } },
-			];
+				],
+			});
 		}
 
 		// Location filter
 		if (location) {
-			where.location = { contains: location as string, mode: "insensitive" };
+			andFilters.push({
+				location: { contains: location as string, mode: "insensitive" },
+			});
 		}
 
-		// Featured filter
+		// Public "featured" events now follow the pinned/unggulan concept.
 		if (featured === "true") {
-			where.featured = true;
+			andFilters.push({
+				OR: [{ isPinned: true }, { featured: true }],
+			});
 		}
 
 		// Has poster/thumbnail filter
 		const { hasPoster } = req.query;
 		if (hasPoster === "true") {
-			where.thumbnail = { not: null };
+			andFilters.push({
+				thumbnail: { not: null },
+			});
+		}
+
+		if (andFilters.length > 0) {
+			where.AND = andFilters;
 		}
 
 		// Get total count for pagination
@@ -86,7 +99,12 @@ router.get("/", async (req: Request, res: Response) => {
 					},
 				},
 			},
-			orderBy: [{ featured: "desc" }, { startDate: "asc" }],
+			orderBy: [
+				{ isPinned: "desc" },
+				{ pinnedOrder: "asc" },
+				{ featured: "desc" },
+				{ startDate: "asc" },
+			],
 			take: limit ? parseInt(limit as string) : undefined,
 			skip: offset ? parseInt(offset as string) : undefined,
 		});
@@ -203,7 +221,7 @@ router.get("/featured", async (req: Request, res: Response) => {
 			where: {
 				status: { notIn: ["DRAFT", "CANCELLED"] },
 				endDate: { gte: now },
-				featured: true,
+				OR: [{ isPinned: true }, { featured: true }],
 			},
 			include: {
 				createdBy: {
@@ -219,9 +237,11 @@ router.get("/featured", async (req: Request, res: Response) => {
 					},
 				},
 			},
-			orderBy: {
-				startDate: "asc",
-			},
+			orderBy: [
+				{ isPinned: "desc" },
+				{ pinnedOrder: "asc" },
+				{ startDate: "asc" },
+			],
 			take: limit ? parseInt(limit as string) : 6,
 		});
 

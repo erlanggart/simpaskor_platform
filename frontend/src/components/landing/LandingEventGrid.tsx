@@ -145,10 +145,12 @@ const LandingEventGrid: React.FC = () => {
 		isPinned: boolean
 	): { label: string; className: string } => {
 		if (isPinned)
-			return { label: "Pinned", className: "bg-red-500/80 text-white" };
+			return { label: "Unggulan", className: "bg-red-500/80 text-white" };
 		switch (status) {
+			case "PUBLISHED":
 			case "REGISTRATION_OPEN":
 				return { label: "Buka", className: "bg-green-500/80 text-white" };
+			case "ONGOING":
 			case "ACTIVE":
 				return { label: "Aktif", className: "bg-emerald-500/80 text-white" };
 			case "COMPLETED":

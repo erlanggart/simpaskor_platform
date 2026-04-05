@@ -19,6 +19,8 @@ interface EventCardProps {
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event }) => {
+	const isPromoted = Boolean(event.isPinned || event.featured);
+
 	const isRegistrationOpen = () => {
 		const now = new Date();
 		const deadline = event.registrationDeadline
@@ -83,9 +85,9 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
 						<CalendarIcon className="w-16 h-16 text-white/50" />
 					</div>
 				)}
-				{event.featured && (
+				{isPromoted && (
 					<div className="absolute top-4 right-4 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-						Featured
+						Unggulan
 					</div>
 				)}
 				{isEventFull() && (

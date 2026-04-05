@@ -67,8 +67,7 @@ router.get(
 			if (status) where.status = status;
 			if (search) {
 				where.OR = [
-					{ firstName: { contains: search as string, mode: "insensitive" } },
-					{ lastName: { contains: search as string, mode: "insensitive" } },
+					{ name: { contains: search as string, mode: "insensitive" } },
 					{ email: { contains: search as string, mode: "insensitive" } },
 				];
 			}
@@ -98,6 +97,84 @@ router.get(
 			console.error("Get users error:", error);
 			res.status(500).json({
 				error: "Failed to fetch users",
+				message: "Internal server error",
+			});
+		}
+	}
+);
+
+router.get(
+	"/summary",
+	authenticate,
+	requireSuperAdmin,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const now = new Date();
+			const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+			const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+			const [
+				totalUsers,
+				usersByRole,
+				usersByStatus,
+				verifiedUsers,
+				pinnedJuries,
+				newUsersLast7Days,
+				newUsersThisMonth,
+				recentUsers,
+			] = await Promise.all([
+				prisma.user.count(),
+				prisma.user.groupBy({ by: ["role"], _count: { id: true } }),
+				prisma.user.groupBy({ by: ["status"], _count: { id: true } }),
+				prisma.user.count({ where: { emailVerified: true } }),
+				prisma.user.count({ where: { role: UserRole.JURI, isPinned: true } }),
+				prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+				prisma.user.count({ where: { createdAt: { gte: startOfMonth } } }),
+				prisma.user.findMany({
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						role: true,
+						status: true,
+						emailVerified: true,
+						isPinned: true,
+						createdAt: true,
+					},
+					orderBy: { createdAt: "desc" },
+					take: 6,
+				}),
+			]);
+
+			const roleMap: Record<string, number> = {};
+			usersByRole.forEach((item) => {
+				roleMap[item.role] = item._count.id;
+			});
+
+			const statusMap: Record<string, number> = {};
+			usersByStatus.forEach((item) => {
+				statusMap[item.status] = item._count.id;
+			});
+
+			res.json({
+				total: totalUsers,
+				byRole: roleMap,
+				byStatus: statusMap,
+				verification: {
+					verified: verifiedUsers,
+					unverified: totalUsers - verifiedUsers,
+				},
+				pinnedJuries,
+				growth: {
+					last7Days: newUsersLast7Days,
+					thisMonth: newUsersThisMonth,
+				},
+				recent: recentUsers,
+			});
+		} catch (error) {
+			console.error("Get user summary error:", error);
+			res.status(500).json({
+				error: "Failed to fetch user summary",
 				message: "Internal server error",
 			});
 		}

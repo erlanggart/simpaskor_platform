@@ -806,25 +806,38 @@ const MaterialScoring: React.FC = () => {
 												}`}
 											>
 												{/* Material Name */}
-												<div className="w-[140px] sm:w-[180px] flex-shrink-0 flex items-center gap-2 px-3 py-2.5">
-													<span className={`text-xs font-bold flex-shrink-0 ${
-														isScored
-															? "text-green-600 dark:text-green-400"
-															: isSkipped
-															? "text-yellow-600 dark:text-yellow-400"
-															: "text-gray-400 dark:text-gray-500"
-													}`}>
-														{material.number}.
-													</span>
-													<span className={`text-xs sm:text-sm font-semibold uppercase leading-tight ${
-														isScored
-															? "text-green-700 dark:text-green-300"
-															: isSkipped
-															? "text-yellow-700 dark:text-yellow-300"
-															: "text-gray-700 dark:text-gray-300"
-													}`}>
-														{material.name}
-													</span>
+												<div className="w-[140px] sm:w-[180px] flex-shrink-0 flex flex-col justify-center gap-0.5 px-3 py-2.5">
+													<div className="flex items-center gap-2">
+														<span className={`text-xs font-bold flex-shrink-0 ${
+															isScored
+																? "text-green-600 dark:text-green-400"
+																: isSkipped
+																? "text-yellow-600 dark:text-yellow-400"
+																: "text-gray-400 dark:text-gray-500"
+														}`}>
+															{material.number}.
+														</span>
+														<span className={`text-xs sm:text-sm font-semibold uppercase leading-tight ${
+															isScored
+																? "text-green-700 dark:text-green-300"
+																: isSkipped
+																? "text-yellow-700 dark:text-yellow-300"
+																: "text-gray-700 dark:text-gray-300"
+														}`}>
+															{material.name}
+														</span>
+													</div>
+													{currentScore?.scoredAt && (
+														<span className={`text-[10px] tabular-nums ${
+															isScored
+																? "text-green-500/70 dark:text-green-400/50"
+																: isSkipped
+																? "text-yellow-500/70 dark:text-yellow-400/50"
+																: "text-gray-400/70 dark:text-gray-500/50"
+														}`}>
+															{new Date(currentScore.scoredAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+														</span>
+													)}
 												</div>
 
 												{/* Score Buttons Row */}

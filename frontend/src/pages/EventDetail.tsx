@@ -120,6 +120,7 @@ interface Event {
 	contactPhone: string | null;
 	status: string;
 	featured: boolean;
+	isPinned?: boolean;
 	createdBy?: EventCreator;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	assessmentCategories?: EventAssessmentCategory[];
@@ -464,6 +465,8 @@ const EventDetail: React.FC = () => {
 		}
 	};
 
+	const isPromoted = Boolean(event.isPinned || event.featured);
+
 	return (
 		<div className="min-h-screen transition-colors">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -491,9 +494,9 @@ const EventDetail: React.FC = () => {
 
 								{/* Status badges */}
 								<div className="absolute top-4 left-4 flex flex-wrap gap-2">
-									{event.featured && (
+									{isPromoted && (
 										<span className="bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg uppercase tracking-wide">
-											Featured
+											Unggulan
 										</span>
 									)}
 									{event.category && (

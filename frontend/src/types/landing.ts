@@ -46,6 +46,8 @@ export interface Event {
 	organizer: string | null;
 	status: string;
 	featured: boolean;
+	isPinned?: boolean;
+	pinnedOrder?: number | null;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	likesCount?: number;
 	commentsCount?: number;

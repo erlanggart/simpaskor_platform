@@ -156,10 +156,11 @@ router.post(
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = loginSchema.parse(req.body);
+			const normalizedEmail = validatedData.email.trim().toLowerCase();
 
 			// Find user by email
 			const user = await prisma.user.findUnique({
-				where: { email: validatedData.email },
+				where: { email: normalizedEmail },
 				include: {
 					profile: true,
 				},
@@ -168,7 +169,8 @@ router.post(
 			if (!user) {
 				return res.status(401).json({
 					error: "Login failed",
-					message: "Invalid email or password",
+					message: "Email salah atau belum terdaftar",
+					field: "email",
 				});
 			}
 
@@ -181,7 +183,8 @@ router.post(
 			if (!isPasswordValid) {
 				return res.status(401).json({
 					error: "Login failed",
-					message: "Invalid email or password",
+					message: "Password salah",
+					field: "password",
 				});
 			}
 

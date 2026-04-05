@@ -62,6 +62,7 @@ interface Event {
 	category: string | null;
 	level: string | null;
 	featured: boolean;
+	isPinned?: boolean;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	assessmentCategories?: EventAssessmentCategory[];
 	createdBy?: {
@@ -185,6 +186,7 @@ const JuriEventInfo: React.FC = () => {
 	}
 
 	const event = assignment.event;
+	const isPromoted = Boolean(event.isPinned || event.featured);
 
 	const tabs = [
 		{ id: "info", label: "Informasi Event", icon: LuInfo },
@@ -218,9 +220,9 @@ const JuriEventInfo: React.FC = () => {
 
 								{/* Status badges */}
 								<div className="absolute top-4 left-4 flex flex-wrap gap-2">
-									{event.featured && (
+									{isPromoted && (
 										<span className="bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg uppercase tracking-wide">
-											Featured
+											Unggulan
 										</span>
 									)}
 									{event.category && (

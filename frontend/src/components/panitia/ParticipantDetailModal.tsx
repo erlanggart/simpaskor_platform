@@ -554,7 +554,7 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 																								)}
 																								{evaluation.scoredAt && (
 																									<p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1" title={new Date(evaluation.scoredAt).toLocaleString('id-ID')}>
-																										{new Date(evaluation.scoredAt).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+																										{new Date(evaluation.scoredAt).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
 																									</p>
 																								)}
 																							</>

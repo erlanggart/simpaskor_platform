@@ -2551,6 +2551,383 @@ router.get(
 	}
 );
 
+// GET /api/evaluations/my-performance-summary - Get peserta performance summary across all events
+router.get(
+	"/my-performance-summary",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+
+			if (!user || user.role !== "PESERTA") {
+				return res.status(403).json({ error: "Access denied" });
+			}
+
+			const participations = await prisma.eventParticipation.findMany({
+				where: {
+					userId: user.userId,
+					status: {
+						in: ["CONFIRMED", "ATTENDED"],
+					},
+				},
+				include: {
+					event: {
+						select: {
+							id: true,
+							title: true,
+							slug: true,
+							startDate: true,
+							endDate: true,
+							location: true,
+							thumbnail: true,
+							status: true,
+						},
+					},
+					groups: {
+						where: { status: "ACTIVE" },
+						include: {
+							schoolCategory: {
+								select: { id: true, name: true },
+							},
+						},
+					},
+				},
+				orderBy: { createdAt: "desc" },
+			});
+
+			const emptyResponse = {
+				participations: [],
+				performance: {
+					summary: {
+						totalEvents: 0,
+						eventsWithScores: 0,
+						totalScore: 0,
+						totalMaterials: 0,
+						evaluatedMaterials: 0,
+						averageScore: null,
+						latestScoredAt: null,
+					},
+					categoryRankings: [],
+					strongestCategory: null,
+					weakestCategory: null,
+					highestMaterial: null,
+					lowestMaterial: null,
+					bestEvent: null,
+				},
+			};
+
+			if (participations.length === 0) {
+				return res.json(emptyResponse);
+			}
+
+			const eventIds = [...new Set(participations.map((participation) => participation.eventId))];
+			const groupIds = participations.flatMap((participation) =>
+				participation.groups.map((group) => group.id)
+			);
+
+			const eventInfoMap = new Map(
+				participations.map((participation) => [participation.eventId, participation.event])
+			);
+			const participationGroupIds = new Map<string, Set<string>>();
+			const eventSchoolCategoryMap = new Map<string, Set<string>>();
+
+			participations.forEach((participation) => {
+				participationGroupIds.set(
+					participation.eventId,
+					new Set(participation.groups.map((group) => group.id))
+				);
+
+				eventSchoolCategoryMap.set(
+					participation.eventId,
+					new Set(
+						participation.groups
+							.map((group) => group.schoolCategory?.id)
+							.filter((value): value is string => Boolean(value))
+					)
+				);
+			});
+
+			const materials = await prisma.eventMaterial.findMany({
+				where: {
+					eventId: { in: eventIds },
+				},
+				select: {
+					id: true,
+					eventId: true,
+					eventAssessmentCategoryId: true,
+					name: true,
+					number: true,
+					order: true,
+					schoolCategoryIds: true,
+				},
+				orderBy: [{ eventId: "asc" }, { eventAssessmentCategoryId: "asc" }, { order: "asc" }],
+			});
+
+			const relevantMaterials = materials.filter((material) => {
+				if (material.schoolCategoryIds.length === 0) {
+					return true;
+				}
+
+				const allowedSchoolCategoryIds = eventSchoolCategoryMap.get(material.eventId);
+				if (!allowedSchoolCategoryIds || allowedSchoolCategoryIds.size === 0) {
+					return false;
+				}
+
+				return material.schoolCategoryIds.some((schoolCategoryId) =>
+					allowedSchoolCategoryIds.has(schoolCategoryId)
+				);
+			});
+
+			if (relevantMaterials.length === 0) {
+				return res.json({
+					participations: participations.map((participation) => ({
+						...participation,
+						summary: {
+							totalScore: 0,
+							totalMaterials: 0,
+							evaluatedMaterials: 0,
+							averageScore: null,
+						},
+					})),
+					performance: emptyResponse.performance,
+				});
+			}
+
+			const categoryIds = [
+				...new Set(relevantMaterials.map((material) => material.eventAssessmentCategoryId)),
+			];
+
+			const eventCategories = await prisma.eventAssessmentCategory.findMany({
+				where: {
+					id: { in: categoryIds },
+				},
+				include: {
+					assessmentCategory: {
+						select: { id: true, name: true, order: true },
+					},
+				},
+			});
+
+			const categoryMap = new Map(
+				eventCategories.map((category) => [
+					category.id,
+					{
+						assessmentCategoryId: category.assessmentCategoryId,
+						categoryName: category.assessmentCategory.name,
+						order: category.assessmentCategory.order ?? 0,
+					},
+				])
+			);
+
+			const relevantMaterialIds = relevantMaterials.map((material) => material.id);
+			const materialEvaluations = await prisma.materialEvaluation.findMany({
+				where: {
+					eventId: { in: eventIds },
+					materialId: { in: relevantMaterialIds },
+					participantId: { in: groupIds },
+				},
+				select: {
+					eventId: true,
+					materialId: true,
+					participantId: true,
+					score: true,
+					isSkipped: true,
+					scoredAt: true,
+				},
+			});
+
+			const evaluationsByMaterial = new Map<string, typeof materialEvaluations>();
+			materialEvaluations.forEach((evaluation) => {
+				const existing = evaluationsByMaterial.get(evaluation.materialId) || [];
+				existing.push(evaluation);
+				evaluationsByMaterial.set(evaluation.materialId, existing);
+			});
+
+			const materialPerformances = relevantMaterials
+				.map((material) => {
+					const participantIdsForEvent = participationGroupIds.get(material.eventId) || new Set<string>();
+					const validEvaluations = (evaluationsByMaterial.get(material.id) || []).filter(
+						(evaluation) =>
+							participantIdsForEvent.has(evaluation.participantId) &&
+							evaluation.score !== null &&
+							!evaluation.isSkipped
+					);
+
+					const averageScore =
+						validEvaluations.length > 0
+							? validEvaluations.reduce((sum, evaluation) => sum + (evaluation.score || 0), 0) /
+							  validEvaluations.length
+							: null;
+
+					const latestScoredAt = validEvaluations.reduce<Date | null>((latest, evaluation) => {
+						if (!evaluation.scoredAt) return latest;
+						if (!latest || evaluation.scoredAt > latest) return evaluation.scoredAt;
+						return latest;
+					}, null);
+
+					const categoryInfo = categoryMap.get(material.eventAssessmentCategoryId);
+					const eventInfo = eventInfoMap.get(material.eventId);
+
+					return {
+						materialId: material.id,
+						materialName: material.name,
+						materialNumber: material.number,
+						categoryId: categoryInfo?.assessmentCategoryId || material.eventAssessmentCategoryId,
+						categoryName: categoryInfo?.categoryName || "Lainnya",
+						eventId: material.eventId,
+						eventTitle: eventInfo?.title || "Event",
+						eventSlug: eventInfo?.slug || null,
+						averageScore,
+						evaluationCount: validEvaluations.length,
+						latestScoredAt: latestScoredAt ? latestScoredAt.toISOString() : null,
+					};
+				})
+				.filter(
+					(material): material is {
+						materialId: string;
+						materialName: string;
+						materialNumber: number;
+						categoryId: string;
+						categoryName: string;
+						eventId: string;
+						eventTitle: string;
+						eventSlug: string | null;
+						averageScore: number;
+						evaluationCount: number;
+						latestScoredAt: string | null;
+					} => material.averageScore !== null
+				);
+
+			const participationSummaries = participations.map((participation) => {
+				const eventMaterials = relevantMaterials.filter(
+					(material) => material.eventId === participation.eventId
+				);
+				const eventMaterialPerformances = materialPerformances.filter(
+					(material) => material.eventId === participation.eventId
+				);
+
+				const totalScore = eventMaterialPerformances.reduce(
+					(sum, material) => sum + material.averageScore,
+					0
+				);
+				const evaluatedMaterials = eventMaterialPerformances.length;
+
+				return {
+					...participation,
+					summary: {
+						totalScore,
+						totalMaterials: eventMaterials.length,
+						evaluatedMaterials,
+						averageScore: evaluatedMaterials > 0 ? totalScore / evaluatedMaterials : null,
+					},
+				};
+			});
+
+			const categoryAccumulator = new Map<
+				string,
+				{
+					categoryId: string;
+					categoryName: string;
+					totalScore: number;
+					scoredMaterials: number;
+					eventIds: Set<string>;
+				}
+			>();
+
+			materialPerformances.forEach((material) => {
+				const current =
+					categoryAccumulator.get(material.categoryId) || {
+						categoryId: material.categoryId,
+						categoryName: material.categoryName,
+						totalScore: 0,
+						scoredMaterials: 0,
+						eventIds: new Set<string>(),
+					};
+
+				current.totalScore += material.averageScore;
+				current.scoredMaterials += 1;
+				current.eventIds.add(material.eventId);
+				categoryAccumulator.set(material.categoryId, current);
+			});
+
+			const categoryRankings = Array.from(categoryAccumulator.values())
+				.map((category) => ({
+					categoryId: category.categoryId,
+					categoryName: category.categoryName,
+					totalScore: category.totalScore,
+					scoredMaterials: category.scoredMaterials,
+					eventCount: category.eventIds.size,
+					averageScore:
+						category.scoredMaterials > 0
+							? category.totalScore / category.scoredMaterials
+							: 0,
+				}))
+				.sort((a, b) => b.averageScore - a.averageScore);
+
+			const sortedMaterials = [...materialPerformances].sort((a, b) => {
+				if (b.averageScore !== a.averageScore) {
+					return b.averageScore - a.averageScore;
+				}
+				return b.evaluationCount - a.evaluationCount;
+			});
+
+			const eventPerformanceRankings = [...participationSummaries]
+				.filter((participation) => participation.summary.evaluatedMaterials > 0)
+				.sort((a, b) => {
+					const averageA = a.summary.averageScore ?? -1;
+					const averageB = b.summary.averageScore ?? -1;
+					if (averageB !== averageA) {
+						return averageB - averageA;
+					}
+					return b.summary.totalScore - a.summary.totalScore;
+				});
+
+			const totalScore = materialPerformances.reduce(
+				(sum, material) => sum + material.averageScore,
+				0
+			);
+			const evaluatedMaterials = materialPerformances.length;
+			const latestScoredAt = materialPerformances.reduce<string | null>((latest, material) => {
+				if (!material.latestScoredAt) return latest;
+				if (!latest || new Date(material.latestScoredAt) > new Date(latest)) {
+					return material.latestScoredAt;
+				}
+				return latest;
+			}, null);
+
+			res.json({
+				participations: participationSummaries,
+				performance: {
+					summary: {
+						totalEvents: participations.length,
+						eventsWithScores: eventPerformanceRankings.length,
+						totalScore,
+						totalMaterials: relevantMaterials.length,
+						evaluatedMaterials,
+						averageScore: evaluatedMaterials > 0 ? totalScore / evaluatedMaterials : null,
+						latestScoredAt,
+					},
+					categoryRankings,
+					strongestCategory: categoryRankings[0] || null,
+					weakestCategory:
+						categoryRankings.length > 0
+							? categoryRankings[categoryRankings.length - 1]
+							: null,
+					highestMaterial: sortedMaterials[0] || null,
+					lowestMaterial:
+						sortedMaterials.length > 0
+							? [...sortedMaterials].reverse()[0]
+							: null,
+					bestEvent: eventPerformanceRankings[0] || null,
+				},
+			});
+		} catch (error) {
+			console.error("Error fetching my performance summary:", error);
+			res.status(500).json({ error: "Failed to fetch performance summary" });
+		}
+	}
+);
+
 // GET /api/evaluations/my-scores/:eventSlug - Get peserta's scores for an event
 router.get(
 	"/my-scores/:eventSlug",
@@ -2673,6 +3050,8 @@ router.get(
 					juryName: string;
 					score: number | null;
 					scoreCategoryName: string | null;
+					isSkipped: boolean;
+					skipReason: string | null;
 					scoredAt: Date | null;
 				}[];
 				averageScore: number | null;
@@ -2687,6 +3066,8 @@ router.get(
 						juryName: jury.name,
 						score: eval_?.score ?? null,
 						scoreCategoryName: eval_?.scoreCategoryName ?? null,
+						isSkipped: eval_?.isSkipped ?? false,
+						skipReason: eval_?.skipReason ?? null,
 						scoredAt: eval_?.scoredAt ?? null,
 					};
 				});

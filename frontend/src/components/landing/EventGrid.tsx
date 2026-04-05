@@ -19,6 +19,29 @@ interface UserLocation {
 
 const EVENTS_PER_PAGE = 25;
 
+const isAvailableEventStatus = (status: string) =>
+	status === "PUBLISHED" || status === "REGISTRATION_OPEN";
+
+const isActiveEventStatus = (status: string) =>
+	status === "ONGOING" || status === "ACTIVE";
+
+const getEventStatusPriority = (status: string) => {
+	if (isActiveEventStatus(status)) return 0;
+	if (isAvailableEventStatus(status)) return 1;
+	if (status === "COMPLETED") return 2;
+	return 3;
+};
+
+const isPromotedEvent = (event: Event) => Boolean(event.isPinned || event.featured);
+
+const getPinnedOrderValue = (event: Event) =>
+	typeof event.pinnedOrder === "number" ? event.pinnedOrder : Number.MAX_SAFE_INTEGER;
+
+const getPromotionPriority = (event: Event) => {
+	if (event.status === "COMPLETED") return 1;
+	return isPromotedEvent(event) ? 0 : 1;
+};
+
 const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [sortBy, setSortBy] = useState<SortType>("default");
@@ -81,11 +104,9 @@ const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 		if (statusFilter === "all") return events;
 		switch (statusFilter) {
 			case "available":
-				return events.filter(
-					(e) => e.status === "PUBLISHED" || e.status === "REGISTRATION_OPEN"
-				);
+				return events.filter((e) => isAvailableEventStatus(e.status));
 			case "active":
-				return events.filter((e) => e.status === "ACTIVE");
+				return events.filter((e) => isActiveEventStatus(e.status));
 			case "completed":
 				return events.filter((e) => e.status === "COMPLETED");
 			default:
@@ -139,11 +160,37 @@ const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 					.sort((a, b) => a.distance - b.distance);
 			default:
 				return eventsCopy.sort((a, b) => {
+					const promotionPriorityDiff =
+						getPromotionPriority(a) - getPromotionPriority(b);
+					if (promotionPriorityDiff !== 0) return promotionPriorityDiff;
+
+					const statusPriorityDiff =
+						getEventStatusPriority(a.status) - getEventStatusPriority(b.status);
+					if (statusPriorityDiff !== 0) return statusPriorityDiff;
+
+					const aIsPromoted = isPromotedEvent(a);
+					const bIsPromoted = isPromotedEvent(b);
+					if (aIsPromoted !== bIsPromoted) return aIsPromoted ? -1 : 1;
+
+					if (aIsPromoted && bIsPromoted) {
+						const pinnedOrderDiff =
+							getPinnedOrderValue(a) - getPinnedOrderValue(b);
+						if (pinnedOrderDiff !== 0) return pinnedOrderDiff;
+					}
+
 					// Events with poster first
 					const aHasPoster = a.thumbnail ? 1 : 0;
 					const bHasPoster = b.thumbnail ? 1 : 0;
 					if (aHasPoster !== bHasPoster) return bHasPoster - aHasPoster;
-					if (a.featured !== b.featured) return a.featured ? -1 : 1;
+
+					if (a.status === "COMPLETED" && b.status === "COMPLETED") {
+						return new Date(b.endDate).getTime() - new Date(a.endDate).getTime();
+					}
+
+					if (isActiveEventStatus(a.status) && isActiveEventStatus(b.status)) {
+						return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+					}
+
 					return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
 				});
 		}
@@ -171,13 +218,15 @@ const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 
 	const getStatusLabel = (
 		status: string,
-		featured?: boolean
+		isPromoted?: boolean
 	): { label: string; className: string } => {
-		if (featured)
-			return { label: "Featured", className: "bg-red-500/80 text-white" };
+		if (isPromoted)
+			return { label: "Unggulan", className: "bg-red-500/80 text-white" };
 		switch (status) {
+			case "PUBLISHED":
 			case "REGISTRATION_OPEN":
 				return { label: "Buka", className: "bg-green-500/80 text-white" };
+			case "ONGOING":
 			case "ACTIVE":
 				return { label: "Aktif", className: "bg-emerald-500/80 text-white" };
 			case "COMPLETED":
@@ -330,7 +379,10 @@ const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 					{/* Event grid - 5 columns × 5 rows */}
 					<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
 						{paginatedEvents.map((event) => {
-							const status = getStatusLabel(event.status, event.featured);
+							const status = getStatusLabel(
+								event.status,
+								isPromotedEvent(event)
+							);
 
 							return (
 								<Link

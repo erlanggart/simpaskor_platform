@@ -106,6 +106,20 @@ const ETicketingPage: React.FC = () => {
 		return { label: "Tiket", className: "bg-gray-500/80 text-white" };
 	};
 
+	const getAvailabilityBadge = (event: TicketedEvent): { label: string; className: string } => {
+		const availability = getTicketAvailability(event);
+		switch (availability.color) {
+			case "green":
+				return { label: availability.text, className: "bg-emerald-500/85 text-white" };
+			case "amber":
+				return { label: availability.text, className: "bg-amber-500/85 text-white" };
+			case "red":
+				return { label: availability.text, className: "bg-red-500/85 text-white" };
+			default:
+				return { label: availability.text, className: "bg-gray-600/85 text-white" };
+		}
+	};
+
 	const getImageUrl = (imageUrl: string | null): string => {
 		if (!imageUrl) return "";
 		if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
@@ -377,13 +391,13 @@ const ETicketingPage: React.FC = () => {
 					<>
 						<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
 							{filteredEvents.map((event) => {
-								const badge = getTicketBadge(event);
+								const availabilityBadge = getAvailabilityBadge(event);
 								const availability = getTicketAvailability(event);
 								return (
 									<div
 										key={event.id}
 										onClick={() => openPurchaseModal(event)}
-										className={`group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-red-400/30 dark:hover:border-red-500/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer ${availability.available <= 0 ? "opacity-60" : ""}`}
+										className={`group relative overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md shadow-gray-200/80 transition-all duration-300 hover:scale-[1.02] hover:border-red-400/30 hover:shadow-lg hover:shadow-gray-300/80 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-red-500/20 cursor-pointer ${availability.available <= 0 ? "opacity-60" : ""}`}
 									>
 										{/* Poster - 2:3 ratio */}
 										<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-red-900/10 to-orange-900/10 overflow-hidden">
@@ -400,8 +414,8 @@ const ETicketingPage: React.FC = () => {
 												</div>
 											)}
 											<div className="absolute top-1.5 left-1.5">
-												<span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${badge.className}`}>
-													{badge.label}
+												<span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${availabilityBadge.className}`}>
+													{availabilityBadge.label}
 												</span>
 											</div>
 											{availability.available <= 0 && (
@@ -412,8 +426,8 @@ const ETicketingPage: React.FC = () => {
 										</div>
 
 										{/* Info */}
-										<div className="p-2">
-											<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
+										<div className="flex min-h-[120px] flex-col p-2.5">
+											<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1.5">
 												{event.title}
 											</h4>
 											<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
@@ -430,6 +444,11 @@ const ETicketingPage: React.FC = () => {
 													</span>
 												</div>
 											)}
+											<div className="mt-auto pt-3">
+												<p className="text-[11px] lg:text-sm font-bold text-red-600 dark:text-red-400">
+													{getTicketBadge(event).label}
+												</p>
+											</div>
 										</div>
 									</div>
 								);

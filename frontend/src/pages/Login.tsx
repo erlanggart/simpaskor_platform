@@ -34,6 +34,8 @@ const Login = () => {
 	const {
 		register,
 		handleSubmit,
+		setError: setFormError,
+		clearErrors,
 		formState: { errors },
 	} = useForm<LoginForm>({
 		resolver: zodResolver(loginSchema),
@@ -127,6 +129,7 @@ const Login = () => {
 		try {
 			setIsLoading(true);
 			setError(null);
+			clearErrors(["email", "password"]);
 
 			await login(data.email, data.password);
 
@@ -154,9 +157,18 @@ const Login = () => {
 
 			navigate("/dashboard");
 		} catch (err: any) {
-			setError(
-				err.response?.data?.message || "Login gagal. Silakan coba lagi."
-			);
+			const responseField = err.response?.data?.field;
+			const responseMessage =
+				err.response?.data?.message || "Login gagal. Silakan coba lagi.";
+
+			if (responseField === "email" || responseField === "password") {
+				setFormError(responseField, {
+					type: "server",
+					message: responseMessage,
+				});
+			}
+
+			setError(responseMessage);
 		} finally {
 			setIsLoading(false);
 		}

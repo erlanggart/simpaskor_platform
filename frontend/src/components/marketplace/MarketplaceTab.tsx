@@ -267,11 +267,6 @@ const MarketplaceTab: React.FC = () => {
 		return `${config.api.backendUrl}${imageUrl}`;
 	};
 
-	const getPriceBadge = (product: Product): { label: string; className: string } => {
-		if (product.stock <= 0) return { label: "Habis", className: "bg-gray-500/80 text-white" };
-		return { label: formatCurrency(product.price), className: "bg-red-500/80 text-white" };
-	};
-
 	const stockFilterOptions = [
 		{ id: "all" as const, label: "Semua" },
 		{ id: "available" as const, label: "Tersedia" },
@@ -479,7 +474,7 @@ const MarketplaceTab: React.FC = () => {
 							key={i}
 							className="rounded-xl bg-gray-200/50 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.04] animate-pulse"
 						>
-							<div className="aspect-[2/3]" />
+							<div className="aspect-square" />
 							<div className="p-2 space-y-1.5">
 								<div className="h-2.5 bg-gray-300/50 dark:bg-white/[0.06] rounded w-3/4" />
 								<div className="h-2 bg-gray-300/50 dark:bg-white/[0.06] rounded w-1/2" />
@@ -500,17 +495,16 @@ const MarketplaceTab: React.FC = () => {
 				<>
 					<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
 						{filteredAndSorted.map((product) => {
-							const badge = getPriceBadge(product);
 							const isOutOfStock = product.stock <= 0;
 
 							return (
 								<div
 									key={product.id}
 									onClick={() => !isOutOfStock && addToCart(product)}
-									className={`group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-red-400/30 dark:hover:border-red-500/20 transition-all duration-300 hover:scale-[1.02] ${isOutOfStock ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+									className={`group relative overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md shadow-gray-200/80 transition-all duration-300 hover:scale-[1.02] hover:border-red-400/30 hover:shadow-lg hover:shadow-gray-300/80 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-red-500/20 ${isOutOfStock ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
 								>
-									{/* Product image - 2:3 ratio */}
-									<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-red-900/10 to-orange-900/10 overflow-hidden">
+									{/* Product image - square ratio */}
+									<div className="relative aspect-square w-full bg-gradient-to-br from-red-100 via-orange-50 to-amber-100 overflow-hidden dark:from-red-900/10 dark:via-orange-900/10 dark:to-amber-900/10">
 										{product.thumbnail ? (
 											<img
 												src={getImageUrl(product.thumbnail)}
@@ -524,8 +518,14 @@ const MarketplaceTab: React.FC = () => {
 											</div>
 										)}
 										<div className="absolute top-1.5 left-1.5">
-											<span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${badge.className}`}>
-												{badge.label}
+											<span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
+												isOutOfStock
+													? "bg-gray-600/85 text-white"
+													: product.stock <= 5
+													? "bg-amber-500/85 text-white"
+													: "bg-emerald-500/85 text-white"
+											}`}>
+												{isOutOfStock ? "Habis" : product.stock <= 5 ? `Sisa ${product.stock}` : "Tersedia"}
 											</span>
 										</div>
 										{isOutOfStock && (
@@ -544,15 +544,25 @@ const MarketplaceTab: React.FC = () => {
 									</div>
 
 									{/* Info */}
-									<div className="p-2">
-										<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
+									<div className="flex min-h-[116px] flex-col p-2.5">
+										<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1.5">
 											{product.name}
 										</h4>
+										{product.description && (
+											<p className="text-[8px] lg:text-[9px] text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
+												{product.description}
+											</p>
+										)}
 										<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
 											<LuPackage className="w-3 h-3 flex-shrink-0" />
 											<span className="text-[8px] lg:text-[9px]">
 												{product.stock > 0 ? `Stok: ${product.stock}` : "Stok Habis"}
 											</span>
+										</div>
+										<div className="mt-auto pt-3">
+											<p className="text-[11px] lg:text-sm font-bold text-red-600 dark:text-red-400">
+												{formatCurrency(product.price)}
+											</p>
 										</div>
 									</div>
 								</div>
