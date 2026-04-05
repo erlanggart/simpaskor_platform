@@ -164,6 +164,13 @@ const JuriEventPenilaian: React.FC = () => {
 		loadOfflineData();
 	}, [loadOfflineData]);
 
+	// Reload offline data when returning from MaterialScoring (outlet becomes null)
+	useEffect(() => {
+		if (!outlet) {
+			loadOfflineData();
+		}
+	}, [outlet, loadOfflineData]);
+
 	useEffect(() => {
 		if (eventSlug) {
 			fetchData();

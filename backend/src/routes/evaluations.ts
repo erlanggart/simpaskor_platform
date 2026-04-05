@@ -1903,6 +1903,9 @@ router.get(
 					isSkipped: boolean;
 					skipReason: string | null;
 					notes: string | null;
+					scoredAt: Date | null;
+					createdAt: Date;
+					updatedAt: Date;
 				}[];
 			}
 
@@ -1947,6 +1950,9 @@ router.get(
 							isSkipped: e.isSkipped,
 							skipReason: e.skipReason,
 							notes: e.notes,
+							scoredAt: e.scoredAt,
+							createdAt: e.createdAt,
+							updatedAt: e.updatedAt,
 						})),
 					};
 				});

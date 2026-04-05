@@ -184,8 +184,11 @@ const MaterialScoring: React.FC = () => {
 	useEffect(() => {
 		if (eventSlug && participantId && categories.length > 0) {
 			fetchEvaluations();
+		} else if (eventSlug && participantId && participant !== null && categories.length === 0) {
+			// Participant found but no materials match → stop loading
+			setLoading(false);
 		}
-	}, [eventSlug, participantId, categories]);
+	}, [eventSlug, participantId, categories, participant]);
 
 	const fetchEvaluations = async () => {
 		try {
@@ -476,6 +479,7 @@ const MaterialScoring: React.FC = () => {
 				schoolCategoryName: participant?.schoolCategory?.name,
 			};
 			saveOfflineData(offlineData);
+			clearLocalStorage();
 
 			await Swal.fire({
 				icon: "info",
@@ -529,6 +533,7 @@ const MaterialScoring: React.FC = () => {
 				schoolCategoryName: participant?.schoolCategory?.name,
 			};
 			saveOfflineData(offlineData);
+			clearLocalStorage();
 
 			await Swal.fire({
 				icon: "warning",
@@ -550,6 +555,29 @@ const MaterialScoring: React.FC = () => {
 				<div className="text-center">
 					<div className="animate-spin rounded-full h-10 w-10 border-2 border-red-500/30 border-t-red-500 mx-auto"></div>
 					<p className="mt-4 text-sm text-gray-500 dark:text-gray-500">Memuat data penilaian...</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (categories.length === 0) {
+		return (
+			<div className="min-h-screen flex items-center justify-center px-4">
+				<div className="text-center max-w-md">
+					<LuCircleX className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+					<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+						Tidak Ada Materi
+					</h2>
+					<p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+						Belum ada materi penilaian untuk peserta ini.
+					</p>
+					<Link
+						to={`/juri/events/${eventSlug}/penilaian`}
+						className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
+					>
+						<LuArrowLeft className="w-4 h-4" />
+						Kembali
+					</Link>
 				</div>
 			</div>
 		);

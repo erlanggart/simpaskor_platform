@@ -30,6 +30,9 @@ interface MaterialEvaluation {
 	isSkipped: boolean;
 	skipReason: string | null;
 	notes: string | null;
+	scoredAt: string | null;
+	createdAt: string;
+	updatedAt: string;
 }
 
 interface MaterialDetail {
@@ -548,6 +551,11 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 																											</span>
 																										)}
 																									</span>
+																								)}
+																								{evaluation.scoredAt && (
+																									<p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1" title={new Date(evaluation.scoredAt).toLocaleString('id-ID')}>
+																										{new Date(evaluation.scoredAt).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+																									</p>
 																								)}
 																							</>
 																						) : (
