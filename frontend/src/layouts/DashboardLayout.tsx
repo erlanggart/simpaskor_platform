@@ -42,6 +42,7 @@ export const DashboardLayout: React.FC = () => {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const [showMoreMenu, setShowMoreMenu] = useState(false);
+	const [themeAnimating, setThemeAnimating] = useState(false);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
 	const [activeJuryEvent, setActiveJuryEvent] = useState<any>(null);
 
@@ -413,16 +414,18 @@ export const DashboardLayout: React.FC = () => {
 
 					{/* Theme Toggle */}
 					<button
-						onClick={toggleTheme}
+						onClick={() => { setThemeAnimating(true); toggleTheme(); setTimeout(() => setThemeAnimating(false), 500); }}
 						className="group relative flex flex-col items-center gap-0.5 outline-none"
 						aria-label="Toggle theme"
 					>
 						<div className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300">
-							{theme === "light" ? (
-								<LuMoon className="w-5 h-5" />
-							) : (
-								<LuSun className="w-5 h-5" />
-							)}
+							<div className={`transition-all duration-500 ${themeAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"}`}>
+								{theme === "light" ? (
+									<LuMoon className="w-5 h-5" />
+								) : (
+									<LuSun className="w-5 h-5" />
+								)}
+							</div>
 						</div>
 						<span className="text-[10px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
 							Theme
@@ -623,12 +626,16 @@ export const DashboardLayout: React.FC = () => {
 							{/* Theme Toggle */}
 							<button
 								onClick={() => {
+									setThemeAnimating(true);
 									toggleTheme();
 									setShowMoreMenu(false);
+									setTimeout(() => setThemeAnimating(false), 500);
 								}}
 								className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-white/[0.05] rounded-xl transition-all"
 							>
-								{theme === "light" ? <LuMoon className="w-5 h-5" /> : <LuSun className="w-5 h-5" />}
+								<div className={`transition-all duration-500 ${themeAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"}`}>
+									{theme === "light" ? <LuMoon className="w-5 h-5" /> : <LuSun className="w-5 h-5" />}
+								</div>
 								{theme === "light" ? "Mode Gelap" : "Mode Terang"}
 							</button>
 						</div>

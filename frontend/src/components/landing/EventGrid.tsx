@@ -139,6 +139,10 @@ const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 					.sort((a, b) => a.distance - b.distance);
 			default:
 				return eventsCopy.sort((a, b) => {
+					// Events with poster first
+					const aHasPoster = a.thumbnail ? 1 : 0;
+					const bHasPoster = b.thumbnail ? 1 : 0;
+					if (aHasPoster !== bHasPoster) return bHasPoster - aHasPoster;
 					if (a.featured !== b.featured) return a.featured ? -1 : 1;
 					return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
 				});

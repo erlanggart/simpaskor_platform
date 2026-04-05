@@ -34,8 +34,8 @@ const LandingEventGrid: React.FC = () => {
 				setLoading(true);
 				const [pinnedRes, eventsRes, completedRes] = await Promise.all([
 					api.get("/events/pinned/carousel"),
-					api.get("/events?limit=12"),
-					api.get("/events?status=COMPLETED&limit=12"),
+					api.get("/events?limit=12&hasPoster=true"),
+					api.get("/events?status=COMPLETED&limit=12&hasPoster=true"),
 				]);
 				setPinnedEvents(pinnedRes.data);
 				setEvents(eventsRes.data.data || eventsRes.data);
@@ -65,9 +65,10 @@ const LandingEventGrid: React.FC = () => {
 		}[] = [];
 		const usedIds = new Set<string>();
 
-		// 1. Pinned events first
+		// 1. Pinned events first (only with poster)
 		for (const pe of pinnedEvents) {
 			if (result.length >= MAX_ITEMS) break;
+			if (!pe.thumbnail) continue;
 			result.push({
 				id: pe.id,
 				title: pe.title,

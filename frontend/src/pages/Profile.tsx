@@ -7,6 +7,7 @@ import {
 	LuLock,
 	LuCamera,
 	LuArrowLeft,
+	LuLogOut,
 } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
 
@@ -30,7 +31,7 @@ interface PasswordFormData {
 }
 
 const ProfilePage: React.FC = () => {
-	const { user, updateUser } = useAuth();
+	const { user, updateUser, logout } = useAuth();
 	const navigate = useNavigate();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -243,6 +244,15 @@ const ProfilePage: React.FC = () => {
 						Kelola informasi akun dan keamanan Anda
 					</p>
 				</div>
+
+				{/* Logout Button */}
+				<button
+					onClick={logout}
+					className="mb-6 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors"
+				>
+					<LuLogOut className="w-4 h-4" />
+					Keluar
+				</button>
 
 				{/* Message Alert */}
 				{message && (

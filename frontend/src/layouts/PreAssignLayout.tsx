@@ -42,6 +42,7 @@ export const PreAssignLayout: React.FC = () => {
 	const { theme, toggleTheme } = useTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
+	const [themeAnimating, setThemeAnimating] = useState(false);
 
 	const navItems = getNavItems(user?.role);
 
@@ -136,16 +137,18 @@ export const PreAssignLayout: React.FC = () => {
 				<div className="mb-6 flex flex-col items-center gap-1.5">
 					{/* Theme Toggle */}
 					<button
-						onClick={toggleTheme}
+						onClick={() => { setThemeAnimating(true); toggleTheme(); setTimeout(() => setThemeAnimating(false), 500); }}
 						className="group relative flex flex-col items-center gap-0.5 outline-none"
 						aria-label="Toggle theme"
 					>
 						<div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300">
-							{theme === "light" ? (
-								<LuMoon className="w-5 h-5" />
-							) : (
-								<LuSun className="w-5 h-5" />
-							)}
+							<div className={`transition-all duration-500 ${themeAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"}`}>
+								{theme === "light" ? (
+									<LuMoon className="w-5 h-5" />
+								) : (
+									<LuSun className="w-5 h-5" />
+								)}
+							</div>
 						</div>
 						<span className="text-[9px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
 							Theme

@@ -49,6 +49,12 @@ router.get("/", async (req: Request, res: Response) => {
 			where.featured = true;
 		}
 
+		// Has poster/thumbnail filter
+		const { hasPoster } = req.query;
+		if (hasPoster === "true") {
+			where.thumbnail = { not: null };
+		}
+
 		// Get total count for pagination
 		const total = await prisma.event.count({ where });
 
