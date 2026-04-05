@@ -275,11 +275,19 @@ const EVotingPage: React.FC = () => {
 		return { text: "Buka", color: "green" };
 	};
 
+	const isVotingOpen = (event: VotingEvent): boolean => {
+		if (!event.votingConfig) return false;
+		const now = new Date();
+		if (event.votingConfig.startDate && new Date(event.votingConfig.startDate) > now) return false;
+		if (event.votingConfig.endDate && new Date(event.votingConfig.endDate) < now) return false;
+		return true;
+	};
+
 	const getVotingStatusBadge = (event: VotingEvent): { label: string; className: string } => {
 		const status = getVotingStatus(event);
-		if (event.votingConfig?.isPaid) return { label: formatCurrency(event.votingConfig.pricePerVote) + "/vote", className: "bg-red-500/80 text-white" };
 		switch (status.color) {
 			case "green":
+				if (event.votingConfig?.isPaid) return { label: formatCurrency(event.votingConfig.pricePerVote) + "/vote", className: "bg-red-500/80 text-white" };
 				return { label: "Buka", className: "bg-green-500/80 text-white" };
 			case "amber":
 				return { label: "Segera", className: "bg-orange-500/80 text-white" };
@@ -359,12 +367,27 @@ const EVotingPage: React.FC = () => {
 									<span className="text-sm text-gray-500 dark:text-gray-400">
 										Voting berbayar: {formatCurrency(selectedEvent.votingConfig.pricePerVote)}/vote
 									</span>
-									<button
-										onClick={() => setShowPurchaseModal(true)}
-										className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
-									>
-										Beli Vote
-									</button>
+									{isVotingOpen(selectedEvent) && (
+										<button
+											onClick={() => setShowPurchaseModal(true)}
+											className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+										>
+											Beli Vote
+										</button>
+									)}
+								</div>
+							)}
+
+							{/* Voting status banner */}
+							{!isVotingOpen(selectedEvent) && (
+								<div className={`mt-4 px-4 py-3 rounded-xl text-sm font-medium ${
+									getVotingStatus(selectedEvent).color === "amber"
+										? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20"
+										: "bg-gray-50 dark:bg-gray-500/10 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-500/20"
+								}`}>
+									{getVotingStatus(selectedEvent).color === "amber"
+										? `Voting belum dimulai${selectedEvent.votingConfig?.startDate ? `. Dibuka pada ${new Date(selectedEvent.votingConfig.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}`
+										: "Voting sudah ditutup"}
 								</div>
 							)}
 						</div>
@@ -461,10 +484,12 @@ const EVotingPage: React.FC = () => {
 														handleFreeVote(currentCategory.id, nominee.id);
 													}
 												}}
-												disabled={voting || isVoted}
+												disabled={voting || isVoted || !isVotingOpen(selectedEvent)}
 												className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
 													isVoted
 														? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+														: !isVotingOpen(selectedEvent)
+															? "bg-gray-100 text-gray-400 dark:bg-white/[0.04] dark:text-gray-600 cursor-not-allowed"
 															: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
 													}`}
 												>
@@ -472,6 +497,10 @@ const EVotingPage: React.FC = () => {
 														<>
 															<LuCircleCheck className="w-4 h-4" />
 															Sudah Vote
+														</>
+													) : !isVotingOpen(selectedEvent) ? (
+														<>
+															{getVotingStatus(selectedEvent).color === "amber" ? "Belum Dibuka" : "Sudah Ditutup"}
 														</>
 													) : (
 														<>

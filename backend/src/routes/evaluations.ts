@@ -1009,30 +1009,39 @@ router.get(
 			}
 
 			const participantGroups: ParticipantGroup[] = participants.flatMap((p) => {
+				const schoolOrInstitution = p.schoolName || p.user.profile?.institution || null;
 				if (p.groups && p.groups.length > 0) {
-					return p.groups.map((group): ParticipantGroup => ({
-						id: group.id,
-						participationId: p.id,
-						teamName: group.groupName,
-						orderNumber: group.orderNumber,
-						schoolCategory: group.schoolCategory,
-						registrant: {
-							id: p.user.id,
-							name: p.user.name,
-							institution: p.user.profile?.institution || null,
-						},
-					}));
+					const hasMultipleGroups = p.groups.length > 1;
+					return p.groups.map((group): ParticipantGroup => {
+						// If multiple groups: show school name + team name (e.g. "SMAN 1 Kediri - Tim A")
+						// If single group: show school name only (or group name as fallback)
+						const displayName = hasMultipleGroups
+							? `${schoolOrInstitution || group.groupName} - ${group.groupName}`
+							: schoolOrInstitution || group.groupName;
+						return {
+							id: group.id,
+							participationId: p.id,
+							teamName: displayName,
+							orderNumber: group.orderNumber,
+							schoolCategory: group.schoolCategory,
+							registrant: {
+								id: p.user.id,
+								name: p.user.name,
+								institution: schoolOrInstitution,
+							},
+						};
+					});
 				}
 				return [{
 					id: p.id,
 					participationId: p.id,
-					teamName: p.user.name,
+					teamName: schoolOrInstitution || p.user.name,
 					orderNumber: null,
 					schoolCategory: null,
 					registrant: {
 						id: p.user.id,
 						name: p.user.name,
-						institution: p.user.profile?.institution || null,
+						institution: schoolOrInstitution,
 					},
 				}] as ParticipantGroup[];
 			});
@@ -1839,7 +1848,11 @@ router.get(
 					participation: {
 						include: {
 							user: {
-								select: { id: true, name: true },
+								select: { id: true, name: true, profile: { select: { institution: true } } },
+							},
+							groups: {
+								where: { status: "ACTIVE" },
+								select: { id: true },
 							},
 						},
 					},
@@ -1989,10 +2002,16 @@ router.get(
 				};
 			});
 
+			const schoolOrInstitution = participant.participation.schoolName || participant.participation.user.profile?.institution || null;
+			const hasMultipleGroups = (participant.participation.groups?.length || 0) > 1;
+			const displayName = hasMultipleGroups
+				? `${schoolOrInstitution || participant.groupName} - ${participant.groupName}`
+				: schoolOrInstitution || participant.groupName;
+
 			res.json({
 				participant: {
 					id: participant.id,
-					teamName: participant.groupName,
+					teamName: displayName,
 					orderNumber: participant.orderNumber,
 					schoolCategory: participant.schoolCategory
 						? { id: participant.schoolCategory.id, name: participant.schoolCategory.name }
@@ -2000,6 +2019,7 @@ router.get(
 					registrant: {
 						id: participant.participation.user.id,
 						name: participant.participation.user.name,
+						institution: schoolOrInstitution,
 					},
 				},
 				eventId: event.id,
