@@ -86,6 +86,7 @@ interface Participant {
   id: string;
   participationId: string;
   teamName: string;
+  groupLabel?: string | null;
   orderNumber: number | null;
   schoolCategory: {
     id: string;
@@ -877,13 +878,12 @@ const PanitiaEventRecap: React.FC = () => {
     // Build data rows
     const rows = activeGroup.participants.map((item, index) => {
       const extraSummary = getExtraNilaiSummary(item);
-      // Combine team name and institution
-      const nameWithInstitution = item.participant.registrant.institution
-        ? `${item.participant.teamName} - ${item.participant.registrant.institution}`
+      const nameDisplay = item.participant.groupLabel
+        ? `${item.participant.teamName} - ${item.participant.groupLabel}`
         : item.participant.teamName;
       const row: (string | number)[] = [
         index + 1,
-        nameWithInstitution,
+        nameDisplay,
         item.participant.orderNumber || "-",
         ...categories.map(cat => getCategoryScore(item, cat.id).toFixed(1)),
       ];
@@ -1039,13 +1039,12 @@ const PanitiaEventRecap: React.FC = () => {
     // Build data rows
     const rows = activeGroup.participants.map((item, index) => {
       const extraSummary = getExtraNilaiSummary(item);
-      // Combine team name and institution
-      const nameWithInstitution = item.participant.registrant.institution
-        ? `${item.participant.teamName} - ${item.participant.registrant.institution}`
+      const nameDisplay = item.participant.groupLabel
+        ? `${item.participant.teamName} - ${item.participant.groupLabel}`
         : item.participant.teamName;
       const row: (string | number)[] = [
         index + 1,
-        nameWithInstitution,
+        nameDisplay,
         item.participant.orderNumber || "-",
         ...categories.map(cat => getCategoryScore(item, cat.id).toFixed(1)),
       ];
@@ -1395,9 +1394,9 @@ const PanitiaEventRecap: React.FC = () => {
                                   </td>
                                   <td className="px-3 py-3 text-gray-900 dark:text-white text-sm font-medium hover:text-red-600 dark:hover:text-red-400 transition-colors">
                                     <div>{item.participant.teamName}</div>
-                                    {item.participant.registrant.institution && (
+                                    {item.participant.groupLabel && (
                                       <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
-                                        {item.participant.registrant.institution}
+                                        {item.participant.groupLabel}
                                       </div>
                                     )}
                                   </td>
