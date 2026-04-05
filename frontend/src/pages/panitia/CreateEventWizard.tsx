@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
 	ArrowLeftIcon,
 	CheckCircleIcon,
-	ExclamationCircleIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../utils/api";
 import { Logo } from "../../components/Logo";
@@ -13,21 +12,23 @@ import {
 	WizardStep1BasicInfo,
 	WizardStep2Categories,
 	WizardStep3MediaFee,
+	WizardStep4Payment,
 } from "../../components/event-wizard";
 import {
 	Step1Data,
 	Step2Data,
 	Step3Data,
-	Coupon,
 	AssessmentCategory,
 	SchoolCategory,
 	DraftEvent,
+	EventPaymentData,
 } from "../../types/eventWizard";
 
 const STEPS = [
 	{ number: 1, title: "Informasi Dasar", description: "Judul, tanggal, lokasi" },
 	{ number: 2, title: "Kategori", description: "Penilaian & peserta" },
 	{ number: 3, title: "Media & Biaya", description: "Poster, juknis, biaya" },
+	{ number: 4, title: "Pembayaran", description: "Pilih paket & bayar" },
 ];
 
 const CreateEventWizard: React.FC = () => {
@@ -41,17 +42,20 @@ const CreateEventWizard: React.FC = () => {
 	const [isFetching, setIsFetching] = useState(true);
 	// Edit mode: editing a completed event (wizardCompleted: true)
 	const [isEditMode, setIsEditMode] = useState(false);
-	// Store coupon code for edit mode display
-	const [currentCouponCode, setCurrentCouponCode] = useState<string>("");
 
 	// Draft ID (created after step 1)
 	const [eventDraftId, setEventDraftId] = useState<string | null>(
 		draftId || null
 	);
 
+	// Event title for payment step
+	const [eventTitle, setEventTitle] = useState("");
+
+	// Payment data
+	const [existingPayment, setExistingPayment] = useState<EventPaymentData | null>(null);
+
 	// Step 1 data
 	const [step1Data, setStep1Data] = useState<Step1Data>({
-		couponId: "",
 		title: "",
 		description: "",
 		startDate: "",
@@ -77,11 +81,9 @@ const CreateEventWizard: React.FC = () => {
 		contactPersonName: "",
 		contactEmail: "",
 		contactPhone: "",
-		status: "DRAFT",
 	});
 
 	// Options
-	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [assessmentCategories, setAssessmentCategories] = useState<
 		AssessmentCategory[]
 	>([]);
@@ -98,7 +100,6 @@ const CreateEventWizard: React.FC = () => {
 			setIsFetching(true);
 			try {
 				await Promise.all([
-					fetchCoupons(),
 					fetchAssessmentCategories(),
 					fetchSchoolCategories(),
 					loadUserData(),
@@ -117,16 +118,6 @@ const CreateEventWizard: React.FC = () => {
 
 		loadInitialData();
 	}, [draftId]);
-
-	const fetchCoupons = async () => {
-		try {
-			const response = await api.get("/coupons/my");
-			const availableCoupons = response.data.filter((c: Coupon) => !c.isUsed);
-			setCoupons(availableCoupons);
-		} catch (error) {
-			console.error("Error fetching coupons:", error);
-		}
-	};
 
 	const fetchAssessmentCategories = async () => {
 		try {
@@ -173,19 +164,21 @@ const CreateEventWizard: React.FC = () => {
 				setIsEditMode(true);
 				setCurrentStep(1);
 			} else {
-				// Also set edit mode for existing drafts (coupon already used)
+				// Also set edit mode for existing drafts
 				setIsEditMode(true);
 				setCurrentStep(draft.wizardStep || 1);
 			}
 
-			// Store coupon code for display
-			if (draft.coupon?.code) {
-				setCurrentCouponCode(draft.coupon.code);
+			// Store event title for payment step
+			setEventTitle(draft.title || "");
+
+			// Store existing payment data
+			if (draft.eventPayment) {
+				setExistingPayment(draft.eventPayment);
 			}
 
 			// Load Step 1 data
 			setStep1Data({
-				couponId: draft.couponId || "",
 				title: draft.title || "",
 				description: draft.description || "",
 				startDate: draft.startDate
@@ -224,7 +217,6 @@ const CreateEventWizard: React.FC = () => {
 				contactPersonName: draft.contactPersonName || "",
 				contactEmail: draft.contactEmail || "",
 				contactPhone: draft.contactPhone || "",
-				status: (draft.status as "DRAFT" | "PUBLISHED") || "DRAFT",
 			});
 
 			setEventDraftId(id);
@@ -243,7 +235,6 @@ const CreateEventWizard: React.FC = () => {
 		try {
 			// Validate
 			const newErrors: Record<string, string> = {};
-			if (!isEditMode && !step1Data.couponId) newErrors.couponId = "Pilih kupon";
 			if (!step1Data.title.trim()) newErrors.title = "Judul wajib diisi";
 			if (!step1Data.startDate) newErrors.startDate = "Tanggal mulai wajib diisi";
 			if (!step1Data.endDate) newErrors.endDate = "Tanggal selesai wajib diisi";
@@ -313,15 +304,15 @@ const CreateEventWizard: React.FC = () => {
 		}
 	}, [step2Data, eventDraftId]);
 
-	// Save Step 3 (Final)
+	// Save Step 3 (Media & Fee - no longer final step)
 	const saveStep3 = useCallback(async () => {
 		setIsSubmitting(true);
 		setErrors({});
 
 		try {
 			await api.patch(`/events/drafts/${eventDraftId}/step3`, step3Data);
-			showSuccess(isEditMode ? "Event berhasil diperbarui!" : "Event berhasil dibuat!");
-			navigate("/panitia/dashboard");
+			// Update event title in case it changed
+			setEventTitle(step1Data.title);
 			return true;
 		} catch (error: any) {
 			console.error("Error saving step 3:", error);
@@ -330,7 +321,7 @@ const CreateEventWizard: React.FC = () => {
 		} finally {
 			setIsSubmitting(false);
 		}
-	}, [step3Data, eventDraftId, navigate, isEditMode]);
+	}, [step3Data, eventDraftId, step1Data.title]);
 
 	// Handle next step
 	const handleNextStep = async () => {
@@ -345,11 +336,15 @@ const CreateEventWizard: React.FC = () => {
 				break;
 			case 3:
 				success = await saveStep3();
-				return; // Don't proceed, saveStep3 handles navigation
+				break;
+			case 4:
+				// Step 4 (payment) handles its own navigation
+				navigate("/panitia/dashboard");
+				return;
 		}
 
 		if (success) {
-			setCurrentStep((prev) => Math.min(prev + 1, 3));
+			setCurrentStep((prev) => Math.min(prev + 1, 4));
 		}
 	};
 
@@ -485,39 +480,15 @@ const CreateEventWizard: React.FC = () => {
 
 			{/* Main Content */}
 			<main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* No coupons warning - only show when creating new event, not in edit mode */}
-				{coupons.length === 0 && currentStep === 1 && !isEditMode && (
-					<div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-start gap-3">
-						<ExclamationCircleIcon className="w-6 h-6 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
-						<div>
-							<p className="font-medium text-yellow-800 dark:text-yellow-400">
-								Tidak ada kupon tersedia
-							</p>
-							<p className="text-sm text-yellow-700 dark:text-yellow-500 mt-1">
-								Anda memerlukan kupon untuk membuat event. Hubungi admin untuk
-								mendapatkan kupon.
-							</p>
-							<Link
-								to="/panitia/dashboard"
-								className="inline-block mt-2 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
-							>
-								← Kembali ke Dashboard
-							</Link>
-						</div>
-					</div>
-				)}
-
 				{/* Step Content */}
 				{currentStep === 1 && (
 					<WizardStep1BasicInfo
 						data={step1Data}
 						setData={setStep1Data}
-						coupons={coupons}
 						errors={errors}
 						onNext={handleNextStep}
 						isLoading={isLoading}
 						isEditMode={isEditMode}
-						currentCouponCode={currentCouponCode}
 					/>
 				)}
 
@@ -554,6 +525,17 @@ const CreateEventWizard: React.FC = () => {
 						isLoading={isLoading}
 						isSubmitting={isSubmitting}
 						isEditMode={isEditMode}
+					/>
+				)}
+
+				{currentStep === 4 && eventDraftId && (
+					<WizardStep4Payment
+						eventId={eventDraftId}
+						eventTitle={eventTitle || step1Data.title}
+						existingPayment={existingPayment}
+						isEditMode={isEditMode}
+						onNext={handleNextStep}
+						onBack={handlePrevStep}
 					/>
 				)}
 			</main>

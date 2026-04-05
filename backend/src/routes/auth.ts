@@ -381,7 +381,7 @@ router.patch(
 	async (req: AuthenticatedRequest, res: Response): Promise<void | Response> => {
 		try {
 			const schema = z.object({
-				role: z.enum(["PESERTA", "JURI", "PELATIH"]),
+				role: z.enum(["PESERTA", "JURI", "PELATIH", "PANITIA"]),
 			});
 
 			const { role } = schema.parse(req.body);

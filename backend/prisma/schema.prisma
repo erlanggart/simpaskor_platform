@@ -185,8 +185,10 @@ model Event {
   featured             Boolean      @default(false) // Featured events appear on landing page
   isPinned             Boolean      @default(false) @map("is_pinned") // Pinned events appear in carousel
   pinnedOrder          Int?         @map("pinned_order") // Display order in carousel (lower = first)
-  couponId             String?      @map("coupon_id") // Coupon used to create this event
+  couponId             String?      @map("coupon_id") // Coupon used to create this event (legacy)
   coupon               EventCoupon? @relation(fields: [couponId], references: [id])
+  packageTier          PackageTier? @map("package_tier") // Selected package tier for event creation
+  paymentStatus        String?      @map("payment_status") // PENDING, PAID - tracks if event creation payment is done
   createdById          String       @map("created_by_id")
   createdBy            User         @relation("EventCreator", fields: [createdById], references: [id])
   createdAt            DateTime     @default(now()) @map("created_at")
@@ -206,6 +208,7 @@ model Event {
   ticketPurchases      TicketPurchase[]
   votingConfig         EventVotingConfig?
   votingPurchases      VotingPurchase[]
+  eventPayment         EventPayment?
 
   @@map("events")
 }
@@ -853,6 +856,35 @@ model RegistrationPayment {
   @@index([eventId])
   @@index([userId])
   @@map("registration_payments")
+}
+
+// ===== Event Payment (Paket Simpaskor untuk buat event) =====
+
+enum EventPaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+model EventPayment {
+  id              String             @id @default(uuid())
+  eventId         String             @unique @map("event_id")
+  event           Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId          String             @map("user_id")
+  packageTier     PackageTier        @map("package_tier")
+  amount          Float
+  status          EventPaymentStatus @default(PENDING)
+  midtransOrderId String?            @unique @map("midtrans_order_id")
+  snapToken       String?            @map("snap_token")
+  paymentType     String?            @map("payment_type")
+  paidAt          DateTime?          @map("paid_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_payments")
 }
 
 // ===== Guide System =====

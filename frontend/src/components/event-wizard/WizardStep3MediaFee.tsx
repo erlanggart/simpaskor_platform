@@ -429,82 +429,6 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 				</div>
 			</div>
 
-			{/* Event Status */}
-			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
-				<div className="flex items-center gap-3 mb-4">
-					<PlayCircleIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
-					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-						Status Event
-					</h3>
-				</div>
-
-				<div className="space-y-4">
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-						Pilih status event setelah dibuat
-					</label>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<label
-							className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all ${
-								data.status === "DRAFT"
-									? "border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-900/30"
-									: "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600"
-							}`}
-						>
-							<div className="flex items-center gap-3 mb-2">
-								<input
-									type="radio"
-									name="status"
-									value="DRAFT"
-									checked={data.status === "DRAFT"}
-									onChange={handleChange}
-									className="w-4 h-4 text-red-600 dark:text-red-400"
-								/>
-								<span className="font-medium text-gray-900 dark:text-white">Draft</span>
-							</div>
-							<p className="text-sm text-gray-500 dark:text-gray-400 ml-7">
-								Simpan sebagai draft, event tidak ditampilkan ke publik
-							</p>
-						</label>
-
-						<label
-							className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all ${
-								data.status === "PUBLISHED"
-									? "border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-900/30"
-									: "border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600"
-							}`}
-						>
-							<div className="flex items-center gap-3 mb-2">
-								<input
-									type="radio"
-									name="status"
-									value="PUBLISHED"
-									checked={data.status === "PUBLISHED"}
-									onChange={handleChange}
-									className="w-4 h-4 text-red-600 dark:text-red-400"
-								/>
-								<span className="font-medium text-gray-900 dark:text-white">
-									Publish (Publikasikan)
-								</span>
-							</div>
-							<p className="text-sm text-gray-500 dark:text-gray-400 ml-7">
-								Langsung publikasikan, event akan terlihat di halaman publik
-							</p>
-						</label>
-					</div>
-
-					{/* Auto status info */}
-					<div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-						<p className="text-xs text-blue-800 dark:text-blue-200">
-							<strong>ℹ️ Status otomatis:</strong> Setelah dipublish, status akan berubah otomatis:
-							<br />• <strong>Published</strong> → saat pendaftaran masih buka
-							<br />• <strong>Ongoing</strong> → saat batas pendaftaran lewat hingga event selesai
-							<br />• <strong>Completed</strong> → setelah tanggal event berakhir
-						</p>
-					</div>
-				</div>
-			</div>
-
 			{/* Navigation */}
 			<div className="flex justify-between">
 				<button
@@ -526,14 +450,14 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 					className={`px-8 py-3 rounded-lg text-white font-medium transition-colors ${
 						isLoading || isSubmitting || isUploadingPoster || isUploadingJuknis
 							? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
-							: "bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600"
+							: "bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600"
 					}`}
 				>
 					{isSubmitting 
-						? (isEditMode ? "Menyimpan..." : "Membuat Event...") 
+						? "Menyimpan..." 
 						: isUploadingPoster || isUploadingJuknis
 							? "Mengupload..."
-							: (isEditMode ? "Simpan Perubahan" : "Buat Event")}
+							: "Lanjut ke Pembayaran →"}
 				</button>
 			</div>
 		</div>

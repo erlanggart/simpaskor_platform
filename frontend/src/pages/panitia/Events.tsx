@@ -37,21 +37,13 @@ interface Event {
 	currentParticipants: number;
 	status: string;
 	featured: boolean;
-	couponId: string | null;
 	thumbnail: string | null;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
-}
-
-interface Coupon {
-	id: string;
-	code: string;
-	isUsed: boolean;
 }
 
 const PanitiaEvents: React.FC = () => {
 	const navigate = useNavigate();
 	const [events, setEvents] = useState<Event[]>([]);
-	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -61,10 +53,7 @@ const PanitiaEvents: React.FC = () => {
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			const [eventsRes, couponsRes] = await Promise.all([
-				api.get("/events/my"),
-				api.get("/coupons/my"),
-			]);
+			const eventsRes = await api.get("/events/my");
 
 			const myEvents = eventsRes.data || [];
 			myEvents.sort((a: Event, b: Event) => {
@@ -73,7 +62,6 @@ const PanitiaEvents: React.FC = () => {
 				return dateB - dateA;
 			});
 			setEvents(myEvents);
-			setCoupons(couponsRes.data);
 		} catch (error) {
 			console.error("Error fetching events:", error);
 		} finally {
@@ -140,8 +128,6 @@ const PanitiaEvents: React.FC = () => {
 		return `${backendUrl}${thumbnail}`;
 	};
 
-	const availableCoupons = coupons.filter((c) => !c.isUsed).length;
-
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center py-32">
@@ -170,24 +156,13 @@ const PanitiaEvents: React.FC = () => {
 						{events.length} event terdaftar
 					</p>
 				</div>
-				{availableCoupons > 0 ? (
-					<Link
-						to="/panitia/events/create"
-						className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25"
-					>
-						<PlusIcon className="w-4 h-4" />
-						Buat Event
-					</Link>
-				) : (
-					<button
-						disabled
-						className="flex items-center gap-2 px-4 py-2 bg-gray-300 dark:bg-white/10 text-gray-500 dark:text-gray-600 rounded-full text-xs font-semibold cursor-not-allowed"
-						title="Anda memerlukan coupon untuk membuat event"
-					>
-						<PlusIcon className="w-4 h-4" />
-						Buat Event
-					</button>
-				)}
+				<Link
+					to="/panitia/events/create"
+					className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors shadow-lg hover:shadow-red-500/25"
+				>
+					<PlusIcon className="w-4 h-4" />
+					Buat Event
+				</Link>
 			</div>
 
 			{/* Event List */}
@@ -200,15 +175,13 @@ const PanitiaEvents: React.FC = () => {
 					<p className="text-xs text-gray-500 dark:text-gray-500 mb-5">
 						Mulai dengan membuat event pertama Anda.
 					</p>
-					{availableCoupons > 0 && (
-						<Link
-							to="/panitia/events/create"
-							className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors"
-						>
-							<PlusIcon className="w-4 h-4" />
-							Buat Event Baru
-						</Link>
-					)}
+					<Link
+						to="/panitia/events/create"
+						className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-full text-xs font-semibold hover:bg-red-700 transition-colors"
+					>
+						<PlusIcon className="w-4 h-4" />
+						Buat Event Baru
+					</Link>
 				</div>
 			) : (
 				<div className="flex flex-col gap-2">

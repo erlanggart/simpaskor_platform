@@ -1,0 +1,495 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+	CreditCardIcon,
+	CheckCircleIcon,
+	ArrowLeftIcon,
+	SparklesIcon,
+	PhoneIcon,
+} from "@heroicons/react/24/outline";
+import { LuMedal, LuCrown, LuTrophy, LuCheck, LuX } from "react-icons/lu";
+import { Step4Props, PackageTier, EventPaymentData } from "../../types/eventWizard";
+import { api } from "../../utils/api";
+import { usePayment } from "../../hooks/usePayment";
+import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
+
+interface PackageOption {
+	tier: PackageTier;
+	name: string;
+	price: number;
+	priceLabel: string;
+	icon: React.ElementType;
+	color: string;
+	borderColor: string;
+	bgGlow: string;
+	btnClass: string;
+	note: string | null;
+	featured?: boolean;
+}
+
+interface PackageFeature {
+	name: string;
+	bronze: boolean;
+	silver: boolean;
+	gold: boolean;
+}
+
+const packageFeatures: PackageFeature[] = [
+	{ name: "Akses Sistem Penilaian", bronze: true, silver: true, gold: true },
+	{ name: "Technical Meeting Aplikasi", bronze: true, silver: true, gold: true },
+	{ name: "Laporan Digital", bronze: true, silver: true, gold: true },
+	{ name: "Tim Pendamping", bronze: false, silver: true, gold: true },
+	{ name: "Device Tablet", bronze: false, silver: true, gold: true },
+	{ name: "Tim Rekap", bronze: false, silver: false, gold: true },
+	{ name: "Penyusunan Materi Penilaian", bronze: false, silver: false, gold: true },
+];
+
+const packages: PackageOption[] = [
+	{
+		tier: "BRONZE",
+		name: "Paket Bronze",
+		price: 500000,
+		priceLabel: "Rp 500.000",
+		icon: LuMedal,
+		color: "amber",
+		borderColor: "border-amber-400/50 dark:border-amber-500/30",
+		bgGlow: "from-amber-500/10 to-amber-600/5",
+		btnClass: "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
+		note: "Tim Pendamping (Online)",
+	},
+	{
+		tier: "SILVER",
+		name: "Paket Silver",
+		price: 1000000,
+		priceLabel: "Rp 1.000.000",
+		icon: LuCrown,
+		color: "gray",
+		borderColor: "border-gray-300 dark:border-gray-400/30",
+		bgGlow: "from-gray-300/20 to-gray-400/10",
+		btnClass: "bg-gradient-to-r from-gray-700 to-gray-900 hover:from-gray-800 hover:to-black text-white",
+		featured: true,
+		note: "Tim Pendamping (Offline) + Device Tablet (max 3 unit)",
+	},
+	{
+		tier: "GOLD",
+		name: "Paket Gold",
+		price: 1500000,
+		priceLabel: "Rp 1.500.000",
+		icon: LuTrophy,
+		color: "yellow",
+		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
+		bgGlow: "from-yellow-500/10 to-yellow-600/5",
+		btnClass: "bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white",
+		note: null,
+	},
+];
+
+const WizardStep4Payment: React.FC<Step4Props> = ({
+	eventId,
+	eventTitle,
+	existingPayment,
+	onNext,
+	onBack,
+}) => {
+	const [selectedPackage, setSelectedPackage] = useState<PackageTier | null>(
+		existingPayment?.packageTier || null
+	);
+	const [isProcessing, setIsProcessing] = useState(false);
+	const [paymentStatus, setPaymentStatus] = useState<EventPaymentData | null>(
+		existingPayment || null
+	);
+	const [paymentMode, setPaymentMode] = useState<"full" | "dp" | null>(null);
+	const { pay, isSnapReady } = usePayment();
+	const navigate = useNavigate();
+
+	// Check payment status on mount
+	useEffect(() => {
+		if (existingPayment?.status === "PAID") {
+			setPaymentStatus(existingPayment);
+		}
+	}, [existingPayment]);
+
+	const isPaid = paymentStatus?.status === "PAID";
+
+	const handleSelectPackage = (tier: PackageTier) => {
+		if (isPaid) return;
+		setSelectedPackage(tier);
+	};
+
+	const handlePayment = async () => {
+		if (!selectedPackage || !eventId) return;
+
+		setIsProcessing(true);
+		try {
+			// Create payment via backend
+			const response = await api.post("/event-payments/create", {
+				eventId,
+				packageTier: selectedPackage,
+			});
+
+			const { snapToken } = response.data;
+
+			// Open Midtrans Snap
+			pay(snapToken, {
+				onSuccess: async () => {
+					// Mark event as complete
+					try {
+						await api.post(`/event-payments/${eventId}/complete`);
+					} catch (e) {
+						// Webhook will handle it
+					}
+					setPaymentStatus({
+						...response.data,
+						status: "PAID",
+						paidAt: new Date().toISOString(),
+					});
+					showSuccess("Pembayaran berhasil! Event siap dipublish.");
+					setIsProcessing(false);
+				},
+				onPending: () => {
+					showWarning(
+						"Pembayaran sedang diproses. Silakan selesaikan pembayaran Anda. Status akan diperbarui otomatis setelah pembayaran dikonfirmasi.",
+						"Menunggu Pembayaran"
+					);
+					setIsProcessing(false);
+				},
+				onError: () => {
+					showError("Pembayaran gagal. Silakan coba lagi.");
+					setIsProcessing(false);
+				},
+				onClose: () => {
+					showWarning(
+						"Pembayaran belum selesai. Silakan lakukan pembayaran terlebih dahulu untuk melanjutkan.",
+						"Pembayaran Belum Selesai"
+					);
+					setIsProcessing(false);
+				},
+			});
+		} catch (error: any) {
+			showError(error.response?.data?.error || "Gagal memproses pembayaran");
+			setIsProcessing(false);
+		}
+	};
+
+	const handleFinish = async () => {
+		// Complete the wizard and navigate to dashboard
+		onNext();
+	};
+
+	const handleDP = async () => {
+		if (!selectedPackage || !eventId) return;
+
+		setIsProcessing(true);
+		try {
+			// Save DP request to backend
+			await api.post(`/event-payments/${eventId}/dp-request`, {
+				packageTier: selectedPackage,
+			});
+
+			const pkg = packages.find((p) => p.tier === selectedPackage);
+			const waMessage = [
+				"Halo Admin Simpaskor! 👋",
+				"",
+				"Saya ingin mendaftarkan event dengan sistem DP (Down Payment).",
+				"",
+				`🏆 *Nama Event:* ${eventTitle}`,
+				`📦 *Paket Dipilih:* ${pkg?.name} (${pkg?.priceLabel})`,
+				"",
+				"Mohon informasi lebih lanjut untuk proses DP dan pembuatan event. Terima kasih! 🙏",
+			].join("\n");
+			const waUrl = `https://wa.me/6285111209133?text=${encodeURIComponent(waMessage)}`;
+
+			// Open WhatsApp in new tab
+			window.open(waUrl, "_blank");
+
+			showSuccess(
+				"Permintaan DP berhasil dikirim. Silakan lanjutkan pembicaraan dengan admin melalui WhatsApp.",
+				"DP Berhasil Diajukan!"
+			);
+
+			// Redirect to panitia dashboard
+			navigate("/panitia/dashboard");
+		} catch (error: any) {
+			showError(error.response?.data?.error || "Gagal memproses permintaan DP");
+		} finally {
+			setIsProcessing(false);
+		}
+	};
+
+	return (
+		<div className="space-y-6">
+			{/* Header */}
+			<div className="text-center mb-8">
+				<h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+					{isPaid ? "Pembayaran Berhasil" : "Pilih Paket"}
+				</h2>
+				<p className="text-gray-600 dark:text-gray-400 mt-2">
+					{isPaid
+						? "Event Anda siap untuk dipublish!"
+						: "Pilih paket Simpaskor untuk event Anda"}
+				</p>
+			</div>
+
+			{/* Payment Success State */}
+			{isPaid && (
+				<div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-center">
+					<CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
+					<h3 className="text-xl font-bold text-green-700 dark:text-green-300 mb-2">
+						Pembayaran Berhasil!
+					</h3>
+					<p className="text-green-600 dark:text-green-400 mb-1">
+						Paket: <strong>{packages.find(p => p.tier === paymentStatus?.packageTier)?.name}</strong>
+					</p>
+					<p className="text-green-600 dark:text-green-400 text-sm">
+						Event "{eventTitle}" siap untuk dipublish dari dashboard panitia.
+					</p>
+				</div>
+			)}
+
+			{/* Package Selection */}
+			{!isPaid && (
+				<>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						{packages.map((pkg) => {
+							const Icon = pkg.icon;
+							const isSelected = selectedPackage === pkg.tier;
+
+							return (
+								<button
+									key={pkg.tier}
+									type="button"
+									onClick={() => handleSelectPackage(pkg.tier)}
+									className={`relative text-left p-5 rounded-xl border-2 transition-all duration-300 ${
+										isSelected
+											? `${pkg.borderColor} bg-white dark:bg-gray-800 shadow-lg ring-2 ring-offset-2 dark:ring-offset-gray-900 ${
+												pkg.tier === "BRONZE" ? "ring-amber-400" :
+												pkg.tier === "SILVER" ? "ring-gray-400" :
+												"ring-yellow-400"
+											}`
+											: "border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/30 hover:bg-white dark:hover:bg-gray-800/60 hover:shadow-md"
+									}`}
+								>
+									{pkg.featured && (
+										<div className="absolute -top-3 left-1/2 -translate-x-1/2">
+											<span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold bg-gradient-to-r from-gray-700 to-gray-900 text-white rounded-full shadow">
+												<SparklesIcon className="w-3 h-3" />
+												Populer
+											</span>
+										</div>
+									)}
+
+									{isSelected && (
+										<div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+											<CheckCircleIcon className="w-4 h-4 text-white" />
+										</div>
+									)}
+
+									<div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${pkg.bgGlow} flex items-center justify-center mb-3`}>
+										<Icon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+									</div>
+
+									<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+										{pkg.name}
+									</h3>
+									<p className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">
+										{pkg.priceLabel}
+									</p>
+									{pkg.note && (
+										<p className="text-xs text-gray-500 dark:text-gray-400">
+											{pkg.note}
+										</p>
+									)}
+								</button>
+							);
+						})}
+					</div>
+
+					{/* Payment Mode Selection */}
+					{selectedPackage && (
+						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+							<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+								Pilih Metode Pembayaran
+							</h3>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<button
+									type="button"
+									onClick={() => setPaymentMode("full")}
+									className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+										paymentMode === "full"
+											? "border-red-500 bg-red-50 dark:bg-red-900/20 ring-1 ring-red-500/30"
+											: "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+									}`}
+								>
+									<div className="flex items-center gap-3">
+										<div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+											paymentMode === "full" ? "bg-red-500 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+										}`}>
+											<CreditCardIcon className="w-5 h-5" />
+										</div>
+										<div>
+											<p className="font-semibold text-gray-900 dark:text-white text-sm">Bayar Penuh</p>
+											<p className="text-xs text-gray-500 dark:text-gray-400">Pembayaran langsung via Midtrans</p>
+										</div>
+									</div>
+								</button>
+								<button
+									type="button"
+									onClick={() => setPaymentMode("dp")}
+									className={`text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+										paymentMode === "dp"
+											? "border-green-500 bg-green-50 dark:bg-green-900/20 ring-1 ring-green-500/30"
+											: "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+									}`}
+								>
+									<div className="flex items-center gap-3">
+										<div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+											paymentMode === "dp" ? "bg-green-500 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+										}`}>
+											<PhoneIcon className="w-5 h-5" />
+										</div>
+										<div>
+											<p className="font-semibold text-gray-900 dark:text-white text-sm">DP via Admin</p>
+											<p className="text-xs text-gray-500 dark:text-gray-400">Hubungi admin untuk DP, event dibuat oleh admin</p>
+										</div>
+									</div>
+								</button>
+							</div>
+							{paymentMode === "dp" && (
+								<div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300">
+									<p className="font-semibold mb-1">Catatan DP (Down Payment):</p>
+									<ul className="list-disc list-inside space-y-0.5">
+										<li>Anda akan diarahkan ke WhatsApp untuk menghubungi admin Simpaskor</li>
+										<li>Admin akan memproses DP dan membuat event untuk Anda</li>
+										<li>Pelunasan dilakukan sebelum event dimulai</li>
+									</ul>
+								</div>
+							)}
+						</div>
+					)}
+
+					{/* Feature Comparison Table */}
+					<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+						<div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+							<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+								Perbandingan Fitur
+							</h3>
+						</div>
+						<div className="overflow-x-auto">
+							<table className="w-full">
+								<thead>
+									<tr className="bg-gray-50 dark:bg-gray-800/80">
+										<th className="text-left px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+											Fitur
+										</th>
+										<th className="text-center px-4 py-3 text-sm font-medium text-amber-600 dark:text-amber-400">
+											Bronze
+										</th>
+										<th className="text-center px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300">
+											Silver
+										</th>
+										<th className="text-center px-4 py-3 text-sm font-medium text-yellow-600 dark:text-yellow-400">
+											Gold
+										</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+									{packageFeatures.map((feature, i) => (
+										<tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+											<td className="px-6 py-3 text-sm text-gray-700 dark:text-gray-300">
+												{feature.name}
+											</td>
+											<td className="text-center px-4 py-3">
+												{feature.bronze ? (
+													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
+												) : (
+													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
+												)}
+											</td>
+											<td className="text-center px-4 py-3">
+												{feature.silver ? (
+													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
+												) : (
+													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
+												)}
+											</td>
+											<td className="text-center px-4 py-3">
+												{feature.gold ? (
+													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
+												) : (
+													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
+												)}
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</>
+			)}
+
+			{/* Action Buttons */}
+			<div className="flex items-center justify-between pt-4">
+				{!isPaid && (
+					<button
+						type="button"
+						onClick={onBack}
+						className="flex items-center gap-2 px-6 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium transition-colors"
+					>
+						<ArrowLeftIcon className="w-4 h-4" />
+						Kembali
+					</button>
+				)}
+
+				{isPaid ? (
+					<button
+						type="button"
+						onClick={handleFinish}
+						className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg transition-all"
+					>
+						Ke Dashboard →
+					</button>
+				) : paymentMode === "dp" ? (
+					<button
+						type="button"
+						onClick={handleDP}
+						disabled={!selectedPackage}
+						className={`flex items-center gap-2 px-8 py-3 font-semibold rounded-xl shadow-lg transition-all ${
+							selectedPackage
+								? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+								: "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+						}`}
+					>
+						<PhoneIcon className="w-5 h-5" />
+						Hubungi Admin via WhatsApp
+					</button>
+				) : (
+					<button
+						type="button"
+						onClick={handlePayment}
+						disabled={!selectedPackage || !paymentMode || isProcessing || !isSnapReady}
+						className={`flex items-center gap-2 px-8 py-3 font-semibold rounded-xl shadow-lg transition-all ${
+							selectedPackage && paymentMode && !isProcessing && isSnapReady
+								? "bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white"
+								: "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+						}`}
+					>
+						{isProcessing ? (
+							<>
+								<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+								Memproses...
+							</>
+						) : (
+							<>
+								<CreditCardIcon className="w-5 h-5" />
+								Bayar {selectedPackage ? packages.find(p => p.tier === selectedPackage)?.priceLabel : ""}
+							</>
+						)}
+					</button>
+				)}
+			</div>
+		</div>
+	);
+};
+
+export default WizardStep4Payment;

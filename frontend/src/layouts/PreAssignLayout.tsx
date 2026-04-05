@@ -4,7 +4,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import {
 	LuCalendar,
-	LuTicket,
 	LuUser,
 	LuLogOut,
 	LuSun,
@@ -34,7 +33,6 @@ const getNavItems = (role?: string): NavItem[] => {
 	return [
 		{ to: "/panitia/dashboard", label: "Dashboard", icon: LuHouse },
 		{ to: "/panitia/events-list", label: "Events", icon: LuCalendar },
-		{ to: "/panitia/coupons", label: "Coupons", icon: LuTicket },
 		{ to: "/panitia/profile", label: "Profile", icon: LuUser },
 	];
 };

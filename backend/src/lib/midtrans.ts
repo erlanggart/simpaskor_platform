@@ -27,6 +27,7 @@ export const PaymentPrefix = {
 	TICKET: "TKT",
 	VOTING: "VOT",
 	REGISTRATION: "REG",
+	EVENT: "EVT",
 } as const;
 
 /**

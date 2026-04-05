@@ -43,6 +43,7 @@ interface Event {
 	maxParticipants: number | null;
 	currentParticipants: number;
 	status: string;
+	paymentStatus: string | null;
 	isPinned: boolean;
 	pinnedOrder: number | null;
 	createdBy: {
@@ -658,6 +659,11 @@ const EventCard: React.FC<EventCardProps> = ({
 									{event.title}
 								</h3>
 								{getStatusBadge(event.status)}
+								{event.paymentStatus === "DP_REQUESTED" && (
+									<span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-semibold rounded-full">
+										DP
+									</span>
+								)}
 							</div>
 							{event.category && (
 								<span className="inline-block px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 text-xs font-medium rounded mb-2">

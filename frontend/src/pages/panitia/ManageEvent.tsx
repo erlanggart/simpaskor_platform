@@ -91,6 +91,7 @@ interface Event {
 	category: string | null;
 	level: string | null;
 	featured: boolean;
+	paymentStatus: string | null;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	assessmentCategories?: EventAssessmentCategory[];
 	juryAssignments?: JuryAssignment[];
@@ -450,6 +451,14 @@ const ManageEvent: React.FC = () => {
 							</p>
 						</div>
 						<div className="flex flex-wrap gap-2">
+							{event.paymentStatus === "DP_REQUESTED" && (
+								<div className="w-full mb-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+									<p className="text-xs font-semibold text-amber-700 dark:text-amber-300">⚠️ Event ini menggunakan pembayaran DP</p>
+									<p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+										Hanya admin yang dapat mempublish event ini setelah DP dikonfirmasi.
+									</p>
+								</div>
+							)}
 							{event.status !== "CANCELLED" && event.status !== "DRAFT" && (
 								<>
 									<button
@@ -470,7 +479,7 @@ const ManageEvent: React.FC = () => {
 									</button>
 								</>
 							)}
-							{(event.status === "DRAFT" || event.status === "CANCELLED") && (
+							{(event.status === "DRAFT" || event.status === "CANCELLED") && event.paymentStatus !== "DP_REQUESTED" && (
 								<button
 									onClick={() => handleStatusChange("PUBLISHED")}
 									disabled={updatingStatus}

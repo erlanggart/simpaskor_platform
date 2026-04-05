@@ -88,6 +88,8 @@ interface Event {
 	category: string | null;
 	level: string | null;
 	featured: boolean;
+	packageTier: string | null;
+	paymentStatus: string | null;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 	assessmentCategories?: EventAssessmentCategory[];
 	juryAssignments?: JuryAssignment[];
@@ -302,8 +304,16 @@ const AdminManageEvent: React.FC = () => {
 								<div className="flex items-center gap-2">
 									<span className={`${currentStatusInfo.color} text-white px-3 py-1 rounded-full text-sm font-medium`}>
 										{currentStatusInfo.label}
+									</span>								{event.paymentStatus === "DP_REQUESTED" && (
+									<span className="bg-amber-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+										DP
 									</span>
-								</div>
+								)}
+								{event.packageTier && (
+									<span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-xs font-medium">
+										{event.packageTier}
+									</span>
+								)}								</div>
 							</div>
 
 							{/* Quick Info Grid */}
@@ -341,6 +351,14 @@ const AdminManageEvent: React.FC = () => {
 							</div>
 
 							{/* Status Controls */}
+							{event.paymentStatus === "DP_REQUESTED" && (
+								<div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+									<p className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-1">Event DP (Down Payment)</p>
+									<p className="text-xs text-amber-600 dark:text-amber-400">
+										Panitia memilih pembayaran DP. Hanya admin yang dapat mempublish event ini setelah DP dikonfirmasi.
+									</p>
+								</div>
+							)}
 							<div className="flex flex-wrap items-center gap-3">
 								<span className="text-sm text-gray-600 dark:text-gray-400">Ubah Status:</span>
 								{EVENT_STATUSES.filter(s => ["DRAFT", "PUBLISHED", "CANCELLED"].includes(s.value)).map((status) => (

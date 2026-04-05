@@ -12,7 +12,6 @@ import {
 	EnvelopeIcon,
 	PhotoIcon,
 	XMarkIcon,
-	ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { api } from "../../utils/api";
 import { Logo } from "../../components/Logo";
@@ -64,7 +63,7 @@ const EditEventForm: React.FC = () => {
 	const [loadingData, setLoadingData] = useState(true);
 	const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 	const [thumbnailPreview, setThumbnailPreview] = useState<string>("");
-	const [selectedCoupon, setSelectedCoupon] = useState<string>("");
+	const [selectedCoupon] = useState<string>("");
 	const [registrationFeeDisplay, setRegistrationFeeDisplay] =
 		useState<string>("0");
 	const [assessmentCategories, setAssessmentCategories] = useState<
@@ -94,11 +93,6 @@ const EditEventForm: React.FC = () => {
 		status: "DRAFT",
 	});
 	const [errors, setErrors] = useState<Record<string, string>>({});
-	const [couponExpired, setCouponExpired] = useState<{
-		isExpired: boolean;
-		expiresAt: string | null;
-		code: string | null;
-	}>({ isExpired: false, expiresAt: null, code: null });
 
 	// Helper function to format number with thousand separator
 	const formatNumber = (num: number): string => {
@@ -158,21 +152,6 @@ const EditEventForm: React.FC = () => {
 					setSelectedSchoolCategories(categoryIds);
 				}
 
-				// Set coupon if exists and check expiry
-				if (event.couponId) {
-					setSelectedCoupon(event.couponId);
-				}
-				if (event.coupon) {
-					const isExpired = event.coupon.expiresAt 
-						? new Date(event.coupon.expiresAt) < new Date() 
-						: false;
-					setCouponExpired({
-						isExpired,
-						expiresAt: event.coupon.expiresAt,
-						code: event.coupon.code,
-					});
-				}
-
 				// Set thumbnail preview
 				if (event.thumbnail) {
 					const imageUrl = event.thumbnail.startsWith("http")
@@ -201,19 +180,9 @@ const EditEventForm: React.FC = () => {
 
 	// Fetch dropdown data
 	useEffect(() => {
-		fetchCoupons();
 		fetchAssessmentCategories();
 		fetchSchoolCategories();
 	}, []);
-
-	const fetchCoupons = async () => {
-		try {
-			await api.get("/coupons/my");
-			// Coupons are available but not actively displayed in this view
-		} catch (error) {
-			console.error("Failed to fetch coupons:", error);
-		}
-	};
 
 	const fetchAssessmentCategories = async () => {
 		try {
@@ -394,11 +363,6 @@ const EditEventForm: React.FC = () => {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		if (couponExpired.isExpired) {
-			showError("Kupon Kadaluarsa", "Event dengan kupon kadaluarsa tidak dapat diubah pengaturannya");
-			return;
-		}
-
 		if (!validate()) {
 			showError("Validasi Gagal", "Mohon periksa kembali form Anda");
 			return;
@@ -507,35 +471,6 @@ const EditEventForm: React.FC = () => {
 					</div>
 				</div>
 			</div>
-
-			{/* Coupon Expired Warning */}
-			{couponExpired.isExpired && (
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-					<div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
-						<div className="flex items-start gap-3">
-							<ExclamationTriangleIcon className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-							<div>
-								<h3 className="text-lg font-semibold text-red-800 dark:text-red-300">
-									Kupon Kadaluarsa
-								</h3>
-								<p className="text-red-700 dark:text-red-400 mt-1">
-									Kupon <span className="font-mono font-bold">{couponExpired.code}</span> sudah kadaluarsa pada tanggal{" "}
-									<span className="font-semibold">
-										{couponExpired.expiresAt && new Date(couponExpired.expiresAt).toLocaleDateString("id-ID", {
-											day: "numeric",
-											month: "long",
-											year: "numeric",
-										})}
-									</span>.
-								</p>
-								<p className="text-red-600 dark:text-red-400 text-sm mt-2">
-									Pengaturan event tidak dapat diubah, namun event masih bisa dikelola (peserta, juri, penilaian).
-								</p>
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
 
 			{/* Form */}
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1117,14 +1052,10 @@ const EditEventForm: React.FC = () => {
 					<div className="flex gap-4">
 						<button
 							type="submit"
-							disabled={loading || couponExpired.isExpired}
-							className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
-								couponExpired.isExpired 
-									? "bg-gray-400 text-gray-600 cursor-not-allowed"
-									: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-							}`}
+							disabled={loading}
+							className="flex-1 px-6 py-3 rounded-lg font-medium transition-colors bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
-							{loading ? "Menyimpan..." : couponExpired.isExpired ? "Kupon Kadaluarsa" : "Simpan Perubahan"}
+							{loading ? "Menyimpan..." : "Simpan Perubahan"}
 						</button>
 						<Link
 							to="/panitia/dashboard"

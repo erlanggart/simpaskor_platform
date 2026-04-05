@@ -147,7 +147,6 @@ const LandingPage: React.FC = () => {
 						pinnedEvents={pinnedEvents}
 						stats={stats}
 						onScrollNext={() => scrollToSection(1)}
-						onScrollToPricing={() => scrollToSection(5)}
 					/>
 				</section>
 
@@ -272,7 +271,7 @@ const LandingPage: React.FC = () => {
 				href="https://wa.me/6285111209133?text=Halo%20Admin%20Simpaskor!%20Saya%20ingin%20bertanya%20mengenai%20layanan%20Simpaskor."
 				target="_blank"
 				rel="noopener noreferrer"
-				className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#25D366] text-white shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(37,211,102,0.5)] active:scale-95 wa-float-btn"
+				className="fixed bottom-20 right-6 md:bottom-6 z-50 w-14 h-14 rounded-full bg-[#25D366] text-white shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(37,211,102,0.5)] active:scale-95 wa-float-btn"
 				aria-label="Hubungi Admin via WhatsApp"
 			>
 				<svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">

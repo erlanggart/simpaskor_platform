@@ -419,26 +419,10 @@ html:not(.dark) .landing-title-gradient-pricing {
 	background-clip: text;
 }
 
-/* Pricing section needs auto height for form expansion */
+/* Pricing section */
 .landing-section-pricing {
 	height: auto;
 	min-height: calc(100vh - 3.5rem);
-}
-
-/* Form fade-in animation */
-@keyframes fade-in {
-	from {
-		opacity: 0;
-		transform: translateY(16px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-.animate-fade-in {
-	animation: fade-in 0.4s ease-out;
 }
 
 /* ===== Section Icon Glow ===== */

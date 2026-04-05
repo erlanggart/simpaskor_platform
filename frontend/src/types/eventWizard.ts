@@ -1,13 +1,5 @@
 // Types for Event Creation Wizard
 
-export interface Coupon {
-	id: string;
-	code: string;
-	description: string | null;
-	isUsed: boolean;
-	expiresAt: string | null;
-}
-
 export interface AssessmentCategory {
 	id: string;
 	name: string;
@@ -31,7 +23,6 @@ export interface SchoolCategoryLimit {
 
 // Step 1: Basic Information
 export interface Step1Data {
-	couponId: string;
 	title: string;
 	description: string;
 	startDate: string;
@@ -57,7 +48,20 @@ export interface Step3Data {
 	contactPersonName: string;
 	contactEmail: string;
 	contactPhone: string;
-	status: 'DRAFT' | 'PUBLISHED';
+}
+
+// Step 4: Payment
+export type PackageTier = 'BRONZE' | 'SILVER' | 'GOLD';
+
+export interface EventPaymentData {
+	id: string;
+	eventId: string;
+	packageTier: PackageTier;
+	amount: number;
+	status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
+	snapToken: string | null;
+	midtransOrderId: string | null;
+	paidAt: string | null;
 }
 
 // Full Event Draft Data
@@ -86,10 +90,9 @@ export interface DraftEvent {
 	wizardStep: number;
 	wizardCompleted: boolean;
 	couponId: string | null;
-	coupon?: {
-		id: string;
-		code: string;
-	} | null;
+	packageTier: string | null;
+	paymentStatus: string | null;
+	eventPayment?: EventPaymentData | null;
 	assessmentCategories: {
 		id: string;
 		assessmentCategory: AssessmentCategory;
@@ -114,10 +117,8 @@ export interface WizardStepProps {
 export interface Step1Props extends WizardStepProps {
 	data: Step1Data;
 	setData: React.Dispatch<React.SetStateAction<Step1Data>>;
-	coupons: Coupon[];
 	errors: Record<string, string>;
 	isEditMode?: boolean;
-	currentCouponCode?: string;
 }
 
 export interface Step2Props extends WizardStepProps {
@@ -133,5 +134,12 @@ export interface Step3Props extends WizardStepProps {
 	setData: React.Dispatch<React.SetStateAction<Step3Data>>;
 	errors: Record<string, string>;
 	isSubmitting?: boolean;
+	isEditMode?: boolean;
+}
+
+export interface Step4Props extends WizardStepProps {
+	eventId: string;
+	eventTitle: string;
+	existingPayment?: EventPaymentData | null;
 	isEditMode?: boolean;
 }

@@ -999,12 +999,19 @@ router.patch(
 			// Verify event exists and belongs to user
 			const existingEvent = await prisma.event.findUnique({
 				where: { id },
-				select: { createdById: true, status: true },
+				select: { createdById: true, status: true, paymentStatus: true },
 			});
 
 			if (!existingEvent) {
 				return res.status(404).json({
 					message: "Event not found",
+				});
+			}
+
+			// DP events can only be published by admin
+			if (status === "PUBLISHED" && existingEvent.paymentStatus === "DP_REQUESTED" && user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Event dengan pembayaran DP hanya bisa dipublish oleh admin setelah DP dikonfirmasi.",
 				});
 			}
 
@@ -1270,6 +1277,7 @@ router.get(
 							code: true,
 						},
 					},
+					eventPayment: true,
 				},
 			});
 
@@ -1300,7 +1308,6 @@ router.post(
 			}
 
 			const {
-				couponId,
 				title,
 				description,
 				startDate,
@@ -1310,31 +1317,6 @@ router.post(
 				city,
 				venue,
 			} = req.body;
-
-			// Validate coupon
-			if (!couponId) {
-				return res.status(400).json({
-					message: "Coupon is required to create an event",
-				});
-			}
-
-			const coupon = await prisma.eventCoupon.findUnique({
-				where: { id: couponId },
-			});
-
-			if (!coupon) {
-				return res.status(404).json({ message: "Coupon not found" });
-			}
-
-			if (coupon.isUsed) {
-				return res.status(400).json({ message: "Coupon has already been used" });
-			}
-
-			if (coupon.assignedToEmail !== user.email) {
-				return res.status(403).json({
-					message: "This coupon is not assigned to you",
-				});
-			}
 
 			// Validate required fields for step 1
 			if (!title || !startDate || !endDate || !province || !city) {
@@ -1350,45 +1332,26 @@ router.post(
 				.replace(/^-|-$/g, "");
 			const uniqueSlug = `${baseSlug}-${Date.now().toString(36)}`;
 
-			// Create draft event - Mark coupon as used
-			const [draft] = await prisma.$transaction([
-				prisma.event.create({
-					data: {
-						title,
-						slug: uniqueSlug,
-						description: description || null,
-						startDate: new Date(startDate),
-						endDate: new Date(endDate),
-						registrationDeadline: registrationDeadline
-							? new Date(registrationDeadline)
-							: null,
-						province,
-						city,
-						venue: venue || null,
-						status: "DRAFT",
-						wizardStep: 2, // Move to step 2
-						wizardCompleted: false,
-						couponId,
-						createdById: user.userId,
-					},
-					include: {
-						coupon: {
-							select: {
-								id: true,
-								code: true,
-							},
-						},
-					},
-				}),
-				prisma.eventCoupon.update({
-					where: { id: couponId },
-					data: {
-						isUsed: true,
-						usedById: user.userId,
-						usedAt: new Date(),
-					},
-				}),
-			]);
+			// Create draft event (no coupon required)
+			const draft = await prisma.event.create({
+				data: {
+					title,
+					slug: uniqueSlug,
+					description: description || null,
+					startDate: new Date(startDate),
+					endDate: new Date(endDate),
+					registrationDeadline: registrationDeadline
+						? new Date(registrationDeadline)
+						: null,
+					province,
+					city,
+					venue: venue || null,
+					status: "DRAFT",
+					wizardStep: 2, // Move to step 2
+					wizardCompleted: false,
+					createdById: user.userId,
+				},
+			});
 
 			res.status(201).json({
 				message: "Draft created successfully",
@@ -1599,7 +1562,7 @@ router.patch(
 				return res.status(404).json({ message: "Draft not found" });
 			}
 
-			// Update draft with step 3 data and mark as complete
+			// Update draft with step 3 data - move to step 4 (payment)
 			const updatedEvent = await prisma.event.update({
 				where: { id },
 				data: {
@@ -1610,9 +1573,9 @@ router.patch(
 					contactPersonName: contactPersonName || null,
 					contactEmail: contactEmail || null,
 					contactPhone: contactPhone || null,
-					status: status || "DRAFT",
-					wizardStep: 0, // 0 means completed
-					wizardCompleted: true,
+					// Don't change status - stays DRAFT until payment
+					// Move to step 4 for payment
+					...(existingDraft.wizardCompleted ? {} : { wizardStep: 4 }),
 				},
 				include: {
 					assessmentCategories: {
@@ -1625,17 +1588,12 @@ router.patch(
 							schoolCategory: true,
 						},
 					},
-					coupon: {
-						select: {
-							id: true,
-							code: true,
-						},
-					},
+					eventPayment: true,
 				},
 			});
 
 			res.json({
-				message: "Event created successfully",
+				message: "Step 3 saved successfully",
 				event: updatedEvent,
 			});
 		} catch (error) {

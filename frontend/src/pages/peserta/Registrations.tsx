@@ -216,6 +216,7 @@ const PesertaRegistrations: React.FC = () => {
 						Swal.fire({ icon: "error", title: "Pembayaran Gagal", text: "Silakan coba lagi." });
 					},
 					onClose: () => {
+						Swal.fire({ icon: "warning", title: "Pembayaran Belum Selesai", text: "Pembayaran belum dilakukan. Silakan lakukan pembayaran terlebih dahulu." });
 						fetchRegistrations();
 					},
 				});

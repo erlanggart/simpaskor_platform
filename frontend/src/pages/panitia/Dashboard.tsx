@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
 	CalendarIcon,
 	UsersIcon,
-	TicketIcon,
 	ChartBarIcon,
 	ClockIcon,
 	ArrowTrendingUpIcon,
@@ -24,15 +23,9 @@ interface Event {
 	status: string;
 }
 
-interface Coupon {
-	id: string;
-	isUsed: boolean;
-}
-
 const PanitiaDashboard: React.FC = () => {
 	const { user } = useAuth();
 	const [events, setEvents] = useState<Event[]>([]);
-	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -42,14 +35,10 @@ const PanitiaDashboard: React.FC = () => {
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			const [eventsRes, couponsRes] = await Promise.all([
-				api.get("/events/my"),
-				api.get("/coupons/my"),
-			]);
+			const eventsRes = await api.get("/events/my");
 			const myEvents = eventsRes.data || [];
 			myEvents.sort((a: Event, b: Event) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 			setEvents(myEvents);
-			setCoupons(couponsRes.data || []);
 		} catch (error) {
 			console.error("Error fetching data:", error);
 		} finally {
@@ -69,7 +58,6 @@ const PanitiaDashboard: React.FC = () => {
 	const activeEvents = events.filter((e) => e.status === "PUBLISHED" || e.status === "ONGOING").length;
 	const completedEvents = events.filter((e) => e.status === "COMPLETED").length;
 	const totalParticipants = events.reduce((sum, e) => sum + e.currentParticipants, 0);
-	const availableCoupons = coupons.filter((c) => !c.isUsed).length;
 
 	// Recent events (last 5)
 	const recentEvents = events.slice(0, 5);
@@ -140,7 +128,6 @@ const PanitiaDashboard: React.FC = () => {
 					{ label: "Total Event", value: totalEvents, icon: CalendarIcon, color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-500/10" },
 					{ label: "Event Aktif", value: activeEvents, icon: ArrowTrendingUpIcon, color: "text-green-500 dark:text-green-400", bg: "bg-green-500/10" },
 					{ label: "Total Peserta", value: totalParticipants, icon: UsersIcon, color: "text-purple-500 dark:text-purple-400", bg: "bg-purple-500/10" },
-					{ label: "Kupon Tersedia", value: availableCoupons, icon: TicketIcon, color: "text-orange-500 dark:text-orange-400", bg: "bg-orange-500/10" },
 				].map((stat) => {
 					const Icon = stat.icon;
 					return (
@@ -215,7 +202,6 @@ const PanitiaDashboard: React.FC = () => {
 					<div className="space-y-3">
 						{[
 							{ label: "Event Selesai", value: completedEvents, total: totalEvents },
-							{ label: "Kupon Terpakai", value: coupons.filter((c) => c.isUsed).length, total: coupons.length },
 						].map((item) => (
 							<div key={item.label}>
 								<div className="flex items-center justify-between mb-1">
@@ -246,16 +232,7 @@ const PanitiaDashboard: React.FC = () => {
 							</span>
 							<LuChevronRight className="w-3.5 h-3.5 text-gray-400" />
 						</Link>
-						<Link
-							to="/panitia/coupons"
-							className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50/50 dark:bg-white/[0.02] border border-gray-200/30 dark:border-white/[0.04] hover:bg-gray-100/50 dark:hover:bg-white/[0.05] transition-colors text-xs font-medium text-gray-700 dark:text-gray-300"
-						>
-							<span className="flex items-center gap-2">
-								<TicketIcon className="w-3.5 h-3.5" />
-								Lihat Semua Kupon
-							</span>
-							<LuChevronRight className="w-3.5 h-3.5 text-gray-400" />
-						</Link>
+
 					</div>
 				</div>
 			</div>

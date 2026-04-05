@@ -63,6 +63,8 @@ router.post("/notification", async (req: Request, res: Response) => {
 			await handleVotingPayment(order_id, paymentResult, payment_type);
 		} else if (order_id.startsWith(PaymentPrefix.REGISTRATION)) {
 			await handleRegistrationPayment(order_id, paymentResult, payment_type);
+		} else if (order_id.startsWith(PaymentPrefix.EVENT)) {
+			await handleEventPayment(order_id, paymentResult, payment_type);
 		} else {
 			console.warn(`[Midtrans] Unknown order prefix: ${order_id}`);
 		}
@@ -291,6 +293,51 @@ async function handleRegistrationPayment(
 				},
 			});
 			// Keep as PENDING_PAYMENT so user can retry
+		});
+	}
+}
+
+async function handleEventPayment(
+	midtransOrderId: string,
+	result: "success" | "pending" | "failed" | "expired",
+	paymentType: string
+) {
+	const payment = await prisma.eventPayment.findUnique({
+		where: { midtransOrderId },
+	});
+	if (!payment) {
+		console.warn(`[Midtrans] Event payment not found: ${midtransOrderId}`);
+		return;
+	}
+
+	if (result === "success") {
+		await prisma.$transaction(async (tx) => {
+			await tx.eventPayment.update({
+				where: { id: payment.id },
+				data: {
+					status: "PAID",
+					paymentType,
+					paidAt: new Date(),
+				},
+			});
+			// Mark event as paid - wizard completed, ready to publish
+			await tx.event.update({
+				where: { id: payment.eventId },
+				data: {
+					paymentStatus: "PAID",
+					wizardStep: 0,
+					wizardCompleted: true,
+				},
+			});
+		});
+		console.log(`[Midtrans] Event payment confirmed: ${midtransOrderId} for event ${payment.eventId}`);
+	} else if (result === "failed" || result === "expired") {
+		await prisma.eventPayment.update({
+			where: { id: payment.id },
+			data: {
+				status: result === "expired" ? "EXPIRED" : "CANCELLED",
+				paymentType,
+			},
 		});
 	}
 }

@@ -14,14 +14,12 @@ interface HeroSectionProps {
 		icon: React.ComponentType<{ className?: string }>;
 	}[];
 	onScrollNext: () => void;
-	onScrollToPricing?: () => void;
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({
 	pinnedEvents,
 	stats,
 	onScrollNext,
-	onScrollToPricing,
 }) => {
 	return (
 		<>
@@ -61,13 +59,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 								<span>Jelajahi Event</span>
 								<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
 							</Link>
-							<button
-								onClick={onScrollToPricing}
+							<Link
+								to="/register"
 								className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-xs md:text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 group"
 							>
 								<span>Selenggarakan Event Anda</span>
 								<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-							</button>
+							</Link>
 						</div>
 
 						{/* Stats */}

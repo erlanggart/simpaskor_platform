@@ -7,10 +7,11 @@ import {
 	ScaleIcon,
 	AcademicCapIcon,
 	CheckCircleIcon,
+	ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
 
 interface RoleOption {
-	id: "PESERTA" | "JURI" | "PELATIH";
+	id: "PESERTA" | "JURI" | "PELATIH" | "PANITIA";
 	title: string;
 	icon: React.ElementType;
 	description: string;
@@ -21,6 +22,22 @@ interface RoleOption {
 }
 
 const roles: RoleOption[] = [
+	{
+		id: "PANITIA",
+		title: "Panitia",
+		icon: ClipboardDocumentListIcon,
+		description:
+			"Buat dan kelola event paskibra secara profesional dengan sistem penilaian digital.",
+		features: [
+			"Buat & kelola event",
+			"Sistem penilaian digital",
+			"Kelola peserta & juri",
+			"Laporan & rekap otomatis",
+		],
+		gradient: "from-red-500 to-rose-600",
+		borderColor: "border-red-500/50 hover:border-red-400",
+		iconBg: "bg-red-500/10 text-red-500",
+	},
 	{
 		id: "PESERTA",
 		title: "Peserta",
@@ -94,6 +111,7 @@ const RoleSelection = () => {
 
 			// Navigate to the role-specific dashboard
 			const dashboardPaths: Record<string, string> = {
+				PANITIA: "/panitia/dashboard",
 				PESERTA: "/peserta/dashboard",
 				JURI: "/juri/dashboard",
 				PELATIH: "/pelatih/dashboard",
@@ -110,7 +128,7 @@ const RoleSelection = () => {
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
-			<div className="w-full max-w-4xl">
+			<div className="w-full max-w-5xl">
 				{/* Header */}
 				<div className="text-center mb-10">
 					<h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-3">
@@ -123,7 +141,7 @@ const RoleSelection = () => {
 				</div>
 
 				{/* Role Cards */}
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
 					{roles.map((role) => {
 						const Icon = role.icon;
 						const isSelected = selectedRole === role.id;

@@ -52,7 +52,6 @@ const GuideManagement = lazy(() => import("./pages/admin/GuideManagement"));
 const EventSubmissionManagement = lazy(() => import("./pages/admin/EventSubmissionManagement"));
 const PanitiaDashboard = lazy(() => import("./pages/panitia/Dashboard"));
 const PanitiaEventsList = lazy(() => import("./pages/panitia/Events"));
-const PanitiaCoupons = lazy(() => import("./pages/panitia/Coupons"));
 const PanitiaPanduan = lazy(() => import("./pages/panitia/Panduan"));
 const CreateEventWizard = lazy(() => import("./pages/panitia/CreateEventWizard"));
 const EditEventForm = lazy(() => import("./pages/panitia/EditEvent"));
@@ -199,7 +198,6 @@ function App() {
 						>
 							<Route path="dashboard" element={<PanitiaDashboard />} />
 							<Route path="events-list" element={<PanitiaEventsList />} />
-							<Route path="coupons" element={<PanitiaCoupons />} />
 							<Route path="panduan" element={<PanitiaPanduan />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
