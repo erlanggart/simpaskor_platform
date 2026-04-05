@@ -388,7 +388,7 @@ const EventGrid: React.FC<EventGridProps> = ({ events }) => {
 								<Link
 									key={event.id}
 									to={`/events/${event.slug || event.id}`}
-									className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-orange-400/30 dark:hover:border-orange-500/20 transition-all duration-300 hover:scale-[1.02]"
+									className="group relative overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md shadow-gray-200/80 transition-all duration-300 hover:scale-[1.02] hover:border-orange-400/30 hover:shadow-lg hover:shadow-gray-300/80 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-orange-500/20"
 								>
 									{/* Poster - 2:3 ratio */}
 									<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-orange-900/10 to-red-900/10 overflow-hidden">
