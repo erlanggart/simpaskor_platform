@@ -8,8 +8,6 @@ import {
 	EnvelopeIcon,
 	PhoneIcon,
 	CheckCircleIcon,
-	ClockIcon,
-	XCircleIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	PlusIcon,
@@ -673,7 +671,6 @@ const UserManagement: React.FC = () => {
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kontak</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aktivitas Terakhir</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Institusi</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
 							</tr>
@@ -681,7 +678,7 @@ const UserManagement: React.FC = () => {
 						<tbody className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm divide-y divide-gray-200 dark:divide-gray-700">
 							{users.length === 0 ? (
 								<tr>
-									<td colSpan={7} className="px-6 py-12 text-center">
+									<td colSpan={6} className="px-6 py-12 text-center">
 										<UsersIcon className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
 										<p className="text-gray-500 dark:text-gray-400">Tidak ada user ditemukan</p>
 									</td>
@@ -700,21 +697,15 @@ const UserManagement: React.FC = () => {
 													)}
 												</div>
 												<div className="ml-4">
-													<div className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</div>
-													<div className="text-sm text-gray-500 dark:text-gray-400">
-														{user.emailVerified ? (
-															<span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-																<CheckCircleIcon className="w-4 h-4" />Verified
-															</span>
-														) : (
-															<span className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
-																<XCircleIcon className="w-4 h-4" />Not Verified
-															</span>
+													<div className="flex items-center gap-1">
+														<span className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</span>
+														{user.emailVerified && (
+															<CheckCircleIcon className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0" title="Verified" />
 														)}
 													</div>
-													{user.isOnline && (
-														<span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Online sekarang</span>
-													)}
+													<p className={`text-[11px] mt-0.5 ${user.isOnline ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-gray-400 dark:text-gray-500"}`}>
+														{getLastActivityText(user.lastLogin, user.isOnline)}
+													</p>
 												</div>
 											</div>
 										</td>
@@ -735,23 +726,6 @@ const UserManagement: React.FC = () => {
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap">
 											<span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>{user.status}</span>
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap">
-											<div className="flex flex-col gap-0.5">
-												<div className={`flex items-center gap-1.5 text-sm font-medium ${
-													user.isOnline
-														? "text-emerald-600 dark:text-emerald-400"
-														: user.lastLogin
-															? "text-gray-700 dark:text-gray-300"
-															: "text-gray-400 dark:text-gray-500"
-												}`}>
-													<ClockIcon className="w-4 h-4 flex-shrink-0" />
-													<span>{getLastActivityText(user.lastLogin, user.isOnline)}</span>
-												</div>
-												<p className="text-xs text-gray-400 dark:text-gray-500 pl-5.5">
-													{user.lastLogin ? formatDateTime(user.lastLogin) : "Belum ada riwayat login"}
-												</p>
-											</div>
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
 											{user.profile?.institution || "-"}
