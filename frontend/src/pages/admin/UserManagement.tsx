@@ -8,6 +8,7 @@ import {
 	EnvelopeIcon,
 	PhoneIcon,
 	CheckCircleIcon,
+	ClockIcon,
 	XCircleIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
@@ -125,7 +126,8 @@ const UserManagement: React.FC = () => {
 	const [onlineTotalUsers, setOnlineTotalUsers] = useState(0);
 	const [onlineTotalPages, setOnlineTotalPages] = useState(0);
 	const [onlineLoading, setOnlineLoading] = useState(false);
-	const onlinePerPage = 15;
+	const [showRecentFallback, setShowRecentFallback] = useState(false);
+	const onlinePerPage = 20;
 
 	useEffect(() => {
 		fetchAvailableCoupons();
@@ -181,9 +183,27 @@ const UserManagement: React.FC = () => {
 				online: "true",
 			});
 			const response = await api.get(`/users?${params.toString()}`);
-			setOnlineUsers(response.data.users || []);
-			setOnlineTotalUsers(response.data.pagination?.total || 0);
-			setOnlineTotalPages(response.data.pagination?.pages || 0);
+			const total = response.data.pagination?.total || 0;
+
+			if (total > 0) {
+				setOnlineUsers(response.data.users || []);
+				setOnlineTotalUsers(total);
+				setOnlineTotalPages(response.data.pagination?.pages || 0);
+				setShowRecentFallback(false);
+				return;
+			}
+
+			// No online users – show recently active (one page, no pagination)
+			const fallbackParams = new URLSearchParams({
+				page: "1",
+				limit: String(onlinePerPage),
+				sort: "lastLogin",
+			});
+			const fallbackRes = await api.get(`/users?${fallbackParams.toString()}`);
+			setOnlineUsers(fallbackRes.data.users || []);
+			setOnlineTotalUsers(0);
+			setOnlineTotalPages(0);
+			setShowRecentFallback(true);
 		} catch (error) {
 			console.error("Error fetching online users:", error);
 		} finally {
@@ -381,6 +401,42 @@ const UserManagement: React.FC = () => {
 		return colors[status] || "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
 	};
 
+	const formatDateTime = (dateStr: string) => {
+		return new Date(dateStr).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	};
+
+	const getLastActivityText = (lastLogin: string | null, isOnline?: boolean) => {
+		if (!lastLogin) {
+			return "Belum pernah login";
+		}
+
+		if (isOnline) {
+			return "Online sekarang";
+		}
+
+		const diffMinutes = Math.max(
+			0,
+			Math.floor((Date.now() - new Date(lastLogin).getTime()) / 60000)
+		);
+
+		if (diffMinutes < 1) return "Baru saja";
+		if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
+
+		const diffHours = Math.floor(diffMinutes / 60);
+		if (diffHours < 24) return `${diffHours} jam lalu`;
+
+		const diffDays = Math.floor(diffHours / 24);
+		if (diffDays < 7) return `${diffDays} hari lalu`;
+
+		return formatDateTime(lastLogin);
+	};
+
 	const roleOptions = [
 		{ value: "ALL", label: "Semua Role" },
 		{ value: "SUPERADMIN", label: "Super Admin" },
@@ -417,13 +473,13 @@ const UserManagement: React.FC = () => {
 	}
 
 	return (
-		<div className="space-y-5 p-4 lg:p-6">
+		<div className="flex p-4 lg:p-6 lg:gap-5">
+			{/* Main Content */}
+			<div className="flex-1 min-w-0 space-y-5">
 			{/* ── Stats Header ── */}
 			{statsLoading ? (
 				<div className="h-32 rounded-2xl bg-gray-100 dark:bg-gray-800/50 animate-pulse" />
 			) : userStats ? (
-				<div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-					{/* Left: Summary + Stat Cards */}
 					<div className="space-y-4">
 						{/* Compact summary bar */}
 						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow dark:shadow-gray-900/50 border border-gray-200/60 dark:border-gray-700/40 p-4">
@@ -492,70 +548,6 @@ const UserManagement: React.FC = () => {
 							))}
 						</div>
 					</div>
-
-					{/* Right: Online Users Sidebar */}
-					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow dark:shadow-gray-900/50 border border-gray-200/60 dark:border-gray-700/40 p-3 flex flex-col h-fit lg:sticky lg:top-4">
-						<div className="flex items-center justify-between gap-2 mb-3">
-							<div className="flex items-center gap-1.5">
-								<SignalIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-								<h3 className="text-sm font-semibold text-gray-900 dark:text-white">Online</h3>
-								<span className="px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold">
-									{onlineTotalUsers}
-								</span>
-							</div>
-							{onlineTotalPages > 1 && (
-								<div className="flex items-center gap-0.5">
-									<button
-										onClick={() => setOnlinePage((p) => Math.max(1, p - 1))}
-										disabled={onlinePage === 1}
-										className="p-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-									>
-										<ChevronLeftIcon className="w-3.5 h-3.5" />
-									</button>
-									<span className="text-[10px] text-gray-500 dark:text-gray-400 min-w-[40px] text-center">
-										{onlinePage}/{onlineTotalPages}
-									</span>
-									<button
-										onClick={() => setOnlinePage((p) => Math.min(onlineTotalPages, p + 1))}
-										disabled={onlinePage === onlineTotalPages}
-										className="p-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-									>
-										<ChevronRightIcon className="w-3.5 h-3.5" />
-									</button>
-								</div>
-							)}
-						</div>
-
-						{onlineLoading ? (
-							<div className="flex items-center justify-center py-6">
-								<div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500/30 border-t-emerald-500"></div>
-							</div>
-						) : onlineUsers.length === 0 ? (
-							<div className="rounded-lg border border-dashed border-gray-200/80 dark:border-gray-700/60 px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">
-								Tidak ada user online.
-							</div>
-						) : (
-							<div className="divide-y divide-gray-100 dark:divide-gray-700/50">
-								{onlineUsers.map((u) => (
-									<button
-										key={u.id}
-										onClick={() => navigate(`/admin/users/${u.id}`)}
-										className="flex items-center gap-2 w-full px-1.5 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded transition-colors"
-									>
-										<span className="relative flex-shrink-0 h-6 w-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-											<span className="text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
-												{u.name.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()}
-											</span>
-											<span className="absolute -bottom-px -right-px h-2 w-2 rounded-full bg-emerald-500 border border-white dark:border-gray-800"></span>
-										</span>
-										<span className="text-xs font-medium text-gray-900 dark:text-white truncate flex-1">{u.name}</span>
-										<span className={`px-1 py-px rounded text-[9px] font-semibold leading-tight ${getRoleBadgeColor(u.role)}`}>{u.role}</span>
-									</button>
-								))}
-							</div>
-						)}
-					</div>
-				</div>
 			) : null}
 
 			{/* ── Manajemen User Header ── */}
@@ -681,6 +673,7 @@ const UserManagement: React.FC = () => {
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kontak</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aktivitas Terakhir</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Institusi</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
 							</tr>
@@ -688,7 +681,7 @@ const UserManagement: React.FC = () => {
 						<tbody className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm divide-y divide-gray-200 dark:divide-gray-700">
 							{users.length === 0 ? (
 								<tr>
-									<td colSpan={6} className="px-6 py-12 text-center">
+									<td colSpan={7} className="px-6 py-12 text-center">
 										<UsersIcon className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
 										<p className="text-gray-500 dark:text-gray-400">Tidak ada user ditemukan</p>
 									</td>
@@ -742,6 +735,23 @@ const UserManagement: React.FC = () => {
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap">
 											<span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>{user.status}</span>
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											<div className="flex flex-col gap-0.5">
+												<div className={`flex items-center gap-1.5 text-sm font-medium ${
+													user.isOnline
+														? "text-emerald-600 dark:text-emerald-400"
+														: user.lastLogin
+															? "text-gray-700 dark:text-gray-300"
+															: "text-gray-400 dark:text-gray-500"
+												}`}>
+													<ClockIcon className="w-4 h-4 flex-shrink-0" />
+													<span>{getLastActivityText(user.lastLogin, user.isOnline)}</span>
+												</div>
+												<p className="text-xs text-gray-400 dark:text-gray-500 pl-5.5">
+													{user.lastLogin ? formatDateTime(user.lastLogin) : "Belum ada riwayat login"}
+												</p>
+											</div>
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
 											{user.profile?.institution || "-"}
@@ -866,6 +876,84 @@ const UserManagement: React.FC = () => {
 					</div>
 				)}
 			</div>
+			</div>
+
+			{/* ── Online Sidebar ── */}
+			<aside className="hidden lg:flex flex-col w-[280px] flex-shrink-0">
+				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow dark:shadow-gray-900/50 border border-gray-200/60 dark:border-gray-700/40 p-3 flex flex-col sticky top-4 h-[calc(100vh-2rem)]">
+					<div className="flex items-center justify-between gap-2 mb-2">
+						<div className="flex items-center gap-1.5">
+							<SignalIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+							<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+								{showRecentFallback ? "Terakhir Aktif" : "Online"}
+							</h3>
+							{!showRecentFallback && (
+								<span className="px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold">
+									{onlineTotalUsers}
+								</span>
+							)}
+						</div>
+						{!showRecentFallback && onlineTotalPages > 1 && (
+							<div className="flex items-center gap-0.5">
+								<button
+									onClick={() => setOnlinePage((p) => Math.max(1, p - 1))}
+									disabled={onlinePage === 1}
+									className="p-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+								>
+									<ChevronLeftIcon className="w-3.5 h-3.5" />
+								</button>
+								<span className="text-[10px] text-gray-500 dark:text-gray-400 min-w-[40px] text-center">
+									{onlinePage}/{onlineTotalPages}
+								</span>
+								<button
+									onClick={() => setOnlinePage((p) => Math.min(onlineTotalPages, p + 1))}
+									disabled={onlinePage === onlineTotalPages}
+									className="p-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+								>
+									<ChevronRightIcon className="w-3.5 h-3.5" />
+								</button>
+							</div>
+						)}
+					</div>
+
+					{showRecentFallback && (
+						<p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2">Tidak ada user online. Menampilkan yang terakhir aktif.</p>
+					)}
+
+					{onlineLoading ? (
+						<div className="flex-1 flex items-center justify-center">
+							<div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500/30 border-t-emerald-500"></div>
+						</div>
+					) : onlineUsers.length === 0 ? (
+						<div className="flex-1 flex items-center justify-center">
+							<p className="text-xs text-gray-400 dark:text-gray-500 text-center px-3">Belum ada data aktivitas user.</p>
+						</div>
+					) : (
+						<div className="flex-1 overflow-y-auto min-h-0 -mx-1 px-1">
+							<div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+								{onlineUsers.map((u) => (
+									<button
+										key={u.id}
+										onClick={() => navigate(`/admin/users/${u.id}`)}
+										className="flex items-center gap-2 w-full px-1.5 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded transition-colors"
+									>
+										<span className={`relative flex-shrink-0 h-6 w-6 ${u.isOnline ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-gray-100 dark:bg-gray-700"} rounded-full flex items-center justify-center`}>
+											<span className={`text-[9px] font-bold ${u.isOnline ? "text-emerald-700 dark:text-emerald-300" : "text-gray-500 dark:text-gray-400"}`}>
+												{u.name.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()}
+											</span>
+											{u.isOnline && (
+												<span className="absolute -bottom-px -right-px h-2 w-2 rounded-full bg-emerald-500 border border-white dark:border-gray-800"></span>
+											)}
+										</span>
+										<span className="text-xs font-medium text-gray-900 dark:text-white truncate flex-1">{u.name}</span>
+										<span className={`px-1 py-px rounded text-[9px] font-semibold leading-tight ${getRoleBadgeColor(u.role)}`}>{u.role}</span>
+									</button>
+								))}
+							</div>
+						</div>
+					)}
+				</div>
+			</aside>
 
 			{/* ── Assign Coupon Modal ── */}
 			{showAssignCouponModal && selectedUser && (

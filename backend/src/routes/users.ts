@@ -74,7 +74,7 @@ router.get(
 	requireSuperAdmin,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { page = 1, limit = 10, role, status, search, verification, online } = req.query;
+			const { page = 1, limit = 10, role, status, search, verification, online, sort } = req.query;
 
 			const where: any = {};
 			const referenceTime = new Date();
@@ -111,7 +111,7 @@ router.get(
 				},
 				skip: (Number(page) - 1) * Number(limit),
 				take: Number(limit),
-				orderBy: where.lastLogin
+				orderBy: (sort === "lastLogin" || where.lastLogin)
 					? [{ lastLogin: "desc" }, { createdAt: "desc" }]
 					: { createdAt: "desc" },
 			});

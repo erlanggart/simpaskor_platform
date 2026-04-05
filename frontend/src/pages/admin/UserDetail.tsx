@@ -8,6 +8,7 @@ import {
 	CalendarDaysIcon,
 	ArrowPathIcon,
 	CheckCircleIcon,
+	ClockIcon,
 	XCircleIcon,
 	KeyIcon,
 	ShieldCheckIcon,
@@ -272,6 +273,32 @@ const UserDetailPage: React.FC = () => {
 		return Date.now() - new Date(lastActivity).getTime() <= 5 * 60 * 1000;
 	};
 
+	const getLastActivityText = (lastActivity: string | null) => {
+		if (!lastActivity) {
+			return "Belum pernah login";
+		}
+
+		if (isUserOnline(lastActivity)) {
+			return "Online sekarang";
+		}
+
+		const diffMinutes = Math.max(
+			0,
+			Math.floor((Date.now() - new Date(lastActivity).getTime()) / 60000)
+		);
+
+		if (diffMinutes < 1) return "Baru saja";
+		if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
+
+		const diffHours = Math.floor(diffMinutes / 60);
+		if (diffHours < 24) return `${diffHours} jam lalu`;
+
+		const diffDays = Math.floor(diffHours / 24);
+		if (diffDays < 7) return `${diffDays} hari lalu`;
+
+		return formatDateTime(lastActivity);
+	};
+
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-64">
@@ -359,12 +386,22 @@ const UserDetailPage: React.FC = () => {
 							<CalendarDaysIcon className="w-4 h-4 flex-shrink-0" />
 							<span>Bergabung {formatDate(user.createdAt)}</span>
 						</div>
-						{user.lastLogin && (
-							<div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-								<ShieldCheckIcon className="w-4 h-4 flex-shrink-0" />
-								<span>{isUserOnline(user.lastLogin) ? "Online sekarang" : `Aktif ${formatDateTime(user.lastLogin)}`}</span>
+						<div className="sm:col-span-2">
+							<p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Aktivitas terakhir</p>
+							<div className={`mt-1 flex items-center gap-2 ${
+								isUserOnline(user.lastLogin)
+									? "text-emerald-600 dark:text-emerald-400"
+									: user.lastLogin
+										? "text-gray-600 dark:text-gray-400"
+										: "text-gray-400 dark:text-gray-500"
+							}`}>
+								<ClockIcon className="w-4 h-4 flex-shrink-0" />
+								<span>{getLastActivityText(user.lastLogin)}</span>
 							</div>
-						)}
+							<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+								{user.lastLogin ? formatDateTime(user.lastLogin) : "Belum ada riwayat login"}
+							</p>
+						</div>
 						{user.profile?.gender && (
 							<div className="text-gray-600 dark:text-gray-400">
 								Gender: {user.profile.gender === "MALE" ? "Laki-laki" : user.profile.gender === "FEMALE" ? "Perempuan" : user.profile.gender}
