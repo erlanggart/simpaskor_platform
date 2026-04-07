@@ -14,7 +14,8 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { api } from "../../utils/api";
@@ -850,7 +851,7 @@ const PanitiaEventRecap: React.FC = () => {
   };
 
   // Export functions
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (!recapData) return;
     
     const activeGroup = getActiveSchoolCategoryGroup();
@@ -904,29 +905,34 @@ const PanitiaEventRecap: React.FC = () => {
       return row;
     });
     
-    // Create worksheet
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    // Create workbook & worksheet
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(activeGroup.name.substring(0, 31));
+
+    // Add header row
+    ws.addRow(headers);
+
+    // Add data rows
+    rows.forEach(row => ws.addRow(row));
     
     // Set column widths
-    ws["!cols"] = [
-      { wch: 5 },   // No
-      { wch: 45 },  // Nama + Instansi
-      { wch: 12 },  // Nomor Urut
-      ...categories.map(() => ({ wch: 15 })),
-      ...(showExtraNilai ? [{ wch: 12 }, { wch: 12 }] : []),
-      { wch: 12 }, // Total
-      ...(selectedJuaraPreset ? [{ wch: 15 }] : []), // Peringkat
+    const colWidths = [
+      5,   // No
+      45,  // Nama + Instansi
+      12,  // Nomor Urut
+      ...categories.map(() => 15),
+      ...(showExtraNilai ? [12, 12] : []),
+      12, // Total
+      ...(selectedJuaraPreset ? [15] : []), // Peringkat
     ];
-    
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, activeGroup.name.substring(0, 31));
+    ws.columns = colWidths.map((width, i) => ({ key: String(i), width }));
     
     // Generate filename
     const filename = `Rekap_${recapData.event.title}_${activeGroup.name}_${new Date().toISOString().split("T")[0]}.xlsx`;
     
     // Download
-    XLSX.writeFile(wb, filename);
+    const buffer = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), filename);
   };
 
   const exportToPDF = async () => {

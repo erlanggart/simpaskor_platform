@@ -12,6 +12,7 @@ import {
 	MagnifyingGlassIcon,
 	ArrowsUpDownIcon,
 	HashtagIcon,
+	DocumentIcon,
 } from "@heroicons/react/24/outline";
 import {
 	CheckCircleIcon as CheckCircleIconSolid,
@@ -465,6 +466,19 @@ const EventParticipantManagement: React.FC = () => {
 													<p className="text-xs">
 														Didaftarkan: {formatDate(registration.createdAt)}
 													</p>
+													{registration.supportingDoc && (
+														<div className="mt-2">
+															<a
+																href={getImageUrl(registration.supportingDoc) || "#"}
+																target="_blank"
+																rel="noopener noreferrer"
+																className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+															>
+																<DocumentIcon className="h-4 w-4" />
+																Lihat Berkas Pendukung
+															</a>
+														</div>
+													)}
 												</div>
 											</div>
 
