@@ -74,6 +74,15 @@ web_modules/
 env (2)
 env (3)
 
+# Database SQL dumps (kecuali init.sql yang digunakan Docker)
+database/*.sql
+!database/init.sql
+database/*.dump
+
+# Root SQL files (jika ada)
+*.sql
+*.dump
+
 # Uploaded files
 backend/uploads/avatars/
 backend/uploads/events/*.png
