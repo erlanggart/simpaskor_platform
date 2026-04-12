@@ -40,6 +40,9 @@ interface Event {
 	registrationFee: number | null;
 	organizer: string | null;
 	status: string;
+	contactPhone: string | null;
+	contactPersonName: string | null;
+	contactEmail: string | null;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 }
 
@@ -62,15 +65,43 @@ interface TeamData {
 	notes: string;
 }
 
+const generateClientId = (): string => {
+	const cryptoObject = globalThis.crypto;
+
+	if (typeof cryptoObject?.randomUUID === "function") {
+		return cryptoObject.randomUUID();
+	}
+
+	if (typeof cryptoObject?.getRandomValues === "function") {
+		const bytes = cryptoObject.getRandomValues(new Uint8Array(16));
+		const byte6 = bytes.at(6) ?? 0;
+		const byte8 = bytes.at(8) ?? 0;
+		bytes[6] = (byte6 & 0x0f) | 0x40;
+		bytes[8] = (byte8 & 0x3f) | 0x80;
+
+		const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+
+		return [
+			hex.slice(0, 4).join(""),
+			hex.slice(4, 6).join(""),
+			hex.slice(6, 8).join(""),
+			hex.slice(8, 10).join(""),
+			hex.slice(10, 16).join(""),
+		].join("-");
+	}
+
+	return `fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
 const createEmptyMember = (): PersonMember => ({
-	id: crypto.randomUUID(),
+	id: generateClientId(),
 	name: "",
 	photo: null,
 	photoPreview: "",
 });
 
 const createInitialTeam = (name: string, categoryId: string = ""): TeamData => ({
-	id: crypto.randomUUID(),
+	id: generateClientId(),
 	groupName: name,
 	schoolCategoryId: categoryId,
 	pasukan: Array.from({ length: 6 }, () => createEmptyMember()), // Default 6 pasukan
@@ -97,6 +128,7 @@ const EventRegister: React.FC = () => {
 	const [teams, setTeams] = useState<TeamData[]>([createInitialTeam("Tim 1")]);
 	const [supportingDoc, setSupportingDoc] = useState<File | null>(null);
 	const [supportingDocPreview, setSupportingDocPreview] = useState<string>("");
+	const [paymentMethod, setPaymentMethod] = useState<"MIDTRANS" | "MANUAL">("MIDTRANS");
 
 	// Check if registration is closed
 	const isRegistrationClosed = event?.registrationDeadline
@@ -491,6 +523,7 @@ const EventRegister: React.FC = () => {
 				schoolName: schoolName.trim(),
 				supportingDoc: supportingDocUrl,
 				groups: groupsData,
+				paymentMethod: event.registrationFee && event.registrationFee > 0 ? paymentMethod : undefined,
 			};
 
 			const regRes = await api.post("/registrations", registrationData);
@@ -586,6 +619,25 @@ const EventRegister: React.FC = () => {
 						confirmButtonText: "Lihat Pendaftaran Saya",
 					});
 				}
+				navigate("/peserta/registrations");
+			} else if (event.registrationFee && event.registrationFee > 0 && paymentMethod === "MANUAL") {
+				// Manual payment - show contact info
+				const contactInfo = event.contactPhone
+					? `<p class="text-sm text-gray-600 mt-2">Hubungi panitia: <strong>${event.contactPersonName || "Panitia"}</strong></p>
+					   <p class="text-sm text-gray-600">No. HP/WA: <a href="https://wa.me/${event.contactPhone.replace(/[^0-9]/g, "")}" target="_blank" class="text-green-600 font-bold hover:underline">${event.contactPhone}</a></p>`
+					: "";
+				await Swal.fire({
+					icon: "success",
+					title: "Pendaftaran Berhasil!",
+					html: `
+						<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
+						<p class="text-sm text-gray-600">Biaya pendaftaran: <strong>${formatCurrency(event.registrationFee)}</strong></p>
+						<p class="text-sm text-gray-600 mt-1">Silakan lakukan pembayaran langsung ke panitia.</p>
+						${contactInfo}
+						<p class="text-sm text-gray-500 mt-2">Pendaftaran Anda akan dikonfirmasi setelah pembayaran diterima oleh panitia.</p>
+					`,
+					confirmButtonText: "Lihat Pendaftaran Saya",
+				});
 				navigate("/peserta/registrations");
 			} else {
 				// No payment required
@@ -1294,6 +1346,75 @@ const EventRegister: React.FC = () => {
 										</span>
 									</div>
 								</div>
+
+								{/* Payment Method Selection */}
+								{event.registrationFee && event.registrationFee > 0 && (
+									<div className="mt-4">
+										<label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
+											Metode Pembayaran
+										</label>
+										<div className="space-y-2">
+											<label
+												className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+													paymentMethod === "MIDTRANS"
+														? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+														: "border-gray-200 dark:border-gray-600 hover:border-blue-300"
+												}`}
+											>
+												<input
+													type="radio"
+													name="paymentMethod"
+													value="MIDTRANS"
+													checked={paymentMethod === "MIDTRANS"}
+													onChange={() => setPaymentMethod("MIDTRANS")}
+													className="text-blue-600 focus:ring-blue-500"
+												/>
+												<div>
+													<p className="font-medium text-gray-900 dark:text-white text-sm">
+														Bayar Online (Midtrans)
+													</p>
+													<p className="text-xs text-gray-500 dark:text-gray-400">
+														Transfer bank, e-wallet, QRIS, dll.
+													</p>
+												</div>
+											</label>
+											<label
+												className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+													paymentMethod === "MANUAL"
+														? "border-green-500 bg-green-50 dark:bg-green-900/20"
+														: "border-gray-200 dark:border-gray-600 hover:border-green-300"
+												}`}
+											>
+												<input
+													type="radio"
+													name="paymentMethod"
+													value="MANUAL"
+													checked={paymentMethod === "MANUAL"}
+													onChange={() => setPaymentMethod("MANUAL")}
+													className="text-green-600 focus:ring-green-500"
+												/>
+												<div>
+													<p className="font-medium text-gray-900 dark:text-white text-sm">
+														Bayar Langsung ke Panitia
+													</p>
+													<p className="text-xs text-gray-500 dark:text-gray-400">
+														Pembayaran tunai/transfer langsung ke panitia
+													</p>
+												</div>
+											</label>
+										</div>
+										{paymentMethod === "MANUAL" && event.contactPhone && (
+											<div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+												<p className="text-sm font-medium text-green-800 dark:text-green-200">
+													Hubungi Panitia:
+												</p>
+												<p className="text-sm text-green-700 dark:text-green-300">
+													{event.contactPersonName || "Panitia"} - {event.contactPhone}
+												</p>
+											</div>
+										)}
+									</div>
+								)}
 
 								<button
 									type="submit"

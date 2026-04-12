@@ -83,6 +83,9 @@ database/*.dump
 *.sql
 *.dump
 
+# Backend temp files
+backend/tmp/
+
 # Uploaded files
 backend/uploads/avatars/
 backend/uploads/events/*.png

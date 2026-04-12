@@ -90,10 +90,21 @@ if [ ! -d "./frontend/node_modules" ]; then
     echo ""
 fi
 
+# Deteksi IP lokal untuk akses jaringan
+LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || ipconfig 2>/dev/null | grep -oP 'IPv4.*: \K[\d.]+'| head -1)
+if [ -z "$LOCAL_IP" ]; then
+    LOCAL_IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
+fi
+
 echo -e "${BLUE}Memulai Backend dan Frontend...${NC}"
 echo ""
-echo -e "${GREEN}Backend: http://localhost:3001${NC}"
-echo -e "${GREEN}Frontend: http://localhost:5173${NC}"
+echo -e "${GREEN}Backend:${NC}"
+echo -e "  Local:   http://localhost:3001"
+echo -e "  Network: http://${LOCAL_IP:-<unknown>}:3001"
+echo ""
+echo -e "${GREEN}Frontend:${NC}"
+echo -e "  Local:   http://localhost:5173"
+echo -e "  Network: http://${LOCAL_IP:-<unknown>}:5173"
 echo ""
 echo -e "${YELLOW}Tekan Ctrl+C untuk menghentikan${NC}"
 echo ""
@@ -109,9 +120,9 @@ cd ..
 # Tunggu sebentar
 sleep 2
 
-# Jalankan frontend di background
+# Jalankan frontend di background (--host untuk akses network)
 cd frontend
-npm run dev &
+npm run dev -- --host &
 FRONTEND_PID=$!
 cd ..
 

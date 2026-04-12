@@ -14,6 +14,7 @@ import {
 	ChevronRightIcon,
 	Cog6ToothIcon,
 	TrashIcon,
+	ChevronUpDownIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { api } from "../../utils/api";
@@ -46,6 +47,7 @@ interface Event {
 	paymentStatus: string | null;
 	isPinned: boolean;
 	pinnedOrder: number | null;
+	createdAt: string;
 	createdBy: {
 		id: string;
 		name: string;
@@ -54,27 +56,29 @@ interface Event {
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 }
 
+type SortField = "createdAt" | "title" | "startDate" | "status";
+type SortDir = "asc" | "desc";
+
 const EventManagement: React.FC = () => {
 	const navigate = useNavigate();
 	const [events, setEvents] = useState<Event[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [filter, setFilter] = useState<"all" | "pinned" | "unpinned">("all");
 	const [statusFilter, setStatusFilter] = useState<"all" | "PUBLISHED" | "ONGOING" | "COMPLETED" | "DRAFT" | "CANCELLED">("all");
 	const [searchTerm, setSearchTerm] = useState("");
+	const [sortField, setSortField] = useState<SortField>("createdAt");
+	const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+	// Pagination states
+	const [currentPage, setCurrentPage] = useState(1);
+	const [itemsPerPage, setItemsPerPage] = useState(10);
 
 	const handleManageEvent = (event: Event) => {
-		// Set active event in localStorage for admin
 		localStorage.setItem(
 			"admin_active_event",
 			JSON.stringify({ slug: event.slug || event.id, title: event.title, id: event.id })
 		);
-		// Navigate to admin event management page
 		navigate(`/admin/events/${event.slug || event.id}/manage`);
 	};
-
-	// Pagination states
-	const [currentPage, setCurrentPage] = useState(1);
-	const [itemsPerPage, setItemsPerPage] = useState(5);
 
 	useEffect(() => {
 		fetchEvents();
@@ -83,7 +87,6 @@ const EventManagement: React.FC = () => {
 	const fetchEvents = async () => {
 		try {
 			setLoading(true);
-			// Use admin endpoint to get ALL events without date filtering
 			const response = await api.get("/events/admin/all");
 			setEvents(response.data.data || response.data);
 		} catch (error) {
@@ -99,15 +102,12 @@ const EventManagement: React.FC = () => {
 			"Hapus Event?",
 			`Apakah Anda yakin ingin menghapus event "${eventTitle}"? Semua data terkait (peserta, penilaian, materi, dll) akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.`
 		);
-
 		if (!confirmed) return;
-
 		try {
 			await api.delete(`/events/${eventId}`);
 			showSuccess("Event berhasil dihapus");
 			fetchEvents();
 		} catch (error: any) {
-			console.error("Error deleting event:", error);
 			showError(error.response?.data?.message || "Gagal menghapus event");
 		}
 	};
@@ -119,690 +119,497 @@ const EventManagement: React.FC = () => {
 				? "Event akan dihapus dari carousel"
 				: "Event akan ditampilkan di carousel landing page"
 		);
-
 		if (!confirmed) return;
-
 		try {
 			await api.patch(`/events/${eventId}/pin`, {
 				isPinned: !currentPinned,
 				pinnedOrder: !currentPinned ? getNextPinnedOrder() : null,
 			});
-
-			showSuccess(
-				currentPinned ? "Event berhasil di-unpin" : "Event berhasil di-pin"
-			);
+			showSuccess(currentPinned ? "Event berhasil di-unpin" : "Event berhasil di-pin");
 			fetchEvents();
 		} catch (error: any) {
-			console.error("Error toggling pin:", error);
 			showError(error.response?.data?.message || "Gagal mengubah status pin");
 		}
 	};
 
-	const handleUpdatePinnedOrder = async (
-		eventId: string,
-		direction: "up" | "down"
-	) => {
+	const handleUpdatePinnedOrder = async (eventId: string, direction: "up" | "down") => {
 		const event = events.find((e) => e.id === eventId);
 		if (!event || !event.isPinned || event.pinnedOrder === null) return;
 
-		const pinnedEvents = events
+		const sorted = events
 			.filter((e) => e.isPinned && e.pinnedOrder !== null)
 			.sort((a, b) => (a.pinnedOrder || 0) - (b.pinnedOrder || 0));
 
-		const currentIndex = pinnedEvents.findIndex((e) => e.id === eventId);
-		const targetIndex =
-			direction === "up" ? currentIndex - 1 : currentIndex + 1;
+		const idx = sorted.findIndex((e) => e.id === eventId);
+		const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+		if (targetIdx < 0 || targetIdx >= sorted.length) return;
 
-		if (targetIndex < 0 || targetIndex >= pinnedEvents.length) return;
-
-		const targetEvent = pinnedEvents[targetIndex];
-		if (!targetEvent) return;
+		const target = sorted[targetIdx];
+		if (!target) return;
 
 		try {
-			// Swap the orders
 			await Promise.all([
-				api.patch(`/events/${event.id}/pin`, {
-					isPinned: true,
-					pinnedOrder: targetEvent.pinnedOrder,
-				}),
-				api.patch(`/events/${targetEvent.id}/pin`, {
-					isPinned: true,
-					pinnedOrder: event.pinnedOrder,
-				}),
+				api.patch(`/events/${event.id}/pin`, { isPinned: true, pinnedOrder: target.pinnedOrder }),
+				api.patch(`/events/${target.id}/pin`, { isPinned: true, pinnedOrder: event.pinnedOrder }),
 			]);
-
 			showSuccess("Urutan berhasil diubah");
 			fetchEvents();
-		} catch (error) {
-			console.error("Error updating order:", error);
+		} catch {
 			showError("Gagal mengubah urutan");
 		}
 	};
 
 	const getNextPinnedOrder = () => {
-		const pinnedEvents = events.filter((e) => e.isPinned);
-		if (pinnedEvents.length === 0) return 1;
-		const maxOrder = Math.max(...pinnedEvents.map((e) => e.pinnedOrder || 0));
-		return maxOrder + 1;
+		const pinned = events.filter((e) => e.isPinned);
+		if (pinned.length === 0) return 1;
+		return Math.max(...pinned.map((e) => e.pinnedOrder || 0)) + 1;
 	};
 
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString("id-ID", {
-			day: "numeric",
-			month: "long",
-			year: "numeric",
-		});
-	};
+	const formatDate = (dateString: string) =>
+		new Date(dateString).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 
 	const getImageUrl = (thumbnail: string | null) => {
 		if (!thumbnail) return null;
-		if (thumbnail.startsWith("http://") || thumbnail.startsWith("https://")) {
-			return thumbnail;
-		}
-		const backendUrl =
-			import.meta.env.VITE_BACKEND_URL || "";
-		return `${backendUrl}${thumbnail}`;
+		if (thumbnail.startsWith("http://") || thumbnail.startsWith("https://")) return thumbnail;
+		return `${import.meta.env.VITE_BACKEND_URL || ""}${thumbnail}`;
+	};
+
+	const statusConfig: Record<string, { label: string; cls: string }> = {
+		DRAFT: { label: "Draft", cls: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300" },
+		PUBLISHED: { label: "Published", cls: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" },
+		ONGOING: { label: "Ongoing", cls: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" },
+		COMPLETED: { label: "Completed", cls: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" },
+		CANCELLED: { label: "Cancelled", cls: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" },
 	};
 
 	const getStatusBadge = (status: string) => {
-		const statusConfig: {
-			[key: string]: { label: string; className: string };
-		} = {
-			DRAFT: {
-				label: "Draft",
-				className:
-					"bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300",
-			},
-			PUBLISHED: {
-				label: "Published",
-				className:
-					"bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400",
-			},
-			ONGOING: {
-				label: "Ongoing",
-				className:
-					"bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400",
-			},
-			COMPLETED: {
-				label: "Completed",
-				className:
-					"bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400",
-			},
-			CANCELLED: {
-				label: "Cancelled",
-				className:
-					"bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400",
-			},
-		};
+		const cfg = statusConfig[status] || { label: status, cls: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300" };
+		return <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${cfg.cls}`}>{cfg.label}</span>;
+	};
 
-		const config = statusConfig[status] || {
-			label: status,
-			className:
-				"bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300",
-		};
+	// ─── Sort & Filter ───────────────────────────────────────
+	const handleSort = (field: SortField) => {
+		if (sortField === field) {
+			setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+		} else {
+			setSortField(field);
+			setSortDir(field === "title" ? "asc" : "desc");
+		}
+	};
 
-		return (
-			<span
-				className={`px-2 py-1 rounded-full text-xs font-medium ${config.className}`}
-			>
-				{config.label}
-			</span>
-		);
+	const sortEvents = (list: Event[]) => {
+		return [...list].sort((a, b) => {
+			let cmp = 0;
+			switch (sortField) {
+				case "createdAt":
+					cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+					break;
+				case "title":
+					cmp = a.title.localeCompare(b.title);
+					break;
+				case "startDate":
+					cmp = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+					break;
+				case "status":
+					cmp = a.status.localeCompare(b.status);
+					break;
+			}
+			return sortDir === "asc" ? cmp : -cmp;
+		});
 	};
 
 	const filteredEvents = events.filter((event) => {
-		const matchesFilter =
-			filter === "all" ||
-			(filter === "pinned" && event.isPinned) ||
-			(filter === "unpinned" && !event.isPinned);
-
-		const matchesStatus =
-			statusFilter === "all" || event.status === statusFilter;
-
+		const matchesStatus = statusFilter === "all" || event.status === statusFilter;
 		const matchesSearch =
 			searchTerm === "" ||
 			event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			event.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			event.category?.toLowerCase().includes(searchTerm.toLowerCase());
-
-		return matchesFilter && matchesStatus && matchesSearch;
+		return matchesStatus && matchesSearch;
 	});
 
 	const pinnedEvents = filteredEvents
 		.filter((e) => e.isPinned)
 		.sort((a, b) => (a.pinnedOrder || 0) - (b.pinnedOrder || 0));
-	const unpinnedEvents = filteredEvents.filter((e) => !e.isPinned);
 
-	// Pagination for unpinned events only
-	const totalUnpinnedPages = Math.ceil(unpinnedEvents.length / itemsPerPage);
+	const allListEvents = sortEvents(filteredEvents);
+
+	// Pagination
+	const totalPages = Math.ceil(allListEvents.length / itemsPerPage);
 	const startIndex = (currentPage - 1) * itemsPerPage;
-	const endIndex = startIndex + itemsPerPage;
-	const paginatedUnpinnedEvents = unpinnedEvents.slice(startIndex, endIndex);
+	const paginatedEvents = allListEvents.slice(startIndex, startIndex + itemsPerPage);
 
-	// Reset to page 1 when filters change
-	useEffect(() => {
-		setCurrentPage(1);
-	}, [searchTerm, filter]);
+	useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter, sortField, sortDir]);
 
 	const handlePageChange = (page: number) => {
 		setCurrentPage(page);
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
 
-	const handleItemsPerPageChange = (value: number) => {
-		setItemsPerPage(value);
-		setCurrentPage(1);
-	};
-
-	// Generate page numbers to display
 	const getPageNumbers = () => {
 		const pages: (number | string)[] = [];
-		const maxVisiblePages = 5;
-
-		if (totalUnpinnedPages <= maxVisiblePages) {
-			for (let i = 1; i <= totalUnpinnedPages; i++) {
-				pages.push(i);
-			}
+		if (totalPages <= 5) {
+			for (let i = 1; i <= totalPages; i++) pages.push(i);
 		} else {
 			pages.push(1);
-
-			if (currentPage > 3) {
-				pages.push("...");
-			}
-
-			const start = Math.max(2, currentPage - 1);
-			const end = Math.min(totalUnpinnedPages - 1, currentPage + 1);
-
-			for (let i = start; i <= end; i++) {
-				pages.push(i);
-			}
-
-			if (currentPage < totalUnpinnedPages - 2) {
-				pages.push("...");
-			}
-
-			pages.push(totalUnpinnedPages);
+			if (currentPage > 3) pages.push("...");
+			for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+			if (currentPage < totalPages - 2) pages.push("...");
+			pages.push(totalPages);
 		}
-
 		return pages;
 	};
 
+	const SortButton = ({ field, label }: { field: SortField; label: string }) => (
+		<button
+			onClick={() => handleSort(field)}
+			className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+				sortField === field
+					? "bg-red-500/10 text-red-600 dark:text-red-400"
+					: "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.05]"
+			}`}
+		>
+			{label}
+			{sortField === field && (
+				<span className="text-[10px]">{sortDir === "asc" ? "↑" : "↓"}</span>
+			)}
+		</button>
+	);
+
 	return (
-		<div className="min-h-screen">
+		<div className="p-4 md:p-6 max-w-[1600px] mx-auto">
 			{/* Header */}
-			<header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow dark:shadow-gray-900/50">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex justify-between items-center py-6">
-						<div>
-							<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-								Event Management
-							</h1>
-							<p className="text-gray-600 dark:text-gray-400 mt-1">
-								Kelola semua event dan atur carousel landing page
-							</p>
-						</div>
-					</div>
+			<div className="flex items-center justify-between mb-6">
+				<div>
+					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Event Management</h1>
+					<p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Kelola semua event dan atur carousel landing page</p>
 				</div>
-			</header>
-
-			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Search and Filters */}
-				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-4 mb-6">
-					<div className="space-y-4">
-						{/* Search Bar */}
-						<div className="relative">
-							<MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-							<input
-								type="text"
-								placeholder="Cari event berdasarkan judul, deskripsi, lokasi, atau kategori..."
-								value={searchTerm}
-								onChange={(e) => setSearchTerm(e.target.value)}
-								className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-							/>
-						</div>
-
-						{/* Filter Tabs */}
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-4">
-								<span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-									Filter:
-								</span>
-								<div className="flex gap-2">
-									<button
-										onClick={() => setFilter("all")}
-										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-											filter === "all"
-												? "bg-red-600 dark:bg-red-500 text-white"
-												: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-										}`}
-									>
-										Semua Event ({events.length})
-									</button>
-									<button
-										onClick={() => setFilter("pinned")}
-										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-											filter === "pinned"
-												? "bg-red-600 dark:bg-red-500 text-white"
-												: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-										}`}
-									>
-										Pinned ({events.filter((e) => e.isPinned).length})
-									</button>
-									<button
-										onClick={() => setFilter("unpinned")}
-										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-											filter === "unpinned"
-												? "bg-red-600 dark:bg-red-500 text-white"
-												: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-										}`}
-									>
-										Unpinned ({events.filter((e) => !e.isPinned).length})
-									</button>
-								</div>
-
-								{/* Status Filter */}
-								<div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-300 dark:border-gray-600">
-									<span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-										Status:
-									</span>
-									<select
-										value={statusFilter}
-										onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-										className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-									>
-										<option value="all">Semua Status</option>
-										<option value="PUBLISHED">Published</option>
-										<option value="ONGOING">Ongoing</option>
-										<option value="COMPLETED">Completed</option>
-										<option value="DRAFT">Draft</option>
-										<option value="CANCELLED">Cancelled</option>
-									</select>
-								</div>
-							</div>
-
-							{/* Items per page selector */}
-							{unpinnedEvents.length > 0 && (
-								<div className="flex items-center gap-2">
-									<span className="text-sm text-gray-600 dark:text-gray-400">
-										Per halaman:
-									</span>
-									<select
-										value={itemsPerPage}
-										onChange={(e) =>
-											handleItemsPerPageChange(Number(e.target.value))
-										}
-										className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
-									>
-										<option value={5}>5</option>
-										<option value={10}>10</option>
-										<option value={25}>25</option>
-										<option value={50}>50</option>
-									</select>
-								</div>
-							)}
-						</div>
-					</div>
+				<div className="text-sm text-gray-500 dark:text-gray-400">
+					Total: <span className="font-semibold text-gray-900 dark:text-white">{events.length}</span> event
 				</div>
+			</div>
 
-				{loading ? (
-					<div className="flex justify-center items-center py-12">
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 dark:border-red-400"></div>
-					</div>
-				) : (
-					<>
-						{/* Pinned Events Section */}
-						{pinnedEvents.length > 0 && (
-							<div className="mb-8">
-								<div className="flex items-center gap-2 mb-4">
-									<StarIconSolid className="w-6 h-6 text-yellow-500" />
-									<h2 className="text-xl font-bold text-gray-900 dark:text-white">
-										Pinned Events (Tampil di Carousel)
-									</h2>
-								</div>
-								<div className="bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
-									<p className="text-sm text-yellow-800 dark:text-yellow-300">
-										Event yang di-pin akan tampil di carousel landing page.
-										Maksimal 10 event dapat di-pin. Gunakan tombol panah untuk
-										mengatur urutan tampilan.
-									</p>
-								</div>
-								<div className="space-y-4">
-									{pinnedEvents.map((event, index) => (
-										<EventCard
-											key={event.id}
-											event={event}
-											onTogglePin={handleTogglePin}
-											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											onDelete={handleDeleteEvent}
-											canMoveUp={index > 0}
-											canMoveDown={index < pinnedEvents.length - 1}
-											getImageUrl={getImageUrl}
-											formatDate={formatDate}
-											getStatusBadge={getStatusBadge}
-										/>
-									))}
-								</div>
+			{/* Main Layout: Left (Event List) + Right (Pinned Sidebar) */}
+			<div className="flex flex-col lg:flex-row gap-6">
+				{/* ─── LEFT: Event List ──────────────────────── */}
+				<div className="flex-1 min-w-0">
+					{/* Search & Filters */}
+					<div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-4 mb-4">
+						<div className="flex flex-col sm:flex-row gap-3">
+							{/* Search */}
+							<div className="relative flex-1">
+								<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+								<input
+									type="text"
+									placeholder="Cari event..."
+									value={searchTerm}
+									onChange={(e) => setSearchTerm(e.target.value)}
+									className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 outline-none transition"
+								/>
 							</div>
-						)}
+							{/* Status */}
+							<select
+								value={statusFilter}
+								onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+								className="px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 outline-none transition"
+							>
+								<option value="all">Semua Status</option>
+								<option value="PUBLISHED">Published</option>
+								<option value="ONGOING">Ongoing</option>
+								<option value="COMPLETED">Completed</option>
+								<option value="DRAFT">Draft</option>
+								<option value="CANCELLED">Cancelled</option>
+							</select>
+							{/* Per page */}
+							<select
+								value={itemsPerPage}
+								onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+								className="px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 outline-none transition w-20"
+							>
+								<option value={5}>5</option>
+								<option value={10}>10</option>
+								<option value={25}>25</option>
+								<option value={50}>50</option>
+							</select>
+						</div>
 
-						{/* Unpinned Events Section */}
-						{unpinnedEvents.length > 0 && (
-							<div>
-								<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-									{filter === "unpinned" ? "Unpinned Events" : "Event Lainnya"}
-								</h2>
-								<div className="space-y-4">
-									{paginatedUnpinnedEvents.map((event) => (
-										<EventCard
-											key={event.id}
-											event={event}
-											onTogglePin={handleTogglePin}
-											onUpdateOrder={handleUpdatePinnedOrder}										onManage={handleManageEvent}											onDelete={handleDeleteEvent}
-											canMoveUp={false}
-											canMoveDown={false}
-											getImageUrl={getImageUrl}
-											formatDate={formatDate}
-											getStatusBadge={getStatusBadge}
-										/>
-									))}
-								</div>
+						{/* Sort Row */}
+						<div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-white/[0.05]">
+							<ChevronUpDownIcon className="w-4 h-4 text-gray-400" />
+							<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Urutkan:</span>
+							<SortButton field="createdAt" label="Terbaru" />
+							<SortButton field="title" label="Nama" />
+							<SortButton field="startDate" label="Tanggal Event" />
+							<SortButton field="status" label="Status" />
+						</div>
+					</div>
 
-								{/* Pagination for Unpinned Events */}
-								{totalUnpinnedPages > 1 && (
-									<div className="mt-6 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm p-4">
-										<div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-											{/* Info */}
-											<div className="text-sm text-gray-600 dark:text-gray-400">
-												Menampilkan{" "}
-												<span className="font-medium text-gray-900 dark:text-white">
-													{startIndex + 1}
-												</span>{" "}
-												-{" "}
-												<span className="font-medium text-gray-900 dark:text-white">
-													{Math.min(endIndex, unpinnedEvents.length)}
-												</span>{" "}
-												dari{" "}
-												<span className="font-medium text-gray-900 dark:text-white">
-													{unpinnedEvents.length}
-												</span>{" "}
-												event
+					{/* Event Cards */}
+					{loading ? (
+						<div className="flex justify-center py-16">
+							<div className="w-8 h-8 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+						</div>
+					) : paginatedEvents.length === 0 ? (
+						<div className="text-center py-16">
+							<CalendarIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+							<p className="text-gray-500 dark:text-gray-400">Tidak ada event ditemukan</p>
+						</div>
+					) : (
+						<div className="space-y-3">
+							{paginatedEvents.map((event) => (
+								<div
+									key={event.id}
+									className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.12] transition-all overflow-hidden"
+								>
+									<div className="flex flex-col sm:flex-row">
+										{/* Thumbnail */}
+										<div className="w-full sm:w-40 h-32 sm:h-auto flex-shrink-0 bg-gradient-to-br from-red-500 to-orange-600 relative">
+											{event.thumbnail ? (
+												<img
+													src={getImageUrl(event.thumbnail) || ""}
+													alt={event.title}
+													className="w-full h-full object-cover"
+													onError={(e) => { e.currentTarget.style.display = "none"; }}
+												/>
+											) : (
+												<div className="flex items-center justify-center h-full min-h-[8rem]">
+													<CalendarIcon className="w-10 h-10 text-white/40" />
+												</div>
+											)}
+											{event.isPinned && (
+												<div className="absolute top-2 left-2">
+													<div className="bg-yellow-500 text-white px-1.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-0.5">
+														<StarIconSolid className="w-3 h-3" />#{event.pinnedOrder}
+													</div>
+												</div>
+											)}
+										</div>
+
+										{/* Content */}
+										<div className="flex-1 p-4 min-w-0">
+											<div className="flex items-start justify-between gap-2 mb-2">
+												<div className="min-w-0">
+													<div className="flex items-center gap-2 flex-wrap">
+														<h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">{event.title}</h3>
+														{getStatusBadge(event.status)}
+														{event.paymentStatus === "DP_REQUESTED" && (
+															<span className="px-1.5 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-full">DP</span>
+														)}
+													</div>
+													{event.category && (
+														<span className="inline-block mt-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-[11px] font-medium rounded">
+															{event.category}
+														</span>
+													)}
+												</div>
 											</div>
 
-											{/* Pagination Controls */}
-											<div className="flex items-center gap-2">
-												{/* Previous Button */}
-												<button
-													onClick={() => handlePageChange(currentPage - 1)}
-													disabled={currentPage === 1}
-													className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-													aria-label="Previous page"
-												>
-													<ChevronLeftIcon className="w-5 h-5" />
-												</button>
+											{event.description && (
+												<p className="text-gray-500 dark:text-gray-400 text-xs mb-2 line-clamp-1">{event.description}</p>
+											)}
 
-												{/* Page Numbers */}
-												<div className="flex items-center gap-1">
-													{getPageNumbers().map((page, index) => (
-														<React.Fragment key={index}>
-															{page === "..." ? (
-																<span className="px-3 py-2 text-gray-400 dark:text-gray-500">
-																	...
-																</span>
-															) : (
-																<button
-																	onClick={() =>
-																		handlePageChange(page as number)
-																	}
-																	className={`min-w-[40px] px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-																		currentPage === page
-																			? "bg-red-600 dark:bg-red-500 text-white"
-																			: "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-																	}`}
-																>
-																	{page}
-																</button>
-															)}
-														</React.Fragment>
+											<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+												<span className="flex items-center gap-1">
+													<CalendarIcon className="w-3.5 h-3.5" />
+													{formatDate(event.startDate)}
+												</span>
+												{event.location && (
+													<span className="flex items-center gap-1">
+														<MapPinIcon className="w-3.5 h-3.5" />
+														<span className="truncate max-w-[150px]">{event.location}</span>
+													</span>
+												)}
+												<span className="text-gray-400 dark:text-gray-500">
+													oleh {event.createdBy.name}
+												</span>
+											</div>
+
+											{/* School Category Limits */}
+											{event.schoolCategoryLimits && event.schoolCategoryLimits.length > 0 && (
+												<div className="flex flex-wrap gap-1.5 mb-3">
+													{event.schoolCategoryLimits.map((limit) => (
+														<span key={limit.id} className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/[0.05] px-2 py-0.5 rounded">
+															<UsersIcon className="w-3 h-3" />
+															{limit.schoolCategory.name}: {limit.maxParticipants}
+														</span>
 													))}
 												</div>
+											)}
 
-												{/* Next Button */}
+											{/* Actions */}
+											<div className="flex items-center gap-2 flex-wrap">
 												<button
-													onClick={() => handlePageChange(currentPage + 1)}
-													disabled={currentPage === totalUnpinnedPages}
-													className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-													aria-label="Next page"
+													onClick={() => handleTogglePin(event.id, event.isPinned)}
+													className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+														event.isPinned
+															? "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/30"
+															: "bg-gray-100 dark:bg-white/[0.05] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.08]"
+													}`}
 												>
-													<ChevronRightIcon className="w-5 h-5" />
+													{event.isPinned ? <><XMarkIcon className="w-3.5 h-3.5" />Unpin</> : <><StarIcon className="w-3.5 h-3.5" />Pin</>}
+												</button>
+												<button
+													onClick={() => handleManageEvent(event)}
+													className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors"
+												>
+													<Cog6ToothIcon className="w-3.5 h-3.5" />Kelola
+												</button>
+												<Link
+													to={`/events/${event.slug || event.id}`}
+													target="_blank"
+													className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/[0.05] text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium hover:bg-gray-200 dark:hover:bg-white/[0.08] transition-colors"
+												>
+													<EyeIcon className="w-3.5 h-3.5" />Lihat
+												</Link>
+												<button
+													onClick={() => handleDeleteEvent(event.id, event.title)}
+													className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg text-xs font-medium transition-colors"
+												>
+													<TrashIcon className="w-3.5 h-3.5" />Hapus
 												</button>
 											</div>
 										</div>
 									</div>
-								)}
-							</div>
-						)}
-
-						{filteredEvents.length === 0 && (
-							<div className="text-center py-12">
-								<CalendarIcon className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-								<p className="text-gray-500 dark:text-gray-400 text-lg">
-									Tidak ada event
-								</p>
-							</div>
-						)}
-					</>
-				)}
-			</main>
-		</div>
-	);
-};
-
-interface EventCardProps {
-	event: Event;
-	onTogglePin: (eventId: string, currentPinned: boolean) => void;
-	onUpdateOrder: (eventId: string, direction: "up" | "down") => void;
-	onManage: (event: Event) => void;
-	onDelete: (eventId: string, eventTitle: string) => void;
-	canMoveUp: boolean;
-	canMoveDown: boolean;
-	getImageUrl: (thumbnail: string | null) => string | null;
-	formatDate: (dateString: string) => string;
-	getStatusBadge: (status: string) => React.ReactElement;
-}
-
-const EventCard: React.FC<EventCardProps> = ({
-	event,
-	onTogglePin,
-	onUpdateOrder,
-	onManage,
-	onDelete,
-	canMoveUp,
-	canMoveDown,
-	getImageUrl,
-	formatDate,
-	getStatusBadge,
-}) => {
-	return (
-		<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-sm dark:shadow-gray-900/50 hover:shadow-md transition-shadow overflow-hidden">
-			<div className="flex">
-				{/* Thumbnail */}
-				<div className="w-48 h-48 flex-shrink-0 bg-gradient-to-br from-red-500 to-orange-600 dark:from-red-600 dark:to-orange-700 relative">
-					{event.thumbnail ? (
-						<img
-							src={getImageUrl(event.thumbnail) || ""}
-							alt={event.title}
-							className="w-full h-full object-cover"
-							onError={(e) => {
-								e.currentTarget.style.display = "none";
-							}}
-						/>
-					) : (
-						<div className="flex items-center justify-center h-full">
-							<CalendarIcon className="w-12 h-12 text-white/50" />
+								</div>
+							))}
 						</div>
 					)}
-					{event.isPinned && (
-						<div className="absolute top-2 right-2">
-							<div className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-								<StarIconSolid className="w-3 h-3" />#{event.pinnedOrder}
+
+					{/* Pagination */}
+					{totalPages > 1 && (
+						<div className="mt-4 bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-3">
+							<div className="flex items-center justify-between">
+								<span className="text-xs text-gray-500 dark:text-gray-400">
+									{startIndex + 1}-{Math.min(startIndex + itemsPerPage, allListEvents.length)} dari {allListEvents.length}
+								</span>
+								<div className="flex items-center gap-1">
+									<button
+										onClick={() => handlePageChange(currentPage - 1)}
+										disabled={currentPage === 1}
+										className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.05] disabled:opacity-40 disabled:cursor-not-allowed transition"
+									>
+										<ChevronLeftIcon className="w-4 h-4" />
+									</button>
+									{getPageNumbers().map((page, i) => (
+										<React.Fragment key={i}>
+											{page === "..." ? (
+												<span className="px-2 text-xs text-gray-400">...</span>
+											) : (
+												<button
+													onClick={() => handlePageChange(page as number)}
+													className={`min-w-[32px] px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+														currentPage === page
+															? "bg-red-500 text-white"
+															: "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.05]"
+													}`}
+												>
+													{page}
+												</button>
+											)}
+										</React.Fragment>
+									))}
+									<button
+										onClick={() => handlePageChange(currentPage + 1)}
+										disabled={currentPage === totalPages}
+										className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.05] disabled:opacity-40 disabled:cursor-not-allowed transition"
+									>
+										<ChevronRightIcon className="w-4 h-4" />
+									</button>
+								</div>
 							</div>
 						</div>
 					)}
 				</div>
 
-				{/* Content */}
-				<div className="flex-1 p-6">
-					<div className="flex justify-between items-start mb-3">
-						<div className="flex-1">
-							<div className="flex items-center gap-2 mb-2">
-								<h3 className="text-lg font-bold text-gray-900 dark:text-white">
-									{event.title}
-								</h3>
-								{getStatusBadge(event.status)}
-								{event.paymentStatus === "DP_REQUESTED" && (
-									<span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-semibold rounded-full">
-										DP
-									</span>
-								)}
-							</div>
-							{event.category && (
-								<span className="inline-block px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 text-xs font-medium rounded mb-2">
-									{event.category}
+				{/* ─── RIGHT: Pinned Sidebar ─────────────────── */}
+				<div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
+					<div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-gray-200 dark:border-white/[0.06] overflow-hidden sticky top-4">
+						{/* Header */}
+						<div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.06] bg-yellow-50/50 dark:bg-yellow-500/[0.03]">
+							<div className="flex items-center gap-2">
+								<StarIconSolid className="w-4 h-4 text-yellow-500" />
+								<h2 className="text-sm font-bold text-gray-900 dark:text-white">Pinned Events</h2>
+								<span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 font-medium">
+									{pinnedEvents.length}/10
 								</span>
-							)}
-						</div>
-					</div>
-
-					{event.description && (
-						<p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
-							{event.description}
-						</p>
-					)}
-
-					<div className="grid grid-cols-2 gap-3 mb-4">
-						<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-							<CalendarIcon className="w-4 h-4 mr-2 flex-shrink-0" />
-							<span className="line-clamp-1">
-								{formatDate(event.startDate)}
-							</span>
-						</div>
-						{event.location && (
-							<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-								<MapPinIcon className="w-4 h-4 mr-2 flex-shrink-0" />
-								<span className="line-clamp-1">{event.location}</span>
 							</div>
-						)}
-					</div>
+							<p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+								Tampil di carousel landing page
+							</p>
+						</div>
 
-					{/* School Category Limits */}
-					{event.schoolCategoryLimits &&
-						event.schoolCategoryLimits.length > 0 && (
-							<div className="mb-4">
-								<div className="flex flex-wrap gap-2">
-									{event.schoolCategoryLimits.map((limit) => (
-										<div
-											key={limit.id}
-											className="flex items-center text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded"
-										>
-											<UsersIcon className="w-3 h-3 mr-1" />
-											<span>
-												<span className="font-medium">
-													{limit.schoolCategory.name}:
-												</span>{" "}
-												{limit.maxParticipants}
-											</span>
+						{/* Pinned List */}
+						{pinnedEvents.length === 0 ? (
+							<div className="p-6 text-center">
+								<StarIcon className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+								<p className="text-xs text-gray-500 dark:text-gray-400">Belum ada event yang di-pin</p>
+								<p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Pin event dari daftar di sebelah kiri</p>
+							</div>
+						) : (
+							<div className="divide-y divide-gray-100 dark:divide-white/[0.05] max-h-[calc(100vh-140px)] overflow-y-auto">
+								{pinnedEvents.map((event, index) => (
+									<div key={event.id} className="p-3 hover:bg-gray-50/50 dark:hover:bg-white/[0.02] transition-colors">
+										<div className="flex gap-3">
+											{/* Thumbnail mini */}
+											<div className="w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex-shrink-0 overflow-hidden relative">
+												{event.thumbnail ? (
+													<img
+														src={getImageUrl(event.thumbnail) || ""}
+														alt={event.title}
+														className="w-full h-full object-cover"
+														onError={(e) => { e.currentTarget.style.display = "none"; }}
+													/>
+												) : (
+													<div className="flex items-center justify-center h-full">
+														<CalendarIcon className="w-6 h-6 text-white/40" />
+													</div>
+												)}
+												<div className="absolute top-0.5 left-0.5 bg-yellow-500 text-white text-[9px] font-bold w-5 h-5 rounded-md flex items-center justify-center">
+													{event.pinnedOrder}
+												</div>
+											</div>
+
+											{/* Info */}
+											<div className="flex-1 min-w-0">
+												<h4 className="text-xs font-semibold text-gray-900 dark:text-white truncate">{event.title}</h4>
+												<p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+													{formatDate(event.startDate)}
+												</p>
+												<div className="mt-0.5">{getStatusBadge(event.status)}</div>
+											</div>
+
+											{/* Controls */}
+											<div className="flex flex-col gap-0.5 flex-shrink-0">
+												<button
+													onClick={() => handleUpdatePinnedOrder(event.id, "up")}
+													disabled={index === 0}
+													className="p-1 rounded text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition"
+													title="Naik"
+												>
+													<ArrowUpIcon className="w-3.5 h-3.5" />
+												</button>
+												<button
+													onClick={() => handleUpdatePinnedOrder(event.id, "down")}
+													disabled={index === pinnedEvents.length - 1}
+													className="p-1 rounded text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition"
+													title="Turun"
+												>
+													<ArrowDownIcon className="w-3.5 h-3.5" />
+												</button>
+												<button
+													onClick={() => handleTogglePin(event.id, true)}
+													className="p-1 rounded text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition"
+													title="Unpin"
+												>
+													<XMarkIcon className="w-3.5 h-3.5" />
+												</button>
+											</div>
 										</div>
-									))}
-								</div>
+									</div>
+								))}
 							</div>
 						)}
-
-					<div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-						Dibuat oleh: {event.createdBy.name} ({event.createdBy.email})
-					</div>
-
-					{/* Actions */}
-					<div className="flex items-center gap-2">
-						{/* Pin/Unpin Button */}
-						<button
-							onClick={() => onTogglePin(event.id, event.isPinned)}
-							className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-								event.isPinned
-									? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
-									: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-							}`}
-						>
-							{event.isPinned ? (
-								<>
-									<XMarkIcon className="w-4 h-4" />
-									Unpin
-								</>
-							) : (
-								<>
-									<StarIcon className="w-4 h-4" />
-									Pin ke Carousel
-								</>
-							)}
-						</button>
-
-						{/* Order Controls (only for pinned events) */}
-						{event.isPinned && (
-							<div className="flex gap-1">
-								<button
-									onClick={() => onUpdateOrder(event.id, "up")}
-									disabled={!canMoveUp}
-									className={`p-2 rounded-lg transition-colors ${
-										canMoveUp
-											? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-											: "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-									}`}
-									title="Pindah ke atas"
-								>
-									<ArrowUpIcon className="w-4 h-4" />
-								</button>
-								<button
-									onClick={() => onUpdateOrder(event.id, "down")}
-									disabled={!canMoveDown}
-									className={`p-2 rounded-lg transition-colors ${
-										canMoveDown
-											? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-											: "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed"
-									}`}
-									title="Pindah ke bawah"
-								>
-									<ArrowDownIcon className="w-4 h-4" />
-								</button>
-							</div>
-						)}
-
-						{/* Kelola Event */}
-						<button
-							onClick={() => onManage(event)}
-							className="flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
-						>
-							<Cog6ToothIcon className="w-4 h-4" />
-							Kelola
-						</button>
-
-						{/* View Event */}
-						<Link
-							to={`/events/${event.slug || event.id}`}
-							target="_blank"
-							className="flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
-						>
-							<EyeIcon className="w-4 h-4" />
-							Lihat Event
-						</Link>
-
-						{/* Delete Event */}
-						<button
-							onClick={() => onDelete(event.id, event.title)}
-							className="flex items-center gap-2 px-4 py-2 bg-red-800 dark:bg-red-900 text-white rounded-lg hover:bg-red-900 dark:hover:bg-red-950 transition-colors"
-							title="Hapus Event"
-						>
-							<TrashIcon className="w-4 h-4" />
-							Hapus
-						</button>
 					</div>
 				</div>
 			</div>

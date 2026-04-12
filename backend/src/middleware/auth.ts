@@ -26,6 +26,29 @@ const touchUserPresence = (userId: string) => {
 		});
 };
 
+// Update session lastActive timestamp
+const sessionHeartbeatCache = new Map<string, number>();
+
+const touchSessionPresence = (token: string) => {
+	const now = Date.now();
+	const lastHeartbeat = sessionHeartbeatCache.get(token) || 0;
+
+	if (now - lastHeartbeat < PRESENCE_HEARTBEAT_MS) {
+		return;
+	}
+
+	sessionHeartbeatCache.set(token, now);
+
+	void prisma.userSession
+		.update({
+			where: { token },
+			data: { lastActive: new Date(now) },
+		})
+		.catch(() => {
+			sessionHeartbeatCache.delete(token);
+		});
+};
+
 export interface AuthenticatedRequest extends Request {
 	user?: JWTPayload;
 }
@@ -50,6 +73,7 @@ export const authenticate = (
 
 		req.user = decoded;
 		touchUserPresence(decoded.userId);
+		touchSessionPresence(token);
 		next();
 	} catch (error) {
 		return res.status(401).json({

@@ -26,6 +26,7 @@ import {
 	LuEllipsis,
 	LuBookOpen,
 	LuPackage,
+	LuDatabase,
 } from "react-icons/lu";
 import "../components/landing/LandingPage.css";
 
@@ -167,10 +168,10 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Event", icon: LuCalendar, path: "/admin/events" },
 					{ name: "Produk", icon: LuShoppingBag, path: "/admin/products" },
 					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
-				{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
+					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Pesanan Event", icon: LuPackage, path: "/admin/event-submissions" },
-					{ name: "Statistik", icon: LuChartBar, path: "/admin/statistics" },
-					{ name: "Setting", icon: LuSettings, path: "/admin/settings" }
+					{ name: "Setting", icon: LuSettings, path: "/admin/settings" },
+					{ name: "Backup", icon: LuDatabase, path: "/admin/backup" }
 				);
 				break;
 			case "PANITIA":

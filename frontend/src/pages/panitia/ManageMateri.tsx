@@ -330,19 +330,6 @@ const ManageMateri: React.FC = () => {
 		}
 	};
 
-	const getColorClasses = (color: string) => {
-		const colors: Record<string, string> = {
-			red: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
-			yellow: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300",
-			green: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
-			blue: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
-			purple: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300",
-			orange: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
-			gray: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
-		};
-		return colors[color] || colors.gray;
-	};
-
 	const getAllMaterialsWithCategories = () => {
 		const allMaterials: Material[] = [];
 		categories.forEach((cat) => {
@@ -444,7 +431,7 @@ const ManageMateri: React.FC = () => {
 					if (!existing) {
 						allScoreCategories.push({
 							name: sc.name,
-							color: sc.color,
+								color: sc.color || "gray",
 							order: sc.order,
 							maxOptions: sc.options.length,
 						});
@@ -481,9 +468,10 @@ const ManageMateri: React.FC = () => {
 					if (materialSc) {
 						const sortedOptions = [...materialSc.options].sort((a, b) => a.order - b.order);
 						for (let i = 0; i < sc.maxOptions; i++) {
-							if (i < sortedOptions.length) {
+							const option = sortedOptions[i];
+							if (option) {
 								row.push({
-									content: sortedOptions[i].score.toString(),
+									content: option.score.toString(),
 									styles: { halign: "center", fontSize: 8, fontStyle: "bold" },
 								});
 							} else {
@@ -744,112 +732,219 @@ const ManageMateri: React.FC = () => {
 												/>
 											</div>
 										) : (
-											<div className="space-y-3">
-												{/* Materials List */}
-												{category.materials
-													.sort((a, b) => a.number - b.number)
-													.map((material) => (
-														<React.Fragment key={material.id}>
-															<div
-																className={`p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg ${
-																	editingMaterial?.id === material.id 
-																		? "ring-2 ring-red-500 dark:ring-red-400" 
-																		: ""
-																}`}
-															>
-																<div className="flex items-start justify-between">
-																	<div className="flex-1">
-																		<div className="flex items-center gap-3 mb-2">
-																			<span className="flex items-center justify-center w-8 h-8 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-full font-semibold text-sm">
-																				{material.number}
-																			</span>
-																			<p className="font-medium text-lg text-gray-900 dark:text-white">
-																				{material.name}
-																			</p>
-																		</div>
-																		{material.description && (
-																			<p className="text-sm text-gray-500 dark:text-gray-400 mb-3 ml-11">
-																				{material.description}
-																			</p>
-																		)}
+											<>
+												{/* Scoring Sheet Table */}
+												{(() => {
+													const sortedMaterials = [...category.materials].sort((a, b) => a.number - b.number);
 
-																		{/* School Categories */}
-																		<div className="mt-3 ml-11">
-																			<p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-																				Kategori Sekolah:
-																			</p>
-																			<div className="flex flex-wrap gap-1.5">
-																				{material.schoolCategories.length > 0 ? (
-																					material.schoolCategories.map((sc) => (
-																						<span
-																							key={sc.id}
-																							className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded text-xs"
-																						>
-																							{sc.name}
-																						</span>
-																					))
-																				) : (
-																					<span className="text-xs text-gray-400">
-																						Semua kategori
-																					</span>
-																				)}
-																			</div>
-																		</div>
+													// Collect all unique score categories across materials
+													const allScoreCats: { name: string; color: string; order: number; maxOptions: number }[] = [];
+													sortedMaterials.forEach((mat) => {
+														mat.scoreCategories.forEach((sc) => {
+															const existing = allScoreCats.find((a) => a.name === sc.name);
+															if (!existing) {
+																allScoreCats.push({ name: sc.name, color: sc.color || "gray", order: sc.order, maxOptions: sc.options.length });
+															} else if (sc.options.length > existing.maxOptions) {
+																existing.maxOptions = sc.options.length;
+															}
+														});
+													});
+													allScoreCats.sort((a, b) => a.order - b.order);
 
-																		{/* Score Categories with Options */}
-																		<div className="mt-3 ml-11">
-																			<p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-																				Kategori & Pilihan Nilai:
-																			</p>
-																			{material.scoreCategories.length > 0 ? (
-																				<div className="flex flex-wrap gap-2">
-																					{material.scoreCategories.map((cat) => (
-																						<div key={cat.id} className={`flex items-center gap-1.5 px-2 py-1 rounded ${getColorClasses(cat.color || "gray")}`}>
-																							<span className="text-xs font-medium">
-																								{cat.name}:
-																							</span>
-																							{cat.options.map((opt) => (
-																								<span
-																									key={opt.id}
-																									className="px-1.5 py-0.5 bg-white/50 dark:bg-gray-800/50 rounded text-xs"
-																									title={opt.name || undefined}
-																								>
-																									{opt.score}{opt.name && ` (${opt.name})`}
-																								</span>
-																							))}
-																						</div>
-																					))}
-																				</div>
-																			) : (
-																				<span className="text-xs text-gray-400">
-																					Belum diatur
-																				</span>
-																			)}
-																		</div>
-																	</div>
-																	<div className="flex items-center gap-2">
-																		<button
-																			onClick={() => openEditMaterialForm(material)}
-																			className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-																			title="Edit"
-																		>
-																			<PencilIcon className="h-4 w-4" />
-																		</button>
-																		<button
-																			onClick={() => handleDeleteMaterial(material)}
-																			className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-																			title="Hapus"
-																		>
-																			<TrashIcon className="h-4 w-4" />
-																		</button>
-																	</div>
-																</div>
+													const totalOptionCols = allScoreCats.reduce((sum, sc) => sum + sc.maxOptions, 0);
+
+													// Color mapping for header backgrounds
+													const headerColorMap: Record<string, string> = {
+														red: "bg-red-600 text-white",
+														orange: "bg-orange-500 text-white",
+														yellow: "bg-yellow-500 text-white",
+														green: "bg-green-600 text-white",
+														blue: "bg-blue-600 text-white",
+														purple: "bg-purple-600 text-white",
+														gray: "bg-gray-500 text-white",
+													};
+
+													const cellColorMap: Record<string, string> = {
+														red: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300",
+														orange: "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300",
+														yellow: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300",
+														green: "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300",
+														blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300",
+														purple: "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300",
+														gray: "bg-gray-50 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300",
+													};
+
+													return (
+														<div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-900">
+															{/* Paper Header */}
+															<div className="bg-gradient-to-r from-red-700 to-red-600 px-5 py-3 text-center">
+																<h3 className="text-white font-bold text-sm tracking-wider uppercase">
+																	Lembar Penilaian — {category.categoryName}
+																</h3>
+																<p className="text-red-200 text-xs mt-0.5">
+																	{sortedMaterials.length} Materi
+																</p>
 															</div>
-															{/* Show form right below the material being edited */}
-															{editingMaterial?.id === material.id && showMaterialForm === category.id && renderMaterialForm()}
-														</React.Fragment>
-													))}
-											</div>
+
+															<div className="overflow-x-auto">
+																<table className="w-full border-collapse min-w-[600px]">
+																	<thead>
+																		{/* Category headers spanning options */}
+																		<tr>
+																			<th
+																				rowSpan={2}
+																				className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-center border border-gray-300 dark:border-gray-600 w-12"
+																			>
+																				No
+																			</th>
+																			<th
+																				rowSpan={2}
+																				className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-left border border-gray-300 dark:border-gray-600"
+																			>
+																				Materi Penilaian
+																			</th>
+																			{allScoreCats.map((sc) => (
+																				<th
+																					key={sc.name}
+																					colSpan={sc.maxOptions}
+																					className={`text-xs font-bold px-2 py-2 text-center border border-gray-300 dark:border-gray-600 ${headerColorMap[sc.color] || headerColorMap.gray}`}
+																				>
+																					{sc.name.toUpperCase()}
+																				</th>
+																			))}
+																			<th
+																				rowSpan={2}
+																				className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-center border border-gray-300 dark:border-gray-600 w-20"
+																			>
+																				Aksi
+																			</th>
+																		</tr>
+																		{/* Score value sub-headers */}
+																		{totalOptionCols > 0 && (
+																			<tr>
+																				{allScoreCats.map((sc) => {
+																					// Show placeholder score labels from first material that has this category
+																					const refMat = sortedMaterials.find((m) => m.scoreCategories.some((s) => s.name === sc.name));
+																					const refSc = refMat?.scoreCategories.find((s) => s.name === sc.name);
+																					const refOptions = refSc ? [...refSc.options].sort((a, b) => a.order - b.order) : [];
+
+																					return Array.from({ length: sc.maxOptions }, (_, i) => (
+																						<th
+																							key={`${sc.name}-sub-${i}`}
+																							className={`text-xs font-medium px-1 py-1.5 text-center border border-gray-300 dark:border-gray-600 ${cellColorMap[sc.color] || cellColorMap.gray}`}
+																						>
+																							{refOptions[i]?.name || ""}
+																						</th>
+																					));
+																				})}
+																			</tr>
+																		)}
+																	</thead>
+																	<tbody>
+																		{sortedMaterials.map((material, idx) => (
+																			<React.Fragment key={material.id}>
+																				<tr
+																					className={`group transition-colors ${
+																						editingMaterial?.id === material.id
+																							? "ring-2 ring-inset ring-red-500"
+																							: idx % 2 === 0
+																								? "bg-white dark:bg-gray-900"
+																								: "bg-gray-50 dark:bg-gray-800/50"
+																					} hover:bg-red-50/50 dark:hover:bg-red-900/10`}
+																				>
+																					{/* Number */}
+																					<td className="px-3 py-3 text-center font-bold text-sm text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700">
+																						{material.number}
+																					</td>
+
+																					{/* Material Name + Info */}
+																					<td className="px-3 py-3 border border-gray-200 dark:border-gray-700">
+																						<p className="font-semibold text-sm text-gray-900 dark:text-white uppercase">
+																							{material.name}
+																						</p>
+																						{material.description && (
+																							<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+																								{material.description}
+																							</p>
+																						)}
+																						{material.schoolCategories.length > 0 && (
+																							<div className="flex flex-wrap gap-1 mt-1.5">
+																								{material.schoolCategories.map((sc) => (
+																									<span
+																										key={sc.id}
+																										className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded text-[10px] font-medium"
+																									>
+																										{sc.name}
+																									</span>
+																								))}
+																							</div>
+																						)}
+																					</td>
+
+																					{/* Score values per category */}
+																					{allScoreCats.map((sc) => {
+																						const materialSc = material.scoreCategories.find((s) => s.name === sc.name);
+																						const sortedOptions = materialSc
+																							? [...materialSc.options].sort((a, b) => a.order - b.order)
+																							: [];
+
+																						return Array.from({ length: sc.maxOptions }, (_, i) => (
+																							<td
+																								key={`${material.id}-${sc.name}-${i}`}
+																								className={`px-1 py-3 text-center border border-gray-200 dark:border-gray-700 ${
+																									sortedOptions[i]
+																										? cellColorMap[sc.color] || cellColorMap.gray
+																										: ""
+																								}`}
+																							>
+																								{sortedOptions[i] ? (
+																									<span className="font-bold text-sm">
+																										{sortedOptions[i].score}
+																									</span>
+																								) : (
+																									<span className="text-gray-300 dark:text-gray-600">—</span>
+																								)}
+																							</td>
+																						));
+																					})}
+
+																					{/* Actions */}
+																					<td className="px-2 py-3 text-center border border-gray-200 dark:border-gray-700">
+																						<div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+																							<button
+																								onClick={() => openEditMaterialForm(material)}
+																								className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+																								title="Edit"
+																							>
+																								<PencilIcon className="h-4 w-4" />
+																							</button>
+																							<button
+																								onClick={() => handleDeleteMaterial(material)}
+																								className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+																								title="Hapus"
+																							>
+																								<TrashIcon className="h-4 w-4" />
+																							</button>
+																						</div>
+																					</td>
+																				</tr>
+																				{/* Show form right below the material being edited */}
+																				{editingMaterial?.id === material.id && showMaterialForm === category.id && (
+																					<tr>
+																						<td colSpan={2 + totalOptionCols + 1} className="p-0">
+																							{renderMaterialForm()}
+																						</td>
+																					</tr>
+																				)}
+																			</React.Fragment>
+																		))}
+																	</tbody>
+																</table>
+															</div>
+														</div>
+													);
+												})()}
+											</>
 										)}
 
 										{/* Add Material Button - only show when not editing */}

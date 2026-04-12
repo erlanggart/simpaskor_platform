@@ -82,6 +82,10 @@ model UserSession {
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  deviceName String? @map("device_name")
+  lastActive DateTime @default(now()) @map("last_active")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -845,6 +849,7 @@ model RegistrationPayment {
   userId            String                    @map("user_id")
   amount            Float
   status            RegistrationPaymentStatus @default(PENDING)
+  paymentMethod     String?                   @map("payment_method") // MIDTRANS or MANUAL
   midtransOrderId   String?                   @unique @map("midtrans_order_id")
   snapToken         String?                   @map("snap_token")
   paymentType       String?                   @map("payment_type")

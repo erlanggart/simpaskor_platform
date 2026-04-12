@@ -11,6 +11,26 @@ import { authenticate, AuthenticatedRequest } from "../middleware/auth";
 
 const router = Router();
 
+// Parse user agent to friendly device name
+function parseDeviceName(ua: string): string {
+	let browser = "Unknown Browser";
+	let os = "Unknown OS";
+
+	if (ua.includes("Firefox")) browser = "Firefox";
+	else if (ua.includes("Edg/")) browser = "Edge";
+	else if (ua.includes("Chrome")) browser = "Chrome";
+	else if (ua.includes("Safari")) browser = "Safari";
+	else if (ua.includes("Opera") || ua.includes("OPR")) browser = "Opera";
+
+	if (ua.includes("Windows")) os = "Windows";
+	else if (ua.includes("Mac OS")) os = "macOS";
+	else if (ua.includes("Linux")) os = "Linux";
+	else if (ua.includes("Android")) os = "Android";
+	else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+
+	return `${browser} on ${os}`;
+}
+
 // Validation schemas
 const registerSchema = z.object({
 	email: z.string().email("Invalid email format"),
@@ -211,6 +231,25 @@ router.post(
 				email: user.email,
 				role: user.role,
 				name: user.name,
+			});
+
+			// Store session with device info
+			const userAgentStr = req.headers["user-agent"] || "Unknown";
+			const ipAddress = req.ip || req.socket.remoteAddress || "Unknown";
+			const deviceName = parseDeviceName(userAgentStr);
+
+			const expiresAt = new Date();
+			expiresAt.setDate(expiresAt.getDate() + 7);
+
+			await prisma.userSession.create({
+				data: {
+					userId: user.id,
+					token,
+					ipAddress,
+					userAgent: userAgentStr,
+					deviceName,
+					expiresAt,
+				},
 			});
 
 			res.json({

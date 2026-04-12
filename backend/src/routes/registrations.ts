@@ -29,6 +29,7 @@ const registrationSchema = z.object({
 	schoolName: z.string().min(1, "School name is required"),
 	supportingDoc: z.string().optional(), // URL to supporting document
 	groups: z.array(groupSchema).min(1, "At least one group is required"),
+	paymentMethod: z.enum(["MIDTRANS", "MANUAL"]).optional(), // Payment method choice
 });
 
 // GET /api/registrations/event/:eventId - Get all registrations for an event (for panitia/admin)
@@ -83,6 +84,16 @@ router.get(
 						},
 					},
 					schoolCategory: true,
+					registrationPayment: {
+						select: {
+							id: true,
+							amount: true,
+							status: true,
+							paymentMethod: true,
+							paymentType: true,
+							paidAt: true,
+						},
+					},
 					groups: {
 						include: {
 							schoolCategory: true,
@@ -124,6 +135,16 @@ router.get("/my", authenticate, async (req: AuthenticatedRequest, res) => {
 					},
 				},
 				schoolCategory: true,
+				registrationPayment: {
+					select: {
+						id: true,
+						amount: true,
+						status: true,
+						paymentMethod: true,
+						paymentType: true,
+						paidAt: true,
+					},
+				},
 				groups: {
 					// Include all groups (active and cancelled) so users can see their history
 					orderBy: {
@@ -278,9 +299,12 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			}
 		}
 
-		// Determine initial status based on whether event has fee
+		// Determine initial status based on whether event has fee and payment method
 		const hasFee = event.registrationFee && Number(event.registrationFee) > 0;
-		const initialStatus = hasFee ? "PENDING_PAYMENT" : "REGISTERED";
+		const chosenPaymentMethod = validatedData.paymentMethod || "MIDTRANS";
+		// MANUAL payment goes straight to REGISTERED (waiting panitia confirmation)
+		// MIDTRANS payment goes to PENDING_PAYMENT (waiting online payment)
+		const initialStatus = hasFee ? (chosenPaymentMethod === "MANUAL" ? "REGISTERED" : "PENDING_PAYMENT") : "REGISTERED";
 
 		let registration;
 
@@ -361,10 +385,35 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			});
 		}
 
+		// For manual payment, create a RegistrationPayment record with PENDING status
+		if (hasFee && chosenPaymentMethod === "MANUAL") {
+			await prisma.registrationPayment.upsert({
+				where: { participationId: registration.id },
+				update: {
+					amount: Number(event.registrationFee),
+					status: "PENDING",
+					paymentMethod: "MANUAL",
+				},
+				create: {
+					participationId: registration.id,
+					eventId: event.id,
+					userId,
+					amount: Number(event.registrationFee),
+					status: "PENDING",
+					paymentMethod: "MANUAL",
+				},
+			});
+		}
+
 		res.status(201).json({
-			message: hasFee ? "Registration saved. Please complete payment." : "Registration successful",
+			message: hasFee
+				? chosenPaymentMethod === "MANUAL"
+					? "Registration saved. Please pay directly to the organizer."
+					: "Registration saved. Please complete payment."
+				: "Registration successful",
 			registration,
-			paymentRequired: hasFee,
+			paymentRequired: hasFee && chosenPaymentMethod !== "MANUAL",
+			paymentMethod: chosenPaymentMethod,
 		});
 	} catch (error) {
 		if (error instanceof z.ZodError) {
@@ -498,6 +547,7 @@ router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => 
 				midtransOrderId,
 				amount: Number(eventFee),
 				status: "PENDING",
+				paymentMethod: "MIDTRANS",
 			},
 			create: {
 				participationId: registration.id,
@@ -506,6 +556,7 @@ router.post("/:id/pay", authenticate, async (req: AuthenticatedRequest, res) => 
 				amount: Number(eventFee),
 				status: "PENDING",
 				midtransOrderId,
+				paymentMethod: "MIDTRANS",
 			},
 		});
 
@@ -1040,9 +1091,19 @@ router.patch(
 					const payment = await prisma.registrationPayment.findUnique({
 						where: { participationId: registration.id },
 					});
-					if (!payment || payment.status !== "PAID") {
+					if (!payment || (payment.status !== "PAID" && payment.paymentMethod !== "MANUAL")) {
 						return res.status(400).json({
 							error: "Registrasi belum dibayar via Midtrans. Tidak bisa dikonfirmasi sebelum pembayaran diterima.",
+						});
+					}
+					// If manual payment is still PENDING, mark it as PAID when confirming
+					if (payment.paymentMethod === "MANUAL" && payment.status !== "PAID") {
+						await prisma.registrationPayment.update({
+							where: { id: payment.id },
+							data: {
+								status: "PAID",
+								paidAt: new Date(),
+							},
 						});
 					}
 				}

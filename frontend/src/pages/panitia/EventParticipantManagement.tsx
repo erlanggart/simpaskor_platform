@@ -65,6 +65,14 @@ interface Registration {
 	user: User;
 	schoolCategory: SchoolCategory | null;
 	groups: ParticipationGroup[];
+	registrationPayment: {
+		id: string;
+		amount: number;
+		status: string;
+		paymentMethod: string | null;
+		paymentType: string | null;
+		paidAt: string | null;
+	} | null;
 }
 
 interface PersonMember {
@@ -78,6 +86,9 @@ interface Event {
 	id: string;
 	title: string;
 	slug: string;
+	contactPhone: string | null;
+	contactPersonName: string | null;
+	registrationFee: number | null;
 }
 
 // Helper to get image URL
@@ -114,7 +125,7 @@ const EventParticipantManagement: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
-	const [statusFilter, setStatusFilter] = useState<string>("CONFIRMED");
+	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -176,11 +187,17 @@ const EventParticipantManagement: React.FC = () => {
 	};
 
 	const handleUpdateStatus = async (registrationId: string, newStatus: string) => {
+		const registration = registrations.find(r => r.id === registrationId);
+		const isManualPayment = registration?.registrationPayment?.paymentMethod === "MANUAL";
 		const statusLabel = newStatus === "CONFIRMED" ? "konfirmasi" : newStatus === "CANCELLED" ? "batalkan" : "ubah status";
+
+		const confirmText = newStatus === "CONFIRMED" && isManualPayment
+			? "Yakin ingin konfirmasi pendaftaran dan pembayaran manual ini?"
+			: `Yakin ingin ${statusLabel} pendaftaran ini?`;
 
 		const result = await Swal.fire({
 			title: `${newStatus === "CONFIRMED" ? "Konfirmasi" : "Batalkan"} Pendaftaran?`,
-			text: `Yakin ingin ${statusLabel} pendaftaran ini?`,
+			text: confirmText,
 			icon: newStatus === "CONFIRMED" ? "question" : "warning",
 			showCancelButton: true,
 			confirmButtonColor: newStatus === "CONFIRMED" ? "#10B981" : "#EF4444",
@@ -266,6 +283,12 @@ const EventParticipantManagement: React.FC = () => {
 
 	const getStatusBadge = (status: string) => {
 		const statusConfig = {
+			PENDING_PAYMENT: {
+				bg: "bg-orange-100 dark:bg-orange-900/30",
+				text: "text-orange-800 dark:text-orange-200",
+				icon: <ClockIconSolid className="h-4 w-4" />,
+				label: "Menunggu Pembayaran",
+			},
 			REGISTERED: {
 				bg: "bg-yellow-100 dark:bg-yellow-900/30",
 				text: "text-yellow-800 dark:text-yellow-200",
@@ -310,7 +333,12 @@ const EventParticipantManagement: React.FC = () => {
 	// Filter registrations
 	const filteredRegistrations = registrations.filter((reg) => {
 		// Status filter
-		if (statusFilter !== "all" && reg.status !== statusFilter) return false;
+		if (statusFilter === "REGISTERED") {
+			// "Menunggu" tab shows both REGISTERED and PENDING_PAYMENT
+			if (reg.status !== "REGISTERED" && reg.status !== "PENDING_PAYMENT") return false;
+		} else if (statusFilter !== "all" && reg.status !== statusFilter) {
+			return false;
+		}
 
 		// Search filter
 		if (searchQuery) {
@@ -327,7 +355,7 @@ const EventParticipantManagement: React.FC = () => {
 	// Count by status
 	const statusCounts = {
 		all: registrations.length,
-		REGISTERED: registrations.filter((r) => r.status === "REGISTERED").length,
+		REGISTERED: registrations.filter((r) => r.status === "REGISTERED" || r.status === "PENDING_PAYMENT").length,
 		CONFIRMED: registrations.filter((r) => r.status === "CONFIRMED").length,
 		CANCELLED: registrations.filter((r) => r.status === "CANCELLED").length,
 	};
@@ -449,11 +477,21 @@ const EventParticipantManagement: React.FC = () => {
 									<div className="p-6">
 										<div className="flex items-start justify-between">
 											<div className="flex-1">
-												<div className="flex items-center gap-3 mb-2">
+												<div className="flex items-center gap-3 mb-2 flex-wrap">
 													<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 														{registration.user.name}
 													</h3>
 													{getStatusBadge(registration.status)}
+													{registration.registrationPayment && (
+														<span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+															registration.registrationPayment.paymentMethod === "MANUAL"
+																? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+																: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+														}`}>
+															{registration.registrationPayment.paymentMethod === "MANUAL" ? "Manual" : "Midtrans"}
+															{registration.registrationPayment.status === "PAID" && " ✓"}
+														</span>
+													)}
 												</div>
 												<div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
 													<p>{registration.user.email}</p>
@@ -484,7 +522,7 @@ const EventParticipantManagement: React.FC = () => {
 
 											{/* Action Buttons */}
 											<div className="flex flex-col gap-2">
-												{registration.status === "REGISTERED" && (
+												{(registration.status === "REGISTERED" || registration.status === "PENDING_PAYMENT") && (
 													<>
 														<button
 															onClick={() => handleUpdateStatus(registration.id, "CONFIRMED")}
@@ -494,6 +532,7 @@ const EventParticipantManagement: React.FC = () => {
 															<CheckCircleIcon className="h-4 w-4" />
 															Konfirmasi
 														</button>
+
 														<button
 															onClick={() => handleUpdateStatus(registration.id, "CANCELLED")}
 															disabled={isProcessing}

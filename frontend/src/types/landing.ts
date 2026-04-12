@@ -44,6 +44,9 @@ export interface Event {
 	currentParticipants: number;
 	registrationFee: number | null;
 	organizer: string | null;
+	contactPhone: string | null;
+	contactPersonName: string | null;
+	contactEmail: string | null;
 	status: string;
 	featured: boolean;
 	isPinned?: boolean;
@@ -74,6 +77,15 @@ export interface ParticipationGroup {
 	updatedAt: string;
 }
 
+export interface RegistrationPaymentInfo {
+	id: string;
+	amount: number;
+	status: string;
+	paymentMethod: string | null;
+	paymentType: string | null;
+	paidAt: string | null;
+}
+
 export interface EventRegistration {
 	id: string;
 	eventId: string;
@@ -90,4 +102,5 @@ export interface EventRegistration {
 	event?: Event;
 	schoolCategory?: SchoolCategory;
 	groups: ParticipationGroup[];
+	registrationPayment?: RegistrationPaymentInfo | null;
 }
