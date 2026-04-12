@@ -13,7 +13,6 @@ import {
 	LuLoader,
 	LuTriangleAlert,
 	LuCircleX,
-	LuInfo,
 	LuSchool,
 } from "react-icons/lu";
 import Swal from "sweetalert2";

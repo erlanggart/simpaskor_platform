@@ -792,7 +792,7 @@ const EventTicketing: React.FC = () => {
 										</button>
 									)}
 									<button
-										onClick={scanning ? stopScanner : startScanner}
+										onClick={scanning ? stopScanner : () => startScanner()}
 										className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
 											scanning
 												? "bg-red-600 hover:bg-red-700 text-white"

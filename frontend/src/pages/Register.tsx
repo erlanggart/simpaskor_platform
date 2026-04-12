@@ -6,7 +6,6 @@ import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
-import { LuTrophy, LuGavel, LuGraduationCap } from "react-icons/lu";
 import api from "../utils/api";
 
 // Declare google global type

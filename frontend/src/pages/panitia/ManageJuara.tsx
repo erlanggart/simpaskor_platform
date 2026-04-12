@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
-  ArrowLeftIcon,
   TrophyIcon,
   PlusIcon,
   TrashIcon,
@@ -64,7 +63,6 @@ const ManageJuara: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
-  const basePath = isAdminRoute ? "/admin" : "/panitia";
   const storageKey = isAdminRoute
     ? "admin_active_event"
     : "panitia_active_event";

@@ -6,10 +6,8 @@ import {
 	LuUser,
 	LuLock,
 	LuCamera,
-	LuArrowLeft,
 	LuLogOut,
 } from "react-icons/lu";
-import { useNavigate } from "react-router-dom";
 
 interface ProfileFormData {
 	name: string;
@@ -32,7 +30,6 @@ interface PasswordFormData {
 
 const ProfilePage: React.FC = () => {
 	const { user, updateUser, logout } = useAuth();
-	const navigate = useNavigate();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [activeTab, setActiveTab] = useState<"profile" | "password" | "avatar">(

@@ -16,7 +16,7 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 	errors,
 	onNext,
 	isLoading,
-	isEditMode,
+	isEditMode: _isEditMode,
 }) => {
 	// Filter cities based on selected province
 	const filteredCities = useMemo(() => {

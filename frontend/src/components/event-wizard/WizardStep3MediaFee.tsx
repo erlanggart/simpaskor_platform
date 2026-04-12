@@ -5,7 +5,6 @@ import {
 	CurrencyDollarIcon,
 	PhoneIcon,
 	BuildingOfficeIcon,
-	PlayCircleIcon,
 	XMarkIcon,
 	UserIcon,
 } from "@heroicons/react/24/outline";
@@ -30,7 +29,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 	onNext,
 	isLoading,
 	isSubmitting,
-	isEditMode,
+	isEditMode: _isEditMode,
 }) => {
 	const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(
 		getImageUrl(data.thumbnail)

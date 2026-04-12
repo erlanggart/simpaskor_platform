@@ -7,7 +7,7 @@ import {
 import { api } from "../../utils/api";
 import { Logo } from "../../components/Logo";
 import { ThemeToggle } from "../../components/ThemeToggle";
-import { showSuccess, showError, showConfirm } from "../../utils/sweetalert";
+import { showError, showConfirm } from "../../utils/sweetalert";
 import {
 	WizardStep1BasicInfo,
 	WizardStep2Categories,
