@@ -4,7 +4,7 @@ import {
 	UsersIcon,
 	MagnifyingGlassIcon,
 	ChartBarIcon,
-	TicketIcon,
+
 	EnvelopeIcon,
 	PhoneIcon,
 	CheckCircleIcon,
@@ -43,14 +43,7 @@ interface User {
 	};
 }
 
-interface Coupon {
-	id: string;
-	code: string;
-	description: string | null;
-	isUsed: boolean;
-	assignedToEmail: string | null;
-	expiresAt: string | null;
-}
+
 
 interface UserStatsSummary {
 	total: number;
@@ -84,7 +77,6 @@ const UserManagement: React.FC = () => {
 	const navigate = useNavigate();
 	const [users, setUsers] = useState<User[]>([]);
 	const [userStats, setUserStats] = useState<UserStatsSummary | null>(null);
-	const [coupons, setCoupons] = useState<Coupon[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [hasLoadedUsers, setHasLoadedUsers] = useState(false);
 	const [statsLoading, setStatsLoading] = useState(true);
@@ -92,10 +84,6 @@ const UserManagement: React.FC = () => {
 	const [selectedRole, setSelectedRole] = useState<string>("ALL");
 	const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 	const [selectedVerification, setSelectedVerification] = useState<string>("ALL");
-	const [selectedUser, setSelectedUser] = useState<User | null>(null);
-	const [showAssignCouponModal, setShowAssignCouponModal] = useState(false);
-	const [selectedCouponId, setSelectedCouponId] = useState("");
-	const [assignLoading, setAssignLoading] = useState(false);
 
 	// Add User Modal states
 	const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -128,7 +116,6 @@ const UserManagement: React.FC = () => {
 	const onlinePerPage = 20;
 
 	useEffect(() => {
-		fetchAvailableCoupons();
 		fetchUserStats();
 	}, []);
 
@@ -221,28 +208,6 @@ const UserManagement: React.FC = () => {
 		}
 	};
 
-	const fetchAvailableCoupons = async () => {
-		try {
-			const response = await api.get("/coupons?status=unused");
-			const availableCoupons = response.data.data.filter(
-				(c: Coupon) => !c.isUsed && !c.assignedToEmail
-			);
-			setCoupons(availableCoupons);
-		} catch (error) {
-			console.error("Error fetching coupons:", error);
-		}
-	};
-
-	const handleAssignCoupon = (user: User) => {
-		if (user.role !== "PANITIA") {
-			showWarning("Kupon hanya bisa di-assign ke akun Panitia");
-			return;
-		}
-		setSelectedUser(user);
-		setSelectedCouponId("");
-		setShowAssignCouponModal(true);
-	};
-
 	const handleVerifyUser = async (user: User) => {
 		try {
 			await api.patch(`/users/${user.id}/verify`);
@@ -328,25 +293,7 @@ const UserManagement: React.FC = () => {
 		}
 	};
 
-	const confirmAssignCoupon = async () => {
-		if (!selectedCouponId || !selectedUser) {
-			showWarning("Pilih kupon terlebih dahulu");
-			return;
-		}
-		setAssignLoading(true);
-		try {
-			await api.patch(`/coupons/${selectedCouponId}`, {
-				assignedToEmail: selectedUser.email,
-			});
-			showSuccess(`Kupon berhasil di-assign ke ${selectedUser.name}`);
-			setShowAssignCouponModal(false);
-			fetchAvailableCoupons();
-		} catch (error: any) {
-			showError(error.response?.data?.message || "Gagal assign kupon");
-		} finally {
-			setAssignLoading(false);
-		}
-	};
+
 
 	const startIndex = filteredTotalUsers === 0 ? 0 : (currentPage - 1) * itemsPerPage;
 	const endIndex = Math.min(startIndex + users.length, filteredTotalUsers);
@@ -552,7 +499,7 @@ const UserManagement: React.FC = () => {
 			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 				<div>
 					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manajemen User</h1>
-					<p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">Kelola user dan assign kupon untuk panitia</p>
+					<p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">Kelola semua akun pengguna platform</p>
 				</div>
 				<div className="flex items-center gap-3 flex-wrap">
 					<button
@@ -774,14 +721,7 @@ const UserManagement: React.FC = () => {
 														)}
 													</button>
 												)}
-												{user.role === "PANITIA" && (
-													<button
-														onClick={() => handleAssignCoupon(user)}
-														className="flex items-center gap-1 px-3 py-1.5 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors text-xs font-medium"
-													>
-														<TicketIcon className="w-4 h-4" />Assign Kupon
-													</button>
-												)}
+
 												{user.role !== "SUPERADMIN" && (
 													<button
 														onClick={() => handleDeleteUser(user)}
@@ -929,81 +869,7 @@ const UserManagement: React.FC = () => {
 				</div>
 			</aside>
 
-			{/* ── Assign Coupon Modal ── */}
-			{showAssignCouponModal && selectedUser && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4">
-					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-xl max-w-md w-full p-6">
-						<div className="flex items-center gap-3 mb-4">
-							<TicketIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
-							<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Assign Kupon</h3>
-						</div>
-						<div className="mb-4">
-							<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Assign kupon untuk:</p>
-							<div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-								<p className="font-medium text-gray-900 dark:text-white">{selectedUser.name}</p>
-								<p className="text-sm text-gray-600 dark:text-gray-400">{selectedUser.email}</p>
-							</div>
-						</div>
-						<div className="mb-6">
-							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-								Pilih Kupon <span className="text-red-500">*</span>
-							</label>
-							{coupons.length === 0 ? (
-								<div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 text-center">
-									<p className="text-sm text-yellow-800 dark:text-yellow-300">Tidak ada kupon yang tersedia.</p>
-								</div>
-							) : (
-								<div className="space-y-2 max-h-64 overflow-y-auto">
-									{coupons.map((coupon) => (
-										<label
-											key={coupon.id}
-											className={`flex items-start p-3 border-2 rounded-lg cursor-pointer transition-all ${
-												selectedCouponId === coupon.id
-													? "border-red-600 dark:border-red-500 bg-red-50 dark:bg-red-900/30"
-													: "border-gray-200 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-700"
-											}`}
-										>
-											<input
-												type="radio"
-												name="coupon"
-												value={coupon.id}
-												checked={selectedCouponId === coupon.id}
-												onChange={(e) => setSelectedCouponId(e.target.value)}
-												className="mt-1"
-											/>
-											<div className="ml-3 flex-1">
-												<p className="font-mono font-bold text-gray-900 dark:text-white">{coupon.code}</p>
-												{coupon.description && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{coupon.description}</p>}
-												{coupon.expiresAt && (
-													<p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-														Berlaku hingga: {new Date(coupon.expiresAt).toLocaleDateString("id-ID")}
-													</p>
-												)}
-											</div>
-										</label>
-									))}
-								</div>
-							)}
-						</div>
-						<div className="flex gap-3">
-							<button
-								onClick={() => setShowAssignCouponModal(false)}
-								className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-								disabled={assignLoading}
-							>
-								Batal
-							</button>
-							<button
-								onClick={confirmAssignCoupon}
-								disabled={!selectedCouponId || assignLoading || coupons.length === 0}
-								className="flex-1 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-							>
-								{assignLoading ? "Menyimpan..." : "Assign Kupon"}
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+
 
 			{/* ── Add User Modal ── */}
 			{showAddUserModal && (

@@ -1,8 +1,8 @@
 # Backend Dockerfile for Development
 FROM node:24-alpine
 
-# Install dependencies for Prisma
-RUN apk add --no-cache openssl
+# Install dependencies for Prisma + PostgreSQL client tools (pg_dump, psql) for backup/restore
+RUN apk add --no-cache openssl postgresql-client
 
 WORKDIR /app
 

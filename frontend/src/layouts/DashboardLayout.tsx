@@ -163,7 +163,7 @@ export const DashboardLayout: React.FC = () => {
 			case "SUPERADMIN":
 				roleSpecificItems.push(
 					{ name: "Pengguna", icon: LuUsers, path: "/admin/users" },
-					{ name: "Kupon", icon: LuTicket, path: "/admin/coupons" },
+
 					{ name: "Penilaian", icon: LuScale, path: "/admin/assessment-categories" },
 					{ name: "Event", icon: LuCalendar, path: "/admin/events" },
 					{ name: "Produk", icon: LuShoppingBag, path: "/admin/products" },

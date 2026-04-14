@@ -11,6 +11,7 @@
 		"migrate": "npx prisma migrate dev",
 		"generate": "npx prisma generate",
 		"seed": "ts-node prisma/seed.ts",
+		"seed:guides": "ts-node prisma/seed-guides.ts",
 		"seed:juri": "ts-node prisma/seed-juri.ts",
 		"seed:import": "ts-node prisma/seed-import.ts"
 	},

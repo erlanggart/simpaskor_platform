@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedGuides } from './seed-guides';
 
 const prisma = new PrismaClient();
 
@@ -661,6 +662,12 @@ async function main() {
     });
   }
   console.log('✅ Set school category limits for event');
+
+  // ============================================================================
+  // STEP 6: Ensure Default Guides
+  // ============================================================================
+  console.log('\n📚 Ensuring default guides...');
+  await seedGuides(prisma);
 
   // ============================================================================
   // SUMMARY

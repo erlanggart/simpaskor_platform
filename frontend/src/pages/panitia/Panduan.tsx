@@ -121,89 +121,44 @@ const Panduan: React.FC = () => {
 				<div className="flex-1 flex flex-col lg:flex-row w-full min-h-0">
 					{slide ? (
 						<>
-							{/* LEFT: Screenshot (2/3) */}
-							<div className="lg:w-2/3 flex-shrink-0 flex items-center justify-center bg-gray-50/50 dark:bg-black/20 p-4 md:p-6 lg:p-8 min-h-[40vh] lg:min-h-0">
-								{slide.imageUrl ? (
-									<div
-										className="relative cursor-pointer group w-full flex items-center justify-center"
-										onClick={() => setImageModal(slide.imageUrl)}
-									>
-										<img
-											src={slide.imageUrl}
-											alt={slide.title}
-											className="max-w-full max-h-[40vh] lg:max-h-full object-contain rounded-xl shadow-lg shadow-black/10 dark:shadow-black/30"
-										/>
-										<div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-											<span className="text-[10px] font-bold text-white bg-black/50 px-3 py-1.5 rounded-lg">
-												Klik untuk memperbesar
-											</span>
-										</div>
-									</div>
-								) : (
-									<div className="w-full h-64 lg:h-96 rounded-xl bg-gray-100 dark:bg-white/[0.03] border border-dashed border-gray-300 dark:border-white/10 flex items-center justify-center">
-										<div className="text-center">
-											<LuImage className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-											<p className="text-xs text-gray-400 dark:text-gray-600">Screenshot belum tersedia</p>
-										</div>
-									</div>
-								)}
-							</div>
-
-							{/* RIGHT: Description + Navigation (1/3) */}
-							<div className="lg:w-1/3 flex flex-col lg:border-l border-gray-200/50 dark:border-white/[0.06] min-h-0">
-								{/* Title + Description (3/5 height, scrollable) */}
-								<div className="h-3/5 overflow-y-auto p-5 md:p-6 border-b border-gray-200/30 dark:border-white/[0.04]">
-									{/* Step badge */}
-									<div className="flex items-center gap-2 mb-3">
-										<div className="w-7 h-7 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
-											{activeSlideIdx + 1}
-										</div>
-										<span className="text-[10px] tracking-[0.2em] text-gray-400 dark:text-gray-500 font-medium uppercase">
-											Step {activeSlideIdx + 1} dari {total}
-										</span>
-									</div>
-
-									{/* Title */}
-									<h3 className="text-base md:text-lg font-black text-gray-900 dark:text-white mb-2 leading-tight">
-										{slide.title}
-									</h3>
-
-									{/* Description */}
-									<p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
-										{slide.description}
+							<div className="lg:w-56 xl:w-60 flex flex-col bg-white/50 dark:bg-white/[0.02] border-b lg:border-b-0 lg:border-r border-gray-200/50 dark:border-white/[0.06] min-h-0">
+								<div className="flex-shrink-0 px-4 md:px-5 py-4 border-b border-gray-200/30 dark:border-white/[0.04]">
+									<p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.24em]">
+										Daftar Langkah
+									</p>
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+										{total} langkah navigasi
 									</p>
 								</div>
 
-								{/* Navigation step list (2/5 height, scrollable) */}
-								<div className="h-2/5 overflow-y-auto p-4 md:p-5">
-									<p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-										Daftar Langkah
-									</p>
-									<div className="space-y-1">
+								<div className="flex-1 overflow-y-auto p-2.5 md:p-3">
+									<div className="space-y-1.5">
 										{activeGuide.slides.map((s, sIdx) => (
 											<button
 												key={s.id}
 												onClick={() => setActiveSlideIdx(sIdx)}
-												className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] transition-all ${
+												title={s.title}
+												className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
 													sIdx === activeSlideIdx
-														? "bg-red-500 text-white shadow-md shadow-red-500/20 font-bold"
-														: "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.05] font-medium"
+														? "bg-red-500 text-white shadow-md shadow-red-500/20"
+														: "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.05]"
 												}`}
 											>
-												<span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+												<span className={`w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 ${
 													sIdx === activeSlideIdx
 														? "bg-white/20 text-white"
 														: "bg-gray-200/80 dark:bg-white/[0.08] text-gray-500 dark:text-gray-500"
 												}`}>
 													{sIdx + 1}
 												</span>
-												<span className="truncate">{s.title}</span>
+												<span className="min-w-0 truncate text-[12px] font-semibold">
+													{s.title}
+												</span>
 											</button>
 										))}
 									</div>
 								</div>
 
-								{/* Prev / Next buttons */}
 								<div className="flex-shrink-0 border-t border-gray-200/30 dark:border-white/[0.04] p-3 flex items-center gap-2">
 									<button
 										disabled={activeSlideIdx === 0}
@@ -221,6 +176,56 @@ const Panduan: React.FC = () => {
 										Next
 										<LuChevronRight className="w-3.5 h-3.5" />
 									</button>
+								</div>
+							</div>
+
+							<div className="flex-1 flex flex-col lg:flex-row min-h-0">
+								<div className="lg:w-2/3 flex-shrink-0 flex items-center justify-center bg-gray-50/50 dark:bg-black/20 p-4 md:p-6 lg:p-8 min-h-[40vh] lg:min-h-0">
+									{slide.imageUrl ? (
+										<div
+											className="relative cursor-pointer group w-full flex items-center justify-center"
+											onClick={() => setImageModal(slide.imageUrl)}
+										>
+											<img
+												src={slide.imageUrl}
+												alt={slide.title}
+												className="max-w-full max-h-[40vh] lg:max-h-full object-contain rounded-xl shadow-lg shadow-black/10 dark:shadow-black/30"
+											/>
+											<div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+												<span className="text-[10px] font-bold text-white bg-black/50 px-3 py-1.5 rounded-lg">
+													Klik untuk memperbesar
+												</span>
+											</div>
+										</div>
+									) : (
+										<div className="w-full h-64 lg:h-96 rounded-xl bg-gray-100 dark:bg-white/[0.03] border border-dashed border-gray-300 dark:border-white/10 flex items-center justify-center">
+											<div className="text-center">
+												<LuImage className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+												<p className="text-xs text-gray-400 dark:text-gray-600">Screenshot belum tersedia</p>
+											</div>
+										</div>
+									)}
+								</div>
+
+								<div className="lg:w-1/3 flex flex-col lg:border-l border-t lg:border-t-0 border-gray-200/50 dark:border-white/[0.06] min-h-0">
+									<div className="flex-1 overflow-y-auto p-5 md:p-6">
+										<div className="flex items-center gap-2 mb-3">
+											<div className="w-7 h-7 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+												{activeSlideIdx + 1}
+											</div>
+											<span className="text-[10px] tracking-[0.2em] text-gray-400 dark:text-gray-500 font-medium uppercase">
+												Step {activeSlideIdx + 1} dari {total}
+											</span>
+										</div>
+
+										<h3 className="text-base md:text-lg font-black text-gray-900 dark:text-white mb-2 leading-tight">
+											{slide.title}
+										</h3>
+
+										<p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
+											{slide.description}
+										</p>
+									</div>
 								</div>
 							</div>
 						</>
