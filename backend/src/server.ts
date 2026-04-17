@@ -136,7 +136,12 @@ app.use("/api/coupons", couponRoutes);
 app.use("/api/assessment-categories", assessmentCategoryRoutes);
 app.use("/api/school-categories", schoolCategoryRoutes);
 app.use("/api/registrations", registrationRoutes);
-app.use("/api/upload", uploadRoutes);
+// Increase timeout for file upload routes to 120 seconds
+app.use("/api/upload", (req, res, next) => {
+	req.setTimeout(120000);
+	res.setTimeout(120000);
+	next();
+}, uploadRoutes);
 app.use("/api/juries", juryRoutes);
 app.use("/api/evaluations", evaluationRoutes);
 app.use("/api/materials", materialRoutes);
