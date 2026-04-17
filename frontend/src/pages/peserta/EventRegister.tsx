@@ -122,6 +122,7 @@ const EventRegister: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; label: string } | null>(null);
 
 	// Form state
 	const [schoolName, setSchoolName] = useState<string>("");
@@ -433,90 +434,129 @@ const EventRegister: React.FC = () => {
 		if (!validateForm()) return;
 
 		setSubmitting(true);
+		setUploadProgress(null);
 
 		try {
+			// Count total photos to upload for progress tracking
+			let totalPhotos = supportingDoc ? 1 : 0;
+			for (const team of teams) {
+				totalPhotos += team.pasukan.filter(m => m.photo).length;
+				if (team.danton.photo) totalPhotos++;
+				totalPhotos += team.cadangan.filter(m => m.photo).length;
+				totalPhotos += team.official.filter(m => m.photo).length;
+				totalPhotos += team.pelatih.filter(m => m.photo).length;
+			}
+			let uploadedCount = 0;
+
+			// Upload a single file with retry logic
+			const uploadSingleFile = async (photo: File, label: string, maxRetries = 2): Promise<string> => {
+				let lastError: any;
+				for (let attempt = 0; attempt <= maxRetries; attempt++) {
+					try {
+						const formData = new FormData();
+						formData.append("file", photo);
+						formData.append("type", "member");
+						const uploadResponse = await api.post("/upload/document", formData, {
+							headers: { "Content-Type": "multipart/form-data" },
+							timeout: 60000, // 60 seconds per file
+						});
+						uploadedCount++;
+						setUploadProgress({ current: uploadedCount, total: totalPhotos, label });
+						return uploadResponse.data.url;
+					} catch (err: any) {
+						lastError = err;
+						if (attempt < maxRetries) {
+							// Wait before retry (1s, 2s)
+							await new Promise(r => setTimeout(r, (attempt + 1) * 1000));
+						}
+					}
+				}
+				// All retries failed - throw with descriptive message
+				const isTimeout = lastError.code === 'ECONNABORTED' || lastError.message?.includes('timeout');
+				const isServerError = lastError.response?.status >= 500;
+				const isTooLarge = lastError.response?.status === 413;
+				if (isTooLarge) throw new Error(`File "${label}" terlalu besar. Maksimal 5MB per file.`);
+				if (isTimeout) throw new Error(`Upload "${label}" timeout setelah ${maxRetries + 1}x percobaan. Coba kurangi ukuran foto atau periksa koneksi.`);
+				if (isServerError) throw new Error(`Server error saat upload "${label}". Silakan coba lagi nanti.`);
+				throw new Error(lastError.response?.data?.error || `Gagal upload "${label}": ${lastError.message}`);
+			};
+
+			// Upload member photo (returns null if no photo)
+			const uploadMemberPhoto = async (photo: File | null, label: string): Promise<string | null> => {
+				if (!photo) return null;
+				return uploadSingleFile(photo, label);
+			};
+
 			// First upload supporting document if provided
 			let supportingDocUrl: string | undefined;
 			if (supportingDoc) {
-				const formData = new FormData();
-				formData.append("file", supportingDoc);
-				formData.append("type", "registration");
-
-				const uploadResponse = await api.post("/upload/document", formData, {
-					headers: { "Content-Type": "multipart/form-data" },
-				});
-				supportingDocUrl = uploadResponse.data.url;
+				setUploadProgress({ current: 0, total: totalPhotos, label: "Dokumen pendukung" });
+				supportingDocUrl = await uploadSingleFile(supportingDoc, "Dokumen pendukung");
 			}
 
-			// Upload member photos and collect URLs
-			const uploadMemberPhoto = async (photo: File | null): Promise<string | null> => {
-				if (!photo) return null;
-				const formData = new FormData();
-				formData.append("file", photo);
-				formData.append("type", "member");
-				const uploadResponse = await api.post("/upload/document", formData, {
-					headers: { "Content-Type": "multipart/form-data" },
-				});
-				return uploadResponse.data.url;
+			// Upload photos sequentially with controlled concurrency (3 at a time)
+			const CONCURRENCY = 3;
+			const uploadBatch = async <T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> => {
+				const results: R[] = [];
+				for (let i = 0; i < items.length; i += CONCURRENCY) {
+					const batch = items.slice(i, i + CONCURRENCY);
+					const batchResults = await Promise.all(batch.map(fn));
+					results.push(...batchResults);
+				}
+				return results;
 			};
 
-			// Prepare registration data with member structure
-			const groupsData = await Promise.all(
-				teams.map(async (team) => {
-					// Upload all member photos
-					const pasukanWithPhotos = await Promise.all(
-						team.pasukan.map(async (m) => ({
-							name: m.name.trim(),
-							photo: await uploadMemberPhoto(m.photo),
-							role: "PASUKAN",
-						}))
-					);
+			// Prepare registration data - process teams sequentially
+			const groupsData = [];
+			for (let ti = 0; ti < teams.length; ti++) {
+				const team = teams[ti]!;
+				const teamLabel = team.groupName || `Tim ${ti + 1}`;
 
-					const dantonPhoto = await uploadMemberPhoto(team.danton.photo);
-					const dantonData = {
-						name: team.danton.name.trim(),
-						photo: dantonPhoto,
-						role: "DANTON",
-					};
+				// Upload pasukan photos in batches
+				const pasukanWithPhotos = await uploadBatch(team.pasukan, async (m) => ({
+					name: m.name.trim(),
+					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Pasukan ${m.name || 'tanpa nama'}`),
+					role: "PASUKAN",
+				}));
 
-					const cadanganWithPhotos = await Promise.all(
-						team.cadangan.map(async (m) => ({
-							name: m.name.trim(),
-							photo: await uploadMemberPhoto(m.photo),
-							role: "CADANGAN",
-						}))
-					);
+				const dantonPhoto = await uploadMemberPhoto(team.danton.photo, `${teamLabel} - Danton ${team.danton.name || ''}`);
+				const dantonData = {
+					name: team.danton.name.trim(),
+					photo: dantonPhoto,
+					role: "DANTON",
+				};
 
-					const officialWithPhotos = await Promise.all(
-						team.official.map(async (m) => ({
-							name: m.name.trim(),
-							photo: await uploadMemberPhoto(m.photo),
-							role: "OFFICIAL",
-						}))
-					);
+				const cadanganWithPhotos = await uploadBatch(team.cadangan, async (m) => ({
+					name: m.name.trim(),
+					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Cadangan ${m.name || 'tanpa nama'}`),
+					role: "CADANGAN",
+				}));
 
-					const pelatihWithPhotos = await Promise.all(
-						team.pelatih.map(async (m) => ({
-							name: m.name.trim(),
-							photo: await uploadMemberPhoto(m.photo),
-							role: "PELATIH",
-						}))
-					);
+				const officialWithPhotos = await uploadBatch(team.official, async (m) => ({
+					name: m.name.trim(),
+					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Official ${m.name || 'tanpa nama'}`),
+					role: "OFFICIAL",
+				}));
 
-					const allMembers = [...pasukanWithPhotos, dantonData, ...cadanganWithPhotos, ...officialWithPhotos, ...pelatihWithPhotos];
-					const memberNames = allMembers.filter(m => m.name).map(m => m.name);
-					const totalMembers = allMembers.length;
+				const pelatihWithPhotos = await uploadBatch(team.pelatih, async (m) => ({
+					name: m.name.trim(),
+					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Pelatih ${m.name || 'tanpa nama'}`),
+					role: "PELATIH",
+				}));
 
-					return {
-						groupName: team.groupName.trim(),
-						schoolCategoryId: team.schoolCategoryId,
-						teamMembers: totalMembers,
-						memberNames: JSON.stringify(memberNames),
-						memberData: JSON.stringify(allMembers),
-						notes: team.notes.trim() || undefined,
-					};
-				})
-			);
+				const allMembers = [...pasukanWithPhotos, dantonData, ...cadanganWithPhotos, ...officialWithPhotos, ...pelatihWithPhotos];
+				const memberNames = allMembers.filter(m => m.name).map(m => m.name);
+				const totalMembers = allMembers.length;
+
+				groupsData.push({
+					groupName: team.groupName.trim(),
+					schoolCategoryId: team.schoolCategoryId,
+					teamMembers: totalMembers,
+					memberNames: JSON.stringify(memberNames),
+					memberData: JSON.stringify(allMembers),
+					notes: team.notes.trim() || undefined,
+				});
+			}
 
 			const registrationData = {
 				eventId: event.id, // Use event.id (UUID) instead of URL param (might be slug)
@@ -654,13 +694,19 @@ const EventRegister: React.FC = () => {
 				navigate("/peserta/registrations");
 			}
 		} catch (err: any) {
+			const errorMessage = err.message || err.response?.data?.error || "Terjadi kesalahan saat mendaftar";
+			const isUploadError = errorMessage.includes('upload') || errorMessage.includes('Upload') || errorMessage.includes('timeout') || errorMessage.includes('terlalu besar');
 			Swal.fire({
 				icon: "error",
-				title: "Pendaftaran Gagal",
-				text: err.response?.data?.error || "Terjadi kesalahan saat mendaftar",
+				title: isUploadError ? "Upload Gagal" : "Pendaftaran Gagal",
+				html: `
+					<p class="mb-2">${errorMessage}</p>
+					${isUploadError ? '<p class="text-sm text-gray-500">Tips: Pastikan ukuran setiap foto di bawah 2MB dan koneksi internet stabil. Coba kompres foto terlebih dahulu.</p>' : ''}
+				`,
 			});
 		} finally {
 			setSubmitting(false);
+			setUploadProgress(null);
 		}
 	};
 
@@ -1432,7 +1478,9 @@ const EventRegister: React.FC = () => {
 									) : submitting ? (
 										<>
 											<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-											Mendaftar...
+											{uploadProgress
+												? `Mengupload ${uploadProgress.current}/${uploadProgress.total}...`
+												: "Mendaftar..."}
 										</>
 									) : (
 										<>
@@ -1441,6 +1489,25 @@ const EventRegister: React.FC = () => {
 										</>
 									)}
 								</button>
+
+								{/* Upload progress bar */}
+								{submitting && uploadProgress && uploadProgress.total > 0 && (
+									<div className="mt-4">
+										<div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+											<span>Upload: {uploadProgress.label}</span>
+											<span>{uploadProgress.current}/{uploadProgress.total} file</span>
+										</div>
+										<div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+											<div
+												className="bg-red-600 h-2.5 rounded-full transition-all duration-300"
+												style={{ width: `${Math.round((uploadProgress.current / uploadProgress.total) * 100)}%` }}
+											></div>
+										</div>
+										<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+											Jangan tutup halaman ini sampai proses upload selesai
+										</p>
+									</div>
+								)}
 
 								<p className="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
 									Dengan mendaftar, Anda menyetujui syarat dan ketentuan event ini

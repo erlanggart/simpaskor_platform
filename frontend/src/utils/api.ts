@@ -90,12 +90,19 @@ api.interceptors.response.use(
 		
 		// Handle Network Error
 		if (!error.response) {
-			Swal.fire({
-				icon: "error",
-				title: "Koneksi Terputus",
-				text: "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.",
-				confirmButtonText: "OK",
-			});
+			// Don't show global popup for upload requests (handled locally)
+			const isUploadRequest = error.config?.url?.includes('/upload/');
+			if (!isUploadRequest) {
+				const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+				Swal.fire({
+					icon: "error",
+					title: isTimeout ? "Request Timeout" : "Koneksi Terputus",
+					text: isTimeout
+						? "Server terlalu lama merespons. Silakan coba lagi."
+						: "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.",
+					confirmButtonText: "OK",
+				});
+			}
 		}
 		
 		return Promise.reject(error);

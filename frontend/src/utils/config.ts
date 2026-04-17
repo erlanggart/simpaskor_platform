@@ -19,6 +19,7 @@ export const config = {
 		baseUrl: import.meta.env.VITE_API_URL || "/api",
 		backendUrl: import.meta.env.VITE_BACKEND_URL || "",
 		timeout: toNumber(import.meta.env.VITE_API_TIMEOUT, 10000),
+		uploadTimeout: toNumber(import.meta.env.VITE_API_UPLOAD_TIMEOUT, 60000), // 60s per file upload
 	},
 
 	// Application Information
