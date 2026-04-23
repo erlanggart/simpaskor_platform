@@ -29,6 +29,7 @@ import registrationPaymentRoutes from "./routes/registrationPayments";
 import guideRoutes from "./routes/guides";
 import eventSubmissionRoutes from "./routes/eventSubmissions";
 import eventPaymentRoutes from "./routes/eventPayments";
+import visitorRoutes from "./routes/visitors";
 import settingsRoutes from "./routes/settings";
 import backupRoutes from "./routes/backup";
 
@@ -157,6 +158,7 @@ app.use("/api/registration-payments", registrationPaymentRoutes);
 app.use("/api/guides", guideRoutes);
 app.use("/api/event-submissions", eventSubmissionRoutes);
 app.use("/api/event-payments", eventPaymentRoutes);
+app.use("/api/visitors", visitorRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/backup", backupRoutes);
 

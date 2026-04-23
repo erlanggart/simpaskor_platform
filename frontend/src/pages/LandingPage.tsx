@@ -9,6 +9,7 @@ import {
 	LuGavel,
 	LuHouse,
 	LuPackage,
+	LuEye,
 } from "react-icons/lu";
 import { useLandingData } from "../hooks/useLandingData";
 import HeroSection from "../components/landing/HeroSection";
@@ -77,6 +78,11 @@ const LandingPage: React.FC = () => {
 
 	// Stats for home section
 	const stats = [
+		{
+			value: loading ? "..." : `${publicStats.todayVisitors || 0}`,
+			label: "PENGUNJUNG HARI INI",
+			icon: LuEye,
+		},
 		{
 			value: loading ? "..." : `${publicStats.pesertaCount || 1185}+`,
 			label: "ANGGOTA RESMI",

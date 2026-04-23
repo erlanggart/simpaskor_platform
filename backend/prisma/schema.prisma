@@ -967,3 +967,13 @@ model EventSubmission {
   @@index([email])
   @@map("event_submissions")
 }
+
+model DailyVisitor {
+  id        String   @id @default(uuid())
+  date      DateTime @unique @db.Date
+  count     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("daily_visitors")
+}

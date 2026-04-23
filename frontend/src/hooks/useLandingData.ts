@@ -35,6 +35,7 @@ interface PublicStats {
 	eventsCount: number;
 	availableEventsCount: number;
 	completedEventsCount: number;
+	todayVisitors: number;
 }
 
 export interface KlasemenEntry {
@@ -77,6 +78,7 @@ export const useLandingData = (): UseLandingDataReturn => {
 		eventsCount: 0,
 		availableEventsCount: 0,
 		completedEventsCount: 0,
+		todayVisitors: 0,
 	});
 	const [klasemen, setKlasemen] = useState<KlasemenData>({
 		year: new Date().getFullYear(),
@@ -90,22 +92,27 @@ export const useLandingData = (): UseLandingDataReturn => {
 	const fetchData = async () => {
 		try {
 			setLoading(true);
-			const [pinnedRes, eventsRes, completedRes, statsRes, klasemenRes] = await Promise.all([
+			const [pinnedRes, eventsRes, completedRes, statsRes, klasemenRes, visitorsRes] = await Promise.all([
 				api.get("/events/pinned/carousel"),
 				api.get("/events?limit=12"),
 				api.get("/events?status=COMPLETED&limit=50"),
 				api.get("/users/public/stats"),
 				api.get("/users/public/klasemen"),
+				api.get("/visitors/today"),
 			]);
 
-			setPinnedEvents(pinnedRes.data);
-			setEvents(eventsRes.data.data || eventsRes.data);
-			setCompletedEvents(completedRes.data.data || completedRes.data);
-			setJuries(statsRes.data.juries || []);
-			setPelatih(statsRes.data.pelatih || []);
-			setPublicStats(
-				statsRes.data.stats || { juriCount: 0, pesertaCount: 0, eventsCount: 0, availableEventsCount: 0, completedEventsCount: 0 }
-			);
+			// Track visit
+			api.post("/visitors/track").catch(() => {});
+
+			pinnedRes && setPinnedEvents(pinnedRes.data);
+			eventsRes && setEvents(eventsRes.data.data || eventsRes.data);
+			completedRes && setCompletedEvents(completedRes.data.data || completedRes.data);
+			statsRes && setJuries(statsRes.data.juries || []);
+			statsRes && setPelatih(statsRes.data.pelatih || []);
+			setPublicStats({
+				...(statsRes.data.stats || { juriCount: 0, pesertaCount: 0, eventsCount: 0, availableEventsCount: 0, completedEventsCount: 0 }),
+				todayVisitors: visitorsRes.data.count || 0,
+			});
 			setKlasemen(klasemenRes.data || { year: new Date().getFullYear(), top5: [], full: [], totalEvents: 0 });
 			setError(null);
 		} catch (err: any) {
