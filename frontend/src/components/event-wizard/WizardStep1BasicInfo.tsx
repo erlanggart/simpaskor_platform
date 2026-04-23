@@ -9,6 +9,7 @@ import {
 	indonesiaCities,
 	provinces,
 } from "../../utils/indonesiaCities";
+import SearchableSelect from "../ui/SearchableSelect";
 
 const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 	data,
@@ -181,21 +182,15 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 							<MapPinIcon className="w-4 h-4" />
 							Provinsi <span className="text-red-500">*</span>
 						</label>
-						<select
-							name="province"
+						<SearchableSelect
+							options={provinces.map((prov) => ({ value: prov.name, label: prov.name }))}
 							value={data.province}
-							onChange={handleChange}
-							className={`w-full px-4 py-2.5 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors ${
-								errors.province ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
-							}`}
-						>
-							<option value="">Pilih Provinsi</option>
-							{provinces.map((prov) => (
-								<option key={prov.id} value={prov.name}>
-									{prov.name}
-								</option>
-							))}
-						</select>
+							onChange={(val) => {
+								setData((prev: Step1Data) => ({ ...prev, province: val, city: "" }));
+							}}
+							placeholder="Pilih Provinsi"
+							error={!!errors.province}
+						/>
 						{errors.province && (
 							<p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.province}</p>
 						)}
@@ -207,22 +202,16 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 							<MapPinIcon className="w-4 h-4" />
 							Kota/Kabupaten <span className="text-red-500">*</span>
 						</label>
-						<select
-							name="city"
+						<SearchableSelect
+							options={filteredCities.map((city) => ({ value: city.name, label: city.name }))}
 							value={data.city}
-							onChange={handleChange}
+							onChange={(val) => {
+								setData((prev: Step1Data) => ({ ...prev, city: val }));
+							}}
+							placeholder={data.province ? "Pilih Kota/Kabupaten" : "Pilih Provinsi dulu"}
 							disabled={!data.province}
-							className={`w-full px-4 py-2.5 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors disabled:bg-gray-100 disabled:dark:bg-gray-800 disabled:cursor-not-allowed ${
-								errors.city ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
-							}`}
-						>
-							<option value="">{data.province ? "Pilih Kota/Kabupaten" : "Pilih Provinsi dulu"}</option>
-							{filteredCities.map((city) => (
-								<option key={city.id} value={city.name}>
-									{city.name}
-								</option>
-							))}
-						</select>
+							error={!!errors.city}
+						/>
 						{errors.city && (
 							<p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.city}</p>
 						)}

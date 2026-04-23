@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/api";
+import { hasFeature, MENU_FEATURE_MAP } from "../utils/packageFeatures";
 import Swal from "sweetalert2";
 import {
 	LuHouse,
@@ -176,16 +177,25 @@ export const DashboardLayout: React.FC = () => {
 				break;
 			case "PANITIA":
 				if (activeEvent && activeEvent.event) {
-					roleSpecificItems.push(
-						{ name: "Peserta", icon: LuUsers, path: `/panitia/events/${activeEvent.event.slug}/peserta` },
-						{ name: "Juri", icon: LuScale, path: `/panitia/events/${activeEvent.event.slug}/juri` },
-						{ name: "Materi", icon: LuGraduationCap, path: `/panitia/events/${activeEvent.event.slug}/materi` },
-						{ name: "Juara", icon: LuTrophy, path: `/panitia/events/${activeEvent.event.slug}/juara` },
-						{ name: "Perform", icon: LuMapPin, path: `/panitia/events/${activeEvent.event.slug}/field-rechecking` },
-						{ name: "Rekap", icon: LuChartBar, path: `/panitia/events/${activeEvent.event.slug}/rekapitulasi` },
-						{ name: "Tiket", icon: LuTicket, path: `/panitia/events/${activeEvent.event.slug}/ticketing` },
-						{ name: "Voting", icon: LuThumbsUp, path: `/panitia/events/${activeEvent.event.slug}/voting` }
-					);
+					const slug = activeEvent.event.slug;
+					const tier = activeEvent.event.packageTier;
+					const allPanitiaItems: MenuItem[] = [
+						{ name: "Peserta", icon: LuUsers, path: `/panitia/events/${slug}/peserta` },
+						{ name: "Juri", icon: LuScale, path: `/panitia/events/${slug}/juri` },
+						{ name: "Materi", icon: LuGraduationCap, path: `/panitia/events/${slug}/materi` },
+						{ name: "Juara", icon: LuTrophy, path: `/panitia/events/${slug}/juara` },
+						{ name: "Perform", icon: LuMapPin, path: `/panitia/events/${slug}/field-rechecking` },
+						{ name: "Rekap", icon: LuChartBar, path: `/panitia/events/${slug}/rekapitulasi` },
+						{ name: "Tiket", icon: LuTicket, path: `/panitia/events/${slug}/ticketing` },
+						{ name: "Voting", icon: LuThumbsUp, path: `/panitia/events/${slug}/voting` },
+					];
+					// Filter menu items based on package tier features
+					const filteredItems = allPanitiaItems.filter(item => {
+						const requiredFeature = MENU_FEATURE_MAP[item.name];
+						if (!requiredFeature) return true; // No feature requirement = always show
+						return hasFeature(tier, requiredFeature);
+					});
+					roleSpecificItems.push(...filteredItems);
 				}
 				break;
 			case "PESERTA":

@@ -4,7 +4,7 @@ import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
 import { TicketedEvent } from "../types/ticket";
-import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload, LuSend } from "react-icons/lu";
+import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload, LuSend, LuPlus, LuTrash2 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 
@@ -33,7 +33,10 @@ const ETicketingPage: React.FC = () => {
 	const [buyerName, setBuyerName] = useState(user?.name || "");
 	const [buyerEmail, setBuyerEmail] = useState(user?.email || "");
 	const [buyerPhone, setBuyerPhone] = useState("");
-	const [quantity, setQuantity] = useState(1);
+	const MAX_TICKETS = 5;
+	const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string }[]>([
+		{ name: user?.name || "", email: user?.email || "", phone: "" },
+	]);
 
 	// Send ticket to email
 	const [sendEmail, setSendEmail] = useState("");
@@ -159,7 +162,7 @@ const ETicketingPage: React.FC = () => {
 
 	const openPurchaseModal = (event: TicketedEvent) => {
 		setSelectedEvent(event);
-		setQuantity(1);
+		setAttendees([{ name: user?.name || "", email: user?.email || "", phone: "" }]);
 		setSendEmail("");
 		setAutoEmailSent(false);
 		setShowPurchaseModal(true);
@@ -199,10 +202,22 @@ const ETicketingPage: React.FC = () => {
 	const handlePurchase = async () => {
 		if (!selectedEvent) return;
 		if (!buyerName.trim() || !buyerEmail.trim()) {
-			Swal.fire("Error", "Nama dan email wajib diisi", "error");
+			Swal.fire("Error", "Nama dan email pembeli wajib diisi", "error");
 			return;
 		}
+		// Validate all attendees
+		for (let i = 0; i < attendees.length; i++) {
+			if (!attendees[i].name.trim()) {
+				Swal.fire("Error", `Nama peserta tiket #${i + 1} wajib diisi`, "error");
+				return;
+			}
+			if (!attendees[i].email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(attendees[i].email)) {
+				Swal.fire("Error", `Email peserta tiket #${i + 1} tidak valid`, "error");
+				return;
+			}
+		}
 
+		const quantity = attendees.length;
 		const result = await Swal.fire({
 			title: "Konfirmasi Pembelian",
 			html: `
@@ -210,8 +225,7 @@ const ETicketingPage: React.FC = () => {
 					<p><strong>Event:</strong> ${selectedEvent.title}</p>
 					<p><strong>Jumlah:</strong> ${quantity} tiket</p>
 					<p><strong>Total:</strong> ${selectedEvent.ticketConfig?.price === 0 ? "GRATIS" : formatCurrency((selectedEvent.ticketConfig?.price || 0) * quantity)}</p>
-					<p><strong>Nama:</strong> ${buyerName}</p>
-					<p><strong>Email:</strong> ${buyerEmail}</p>
+					<p><strong>Pembeli:</strong> ${buyerName} (${buyerEmail})</p>
 				</div>
 			`,
 			icon: "question",
@@ -230,7 +244,11 @@ const ETicketingPage: React.FC = () => {
 				buyerName: buyerName.trim(),
 				buyerEmail: buyerEmail.trim(),
 				buyerPhone: buyerPhone.trim() || undefined,
-				quantity,
+				attendees: attendees.map(a => ({
+					name: a.name.trim(),
+					email: a.email.trim(),
+					phone: a.phone.trim() || undefined,
+				})),
 			});
 
 			const { snapToken } = res.data.ticket;
@@ -244,8 +262,8 @@ const ETicketingPage: React.FC = () => {
 							ticketCode: res.data.ticket.ticketCode,
 							eventTitle: selectedEvent.title,
 							buyerName: buyerName.trim(),
-							quantity,
-							totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
+							quantity: attendees.length,
+							totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
 							message: "Pembayaran berhasil! Tiket Anda sudah aktif. E-Ticket akan dikirim ke email Anda.",
 						});
 						// Send ticket email immediately via API
@@ -287,8 +305,8 @@ const ETicketingPage: React.FC = () => {
 					ticketCode: res.data.ticket.ticketCode,
 					eventTitle: selectedEvent.title,
 					buyerName: buyerName.trim(),
-					quantity,
-					totalAmount: (selectedEvent.ticketConfig?.price || 0) * quantity,
+					quantity: attendees.length,
+					totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
 					message: res.data.message,
 				});
 				fetchEvents();
@@ -549,93 +567,135 @@ const ETicketingPage: React.FC = () => {
 								</div>
 							</div>
 
-							{/* Buyer Form */}
+							{/* Buyer Info */}
 							<div className="space-y-4">
-								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<LuUser className="w-4 h-4 inline mr-1" />
-										Nama Lengkap *
-									</label>
-									<input
-										type="text"
-										value={buyerName}
-										onChange={(e) => setBuyerName(e.target.value)}
-										className="w-full px-4 py-2.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-										placeholder="Nama lengkap"
-									/>
+								<h3 className="text-sm font-semibold text-gray-900 dark:text-white">Data Pembeli</h3>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+									<div>
+										<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+											<LuUser className="w-3.5 h-3.5 inline mr-1" />
+											Nama *
+										</label>
+										<input
+											type="text"
+											value={buyerName}
+											onChange={(e) => setBuyerName(e.target.value)}
+											className="w-full px-3 py-2 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+											placeholder="Nama pembeli"
+										/>
+									</div>
+									<div>
+										<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+											<LuMail className="w-3.5 h-3.5 inline mr-1" />
+											Email *
+										</label>
+										<input
+											type="email"
+											value={buyerEmail}
+											onChange={(e) => setBuyerEmail(e.target.value)}
+											className="w-full px-3 py-2 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+											placeholder="email@example.com"
+										/>
+									</div>
 								</div>
-
 								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<LuMail className="w-4 h-4 inline mr-1" />
-										Email *
-									</label>
-									<input
-										type="email"
-										value={buyerEmail}
-										onChange={(e) => setBuyerEmail(e.target.value)}
-										className="w-full px-4 py-2.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-										placeholder="email@example.com"
-									/>
-								</div>
-
-								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<LuPhone className="w-4 h-4 inline mr-1" />
+									<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+										<LuPhone className="w-3.5 h-3.5 inline mr-1" />
 										No. Telepon <span className="text-gray-400">(Opsional)</span>
 									</label>
 									<input
 										type="tel"
 										value={buyerPhone}
 										onChange={(e) => setBuyerPhone(e.target.value)}
-										className="w-full px-4 py-2.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+										className="w-full px-3 py-2 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 										placeholder="+6281234567890"
 									/>
 								</div>
 
-								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										Jumlah Tiket
-									</label>
-									<div className="flex items-center gap-3">
-										<button
-											onClick={() => setQuantity(Math.max(1, quantity - 1))}
-											className="w-10 h-10 rounded-lg bg-white/60 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 font-bold hover:bg-white/80 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06]"
-										>
-											-
-										</button>
-										<span className="text-xl font-semibold text-gray-900 dark:text-white w-10 text-center">
-											{quantity}
-										</span>
-										<button
-											onClick={() =>
-												setQuantity(
-													Math.min(
-														10,
-														Math.min(
-															quantity + 1,
-															(selectedEvent.ticketConfig?.quota || 0) -
-																(selectedEvent.ticketConfig?.soldCount || 0)
-														)
-													)
-												)
-											}
-											className="w-10 h-10 rounded-lg bg-white/60 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 font-bold hover:bg-white/80 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06]"
-										>
-											+
-										</button>
+								{/* Attendee List */}
+								<div className="border-t border-gray-200/50 dark:border-white/[0.06] pt-4">
+									<div className="flex items-center justify-between mb-3">
+										<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+											Data Peserta ({attendees.length}/{MAX_TICKETS})
+										</h3>
+										{attendees.length < MAX_TICKETS && attendees.length < ((selectedEvent.ticketConfig?.quota || 0) - (selectedEvent.ticketConfig?.soldCount || 0)) && (
+											<button
+												onClick={() => setAttendees(prev => [...prev, { name: "", email: "", phone: "" }])}
+												className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
+											>
+												<LuPlus className="w-3.5 h-3.5" />
+												Tambah Tiket
+											</button>
+										)}
+									</div>
+									<p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">
+										Setiap tiket memiliki QR code unik. Isi data peserta untuk masing-masing tiket.
+									</p>
+									<div className="space-y-3">
+										{attendees.map((att, idx) => (
+											<div key={idx} className="bg-white/40 dark:bg-white/[0.02] border border-gray-200/40 dark:border-white/[0.05] rounded-xl p-3">
+												<div className="flex items-center justify-between mb-2">
+													<span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+														Tiket #{idx + 1}
+													</span>
+													{attendees.length > 1 && (
+														<button
+															onClick={() => setAttendees(prev => prev.filter((_, i) => i !== idx))}
+															className="text-gray-400 hover:text-red-500 transition-colors"
+														>
+															<LuTrash2 className="w-3.5 h-3.5" />
+														</button>
+													)}
+												</div>
+												<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+													<input
+														type="text"
+														value={att.name}
+														onChange={(e) => {
+															const newAtt = [...attendees];
+															newAtt[idx] = { ...newAtt[idx], name: e.target.value };
+															setAttendees(newAtt);
+														}}
+														className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+														placeholder="Nama *"
+													/>
+													<input
+														type="email"
+														value={att.email}
+														onChange={(e) => {
+															const newAtt = [...attendees];
+															newAtt[idx] = { ...newAtt[idx], email: e.target.value };
+															setAttendees(newAtt);
+														}}
+														className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+														placeholder="Email *"
+													/>
+													<input
+														type="tel"
+														value={att.phone}
+														onChange={(e) => {
+															const newAtt = [...attendees];
+															newAtt[idx] = { ...newAtt[idx], phone: e.target.value };
+															setAttendees(newAtt);
+														}}
+														className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+														placeholder="No. HP"
+													/>
+												</div>
+											</div>
+										))}
 									</div>
 								</div>
 
 								{/* Total */}
 								<div className="border-t border-gray-200/50 dark:border-white/[0.06] pt-4">
 									<div className="flex justify-between text-lg font-bold">
-										<span className="text-gray-900 dark:text-white">Total</span>
+										<span className="text-gray-900 dark:text-white">Total ({attendees.length} tiket)</span>
 										<span className="text-red-600">
 											{selectedEvent.ticketConfig?.price === 0
 												? "GRATIS"
 												: formatCurrency(
-														(selectedEvent.ticketConfig?.price || 0) * quantity
+														(selectedEvent.ticketConfig?.price || 0) * attendees.length
 												  )}
 										</span>
 									</div>

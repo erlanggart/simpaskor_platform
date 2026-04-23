@@ -7,8 +7,9 @@ import {
 	BuildingOfficeIcon,
 	XMarkIcon,
 	UserIcon,
+	TicketIcon,
 } from "@heroicons/react/24/outline";
-import { Step3Props, Step3Data } from "../../types/eventWizard";
+import { Step3Props, Step3Data, PackageTier } from "../../types/eventWizard";
 import { api } from "../../utils/api";
 
 // Helper to get full image URL for existing thumbnails
@@ -30,7 +31,13 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 	isLoading,
 	isSubmitting,
 	isEditMode: _isEditMode,
+	packageTier,
 }) => {
+	const TICKETING_TIERS: PackageTier[] = ["TICKETING", "TICKETING_VOTING"];
+	const SCORING_TIERS: PackageTier[] = ["BRONZE", "SILVER", "GOLD"];
+	const isTicketing = packageTier && TICKETING_TIERS.includes(packageTier);
+	const isScoring = packageTier && SCORING_TIERS.includes(packageTier);
+	const showFee = isTicketing || isScoring;
 	const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(
 		getImageUrl(data.thumbnail)
 	);
@@ -161,7 +168,10 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 					Media & Biaya
 				</h2>
 				<p className="text-gray-600 dark:text-gray-400 mt-2">
-					Upload poster, juknis, dan tentukan biaya pendaftaran
+					{isTicketing
+						? "Upload poster, dan tentukan harga tiket event"
+						: "Upload poster, juknis, dan tentukan biaya pendaftaran"
+					}
 				</p>
 			</div>
 
@@ -384,31 +394,40 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 			{/* Fee & Organizer */}
 			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center gap-3 mb-4">
-					<CurrencyDollarIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+					{isTicketing ? (
+						<TicketIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+					) : (
+						<CurrencyDollarIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+					)}
 					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-						Biaya & Penyelenggara
+						{isTicketing ? "Biaya Tiket & Penyelenggara" : "Biaya & Penyelenggara"}
 					</h3>
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					{/* Registration Fee */}
-					<div>
-						<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-							Biaya Pendaftaran (Rp)
-						</label>
-						<input
-							type="number"
-							name="registrationFee"
-							value={data.registrationFee}
-							onChange={handleChange}
-							min="0"
-							placeholder="0 = Gratis"
-							className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
-						/>
-						<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-							Kosongkan atau 0 jika event gratis
-						</p>
-					</div>
+					{/* Fee field - contextual based on package */}
+					{showFee && (
+						<div>
+							<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+								{isTicketing ? "Harga Tiket (Rp per tiket)" : "Biaya Pendaftaran (Rp)"}
+							</label>
+							<input
+								type="number"
+								name="registrationFee"
+								value={data.registrationFee}
+								onChange={handleChange}
+								min="0"
+								placeholder={isTicketing ? "0 = Tiket Gratis" : "0 = Gratis"}
+								className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors"
+							/>
+							<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+								{isTicketing
+									? "Harga per tiket. Kosongkan atau 0 jika tiket gratis"
+									: "Kosongkan atau 0 jika event gratis"
+								}
+							</p>
+						</div>
+					)}
 
 					{/* Organizer */}
 					<div>

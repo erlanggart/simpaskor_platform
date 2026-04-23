@@ -7,7 +7,7 @@ import {
 	SparklesIcon,
 	PhoneIcon,
 } from "@heroicons/react/24/outline";
-import { LuMedal, LuCrown, LuTrophy, LuCheck, LuX, LuMegaphone } from "react-icons/lu";
+import { LuMedal, LuCrown, LuTrophy, LuCheck, LuX, LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus } from "react-icons/lu";
 import { Step4Props, PackageTier, EventPaymentData } from "../../types/eventWizard";
 import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
@@ -30,19 +30,25 @@ interface PackageOption {
 interface PackageFeature {
 	name: string;
 	iklan: boolean;
+	ticketing: boolean;
+	voting: boolean;
+	ticketing_voting: boolean;
 	bronze: boolean;
 	silver: boolean;
 	gold: boolean;
 }
 
 const packageFeatures: PackageFeature[] = [
-	{ name: "Akses Sistem Penilaian", iklan: false, bronze: true, silver: true, gold: true },
-	{ name: "Technical Meeting Aplikasi", iklan: false, bronze: true, silver: true, gold: true },
-	{ name: "Laporan Digital", iklan: false, bronze: true, silver: true, gold: true },
-	{ name: "Tim Pendamping", iklan: false, bronze: false, silver: true, gold: true },
-	{ name: "Device Tablet", iklan: false, bronze: false, silver: true, gold: true },
-	{ name: "Tim Rekap", iklan: false, bronze: false, silver: false, gold: true },
-	{ name: "Penyusunan Materi Penilaian", iklan: false, bronze: false, silver: false, gold: true },
+	{ name: "E-Ticketing", iklan: false, ticketing: true, voting: false, ticketing_voting: true, bronze: true, silver: true, gold: true },
+	{ name: "E-Voting", iklan: false, ticketing: false, voting: true, ticketing_voting: true, bronze: true, silver: true, gold: true },
+	{ name: "Akses Sistem Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Pendaftaran Peserta", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Technical Meeting Aplikasi", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Laporan Digital", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Tim Pendamping", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
+	{ name: "Device Tablet", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
+	{ name: "Tim Rekap", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
+	{ name: "Penyusunan Materi Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
 ];
 
 const packages: PackageOption[] = [
@@ -59,6 +65,42 @@ const packages: PackageOption[] = [
 		note: "Akses demo — event tampil di landing page, fitur hanya bisa dilihat",
 	},
 	{
+		tier: "TICKETING",
+		name: "Paket Ticketing",
+		price: 0,
+		priceLabel: "GRATIS",
+		icon: LuTicket,
+		color: "blue",
+		borderColor: "border-blue-400/50 dark:border-blue-500/30",
+		bgGlow: "from-blue-500/10 to-blue-600/5",
+		btnClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white",
+		note: "Fitur E-Ticketing untuk event Anda",
+	},
+	{
+		tier: "VOTING",
+		name: "Paket Voting",
+		price: 0,
+		priceLabel: "GRATIS",
+		icon: LuThumbsUp,
+		color: "purple",
+		borderColor: "border-purple-400/50 dark:border-purple-500/30",
+		bgGlow: "from-purple-500/10 to-purple-600/5",
+		btnClass: "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white",
+		note: "Fitur E-Voting untuk event Anda",
+	},
+	{
+		tier: "TICKETING_VOTING",
+		name: "Tiket + Voting",
+		price: 0,
+		priceLabel: "GRATIS",
+		icon: LuTicketPlus,
+		color: "indigo",
+		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
+		bgGlow: "from-indigo-500/10 to-indigo-600/5",
+		btnClass: "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white",
+		note: "Fitur E-Ticketing dan E-Voting",
+	},
+	{
 		tier: "BRONZE",
 		name: "Paket Bronze",
 		price: 500000,
@@ -68,7 +110,8 @@ const packages: PackageOption[] = [
 		borderColor: "border-amber-400/50 dark:border-amber-500/30",
 		bgGlow: "from-amber-500/10 to-amber-600/5",
 		btnClass: "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
-		note: "Tim Pendamping (Online)",
+		note: "Semua fitur — Tim Pendamping (Online)",
+		featured: true,
 	},
 	{
 		tier: "SILVER",
@@ -80,7 +123,6 @@ const packages: PackageOption[] = [
 		borderColor: "border-gray-300 dark:border-gray-400/30",
 		bgGlow: "from-gray-300/20 to-gray-400/10",
 		btnClass: "bg-gradient-to-r from-gray-700 to-gray-900 hover:from-gray-800 hover:to-black text-white",
-		featured: true,
 		note: "Tim Pendamping (Offline) + Device Tablet (max 3 unit)",
 	},
 	{
@@ -97,15 +139,18 @@ const packages: PackageOption[] = [
 	},
 ];
 
+const FREE_TIERS: PackageTier[] = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING"];
+
 const WizardStep4Payment: React.FC<Step4Props> = ({
 	eventId,
 	eventTitle,
 	existingPayment,
 	onNext,
 	onBack,
+	packageTier: preSelectedTier,
 }) => {
 	const [selectedPackage, setSelectedPackage] = useState<PackageTier | null>(
-		existingPayment?.packageTier || null
+		existingPayment?.packageTier || preSelectedTier || null
 	);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [paymentStatus, setPaymentStatus] = useState<EventPaymentData | null>(
@@ -121,6 +166,13 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			setPaymentStatus(existingPayment);
 		}
 	}, [existingPayment]);
+
+	// Sync pre-selected package from Step 2
+	useEffect(() => {
+		if (preSelectedTier && !existingPayment?.packageTier) {
+			setSelectedPackage(preSelectedTier);
+		}
+	}, [preSelectedTier]);
 
 	const isPaid = paymentStatus?.status === "PAID";
 
@@ -190,23 +242,24 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 	};
 
 	const handleFreePackage = async () => {
-		if (!eventId) return;
+		if (!eventId || !selectedPackage) return;
 
 		setIsProcessing(true);
 		try {
 			const response = await api.post("/event-payments/create", {
 				eventId,
-				packageTier: "IKLAN",
+				packageTier: selectedPackage,
 			});
 
+			const pkg = packages.find(p => p.tier === selectedPackage);
 			setPaymentStatus({
 				...response.data,
 				status: "PAID",
 				paidAt: new Date().toISOString(),
 			});
-			showSuccess("Paket Iklan berhasil diaktifkan! Event Anda akan tampil di landing page.");
+			showSuccess(`${pkg?.name || "Paket"} berhasil diaktifkan!`);
 		} catch (error: any) {
-			showError(error.response?.data?.error || "Gagal mengaktifkan paket iklan");
+			showError(error.response?.data?.error || "Gagal mengaktifkan paket");
 		} finally {
 			setIsProcessing(false);
 		}
@@ -257,11 +310,13 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			{/* Header */}
 			<div className="text-center mb-8">
 				<h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-					{isPaid ? "Pembayaran Berhasil" : "Pilih Paket"}
+					{isPaid ? "Pembayaran Berhasil" : "Konfirmasi & Pembayaran"}
 				</h2>
 				<p className="text-gray-600 dark:text-gray-400 mt-2">
 					{isPaid
 						? "Event Anda siap untuk dipublish!"
+						: preSelectedTier
+						? "Konfirmasi paket yang sudah dipilih dan lanjutkan"
 						: "Pilih paket Simpaskor untuk event Anda"}
 				</p>
 			</div>
@@ -285,7 +340,32 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			{/* Package Selection */}
 			{!isPaid && (
 				<>
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+					{/* Pre-selected package summary */}
+					{preSelectedTier && (() => {
+						const pkg = packages.find(p => p.tier === preSelectedTier);
+						if (!pkg) return null;
+						const Icon = pkg.icon;
+						return (
+							<div className={`relative p-5 rounded-xl border-2 ${pkg.borderColor} bg-white dark:bg-gray-800 shadow-md`}>
+								<div className="flex items-center gap-4">
+									<div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${pkg.bgGlow} flex items-center justify-center`}>
+										<Icon className="w-7 h-7 text-gray-700 dark:text-gray-300" />
+									</div>
+									<div className="flex-1">
+										<h3 className="text-lg font-bold text-gray-900 dark:text-white">{pkg.name}</h3>
+										<p className="text-sm text-gray-500 dark:text-gray-400">{pkg.note || "Paket terpilih dari langkah sebelumnya"}</p>
+									</div>
+									<div className="text-right">
+										<p className="text-2xl font-extrabold text-gray-900 dark:text-white">{pkg.priceLabel}</p>
+									</div>
+								</div>
+							</div>
+						);
+					})()}
+
+					{/* Full package selection (only if not pre-selected) */}
+					{!preSelectedTier && (
+					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 						{packages.map((pkg) => {
 							const Icon = pkg.icon;
 							const isSelected = selectedPackage === pkg.tier;
@@ -299,6 +379,9 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 										isSelected
 											? `${pkg.borderColor} bg-white dark:bg-gray-800 shadow-lg ring-2 ring-offset-2 dark:ring-offset-gray-900 ${
 												pkg.tier === "IKLAN" ? "ring-emerald-400" :
+												pkg.tier === "TICKETING" ? "ring-blue-400" :
+												pkg.tier === "VOTING" ? "ring-purple-400" :
+												pkg.tier === "TICKETING_VOTING" ? "ring-indigo-400" :
 												pkg.tier === "BRONZE" ? "ring-amber-400" :
 												pkg.tier === "SILVER" ? "ring-gray-400" :
 												"ring-yellow-400"
@@ -340,9 +423,10 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 							);
 						})}
 					</div>
+					)}
 
 				{/* Payment Mode Selection - only for paid packages */}
-				{selectedPackage && selectedPackage !== "IKLAN" && (
+				{selectedPackage && !FREE_TIERS.includes(selectedPackage) && (
 						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
 							<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
 								Pilih Metode Pembayaran
@@ -404,7 +488,8 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 						</div>
 					)}
 
-					{/* Feature Comparison Table */}
+					{/* Feature Comparison Table - only when no pre-selection */}
+					{!preSelectedTier && (
 					<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
 						<div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
 							<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -418,16 +503,25 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 										<th className="text-left px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">
 											Fitur
 										</th>
-										<th className="text-center px-4 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+										<th className="text-center px-3 py-3 text-xs font-medium text-emerald-600 dark:text-emerald-400">
 											Iklan
 										</th>
-										<th className="text-center px-4 py-3 text-sm font-medium text-amber-600 dark:text-amber-400">
+										<th className="text-center px-3 py-3 text-xs font-medium text-blue-600 dark:text-blue-400">
+											Tiket
+										</th>
+										<th className="text-center px-3 py-3 text-xs font-medium text-purple-600 dark:text-purple-400">
+											Voting
+										</th>
+										<th className="text-center px-3 py-3 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+											T + V
+										</th>
+										<th className="text-center px-3 py-3 text-xs font-medium text-amber-600 dark:text-amber-400">
 											Bronze
 										</th>
-										<th className="text-center px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300">
+										<th className="text-center px-3 py-3 text-xs font-medium text-gray-600 dark:text-gray-300">
 											Silver
 										</th>
-										<th className="text-center px-4 py-3 text-sm font-medium text-yellow-600 dark:text-yellow-400">
+										<th className="text-center px-3 py-3 text-xs font-medium text-yellow-600 dark:text-yellow-400">
 											Gold
 										</th>
 									</tr>
@@ -438,40 +532,22 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 											<td className="px-6 py-3 text-sm text-gray-700 dark:text-gray-300">
 												{feature.name}
 											</td>
-											<td className="text-center px-4 py-3">
-												{feature.iklan ? (
-													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
-												) : (
-													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
-												)}
-											</td>
-											<td className="text-center px-4 py-3">
-												{feature.bronze ? (
-													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
-												) : (
-													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
-												)}
-											</td>
-											<td className="text-center px-4 py-3">
-												{feature.silver ? (
-													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
-												) : (
-													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
-												)}
-											</td>
-											<td className="text-center px-4 py-3">
-												{feature.gold ? (
-													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
-												) : (
-													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
-												)}
-											</td>
+											{(["iklan", "ticketing", "voting", "ticketing_voting", "bronze", "silver", "gold"] as const).map((tier) => (
+												<td key={tier} className="text-center px-3 py-3">
+													{feature[tier] ? (
+														<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
+													) : (
+														<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
+													)}
+												</td>
+											))}
 										</tr>
 									))}
 								</tbody>
 							</table>
 						</div>
 					</div>
+					)}
 				</>
 			)}
 
@@ -496,12 +572,12 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 					>
 						Ke Dashboard →
 					</button>
-				) : selectedPackage === "IKLAN" ? (
+				) : selectedPackage && FREE_TIERS.includes(selectedPackage) ? (
 					<button
 						type="button"
 						onClick={handleFreePackage}
 						disabled={isProcessing}
-						className={`flex items-center gap-2 px-8 py-3 font-semibold rounded-xl shadow-lg transition-all bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white`}
+						className={`flex items-center gap-2 px-8 py-3 font-semibold rounded-xl shadow-lg transition-all ${packages.find(p => p.tier === selectedPackage)?.btnClass || "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white"}`}
 					>
 						{isProcessing ? (
 							<>
@@ -510,8 +586,8 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 							</>
 						) : (
 							<>
-								<LuMegaphone className="w-5 h-5" />
-								Aktifkan Paket Iklan
+								{React.createElement(packages.find(p => p.tier === selectedPackage)?.icon || LuMegaphone, { className: "w-5 h-5" })}
+								Aktifkan {packages.find(p => p.tier === selectedPackage)?.name}
 							</>
 						)}
 					</button>

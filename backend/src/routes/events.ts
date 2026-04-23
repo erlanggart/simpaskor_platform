@@ -1407,7 +1407,7 @@ router.patch(
 				return res.status(400).json({ message: "Event ID is required" });
 			}
 
-			const { assessmentCategoryIds, schoolCategoryLimits } = req.body;
+			const { packageTier, assessmentCategoryIds, schoolCategoryLimits } = req.body;
 
 			// Verify ownership
 			const existingDraft = await prisma.event.findFirst({
@@ -1421,30 +1421,45 @@ router.patch(
 				return res.status(404).json({ message: "Draft not found" });
 			}
 
-			// Validate assessment categories
-			if (
-				!assessmentCategoryIds ||
-				!Array.isArray(assessmentCategoryIds) ||
-				assessmentCategoryIds.length === 0
-			) {
+			// Validate package tier
+			const validTiers = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"];
+			if (!packageTier || !validTiers.includes(packageTier)) {
 				return res.status(400).json({
-					message: "At least one assessment category is required",
+					message: "Valid package tier is required",
 				});
 			}
 
-			// Validate school category limits
-			if (
-				!schoolCategoryLimits ||
-				!Array.isArray(schoolCategoryLimits) ||
-				schoolCategoryLimits.length === 0
-			) {
-				return res.status(400).json({
-					message: "At least one school category limit is required",
-				});
+			// Only require categories for scoring packages
+			const scoringTiers = ["BRONZE", "SILVER", "GOLD"];
+			const needsCategories = scoringTiers.includes(packageTier);
+
+			if (needsCategories) {
+				// Validate assessment categories
+				if (
+					!assessmentCategoryIds ||
+					!Array.isArray(assessmentCategoryIds) ||
+					assessmentCategoryIds.length === 0
+				) {
+					return res.status(400).json({
+						message: "At least one assessment category is required",
+					});
+				}
+
+				// Validate school category limits
+				if (
+					!schoolCategoryLimits ||
+					!Array.isArray(schoolCategoryLimits) ||
+					schoolCategoryLimits.length === 0
+				) {
+					return res.status(400).json({
+						message: "At least one school category limit is required",
+					});
+				}
 			}
 
 			// Update in transaction
 			await prisma.$transaction(async (tx) => {
+				if (needsCategories) {
 				// Get existing assessment categories for this event
 				const existingCategories = await tx.eventAssessmentCategory.findMany({
 					where: { eventId: id },
@@ -1492,14 +1507,16 @@ router.patch(
 						})),
 					});
 				}
+				} // end needsCategories
 
 				// Delete existing school category limits
+				if (needsCategories) {
 				await tx.eventSchoolCategoryLimit.deleteMany({
 					where: { eventId: id },
 				});
 
 				// Create new school category limits
-				const validLimits = schoolCategoryLimits.filter(
+				const validLimits = (schoolCategoryLimits || []).filter(
 					(l: any) => l.categoryId && l.maxParticipants >= 1
 				);
 
@@ -1512,13 +1529,22 @@ router.patch(
 						})),
 					});
 				}
+				}
 
-				// Update wizard step (only for incomplete drafts)
+				// Update wizard step and packageTier
 				if (!existingDraft.wizardCompleted) {
 					await tx.event.update({
 						where: { id },
 						data: {
 							wizardStep: 3,
+							packageTier: packageTier,
+						},
+					});
+				} else {
+					await tx.event.update({
+						where: { id },
+						data: {
+							packageTier: packageTier,
 						},
 					});
 				}

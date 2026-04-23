@@ -33,8 +33,9 @@ export interface Step1Data {
 	venue: string;
 }
 
-// Step 2: Categories
+// Step 2: Categories & Package
 export interface Step2Data {
+	packageTier: PackageTier | null;
 	assessmentCategoryIds: string[];
 	schoolCategoryLimits: SchoolCategoryLimit[];
 }
@@ -51,7 +52,7 @@ export interface Step3Data {
 }
 
 // Step 4: Payment
-export type PackageTier = 'IKLAN' | 'BRONZE' | 'SILVER' | 'GOLD';
+export type PackageTier = 'IKLAN' | 'TICKETING' | 'VOTING' | 'TICKETING_VOTING' | 'BRONZE' | 'SILVER' | 'GOLD';
 
 export interface EventPaymentData {
 	id: string;
@@ -135,6 +136,7 @@ export interface Step3Props extends WizardStepProps {
 	errors: Record<string, string>;
 	isSubmitting?: boolean;
 	isEditMode?: boolean;
+	packageTier?: PackageTier | null;
 }
 
 export interface Step4Props extends WizardStepProps {
@@ -142,4 +144,5 @@ export interface Step4Props extends WizardStepProps {
 	eventTitle: string;
 	existingPayment?: EventPaymentData | null;
 	isEditMode?: boolean;
+	packageTier?: PackageTier | null;
 }

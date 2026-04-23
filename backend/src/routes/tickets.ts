@@ -153,23 +153,58 @@ router.get("/events/:eventId", async (req: AuthenticatedRequest, res: Response) 
 	}
 });
 
+// Max tickets per account per event
+const MAX_TICKETS_PER_ACCOUNT = 5;
+
 // POST /api/tickets/purchase - Purchase ticket (public, optional auth)
 router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
-		const { eventId, buyerName, buyerEmail, buyerPhone, quantity = 1, notes } = req.body;
+		const { eventId, buyerName, buyerEmail, buyerPhone, attendees, notes } = req.body;
 
 		if (!eventId || !buyerName || !buyerEmail) {
 			return res.status(400).json({ error: "Event, nama, dan email pembeli wajib diisi" });
 		}
 
-		if (quantity < 1 || quantity > 10) {
-			return res.status(400).json({ error: "Jumlah tiket harus antara 1-10" });
+		// Validate attendees array
+		if (!attendees || !Array.isArray(attendees) || attendees.length < 1 || attendees.length > MAX_TICKETS_PER_ACCOUNT) {
+			return res.status(400).json({ error: `Data peserta wajib diisi (maksimal ${MAX_TICKETS_PER_ACCOUNT} tiket)` });
 		}
 
-		// Validate email format
+		// Validate each attendee
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		for (let i = 0; i < attendees.length; i++) {
+			const att = attendees[i];
+			if (!att.name || !att.name.trim()) {
+				return res.status(400).json({ error: `Nama peserta tiket #${i + 1} wajib diisi` });
+			}
+			if (!att.email || !emailRegex.test(att.email.trim())) {
+				return res.status(400).json({ error: `Email peserta tiket #${i + 1} tidak valid` });
+			}
+		}
+
+		const quantity = attendees.length;
+		// Validate buyer email format
 		if (!emailRegex.test(buyerEmail)) {
-			return res.status(400).json({ error: "Format email tidak valid" });
+			return res.status(400).json({ error: "Format email pembeli tidak valid" });
+		}
+
+		// Check existing purchases for this email + event (max 5 total)
+		const existingPurchases = await prisma.ticketPurchase.aggregate({
+			where: {
+				eventId,
+				buyerEmail: buyerEmail.trim(),
+				status: { in: ["PENDING", "PAID", "USED"] },
+			},
+			_sum: { quantity: true },
+		});
+		const alreadyPurchased = existingPurchases._sum.quantity || 0;
+		if (alreadyPurchased + quantity > MAX_TICKETS_PER_ACCOUNT) {
+			const remaining = MAX_TICKETS_PER_ACCOUNT - alreadyPurchased;
+			return res.status(400).json({
+				error: remaining <= 0
+					? `Anda sudah mencapai batas maksimal ${MAX_TICKETS_PER_ACCOUNT} tiket untuk event ini`
+					: `Anda hanya bisa membeli ${remaining} tiket lagi untuk event ini (sudah memiliki ${alreadyPurchased} tiket)`,
+			});
 		}
 
 		const result = await prisma.$transaction(async (tx) => {
@@ -200,6 +235,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			// Create purchase
 			const ticketCode = generateTicketCode();
 			const totalAmount = ticketConfig.price * quantity;
+			const isFree = ticketConfig.price === 0;
 
 			const purchase = await tx.ticketPurchase.create({
 				data: {
@@ -211,8 +247,8 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					quantity,
 					totalAmount,
 					ticketCode,
-					status: ticketConfig.price === 0 ? "PAID" : "PENDING",
-					paidAt: ticketConfig.price === 0 ? new Date() : null,
+					status: isFree ? "PAID" : "PENDING",
+					paidAt: isFree ? new Date() : null,
 					notes: notes || null,
 				},
 				include: {
@@ -222,15 +258,32 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 				},
 			});
 
+			// Create individual attendee records with unique ticket codes
+			const attendeeRecords = [];
+			for (const att of attendees) {
+				const attendeeCode = generateTicketCode();
+				const attendeeRecord = await tx.ticketAttendee.create({
+					data: {
+						purchaseId: purchase.id,
+						attendeeName: att.name.trim(),
+						attendeeEmail: att.email.trim(),
+						attendeePhone: att.phone?.trim() || null,
+						ticketCode: attendeeCode,
+						status: isFree ? "PAID" : "PENDING",
+					},
+				});
+				attendeeRecords.push(attendeeRecord);
+			}
+
 			// Only update sold count for FREE tickets (paid tickets update via webhook after payment)
-			if (ticketConfig.price === 0) {
+			if (isFree) {
 				await tx.eventTicketConfig.update({
 					where: { eventId },
 					data: { soldCount: { increment: quantity } },
 				});
 			}
 
-			return purchase;
+			return { ...purchase, attendees: attendeeRecords };
 		});
 
 		// Generate Midtrans Snap token for paid tickets
@@ -279,6 +332,12 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					city: result.event?.city || null,
 					quantity: result.quantity,
 					totalAmount: 0,
+					attendees: result.attendees.map((a: any) => ({
+						name: a.attendeeName,
+						email: a.attendeeEmail,
+						phone: a.attendeePhone,
+						ticketCode: a.ticketCode,
+					})),
 				});
 			} catch (emailError) {
 				console.error("Failed to send free ticket email:", emailError);
@@ -640,8 +699,75 @@ router.post(
 	authorize("SUPERADMIN", "PANITIA"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
+			const code = req.params.ticketCode;
+
+			// First, check if it's an attendee ticket code
+			const attendee = await prisma.ticketAttendee.findUnique({
+				where: { ticketCode: code },
+				include: {
+					purchase: {
+						include: {
+							event: {
+								select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true },
+							},
+						},
+					},
+				},
+			});
+
+			if (attendee) {
+				// Validate attendee ticket
+				if (attendee.status === "USED") {
+					return res.status(400).json({
+						valid: false,
+						error: "Tiket sudah digunakan",
+						usedAt: attendee.usedAt,
+						ticket: {
+							ticketCode: attendee.ticketCode,
+							buyerName: attendee.attendeeName,
+							buyerEmail: attendee.attendeeEmail,
+							eventTitle: attendee.purchase.event.title,
+							quantity: 1,
+							status: attendee.status,
+						},
+					});
+				}
+
+				if (attendee.purchase.status === "CANCELLED") {
+					return res.status(400).json({ valid: false, error: "Tiket telah dibatalkan" });
+				}
+
+				if (attendee.status === "PENDING" || attendee.purchase.status === "PENDING") {
+					return res.status(400).json({ valid: false, error: "Tiket belum dibayar" });
+				}
+
+				// Mark attendee ticket as USED
+				const updated = await prisma.ticketAttendee.update({
+					where: { id: attendee.id },
+					data: { status: "USED", usedAt: new Date() },
+				});
+
+				return res.json({
+					valid: true,
+					message: "Tiket berhasil diverifikasi",
+					ticket: {
+						ticketCode: updated.ticketCode,
+						buyerName: updated.attendeeName,
+						buyerEmail: updated.attendeeEmail,
+						buyerPhone: attendee.attendeePhone,
+						eventTitle: attendee.purchase.event.title,
+						eventDate: attendee.purchase.event.startDate,
+						venue: attendee.purchase.event.venue,
+						quantity: 1,
+						status: updated.status,
+						usedAt: updated.usedAt,
+					},
+				});
+			}
+
+			// Fallback: check legacy purchase ticket code
 			const ticket = await prisma.ticketPurchase.findUnique({
-				where: { ticketCode: req.params.ticketCode },
+				where: { ticketCode: code },
 				include: {
 					event: {
 						select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true },

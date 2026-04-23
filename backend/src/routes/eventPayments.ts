@@ -13,6 +13,9 @@ const router = Router();
 // Package pricing (in Rupiah)
 const PACKAGE_PRICES: Record<string, number> = {
 	IKLAN: 0,
+	TICKETING: 0,
+	VOTING: 0,
+	TICKETING_VOTING: 0,
 	BRONZE: 500000,
 	SILVER: 1000000,
 	GOLD: 1500000,
@@ -20,10 +23,16 @@ const PACKAGE_PRICES: Record<string, number> = {
 
 const PACKAGE_NAMES: Record<string, string> = {
 	IKLAN: "Paket Iklan",
+	TICKETING: "Paket Ticketing",
+	VOTING: "Paket Voting",
+	TICKETING_VOTING: "Paket Ticketing + Voting",
 	BRONZE: "Paket Bronze",
 	SILVER: "Paket Silver",
 	GOLD: "Paket Gold",
 };
+
+// Free tiers that don't require payment
+const FREE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING"];
 
 /**
  * POST /api/event-payments/create
@@ -39,7 +48,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 		}
 
 		// Validate package tier
-		if (!["IKLAN", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
+		if (!["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
@@ -66,14 +75,14 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
-		// Handle free IKLAN package - no payment needed
-		if (packageTier === "IKLAN") {
+		// Handle free packages - no payment needed
+		if (FREE_TIERS.includes(packageTier)) {
 			let payment;
 			if (event.eventPayment) {
 				payment = await prisma.eventPayment.update({
 					where: { id: event.eventPayment.id },
 					data: {
-						packageTier: "IKLAN" as any,
+						packageTier: packageTier as any,
 						amount: 0,
 						status: "PAID",
 						midtransOrderId: null,
@@ -87,7 +96,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 					data: {
 						eventId,
 						userId,
-						packageTier: "IKLAN" as any,
+						packageTier: packageTier as any,
 						amount: 0,
 						status: "PAID",
 						paymentType: "FREE",
@@ -99,7 +108,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 			await prisma.event.update({
 				where: { id: eventId },
 				data: {
-					packageTier: "IKLAN" as any,
+					packageTier: packageTier as any,
 					paymentStatus: "PAID",
 					wizardStep: 0,
 					wizardCompleted: true,
@@ -110,7 +119,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 				snapToken: null,
 				orderId: null,
 				amount: 0,
-				packageTier: "IKLAN",
+				packageTier,
 				paymentId: payment.id,
 				status: "PAID",
 			});
@@ -271,7 +280,7 @@ router.post("/:eventId/dp-request", authenticate, async (req: AuthenticatedReque
 		const { eventId } = req.params;
 		const { packageTier } = req.body;
 
-		if (!packageTier || !["IKLAN", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
+		if (!packageTier || !["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 

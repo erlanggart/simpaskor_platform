@@ -693,13 +693,34 @@ model TicketPurchase {
   updatedAt        DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  attendees TicketAttendee[]
 
   @@index([eventId])
   @@index([buyerEmail])
   @@index([ticketCode])
   @@map("ticket_purchases")
+}
+
+model TicketAttendee {
+  id             String       @id @default(uuid())
+  purchaseId     String       @map("purchase_id")
+  attendeeName   String       @map("attendee_name")
+  attendeeEmail  String       @map("attendee_email")
+  attendeePhone  String?      @map("attendee_phone")
+  ticketCode     String       @unique @map("ticket_code")
+  status         TicketStatus @default(PENDING)
+  usedAt         DateTime?    @map("used_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  purchase TicketPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId])
+  @@index([ticketCode])
+  @@map("ticket_attendees")
 }
 
 // ==========================================
@@ -942,6 +963,9 @@ enum EventSubmissionStatus {
 
 enum PackageTier {
   IKLAN
+  TICKETING
+  VOTING
+  TICKETING_VOTING
   BRONZE
   SILVER
   GOLD

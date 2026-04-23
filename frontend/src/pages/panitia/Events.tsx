@@ -38,6 +38,7 @@ interface Event {
 	status: string;
 	featured: boolean;
 	thumbnail: string | null;
+	packageTier: string | null;
 	schoolCategoryLimits?: SchoolCategoryLimit[];
 }
 
@@ -85,6 +86,7 @@ const PanitiaEvents: React.FC = () => {
 				slug: event.slug,
 				title: event.title,
 				id: event.id,
+				packageTier: event.packageTier,
 			})
 		);
 

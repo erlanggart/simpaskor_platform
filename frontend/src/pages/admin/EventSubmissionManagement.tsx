@@ -25,7 +25,7 @@ interface EventSubmission {
 	namaEvent: string;
 	lokasiEvent: string;
 	namaInstansi: string;
-	packageTier: "BRONZE" | "SILVER" | "GOLD";
+	packageTier: "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "SILVER" | "GOLD";
 	status: "PENDING" | "CONTACTED" | "CONFIRMED" | "REJECTED";
 	notes: string | null;
 	createdUserId: string | null;
@@ -48,6 +48,9 @@ const statusConfig = {
 };
 
 const tierConfig = {
+	TICKETING: { label: "Ticketing", price: "Gratis", color: "blue" },
+	VOTING: { label: "Voting", price: "Gratis", color: "purple" },
+	TICKETING_VOTING: { label: "Tiket + Voting", price: "Gratis", color: "indigo" },
 	BRONZE: { label: "Bronze", price: "Rp 500.000", color: "amber" },
 	SILVER: { label: "Silver", price: "Rp 1.000.000", color: "gray" },
 	GOLD: { label: "Gold", price: "Rp 1.500.000", color: "yellow" },
@@ -301,6 +304,9 @@ const EventSubmissionManagement: React.FC = () => {
 							className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800/50 text-gray-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 appearance-none"
 						>
 							<option value="">Semua Paket</option>
+							<option value="TICKETING">Ticketing</option>
+							<option value="VOTING">Voting</option>
+							<option value="TICKETING_VOTING">Tiket + Voting</option>
 							<option value="BRONZE">Bronze</option>
 							<option value="SILVER">Silver</option>
 							<option value="GOLD">Gold</option>

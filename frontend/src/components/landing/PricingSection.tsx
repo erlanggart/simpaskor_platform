@@ -8,26 +8,35 @@ import {
 	LuCrown,
 	LuTrophy,
 	LuMegaphone,
+	LuTicket,
+	LuThumbsUp,
+	LuTicketPlus,
 } from "react-icons/lu";
 
-type PackageTier = "IKLAN" | "BRONZE" | "SILVER" | "GOLD";
+type PackageTier = "IKLAN" | "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "SILVER" | "GOLD";
 
 interface PackageFeature {
 	name: string;
 	iklan: boolean;
+	ticketing: boolean;
+	voting: boolean;
+	ticketing_voting: boolean;
 	bronze: boolean;
 	silver: boolean;
 	gold: boolean;
 }
 
 const packageFeatures: PackageFeature[] = [
-	{ name: "Akses Sistem Penilaian", iklan: false, bronze: true, silver: true, gold: true },
-	{ name: "Technical Meeting Aplikasi", iklan: false, bronze: true, silver: true, gold: true },
-	{ name: "Laporan Digital", iklan: false, bronze: true, silver: true, gold: true },
-	{ name: "Tim Pendamping", iklan: false, bronze: false, silver: true, gold: true },
-	{ name: "Device Tablet", iklan: false, bronze: false, silver: true, gold: true },
-	{ name: "Tim Rekap", iklan: false, bronze: false, silver: false, gold: true },
-	{ name: "Penyusunan Materi Penilaian", iklan: false, bronze: false, silver: false, gold: true },
+	{ name: "E-Ticketing", iklan: false, ticketing: true, voting: false, ticketing_voting: true, bronze: true, silver: true, gold: true },
+	{ name: "E-Voting", iklan: false, ticketing: false, voting: true, ticketing_voting: true, bronze: true, silver: true, gold: true },
+	{ name: "Akses Sistem Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Pendaftaran Peserta", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Technical Meeting Aplikasi", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Laporan Digital", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
+	{ name: "Tim Pendamping", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
+	{ name: "Device Tablet", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
+	{ name: "Tim Rekap", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
+	{ name: "Penyusunan Materi Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
 ];
 
 const packages = [
@@ -44,6 +53,42 @@ const packages = [
 		note: "Akses demo — event tampil di landing page, fitur hanya bisa dilihat",
 	},
 	{
+		tier: "TICKETING" as PackageTier,
+		name: "Paket Ticketing",
+		price: "GRATIS",
+		icon: LuTicket,
+		color: "blue",
+		borderColor: "border-blue-400/50 dark:border-blue-500/30",
+		bgGlow: "from-blue-500/10 to-blue-600/5",
+		badgeClass: "bg-blue-500 text-white",
+		btnClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white",
+		note: "Fitur E-Ticketing untuk event Anda",
+	},
+	{
+		tier: "VOTING" as PackageTier,
+		name: "Paket Voting",
+		price: "GRATIS",
+		icon: LuThumbsUp,
+		color: "purple",
+		borderColor: "border-purple-400/50 dark:border-purple-500/30",
+		bgGlow: "from-purple-500/10 to-purple-600/5",
+		badgeClass: "bg-purple-500 text-white",
+		btnClass: "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white",
+		note: "Fitur E-Voting untuk event Anda",
+	},
+	{
+		tier: "TICKETING_VOTING" as PackageTier,
+		name: "Tiket + Voting",
+		price: "GRATIS",
+		icon: LuTicketPlus,
+		color: "indigo",
+		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
+		bgGlow: "from-indigo-500/10 to-indigo-600/5",
+		badgeClass: "bg-indigo-500 text-white",
+		btnClass: "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white",
+		note: "Fitur E-Ticketing dan E-Voting",
+	},
+	{
 		tier: "BRONZE" as PackageTier,
 		name: "Paket Bronze",
 		price: "Rp 500.000",
@@ -53,7 +98,8 @@ const packages = [
 		bgGlow: "from-amber-500/10 to-amber-600/5",
 		badgeClass: "bg-amber-500 text-white",
 		btnClass: "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
-		note: "Tim Pendamping (Online)",
+		featured: true,
+		note: "Semua fitur — Tim Pendamping (Online)",
 	},
 	{
 		tier: "SILVER" as PackageTier,
@@ -65,7 +111,6 @@ const packages = [
 		bgGlow: "from-gray-300/20 to-gray-400/10",
 		badgeClass: "bg-gradient-to-r from-gray-400 to-gray-500 text-white",
 		btnClass: "bg-gradient-to-r from-gray-700 to-gray-900 hover:from-gray-800 hover:to-black text-white",
-		featured: true,
 		note: "Tim Pendamping (Offline) + Device Tablet (max 3 unit)",
 	},
 	{
@@ -100,7 +145,7 @@ const PricingSection: React.FC = () => {
 			</div>
 
 			{/* Package Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8 mb-10">
+			<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8 mb-10">
 				{packages.map((pkg) => {
 					const Icon = pkg.icon;
 					const isFeatured = pkg.featured;
@@ -137,11 +182,17 @@ const PricingSection: React.FC = () => {
 								<p className={`text-2xl md:text-3xl font-black ${
 								pkg.tier === "IKLAN"
 									? "text-emerald-600 dark:text-emerald-400"
-									: pkg.tier === "BRONZE"
-										? "text-amber-600 dark:text-amber-400"
-										: pkg.tier === "SILVER"
-										? "text-gray-600 dark:text-gray-300"
-										: "text-yellow-600 dark:text-yellow-400"
+									: pkg.tier === "TICKETING"
+										? "text-blue-600 dark:text-blue-400"
+										: pkg.tier === "VOTING"
+											? "text-purple-600 dark:text-purple-400"
+											: pkg.tier === "TICKETING_VOTING"
+												? "text-indigo-600 dark:text-indigo-400"
+												: pkg.tier === "BRONZE"
+													? "text-amber-600 dark:text-amber-400"
+													: pkg.tier === "SILVER"
+														? "text-gray-600 dark:text-gray-300"
+														: "text-yellow-600 dark:text-yellow-400"
 								}`}>
 									{pkg.price}
 								</p>
@@ -150,7 +201,8 @@ const PricingSection: React.FC = () => {
 							{/* Features */}
 							<div className="px-6 py-4 space-y-2.5">
 								{packageFeatures.map((feature) => {
-									const included = feature[pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "bronze" | "silver" | "gold">];
+									const tierKey = pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "ticketing" | "voting" | "ticketing_voting" | "bronze" | "silver" | "gold">;
+									const included = feature[tierKey];
 									return (
 										<div key={feature.name} className="flex items-center gap-2.5">
 											{included ? (

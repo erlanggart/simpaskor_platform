@@ -6,9 +6,89 @@ import {
 	MinusIcon,
 	XMarkIcon,
 	CheckIcon,
+	CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import { Step2Props, Step2Data } from "../../types/eventWizard";
+import { LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus, LuMedal, LuCrown, LuTrophy } from "react-icons/lu";
+import { Step2Props, Step2Data, PackageTier } from "../../types/eventWizard";
 import { AssessmentCategory } from "../../types/eventWizard";
+
+interface PackageChoice {
+	tier: PackageTier;
+	name: string;
+	icon: React.ElementType;
+	color: string;
+	borderColor: string;
+	bgGlow: string;
+	description: string;
+}
+
+const packageChoices: PackageChoice[] = [
+	{
+		tier: "IKLAN",
+		name: "Iklan",
+		icon: LuMegaphone,
+		color: "emerald",
+		borderColor: "border-emerald-400/50 dark:border-emerald-500/30",
+		bgGlow: "from-emerald-500/10 to-emerald-600/5",
+		description: "Event tampil di landing page",
+	},
+	{
+		tier: "TICKETING",
+		name: "Ticketing",
+		icon: LuTicket,
+		color: "blue",
+		borderColor: "border-blue-400/50 dark:border-blue-500/30",
+		bgGlow: "from-blue-500/10 to-blue-600/5",
+		description: "Fitur E-Ticketing",
+	},
+	{
+		tier: "VOTING",
+		name: "Voting",
+		icon: LuThumbsUp,
+		color: "purple",
+		borderColor: "border-purple-400/50 dark:border-purple-500/30",
+		bgGlow: "from-purple-500/10 to-purple-600/5",
+		description: "Fitur E-Voting",
+	},
+	{
+		tier: "TICKETING_VOTING",
+		name: "Tiket + Voting",
+		icon: LuTicketPlus,
+		color: "indigo",
+		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
+		bgGlow: "from-indigo-500/10 to-indigo-600/5",
+		description: "E-Ticketing & E-Voting",
+	},
+	{
+		tier: "BRONZE",
+		name: "Bronze",
+		icon: LuMedal,
+		color: "amber",
+		borderColor: "border-amber-400/50 dark:border-amber-500/30",
+		bgGlow: "from-amber-500/10 to-amber-600/5",
+		description: "Penilaian lengkap + Ticketing + Voting",
+	},
+	{
+		tier: "SILVER",
+		name: "Silver",
+		icon: LuCrown,
+		color: "gray",
+		borderColor: "border-gray-300 dark:border-gray-400/30",
+		bgGlow: "from-gray-300/20 to-gray-400/10",
+		description: "Bronze + Tim Pendamping & Tablet",
+	},
+	{
+		tier: "GOLD",
+		name: "Gold",
+		icon: LuTrophy,
+		color: "yellow",
+		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
+		bgGlow: "from-yellow-500/10 to-yellow-600/5",
+		description: "Silver + Tim Rekap & Materi",
+	},
+];
+
+const SCORING_TIERS: PackageTier[] = ["BRONZE", "SILVER", "GOLD"];
 
 const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (category: AssessmentCategory) => void }> = ({
 	data,
@@ -26,6 +106,20 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 	const [newCategoryName, setNewCategoryName] = useState("");
 	const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 	const [categoryError, setCategoryError] = useState("");
+
+	const needsCategories = data.packageTier && SCORING_TIERS.includes(data.packageTier);
+
+	const handleSelectPackage = (tier: PackageTier) => {
+		setData((prev: Step2Data) => {
+			const updated: Step2Data = { ...prev, packageTier: tier };
+			// If switching away from scoring tier, clear categories
+			if (!SCORING_TIERS.includes(tier)) {
+				updated.assessmentCategoryIds = [];
+				updated.schoolCategoryLimits = [];
+			}
+			return updated;
+		});
+	};
 
 	const toggleCategory = (categoryId: string) => {
 		setData((prev: Step2Data) => {
@@ -151,11 +245,16 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 
 	const validateStep = (): boolean => {
 		const newErrors: string[] = [];
-		if (data.assessmentCategoryIds.length === 0) {
-			newErrors.push("Pilih minimal satu kategori penilaian");
+		if (!data.packageTier) {
+			newErrors.push("Pilih paket terlebih dahulu");
 		}
-		if (data.schoolCategoryLimits.length === 0) {
-			newErrors.push("Pilih minimal satu jenjang sekolah");
+		if (needsCategories) {
+			if (data.assessmentCategoryIds.length === 0) {
+				newErrors.push("Pilih minimal satu kategori penilaian");
+			}
+			if (data.schoolCategoryLimits.length === 0) {
+				newErrors.push("Pilih minimal satu jenjang sekolah");
+			}
 		}
 		return newErrors.length === 0;
 	};
@@ -171,14 +270,75 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 			{/* Header */}
 			<div className="text-center mb-8">
 				<h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-					Kategori Penilaian
+					Pilih Paket & Kategori
 				</h2>
 				<p className="text-gray-600 dark:text-gray-400 mt-2">
-					Pilih kategori penilaian dan jenjang sekolah untuk event
+					Tentukan paket layanan dan kategori penilaian untuk event Anda
 				</p>
 			</div>
 
-			{/* Assessment Categories */}
+			{/* Package Selection */}
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+				<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+					Pilih Paket
+				</h3>
+				<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+					Pilih jenis layanan yang Anda butuhkan untuk event ini
+				</p>
+
+				<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+					{packageChoices.map((pkg) => {
+						const Icon = pkg.icon;
+						const isSelected = data.packageTier === pkg.tier;
+
+						return (
+							<button
+								key={pkg.tier}
+								type="button"
+								onClick={() => handleSelectPackage(pkg.tier)}
+								className={`relative text-left p-4 rounded-xl border-2 transition-all duration-200 ${
+									isSelected
+										? `${pkg.borderColor} bg-white dark:bg-gray-800 shadow-md ring-2 ring-offset-1 dark:ring-offset-gray-900 ${
+											pkg.tier === "IKLAN" ? "ring-emerald-400" :
+											pkg.tier === "TICKETING" ? "ring-blue-400" :
+											pkg.tier === "VOTING" ? "ring-purple-400" :
+											pkg.tier === "TICKETING_VOTING" ? "ring-indigo-400" :
+											pkg.tier === "BRONZE" ? "ring-amber-400" :
+											pkg.tier === "SILVER" ? "ring-gray-400" :
+											"ring-yellow-400"
+										}`
+										: "border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/30 hover:bg-white dark:hover:bg-gray-800/60 hover:shadow-sm"
+								}`}
+							>
+								{isSelected && (
+									<div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+										<CheckCircleIcon className="w-3.5 h-3.5 text-white" />
+									</div>
+								)}
+								<div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${pkg.bgGlow} flex items-center justify-center mb-2`}>
+									<Icon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+								</div>
+								<h4 className="text-sm font-bold text-gray-900 dark:text-white">
+									{pkg.name}
+								</h4>
+								<p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-tight">
+									{pkg.description}
+								</p>
+							</button>
+						);
+					})}
+				</div>
+
+				{errors.packageTier && (
+					<p className="mt-3 text-sm text-red-600 dark:text-red-400">
+						{errors.packageTier}
+					</p>
+				)}
+			</div>
+
+			{/* Assessment Categories - only for scoring packages */}
+			{needsCategories && (
+				<>
 			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
 				<div className="flex items-center justify-between mb-4">
 					<div className="flex items-center gap-3">
@@ -412,6 +572,19 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 					</p>
 				)}
 			</div>
+				</>
+			)}
+
+			{/* Info for non-scoring packages */}
+			{data.packageTier && !needsCategories && (
+				<div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5 text-center">
+					<p className="text-sm text-blue-700 dark:text-blue-300">
+						Paket <strong>{packageChoices.find(p => p.tier === data.packageTier)?.name}</strong> tidak memerlukan kategori penilaian.
+						<br />
+						<span className="text-blue-500 dark:text-blue-400">Lanjutkan ke langkah berikutnya untuk mengatur media & biaya.</span>
+					</p>
+				</div>
+			)}
 
 			{/* Navigation */}
 			<div className="flex justify-between">

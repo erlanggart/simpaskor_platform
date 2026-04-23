@@ -26,9 +26,9 @@ import {
 
 const STEPS = [
 	{ number: 1, title: "Informasi Dasar", description: "Judul, tanggal, lokasi" },
-	{ number: 2, title: "Kategori", description: "Penilaian & peserta" },
+	{ number: 2, title: "Paket & Kategori", description: "Pilih paket & penilaian" },
 	{ number: 3, title: "Media & Biaya", description: "Poster, juknis, biaya" },
-	{ number: 4, title: "Pembayaran", description: "Pilih paket & bayar" },
+	{ number: 4, title: "Pembayaran", description: "Konfirmasi & bayar" },
 ];
 
 const CreateEventWizard: React.FC = () => {
@@ -68,6 +68,7 @@ const CreateEventWizard: React.FC = () => {
 
 	// Step 2 data
 	const [step2Data, setStep2Data] = useState<Step2Data>({
+		packageTier: null,
 		assessmentCategoryIds: [],
 		schoolCategoryLimits: [],
 	});
@@ -197,6 +198,7 @@ const CreateEventWizard: React.FC = () => {
 
 			// Load Step 2 data
 			setStep2Data({
+				packageTier: (draft.packageTier as Step2Data['packageTier']) || null,
 				assessmentCategoryIds: draft.assessmentCategories.map(
 					(ac) => ac.assessmentCategory.id
 				),
@@ -280,11 +282,21 @@ const CreateEventWizard: React.FC = () => {
 		try {
 			// Validate
 			const newErrors: Record<string, string> = {};
-			if (step2Data.assessmentCategoryIds.length === 0) {
-				newErrors.assessmentCategoryIds = "Pilih minimal 1 kategori penilaian";
+			if (!step2Data.packageTier) {
+				newErrors.packageTier = "Pilih paket terlebih dahulu";
 			}
-			if (step2Data.schoolCategoryLimits.length === 0) {
-				newErrors.schoolCategories = "Pilih minimal 1 kategori peserta";
+
+			// Only require categories for scoring packages
+			const SCORING_TIERS = ['BRONZE', 'SILVER', 'GOLD'];
+			const needsCategories = step2Data.packageTier && SCORING_TIERS.includes(step2Data.packageTier);
+
+			if (needsCategories) {
+				if (step2Data.assessmentCategoryIds.length === 0) {
+					newErrors.assessmentCategoryIds = "Pilih minimal 1 kategori penilaian";
+				}
+				if (step2Data.schoolCategoryLimits.length === 0) {
+					newErrors.schoolCategories = "Pilih minimal 1 kategori peserta";
+				}
 			}
 
 			if (Object.keys(newErrors).length > 0) {
@@ -293,7 +305,11 @@ const CreateEventWizard: React.FC = () => {
 				return false;
 			}
 
-			await api.patch(`/events/drafts/${eventDraftId}/step2`, step2Data);
+			await api.patch(`/events/drafts/${eventDraftId}/step2`, {
+				packageTier: step2Data.packageTier,
+				assessmentCategoryIds: needsCategories ? step2Data.assessmentCategoryIds : [],
+				schoolCategoryLimits: needsCategories ? step2Data.schoolCategoryLimits : [],
+			});
 			return true;
 		} catch (error: any) {
 			console.error("Error saving step 2:", error);
@@ -525,6 +541,7 @@ const CreateEventWizard: React.FC = () => {
 						isLoading={isLoading}
 						isSubmitting={isSubmitting}
 						isEditMode={isEditMode}
+						packageTier={step2Data.packageTier}
 					/>
 				)}
 
@@ -536,6 +553,7 @@ const CreateEventWizard: React.FC = () => {
 						isEditMode={isEditMode}
 						onNext={handleNextStep}
 						onBack={handlePrevStep}
+						packageTier={step2Data.packageTier}
 					/>
 				)}
 			</main>
