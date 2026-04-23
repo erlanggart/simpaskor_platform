@@ -7,28 +7,42 @@ import {
 	LuMedal,
 	LuCrown,
 	LuTrophy,
+	LuMegaphone,
 } from "react-icons/lu";
 
-type PackageTier = "BRONZE" | "SILVER" | "GOLD";
+type PackageTier = "IKLAN" | "BRONZE" | "SILVER" | "GOLD";
 
 interface PackageFeature {
 	name: string;
+	iklan: boolean;
 	bronze: boolean;
 	silver: boolean;
 	gold: boolean;
 }
 
 const packageFeatures: PackageFeature[] = [
-	{ name: "Akses Sistem Penilaian", bronze: true, silver: true, gold: true },
-	{ name: "Technical Meeting Aplikasi", bronze: true, silver: true, gold: true },
-	{ name: "Laporan Digital", bronze: true, silver: true, gold: true },
-	{ name: "Tim Pendamping", bronze: false, silver: true, gold: true },
-	{ name: "Device Tablet", bronze: false, silver: true, gold: true },
-	{ name: "Tim Rekap", bronze: false, silver: false, gold: true },
-	{ name: "Penyusunan Materi Penilaian", bronze: false, silver: false, gold: true },
+	{ name: "Akses Sistem Penilaian", iklan: false, bronze: true, silver: true, gold: true },
+	{ name: "Technical Meeting Aplikasi", iklan: false, bronze: true, silver: true, gold: true },
+	{ name: "Laporan Digital", iklan: false, bronze: true, silver: true, gold: true },
+	{ name: "Tim Pendamping", iklan: false, bronze: false, silver: true, gold: true },
+	{ name: "Device Tablet", iklan: false, bronze: false, silver: true, gold: true },
+	{ name: "Tim Rekap", iklan: false, bronze: false, silver: false, gold: true },
+	{ name: "Penyusunan Materi Penilaian", iklan: false, bronze: false, silver: false, gold: true },
 ];
 
 const packages = [
+	{
+		tier: "IKLAN" as PackageTier,
+		name: "Paket Iklan",
+		price: "GRATIS",
+		icon: LuMegaphone,
+		color: "emerald",
+		borderColor: "border-emerald-400/50 dark:border-emerald-500/30",
+		bgGlow: "from-emerald-500/10 to-emerald-600/5",
+		badgeClass: "bg-emerald-500 text-white",
+		btnClass: "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white",
+		note: "Akses demo — event tampil di landing page, fitur hanya bisa dilihat",
+	},
 	{
 		tier: "BRONZE" as PackageTier,
 		name: "Paket Bronze",
@@ -86,7 +100,7 @@ const PricingSection: React.FC = () => {
 			</div>
 
 			{/* Package Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mb-10">
+			<div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8 mb-10">
 				{packages.map((pkg) => {
 					const Icon = pkg.icon;
 					const isFeatured = pkg.featured;
@@ -121,7 +135,9 @@ const PricingSection: React.FC = () => {
 									{pkg.name}
 								</h3>
 								<p className={`text-2xl md:text-3xl font-black ${
-									pkg.tier === "BRONZE"
+								pkg.tier === "IKLAN"
+									? "text-emerald-600 dark:text-emerald-400"
+									: pkg.tier === "BRONZE"
 										? "text-amber-600 dark:text-amber-400"
 										: pkg.tier === "SILVER"
 										? "text-gray-600 dark:text-gray-300"
@@ -134,7 +150,7 @@ const PricingSection: React.FC = () => {
 							{/* Features */}
 							<div className="px-6 py-4 space-y-2.5">
 								{packageFeatures.map((feature) => {
-									const included = feature[pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "bronze" | "silver" | "gold">];
+									const included = feature[pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "bronze" | "silver" | "gold">];
 									return (
 										<div key={feature.name} className="flex items-center gap-2.5">
 											{included ? (

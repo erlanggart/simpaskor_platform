@@ -51,7 +51,7 @@ export interface Step3Data {
 }
 
 // Step 4: Payment
-export type PackageTier = 'BRONZE' | 'SILVER' | 'GOLD';
+export type PackageTier = 'IKLAN' | 'BRONZE' | 'SILVER' | 'GOLD';
 
 export interface EventPaymentData {
 	id: string;

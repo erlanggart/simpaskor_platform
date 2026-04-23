@@ -941,6 +941,7 @@ enum EventSubmissionStatus {
 }
 
 enum PackageTier {
+  IKLAN
   BRONZE
   SILVER
   GOLD

@@ -7,7 +7,7 @@ import {
 	SparklesIcon,
 	PhoneIcon,
 } from "@heroicons/react/24/outline";
-import { LuMedal, LuCrown, LuTrophy, LuCheck, LuX } from "react-icons/lu";
+import { LuMedal, LuCrown, LuTrophy, LuCheck, LuX, LuMegaphone } from "react-icons/lu";
 import { Step4Props, PackageTier, EventPaymentData } from "../../types/eventWizard";
 import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
@@ -29,22 +29,35 @@ interface PackageOption {
 
 interface PackageFeature {
 	name: string;
+	iklan: boolean;
 	bronze: boolean;
 	silver: boolean;
 	gold: boolean;
 }
 
 const packageFeatures: PackageFeature[] = [
-	{ name: "Akses Sistem Penilaian", bronze: true, silver: true, gold: true },
-	{ name: "Technical Meeting Aplikasi", bronze: true, silver: true, gold: true },
-	{ name: "Laporan Digital", bronze: true, silver: true, gold: true },
-	{ name: "Tim Pendamping", bronze: false, silver: true, gold: true },
-	{ name: "Device Tablet", bronze: false, silver: true, gold: true },
-	{ name: "Tim Rekap", bronze: false, silver: false, gold: true },
-	{ name: "Penyusunan Materi Penilaian", bronze: false, silver: false, gold: true },
+	{ name: "Akses Sistem Penilaian", iklan: false, bronze: true, silver: true, gold: true },
+	{ name: "Technical Meeting Aplikasi", iklan: false, bronze: true, silver: true, gold: true },
+	{ name: "Laporan Digital", iklan: false, bronze: true, silver: true, gold: true },
+	{ name: "Tim Pendamping", iklan: false, bronze: false, silver: true, gold: true },
+	{ name: "Device Tablet", iklan: false, bronze: false, silver: true, gold: true },
+	{ name: "Tim Rekap", iklan: false, bronze: false, silver: false, gold: true },
+	{ name: "Penyusunan Materi Penilaian", iklan: false, bronze: false, silver: false, gold: true },
 ];
 
 const packages: PackageOption[] = [
+	{
+		tier: "IKLAN",
+		name: "Paket Iklan",
+		price: 0,
+		priceLabel: "GRATIS",
+		icon: LuMegaphone,
+		color: "emerald",
+		borderColor: "border-emerald-400/50 dark:border-emerald-500/30",
+		bgGlow: "from-emerald-500/10 to-emerald-600/5",
+		btnClass: "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white",
+		note: "Akses demo — event tampil di landing page, fitur hanya bisa dilihat",
+	},
 	{
 		tier: "BRONZE",
 		name: "Paket Bronze",
@@ -176,6 +189,29 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 		onNext();
 	};
 
+	const handleFreePackage = async () => {
+		if (!eventId) return;
+
+		setIsProcessing(true);
+		try {
+			const response = await api.post("/event-payments/create", {
+				eventId,
+				packageTier: "IKLAN",
+			});
+
+			setPaymentStatus({
+				...response.data,
+				status: "PAID",
+				paidAt: new Date().toISOString(),
+			});
+			showSuccess("Paket Iklan berhasil diaktifkan! Event Anda akan tampil di landing page.");
+		} catch (error: any) {
+			showError(error.response?.data?.error || "Gagal mengaktifkan paket iklan");
+		} finally {
+			setIsProcessing(false);
+		}
+	};
+
 	const handleDP = async () => {
 		if (!selectedPackage || !eventId) return;
 
@@ -249,7 +285,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			{/* Package Selection */}
 			{!isPaid && (
 				<>
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 						{packages.map((pkg) => {
 							const Icon = pkg.icon;
 							const isSelected = selectedPackage === pkg.tier;
@@ -262,6 +298,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 									className={`relative text-left p-5 rounded-xl border-2 transition-all duration-300 ${
 										isSelected
 											? `${pkg.borderColor} bg-white dark:bg-gray-800 shadow-lg ring-2 ring-offset-2 dark:ring-offset-gray-900 ${
+												pkg.tier === "IKLAN" ? "ring-emerald-400" :
 												pkg.tier === "BRONZE" ? "ring-amber-400" :
 												pkg.tier === "SILVER" ? "ring-gray-400" :
 												"ring-yellow-400"
@@ -304,8 +341,8 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 						})}
 					</div>
 
-					{/* Payment Mode Selection */}
-					{selectedPackage && (
+				{/* Payment Mode Selection - only for paid packages */}
+				{selectedPackage && selectedPackage !== "IKLAN" && (
 						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
 							<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
 								Pilih Metode Pembayaran
@@ -381,6 +418,9 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 										<th className="text-left px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400">
 											Fitur
 										</th>
+										<th className="text-center px-4 py-3 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+											Iklan
+										</th>
 										<th className="text-center px-4 py-3 text-sm font-medium text-amber-600 dark:text-amber-400">
 											Bronze
 										</th>
@@ -397,6 +437,13 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 										<tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
 											<td className="px-6 py-3 text-sm text-gray-700 dark:text-gray-300">
 												{feature.name}
+											</td>
+											<td className="text-center px-4 py-3">
+												{feature.iklan ? (
+													<LuCheck className="w-5 h-5 text-green-500 mx-auto" />
+												) : (
+													<LuX className="w-5 h-5 text-gray-300 dark:text-gray-600 mx-auto" />
+												)}
 											</td>
 											<td className="text-center px-4 py-3">
 												{feature.bronze ? (
@@ -448,6 +495,25 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 						className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg transition-all"
 					>
 						Ke Dashboard →
+					</button>
+				) : selectedPackage === "IKLAN" ? (
+					<button
+						type="button"
+						onClick={handleFreePackage}
+						disabled={isProcessing}
+						className={`flex items-center gap-2 px-8 py-3 font-semibold rounded-xl shadow-lg transition-all bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white`}
+					>
+						{isProcessing ? (
+							<>
+								<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+								Memproses...
+							</>
+						) : (
+							<>
+								<LuMegaphone className="w-5 h-5" />
+								Aktifkan Paket Iklan
+							</>
+						)}
 					</button>
 				) : paymentMode === "dp" ? (
 					<button

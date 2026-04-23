@@ -12,12 +12,14 @@ const router = Router();
 
 // Package pricing (in Rupiah)
 const PACKAGE_PRICES: Record<string, number> = {
+	IKLAN: 0,
 	BRONZE: 500000,
 	SILVER: 1000000,
 	GOLD: 1500000,
 };
 
 const PACKAGE_NAMES: Record<string, string> = {
+	IKLAN: "Paket Iklan",
 	BRONZE: "Paket Bronze",
 	SILVER: "Paket Silver",
 	GOLD: "Paket Gold",
@@ -37,7 +39,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 		}
 
 		// Validate package tier
-		if (!["BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
+		if (!["IKLAN", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
@@ -59,13 +61,63 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 			return res.status(400).json({ error: "Pembayaran event sudah selesai" });
 		}
 
-		if (!isMidtransConfigured) {
-			return res.status(500).json({ error: "Payment gateway belum dikonfigurasi" });
+		const amount = PACKAGE_PRICES[packageTier];
+		if (amount === undefined) {
+			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
-		const amount = PACKAGE_PRICES[packageTier];
-		if (!amount) {
-			return res.status(400).json({ error: "Package tier tidak valid" });
+		// Handle free IKLAN package - no payment needed
+		if (packageTier === "IKLAN") {
+			let payment;
+			if (event.eventPayment) {
+				payment = await prisma.eventPayment.update({
+					where: { id: event.eventPayment.id },
+					data: {
+						packageTier: "IKLAN" as any,
+						amount: 0,
+						status: "PAID",
+						midtransOrderId: null,
+						snapToken: null,
+						paymentType: "FREE",
+						paidAt: new Date(),
+					},
+				});
+			} else {
+				payment = await prisma.eventPayment.create({
+					data: {
+						eventId,
+						userId,
+						packageTier: "IKLAN" as any,
+						amount: 0,
+						status: "PAID",
+						paymentType: "FREE",
+						paidAt: new Date(),
+					},
+				});
+			}
+
+			await prisma.event.update({
+				where: { id: eventId },
+				data: {
+					packageTier: "IKLAN" as any,
+					paymentStatus: "PAID",
+					wizardStep: 0,
+					wizardCompleted: true,
+				},
+			});
+
+			return res.json({
+				snapToken: null,
+				orderId: null,
+				amount: 0,
+				packageTier: "IKLAN",
+				paymentId: payment.id,
+				status: "PAID",
+			});
+		}
+
+		if (!isMidtransConfigured) {
+			return res.status(500).json({ error: "Payment gateway belum dikonfigurasi" });
 		}
 		const orderId = generateMidtransOrderId(PaymentPrefix.EVENT, eventId);
 
@@ -219,7 +271,7 @@ router.post("/:eventId/dp-request", authenticate, async (req: AuthenticatedReque
 		const { eventId } = req.params;
 		const { packageTier } = req.body;
 
-		if (!packageTier || !["BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
+		if (!packageTier || !["IKLAN", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
