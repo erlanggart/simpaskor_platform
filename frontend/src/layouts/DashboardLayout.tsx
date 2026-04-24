@@ -28,6 +28,7 @@ import {
 	LuBookOpen,
 	LuPackage,
 	LuDatabase,
+	LuCreditCard,
 } from "react-icons/lu";
 import "../components/landing/LandingPage.css";
 
@@ -171,6 +172,7 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
 					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Pesanan Event", icon: LuPackage, path: "/admin/event-submissions" },
+					{ name: "Kelola Paket", icon: LuCreditCard, path: "/admin/packages" },
 					{ name: "Setting", icon: LuSettings, path: "/admin/settings" },
 					{ name: "Backup", icon: LuDatabase, path: "/admin/backup" }
 				);
