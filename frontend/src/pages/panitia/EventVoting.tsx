@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import {
 	Cog6ToothIcon,
@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
+import { config } from "../../utils/config";
 import {
 	EventVotingConfig,
 	VotingCategory,
@@ -61,7 +62,10 @@ const EventVoting: React.FC = () => {
 	const [syncing, setSyncing] = useState(false);
 	const [showAddNomineeForm, setShowAddNomineeForm] = useState(false);
 	const [addingNominee, setAddingNominee] = useState(false);
-	const [nomineeForm, setNomineeForm] = useState({ nomineeName: "", nomineeSubtitle: "", nomineePhoto: "" });
+	const [nomineeForm, setNomineeForm] = useState({ nomineeName: "", nomineeSubtitle: "" });
+	const [nomineePhotoFile, setNomineePhotoFile] = useState<File | null>(null);
+	const [nomineePhotoPreview, setNomineePhotoPreview] = useState<string | null>(null);
+	const nomineePhotoInputRef = useRef<HTMLInputElement>(null);
 
 	// Results state
 	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean }>({ categories: [], totalVotes: 0, pricePerVote: 0, isPaid: false });
@@ -305,13 +309,21 @@ const EventVoting: React.FC = () => {
 		}
 		try {
 			setAddingNominee(true);
-			const res = await api.post(`/voting/admin/categories/${categoryId}/nominees`, {
-				nomineeName: nomineeForm.nomineeName.trim(),
-				nomineeSubtitle: nomineeForm.nomineeSubtitle.trim() || undefined,
-				nomineePhoto: nomineeForm.nomineePhoto.trim() || undefined,
+			const formData = new FormData();
+			formData.append("nomineeName", nomineeForm.nomineeName.trim());
+			if (nomineeForm.nomineeSubtitle.trim()) {
+				formData.append("nomineeSubtitle", nomineeForm.nomineeSubtitle.trim());
+			}
+			if (nomineePhotoFile) {
+				formData.append("nomineePhoto", nomineePhotoFile);
+			}
+			const res = await api.post(`/voting/admin/categories/${categoryId}/nominees`, formData, {
+				headers: { "Content-Type": "multipart/form-data" },
 			});
 			setNominees((prev) => [...prev, res.data]);
-			setNomineeForm({ nomineeName: "", nomineeSubtitle: "", nomineePhoto: "" });
+			setNomineeForm({ nomineeName: "", nomineeSubtitle: "" });
+			setNomineePhotoFile(null);
+			setNomineePhotoPreview(null);
 			setShowAddNomineeForm(false);
 			// Update category count in the categories list
 			setCategories((prev) =>
@@ -822,7 +834,7 @@ const EventVoting: React.FC = () => {
 													<button
 														onClick={() => {
 															setShowAddNomineeForm((v) => !v);
-															setNomineeForm({ nomineeName: "", nomineeSubtitle: "", nomineePhoto: "" });
+															setNomineeForm({ nomineeName: "", nomineeSubtitle: "" });
 														}}
 														className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium"
 													>
@@ -865,18 +877,55 @@ const EventVoting: React.FC = () => {
 														/>
 													</div>
 													<div>
-														<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">URL Foto <span className="text-gray-400">(opsional)</span></label>
+														<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Foto Nominee <span className="text-gray-400">(opsional)</span></label>
 														<input
-															type="text"
-															value={nomineeForm.nomineePhoto}
-															onChange={(e) => setNomineeForm((f) => ({ ...f, nomineePhoto: e.target.value }))}
-															placeholder="https://..."
-															className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+															type="file"
+															accept="image/jpeg,image/jpg,image/png,image/webp"
+															ref={nomineePhotoInputRef}
+															className="hidden"
+															onChange={(e) => {
+																const file = e.target.files?.[0] || null;
+																setNomineePhotoFile(file);
+																if (file) {
+																	setNomineePhotoPreview(URL.createObjectURL(file));
+																} else {
+																	setNomineePhotoPreview(null);
+																}
+															}}
 														/>
+														<div className="flex items-center gap-3">
+															<button
+																type="button"
+																onClick={() => nomineePhotoInputRef.current?.click()}
+																className="px-3 py-2 text-sm rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 transition-colors"
+															>
+																{nomineePhotoFile ? "Ganti Foto" : "Pilih Foto"}
+															</button>
+															{nomineePhotoPreview ? (
+																<div className="flex items-center gap-2">
+																	<img src={nomineePhotoPreview} alt="preview" className="w-10 h-10 rounded-full object-cover border border-gray-300" />
+																	<span className="text-xs text-gray-500 truncate max-w-[140px]">{nomineePhotoFile?.name}</span>
+																	<button
+																		type="button"
+																		onClick={() => { setNomineePhotoFile(null); setNomineePhotoPreview(null); if (nomineePhotoInputRef.current) nomineePhotoInputRef.current.value = ""; }}
+																		className="text-red-500 hover:text-red-700 text-xs"
+																	>
+																		✕
+																	</button>
+																</div>
+															) : (
+																<span className="text-xs text-gray-400">JPG, PNG, WEBP — maks 3MB</span>
+															)}
+														</div>
 													</div>
 													<div className="flex gap-2 justify-end">
 														<button
-															onClick={() => setShowAddNomineeForm(false)}
+															onClick={() => {
+																setShowAddNomineeForm(false);
+																setNomineePhotoFile(null);
+																setNomineePhotoPreview(null);
+																setNomineeForm({ nomineeName: "", nomineeSubtitle: "" });
+															}}
 															className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
 														>
 															Batal
@@ -903,7 +952,7 @@ const EventVoting: React.FC = () => {
 															<div className="flex items-center gap-3 min-w-0">
 																<span className="text-sm font-semibold text-gray-400 w-5 text-right">{idx + 1}</span>
 																{nominee.nomineePhoto ? (
-																	<img src={nominee.nomineePhoto} alt="" className="w-8 h-8 rounded-full object-cover" />
+																	<img src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : (config.api.backendUrl + nominee.nomineePhoto)} alt="" className="w-8 h-8 rounded-full object-cover" />
 																) : (
 																	<div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
 																		<UserIcon className="w-4 h-4 text-gray-500" />
@@ -1115,3 +1164,4 @@ const EventVoting: React.FC = () => {
 };
 
 export default EventVoting;
+

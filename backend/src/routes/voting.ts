@@ -13,6 +13,7 @@ import {
 	PaymentPrefix,
 } from "../lib/midtrans";
 import { sendVotingPurchaseEmail } from "../lib/email";
+import { uploadNomineePhoto } from "../middleware/upload";
 
 const router = Router();
 
@@ -929,12 +930,21 @@ router.post(
 	"/admin/categories/:categoryId/nominees",
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
+	uploadNomineePhoto.single("nomineePhoto"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { nomineeName, nomineePhoto, nomineeSubtitle, groupId } = req.body;
+			const { nomineeName, nomineeSubtitle, groupId } = req.body;
 
 			if (!nomineeName) {
 				return res.status(400).json({ error: "Nama nominee wajib diisi" });
+			}
+
+			// Build photo URL from uploaded file or fallback to body field
+			let nomineePhoto: string | null = null;
+			if (req.file) {
+				nomineePhoto = `/uploads/nominees/${req.file.filename}`;
+			} else if (req.body.nomineePhotoUrl) {
+				nomineePhoto = req.body.nomineePhotoUrl;
 			}
 
 			const nominee = await prisma.votingNominee.create({
@@ -942,7 +952,7 @@ router.post(
 					category: { connect: { id: req.params.categoryId } },
 					groupId: groupId || null,
 					nomineeName,
-					nomineePhoto: nomineePhoto || null,
+					nomineePhoto,
 					nomineeSubtitle: nomineeSubtitle || null,
 				},
 			});
