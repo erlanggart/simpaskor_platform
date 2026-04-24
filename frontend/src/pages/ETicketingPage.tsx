@@ -4,7 +4,7 @@ import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
 import { TicketedEvent } from "../types/ticket";
-import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuDownload, LuSend, LuPlus, LuTrash2 } from "react-icons/lu";
+import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload, LuSend, LuPlus, LuTrash2 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 
@@ -33,10 +33,10 @@ const ETicketingPage: React.FC = () => {
 	// Purchase form
 	const [buyerName, setBuyerName] = useState(user?.name || "");
 	const [buyerEmail, setBuyerEmail] = useState(user?.email || "");
-	const [buyerGender, setBuyerGender] = useState("");
+	const [buyerPhone, setBuyerPhone] = useState("");
 	const MAX_TICKETS = 5;
-	const [attendees, setAttendees] = useState<{ name: string; email: string; gender: string }[]>([
-		{ name: user?.name || "", email: user?.email || "", gender: "" },
+	const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string }[]>([
+		{ name: user?.name || "", email: user?.email || "", phone: "" },
 	]);
 
 	// Send ticket to email
@@ -246,11 +246,11 @@ const ETicketingPage: React.FC = () => {
 				eventId: selectedEvent.id,
 				buyerName: buyerName.trim(),
 				buyerEmail: buyerEmail.trim(),
-				buyerGender: buyerGender || undefined,
+				buyerPhone: buyerPhone.trim() || undefined,
 				attendees: attendees.map(a => ({
 					name: a.name.trim(),
 					email: a.email.trim(),
-					gender: a.gender || undefined,
+					phone: a.phone.trim() || undefined,
 				})),
 			});
 
@@ -611,18 +611,16 @@ const ETicketingPage: React.FC = () => {
 								</div>
 								<div>
 									<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<LuUser className="w-3.5 h-3.5 inline mr-1" />
-										Gender
+										<LuPhone className="w-3.5 h-3.5 inline mr-1" />
+										No. Telepon <span className="text-gray-400">(Opsional)</span>
 									</label>
-									<select
-										value={buyerGender}
-										onChange={(e) => setBuyerGender(e.target.value)}
+									<input
+										type="tel"
+										value={buyerPhone}
+										onChange={(e) => setBuyerPhone(e.target.value)}
 										className="w-full px-3 py-2 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-									>
-										<option value="">Pilih Gender</option>
-										<option value="L">Laki-laki</option>
-										<option value="P">Perempuan</option>
-									</select>
+										placeholder="+6281234567890"
+									/>
 								</div>
 
 								{/* Attendee List */}
@@ -633,7 +631,7 @@ const ETicketingPage: React.FC = () => {
 										</h3>
 										{attendees.length < MAX_TICKETS && attendees.length < ((selectedEvent.ticketConfig?.quota || 0) - (selectedEvent.ticketConfig?.soldCount || 0)) && (
 											<button
-												onClick={() => setAttendees(prev => [...prev, { name: "", email: "", gender: "" }])}
+												onClick={() => setAttendees(prev => [...prev, { name: "", email: "", phone: "" }])}
 												className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
 											>
 												<LuPlus className="w-3.5 h-3.5" />
@@ -683,19 +681,17 @@ const ETicketingPage: React.FC = () => {
 														className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 														placeholder="Email *"
 													/>
-													<select
-														value={att.gender}
-														onChange={(e) => {
-															const newAtt = [...attendees];
-															newAtt[idx] = { ...newAtt[idx], gender: e.target.value };
-															setAttendees(newAtt);
-														}}
-														className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-													>
-														<option value="">Gender</option>
-														<option value="L">Laki-laki</option>
-														<option value="P">Perempuan</option>
-													</select>
+												<input
+													type="tel"
+													value={att.phone}
+													onChange={(e) => {
+														const newAtt = [...attendees];
+														newAtt[idx] = { ...newAtt[idx], phone: e.target.value };
+														setAttendees(newAtt);
+													}}
+													className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+													placeholder="No. HP"
+												/>
 												</div>
 											</div>
 										))}
