@@ -22,6 +22,7 @@ import {
 	VotingPurchase,
 	VotingMode,
 } from "../../types/voting";
+import ImageCropper from "../../components/ImageCropper";
 
 const EventVoting: React.FC = () => {
 	const { eventSlug } = useParams();
@@ -66,6 +67,8 @@ const EventVoting: React.FC = () => {
 	const [nomineePhotoFile, setNomineePhotoFile] = useState<File | null>(null);
 	const [nomineePhotoPreview, setNomineePhotoPreview] = useState<string | null>(null);
 	const nomineePhotoInputRef = useRef<HTMLInputElement>(null);
+	const [showCropper, setShowCropper] = useState(false);
+	const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
 	// Results state
 	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean }>({ categories: [], totalVotes: 0, pricePerVote: 0, isPaid: false });
@@ -420,6 +423,7 @@ const EventVoting: React.FC = () => {
 	];
 
 	return (
+		<>
 		<div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 			{/* Header */}
 			<div>
@@ -885,12 +889,13 @@ const EventVoting: React.FC = () => {
 															className="hidden"
 															onChange={(e) => {
 																const file = e.target.files?.[0] || null;
-																setNomineePhotoFile(file);
 																if (file) {
-																	setNomineePhotoPreview(URL.createObjectURL(file));
-																} else {
-																	setNomineePhotoPreview(null);
+																	const objectUrl = URL.createObjectURL(file);
+																	setCropImageSrc(objectUrl);
+																	setShowCropper(true);
 																}
+																// Reset input so same file can be re-selected
+																if (nomineePhotoInputRef.current) nomineePhotoInputRef.current.value = "";
 															}}
 														/>
 														<div className="flex items-center gap-3">
@@ -1160,6 +1165,29 @@ const EventVoting: React.FC = () => {
 				</div>
 			)}
 		</div>
+
+		{/* Image Cropper Modal */}
+		{showCropper && cropImageSrc && (
+			<ImageCropper
+				imageSrc={cropImageSrc}
+				aspectRatio={3 / 4}
+				cropShape="rect"
+				onCropComplete={(croppedBlob) => {
+					const croppedFile = new File([croppedBlob], "nominee-photo.jpg", { type: "image/jpeg" });
+					setNomineePhotoFile(croppedFile);
+					setNomineePhotoPreview(URL.createObjectURL(croppedBlob));
+					setShowCropper(false);
+					if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+					setCropImageSrc(null);
+				}}
+				onCancel={() => {
+					setShowCropper(false);
+					if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
+					setCropImageSrc(null);
+				}}
+			/>
+		)}
+		</>
 	);
 };
 

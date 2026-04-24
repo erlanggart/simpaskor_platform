@@ -448,9 +448,9 @@ const EVotingPage: React.FC = () => {
 											}`}
 										>
 											{/* Photo */}
-											<div className="h-40 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10 flex items-center justify-center relative">
+											<div className="aspect-[3/4] bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10 flex items-center justify-center relative overflow-hidden">
 											{nominee.nomineePhoto ? (
-												<img src={nominee.nomineePhoto} alt={nominee.nomineeName} className="w-full h-full object-cover" />
+												<img src={nominee.nomineePhoto} alt={nominee.nomineeName} className="w-full h-full object-cover object-top" />
 											) : (
 													<LuUser className="w-16 h-16 text-gray-400 dark:text-gray-500" />
 											)}

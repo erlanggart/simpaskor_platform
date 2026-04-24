@@ -146,12 +146,12 @@ const VotingSection: React.FC = () => {
 								className="group bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] overflow-hidden hover:border-purple-300 dark:hover:border-purple-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/5"
 							>
 								{/* Photo */}
-								<div className="h-28 sm:h-32 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 flex items-center justify-center relative">
+								<div className="aspect-[3/4] bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 flex items-center justify-center relative overflow-hidden">
 									{nominee.nomineePhoto ? (
 										<img
 											src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
 											alt={nominee.nomineeName}
-											className="w-full h-full object-cover"
+											className="w-full h-full object-cover object-top"
 										/>
 									) : (
 										<LuUser className="w-10 h-10 text-gray-400 dark:text-gray-500" />

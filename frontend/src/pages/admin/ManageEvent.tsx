@@ -12,6 +12,8 @@ import {
 	EyeIcon,
 	ArrowLeftIcon,
 	PencilSquareIcon,
+	TicketIcon,
+	HandThumbUpIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -442,6 +444,38 @@ const AdminManageEvent: React.FC = () => {
 							<div>
 								<h3 className="font-semibold text-gray-900 dark:text-white">Kelola Materi</h3>
 								<p className="text-sm text-gray-500 dark:text-gray-400">Upload dan atur materi</p>
+							</div>
+						</div>
+					</Link>
+
+					{/* Kelola Tiket */}
+					<Link
+						to={`/admin/events/${event.slug}/ticketing`}
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+					>
+						<div className="flex items-center gap-4">
+							<div className="p-3 bg-teal-100 dark:bg-teal-900/30 rounded-lg group-hover:bg-teal-200 dark:group-hover:bg-teal-900/50 transition-colors">
+								<TicketIcon className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+							</div>
+							<div>
+								<h3 className="font-semibold text-gray-900 dark:text-white">Kelola Tiket</h3>
+								<p className="text-sm text-gray-500 dark:text-gray-400">Atur e-ticketing event</p>
+							</div>
+						</div>
+					</Link>
+
+					{/* Kelola Voting */}
+					<Link
+						to={`/admin/events/${event.slug}/voting`}
+						className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow group"
+					>
+						<div className="flex items-center gap-4">
+							<div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/50 transition-colors">
+								<HandThumbUpIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+							</div>
+							<div>
+								<h3 className="font-semibold text-gray-900 dark:text-white">Kelola Voting</h3>
+								<p className="text-sm text-gray-500 dark:text-gray-400">Atur e-voting event</p>
 							</div>
 						</div>
 					</Link>
