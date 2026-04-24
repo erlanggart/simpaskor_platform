@@ -1,11 +1,12 @@
 import { Router, Response } from "express";
-import { PrismaClient, TicketStatus } from "@prisma/client";
+import { TicketStatus } from "@prisma/client";
 import {
 	authenticate,
 	authorize,
 	optionalAuthenticate,
 	AuthenticatedRequest,
 } from "../middleware/auth";
+import { prisma } from "../lib/prisma";
 import crypto from "crypto";
 import {
 	createSnapTransaction,
@@ -15,7 +16,6 @@ import {
 import { sendTicketEmail, sendTicketEmailFromServer } from "../lib/email";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Resolve event slug or ID to actual event ID
 const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string | null> => {
@@ -49,7 +49,7 @@ router.get("/events", async (req: AuthenticatedRequest, res: Response) => {
 		const where: any = {
 			status: { in: ["PUBLISHED", "ONGOING"] },
 			ticketConfig: {
-				enabled: true,
+				is: { enabled: true },
 			},
 		};
 
@@ -95,6 +95,24 @@ router.get("/events", async (req: AuthenticatedRequest, res: Response) => {
 			}),
 			prisma.event.count({ where }),
 		]);
+
+		// Debug logging for production troubleshooting
+		if (total === 0) {
+			const allTicketConfigs = await prisma.eventTicketConfig.findMany({
+				where: { enabled: true },
+				select: { eventId: true, enabled: true, event: { select: { id: true, title: true, status: true } } },
+			});
+			console.log("[tickets/events] No ticketed events found. Debug info:", {
+				search: search || null,
+				enabledTicketConfigs: allTicketConfigs.length,
+				configs: allTicketConfigs.map(c => ({
+					eventId: c.eventId,
+					eventTitle: c.event.title,
+					eventStatus: c.event.status,
+					enabled: c.enabled,
+				})),
+			});
+		}
 
 		res.json({
 			data: events,

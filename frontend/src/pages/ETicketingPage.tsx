@@ -13,6 +13,7 @@ const ETicketingPage: React.FC = () => {
 	const { pay, isSnapReady } = usePayment();
 	const [events, setEvents] = useState<TicketedEvent[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
@@ -54,14 +55,16 @@ const ETicketingPage: React.FC = () => {
 	const fetchEvents = useCallback(async () => {
 		try {
 			setLoading(true);
+			setError(null);
 			const params: any = { page, limit: 25 };
 			if (search) params.search = search;
 
 			const res = await api.get("/tickets/events", { params });
 			setEvents(res.data.data);
 			setTotalPages(res.data.totalPages);
-		} catch {
-			console.error("Error fetching events");
+		} catch (err: any) {
+			console.error("Error fetching ticketed events:", err);
+			setError(err.response?.data?.error || err.message || "Gagal memuat data event tiket");
 		} finally {
 			setLoading(false);
 		}
@@ -403,7 +406,15 @@ const ETicketingPage: React.FC = () => {
 						<div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-white/[0.06] flex items-center justify-center">
 							<LuTicket className="w-8 h-8 text-gray-400 dark:text-gray-500" />
 						</div>
-						<p className="text-gray-500 dark:text-gray-400 text-sm">Tidak ada event tiket yang ditemukan</p>
+						{error ? (
+							<>
+								<p className="text-red-500 dark:text-red-400 text-sm font-medium mb-1">Gagal Memuat Data</p>
+								<p className="text-gray-500 dark:text-gray-400 text-xs">{error}</p>
+								<button onClick={fetchEvents} className="mt-3 text-xs text-blue-500 hover:underline">Coba Lagi</button>
+							</>
+						) : (
+							<p className="text-gray-500 dark:text-gray-400 text-sm">Tidak ada event tiket yang ditemukan</p>
+						)}
 					</div>
 				) : (
 					<>

@@ -1,11 +1,11 @@
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import {
 	authenticate,
 	authorize,
 	optionalAuthenticate,
 	AuthenticatedRequest,
 } from "../middleware/auth";
+import { prisma } from "../lib/prisma";
 import crypto from "crypto";
 import {
 	createSnapTransaction,
@@ -15,7 +15,6 @@ import {
 import { sendVotingPurchaseEmail } from "../lib/email";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Resolve event slug or ID to actual event ID
 const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string | null> => {
@@ -49,7 +48,7 @@ router.get("/events", async (req: AuthenticatedRequest, res: Response) => {
 		const where: any = {
 			status: { in: ["PUBLISHED", "ONGOING"] },
 			votingConfig: {
-				enabled: true,
+				is: { enabled: true },
 			},
 		};
 
@@ -103,6 +102,24 @@ router.get("/events", async (req: AuthenticatedRequest, res: Response) => {
 			}),
 			prisma.event.count({ where }),
 		]);
+
+		// Debug logging for production troubleshooting
+		if (total === 0) {
+			const allVotingConfigs = await prisma.eventVotingConfig.findMany({
+				where: { enabled: true },
+				select: { eventId: true, enabled: true, event: { select: { id: true, title: true, status: true } } },
+			});
+			console.log("[voting/events] No voting events found. Debug info:", {
+				search: search || null,
+				enabledVotingConfigs: allVotingConfigs.length,
+				configs: allVotingConfigs.map(c => ({
+					eventId: c.eventId,
+					eventTitle: c.event.title,
+					eventStatus: c.event.status,
+					enabled: c.enabled,
+				})),
+			});
+		}
 
 		res.json({
 			data: events,
