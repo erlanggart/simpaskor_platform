@@ -59,6 +59,9 @@ const EventVoting: React.FC = () => {
 	const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 	const [nominees, setNominees] = useState<VotingNominee[]>([]);
 	const [syncing, setSyncing] = useState(false);
+	const [showAddNomineeForm, setShowAddNomineeForm] = useState(false);
+	const [addingNominee, setAddingNominee] = useState(false);
+	const [nomineeForm, setNomineeForm] = useState({ nomineeName: "", nomineeSubtitle: "", nomineePhoto: "" });
 
 	// Results state
 	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean }>({ categories: [], totalVotes: 0, pricePerVote: 0, isPaid: false });
@@ -292,6 +295,36 @@ const EventVoting: React.FC = () => {
 			setNominees((prev) => prev.filter((n) => n.id !== nomineeId));
 		} catch (err: any) {
 			Swal.fire("Error", err.response?.data?.error || "Gagal menghapus nominee", "error");
+		}
+	};
+
+	const handleAddNominee = async (categoryId: string) => {
+		if (!nomineeForm.nomineeName.trim()) {
+			Swal.fire("Error", "Nama nominee wajib diisi", "error");
+			return;
+		}
+		try {
+			setAddingNominee(true);
+			const res = await api.post(`/voting/admin/categories/${categoryId}/nominees`, {
+				nomineeName: nomineeForm.nomineeName.trim(),
+				nomineeSubtitle: nomineeForm.nomineeSubtitle.trim() || undefined,
+				nomineePhoto: nomineeForm.nomineePhoto.trim() || undefined,
+			});
+			setNominees((prev) => [...prev, res.data]);
+			setNomineeForm({ nomineeName: "", nomineeSubtitle: "", nomineePhoto: "" });
+			setShowAddNomineeForm(false);
+			// Update category count in the categories list
+			setCategories((prev) =>
+				prev.map((c) =>
+					c.id === categoryId
+						? { ...c, _count: { ...c._count, nominees: (c._count?.nominees || 0) + 1, votes: c._count?.votes || 0 } }
+						: c
+				)
+			);
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal menambah nominee", "error");
+		} finally {
+			setAddingNominee(false);
 		}
 	};
 
@@ -732,8 +765,10 @@ const EventVoting: React.FC = () => {
 											if (selectedCategoryId === cat.id) {
 												setSelectedCategoryId(null);
 												setNominees([]);
+												setShowAddNomineeForm(false);
 											} else {
 												setSelectedCategoryId(cat.id);
+												setShowAddNomineeForm(false);
 												fetchNominees(cat.id);
 											}
 										}}
@@ -781,21 +816,85 @@ const EventVoting: React.FC = () => {
 									{/* Nominees Panel */}
 									{selectedCategoryId === cat.id && (
 										<div className="border-t border-gray-200/60 dark:border-gray-700/40 p-4 space-y-3">
-											<div className="flex items-center justify-between">
-												<h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Nominee</h4>
-												<button
-													onClick={() => handleSyncNominees(cat.id)}
-													disabled={syncing}
-													className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium disabled:opacity-50"
-												>
-													<ArrowPathIcon className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-													Sinkronisasi
-												</button>
+											<div className="flex items-center justify-between gap-2 flex-wrap">
+												<h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Nominee ({nominees.length})</h4>
+												<div className="flex items-center gap-2">
+													<button
+														onClick={() => {
+															setShowAddNomineeForm((v) => !v);
+															setNomineeForm({ nomineeName: "", nomineeSubtitle: "", nomineePhoto: "" });
+														}}
+														className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium"
+													>
+														<PlusIcon className="w-3.5 h-3.5" />
+														Tambah Nominee
+													</button>
+													<button
+														onClick={() => handleSyncNominees(cat.id)}
+														disabled={syncing}
+														className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium disabled:opacity-50"
+													>
+														<ArrowPathIcon className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+														Sinkronisasi
+													</button>
+												</div>
 											</div>
+
+											{/* Add Nominee Form */}
+											{showAddNomineeForm && (
+												<div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/40 rounded-xl p-4 space-y-3">
+													<p className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide">Tambah Nominee Manual</p>
+													<div>
+														<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Nominee <span className="text-red-500">*</span></label>
+														<input
+															type="text"
+															value={nomineeForm.nomineeName}
+															onChange={(e) => setNomineeForm((f) => ({ ...f, nomineeName: e.target.value }))}
+															placeholder="Nama tim / peserta"
+															className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+														/>
+													</div>
+													<div>
+														<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Subtitle <span className="text-gray-400">(opsional)</span></label>
+														<input
+															type="text"
+															value={nomineeForm.nomineeSubtitle}
+															onChange={(e) => setNomineeForm((f) => ({ ...f, nomineeSubtitle: e.target.value }))}
+															placeholder="Contoh: nama sekolah, asal kota"
+															className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+														/>
+													</div>
+													<div>
+														<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">URL Foto <span className="text-gray-400">(opsional)</span></label>
+														<input
+															type="text"
+															value={nomineeForm.nomineePhoto}
+															onChange={(e) => setNomineeForm((f) => ({ ...f, nomineePhoto: e.target.value }))}
+															placeholder="https://..."
+															className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+														/>
+													</div>
+													<div className="flex gap-2 justify-end">
+														<button
+															onClick={() => setShowAddNomineeForm(false)}
+															className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+														>
+															Batal
+														</button>
+														<button
+															onClick={() => handleAddNominee(cat.id)}
+															disabled={addingNominee || !nomineeForm.nomineeName.trim()}
+															className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium disabled:opacity-50"
+														>
+															{addingNominee ? "Menyimpan..." : "Simpan Nominee"}
+														</button>
+													</div>
+												</div>
+											)}
 
 											{nominees.length === 0 ? (
 												<p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-													Belum ada nominee. Klik "Sinkronisasi" untuk mengambil data dari peserta event.
+													Belum ada nominee. Klik "Tambah Nominee" untuk tambah manual atau "Sinkronisasi" untuk mengambil data dari peserta event.
 												</p>
 											) : (
 												<div className="grid gap-2">
