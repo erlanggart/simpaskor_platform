@@ -61,7 +61,7 @@ const EventVoting: React.FC = () => {
 	const [syncing, setSyncing] = useState(false);
 
 	// Results state
-	const [results, setResults] = useState<{ categories: any[]; totalVotes: number }>({ categories: [], totalVotes: 0 });
+	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean }>({ categories: [], totalVotes: 0, pricePerVote: 0, isPaid: false });
 
 	// Purchases state
 	const [purchases, setPurchases] = useState<VotingPurchase[]>([]);
@@ -842,9 +842,16 @@ const EventVoting: React.FC = () => {
 			{/* Results Tab */}
 			{activeTab === "results" && (
 				<div className="space-y-6">
-					<div className="flex items-center justify-between">
+					<div className="flex items-center justify-between flex-wrap gap-2">
 						<h2 className="text-lg font-semibold text-gray-900 dark:text-white">Hasil Voting</h2>
-						<span className="text-sm text-gray-500 dark:text-gray-400">Total: {results.totalVotes} vote</span>
+						<div className="flex items-center gap-4">
+							{results.isPaid && (
+								<span className="text-sm text-green-600 dark:text-green-400 font-medium">
+									Total Pendapatan: {formatCurrency(results.totalVotes * results.pricePerVote)}
+								</span>
+							)}
+							<span className="text-sm text-gray-500 dark:text-gray-400">Total: {results.totalVotes} vote</span>
+						</div>
 					</div>
 
 					{results.categories.length === 0 ? (
@@ -854,30 +861,57 @@ const EventVoting: React.FC = () => {
 						</div>
 					) : (
 						results.categories.map((cat) => (
-							<div key={cat.id} className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-200/60 dark:border-gray-700/40 p-4 space-y-3">
-								<div className="flex items-center justify-between">
+							<div key={cat.id} className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-200/60 dark:border-gray-700/40 overflow-hidden">
+								<div className="flex items-center justify-between p-4 border-b border-gray-200/60 dark:border-gray-700/40">
 									<h3 className="font-semibold text-gray-900 dark:text-white">{cat.title}</h3>
 									<span className="text-sm text-gray-500">{cat._count.votes} vote</span>
 								</div>
-								<div className="space-y-2">
+								{/* Table header */}
+								<div className="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50/80 dark:bg-gray-700/30 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+									<div className="col-span-1 text-center">#</div>
+									<div className="col-span-5">Peserta</div>
+									<div className="col-span-3 text-right">Total Voting</div>
+									{results.isPaid && <div className="col-span-3 text-right">Total Pendapatan</div>}
+									{!results.isPaid && <div className="col-span-3"></div>}
+								</div>
+								{/* Nominees rows */}
+								<div className="divide-y divide-gray-100 dark:divide-gray-700/40">
 									{cat.nominees.map((nominee: any, idx: number) => {
 										const maxVotes = cat.nominees[0]?.voteCount || 1;
 										const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
+										const revenue = nominee.voteCount * results.pricePerVote;
 										return (
-											<div key={nominee.id} className="flex items-center gap-3">
-												<span className="text-sm font-semibold text-gray-400 w-5 text-right">{idx + 1}</span>
-												<div className="flex-1 min-w-0">
-													<div className="flex items-center justify-between mb-1">
-														<span className="text-sm font-medium text-gray-900 dark:text-white truncate">{nominee.nomineeName}</span>
-														<span className="text-sm font-semibold text-blue-600 dark:text-blue-400 ml-2">{nominee.voteCount}</span>
-													</div>
-													<div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+											<div key={nominee.id} className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
+												<div className="col-span-1 text-center">
+													{idx < 3 ? (
+														<span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white ${
+															idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : "bg-amber-700"
+														}`}>
+															{idx + 1}
+														</span>
+													) : (
+														<span className="text-sm text-gray-400">{idx + 1}</span>
+													)}
+												</div>
+												<div className="col-span-5 min-w-0">
+													<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{nominee.nomineeName}</p>
+													{/* Mini progress bar */}
+													<div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 mt-1">
 														<div
-															className={`h-2 rounded-full transition-all ${idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : idx === 2 ? "bg-amber-700" : "bg-blue-500"}`}
+															className={`h-1.5 rounded-full transition-all ${idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : idx === 2 ? "bg-amber-700" : "bg-blue-500"}`}
 															style={{ width: `${pct}%` }}
 														/>
 													</div>
 												</div>
+												<div className="col-span-3 text-right">
+													<span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{nominee.voteCount}</span>
+												</div>
+												{results.isPaid && (
+													<div className="col-span-3 text-right">
+														<span className="text-sm font-semibold text-green-600 dark:text-green-400">{formatCurrency(revenue)}</span>
+													</div>
+												)}
+												{!results.isPaid && <div className="col-span-3"></div>}
 											</div>
 										);
 									})}

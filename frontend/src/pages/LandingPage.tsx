@@ -10,10 +10,12 @@ import {
 	LuHouse,
 	LuPackage,
 	LuEye,
+	LuThumbsUp,
 } from "react-icons/lu";
 import { useLandingData } from "../hooks/useLandingData";
 import HeroSection from "../components/landing/HeroSection";
 import EventSection from "../components/landing/EventSection";
+import VotingSection from "../components/landing/VotingSection";
 import KlasemenSection from "../components/landing/KlasemenSection";
 import PinnedPersonCarousel from "../components/landing/PinnedPersonCarousel";
 import JuriDetailModal from "../components/landing/JuriDetailModal";
@@ -24,6 +26,7 @@ import "../components/landing/LandingPage.css";
 const sectionNavLabels = [
 	{ id: "hero", label: "Hero", icon: LuHouse },
 	{ id: "events", label: "Event", icon: LuLayoutGrid },
+	{ id: "voting", label: "Voting", icon: LuThumbsUp },
 	{ id: "klasemen", label: "Klasemen", icon: LuTrophy },
 	{ id: "jury", label: "Juri", icon: LuGavel },
 	{ id: "pelatih", label: "Pelatih", icon: LuUsers },
@@ -161,8 +164,13 @@ const LandingPage: React.FC = () => {
 					<EventSection />
 				</section>
 
-				{/* ===== SECTION 3: KLASEMEN ===== */}
+				{/* ===== SECTION 3: E-VOTING ===== */}
 				<section ref={setSectionRef(2)} className="landing-section-inner">
+					<VotingSection />
+				</section>
+
+				{/* ===== SECTION 4: KLASEMEN ===== */}
+				<section ref={setSectionRef(3)} className="landing-section-inner">
 					<KlasemenSection
 						top5={klasemen.top5}
 						year={klasemen.year}
@@ -171,8 +179,8 @@ const LandingPage: React.FC = () => {
 					/>
 				</section>
 
-				{/* ===== SECTION 4: JURY ===== */}
-				<section ref={setSectionRef(3)} className="landing-section-inner">
+				{/* ===== SECTION 5: JURY ===== */}
+				<section ref={setSectionRef(4)} className="landing-section-inner">
 					<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
 						<div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-16">
 							{/* Left: Text */}
@@ -218,8 +226,8 @@ const LandingPage: React.FC = () => {
 					</div>
 				</section>
 
-				{/* ===== SECTION 5: PELATIH ===== */}
-				<section ref={setSectionRef(4)} className="landing-section-inner">
+				{/* ===== SECTION 6: PELATIH ===== */}
+				<section ref={setSectionRef(5)} className="landing-section-inner">
 					<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
 						<div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-16">
 							{/* Left: Text */}
@@ -265,8 +273,8 @@ const LandingPage: React.FC = () => {
 					</div>
 				</section>
 
-				{/* ===== SECTION 6: PRICING / DAFTAR EVENT ===== */}
-				<section ref={setSectionRef(5)} className="landing-section-inner landing-section-pricing">
+				{/* ===== SECTION 7: PRICING / DAFTAR EVENT ===== */}
+				<section ref={setSectionRef(6)} className="landing-section-inner landing-section-pricing">
 					<PricingSection />
 				</section>
 

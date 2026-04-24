@@ -1010,6 +1010,8 @@ router.get(
 			res.json({
 				categories: config.categories,
 				totalVotes,
+				pricePerVote: config.pricePerVote,
+				isPaid: config.isPaid,
 			});
 		} catch (error) {
 			console.error("Error fetching voting results:", error);

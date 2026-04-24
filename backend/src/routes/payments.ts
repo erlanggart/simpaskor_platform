@@ -146,6 +146,7 @@ async function handleTicketPayment(
 			event: {
 				select: { title: true, startDate: true, venue: true, city: true },
 			},
+			attendees: true,
 		},
 	});
 	if (!ticket) {
@@ -164,13 +165,18 @@ async function handleTicketPayment(
 					paidAt: new Date(),
 				},
 			});
+			// Also mark all attendees as PAID
+			await tx.ticketAttendee.updateMany({
+				where: { purchaseId: ticket.id },
+				data: { status: "PAID" },
+			});
 			await tx.eventTicketConfig.update({
 				where: { eventId: ticket.eventId },
 				data: { soldCount: { increment: ticket.quantity } },
 			});
 		});
 
-		// Send ticket email with QR code to buyer
+		// Send ticket email with QR code to buyer (include all attendee tickets)
 		try {
 			await sendTicketEmailFromServer({
 				to: ticket.buyerEmail,
@@ -182,8 +188,14 @@ async function handleTicketPayment(
 				city: ticket.event.city,
 				quantity: ticket.quantity,
 				totalAmount: ticket.totalAmount,
+				attendees: ticket.attendees.map((a) => ({
+					name: a.attendeeName,
+					email: a.attendeeEmail,
+					phone: a.attendeePhone,
+					ticketCode: a.ticketCode,
+				})),
 			});
-			console.log(`[Email] Ticket email sent to ${ticket.buyerEmail} for ${ticket.ticketCode}`);
+			console.log(`[Email] Ticket email sent to ${ticket.buyerEmail} for ${ticket.ticketCode} with ${ticket.attendees.length} attendee(s)`);
 		} catch (emailError) {
 			console.error(`[Email] Failed to send ticket email to ${ticket.buyerEmail}:`, emailError);
 		}
