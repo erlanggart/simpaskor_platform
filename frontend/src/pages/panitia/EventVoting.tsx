@@ -14,7 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
-import { config } from "../../utils/config";
+import { config as appConfig } from "../../utils/config";
 import {
 	EventVotingConfig,
 	VotingCategory,
@@ -952,7 +952,7 @@ const EventVoting: React.FC = () => {
 															<div className="flex items-center gap-3 min-w-0">
 																<span className="text-sm font-semibold text-gray-400 w-5 text-right">{idx + 1}</span>
 																{nominee.nomineePhoto ? (
-																	<img src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : (config.api.backendUrl + nominee.nomineePhoto)} alt="" className="w-8 h-8 rounded-full object-cover" />
+																	<img src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : (appConfig.api.backendUrl + nominee.nomineePhoto)} alt="" className="w-8 h-8 rounded-full object-cover" />
 																) : (
 																	<div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
 																		<UserIcon className="w-4 h-4 text-gray-500" />
