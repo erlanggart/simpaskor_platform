@@ -191,7 +191,7 @@ async function handleTicketPayment(
 				attendees: ticket.attendees.map((a) => ({
 					name: a.attendeeName,
 					email: a.attendeeEmail,
-					phone: a.attendeePhone,
+					gender: a.attendeeGender,
 					ticketCode: a.ticketCode,
 				})),
 			});

@@ -24,7 +24,7 @@ export async function sendTicketEmail(params: {
 	quantity: number;
 	totalAmount: number;
 	qrImageBase64: string;
-	attendees?: { name: string; email: string; phone?: string | null; ticketCode: string; qrBase64?: string }[];
+	attendees?: { name: string; email: string; gender?: string | null; ticketCode: string; qrBase64?: string }[];
 }) {
 	const formattedDate = new Date(params.eventDate).toLocaleDateString("id-ID", {
 		day: "numeric",
@@ -46,7 +46,7 @@ export async function sendTicketEmail(params: {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Nama</td><td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;text-align:right;">${att.name}</td></tr>
                 <tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Email</td><td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;text-align:right;">${att.email}</td></tr>
-                ${att.phone ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Telepon</td><td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;text-align:right;">${att.phone}</td></tr>` : ''}
+                ${att.gender ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Gender</td><td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;text-align:right;">${att.gender === 'L' ? 'Laki-laki' : att.gender === 'P' ? 'Perempuan' : att.gender}</td></tr>` : ''}
               </table>
               <div style="text-align:center;margin:12px 0 4px;">
                 <img src="cid:qr-attendee-${idx}" alt="QR Code" style="width:150px;height:150px;border:1px solid #e5e7eb;border-radius:8px;padding:4px;background:#fff;" />
@@ -174,7 +174,7 @@ export async function sendTicketEmailFromServer(params: {
 	city: string | null;
 	quantity: number;
 	totalAmount: number;
-	attendees?: { name: string; email: string; phone?: string | null; ticketCode: string }[];
+	attendees?: { name: string; email: string; gender?: string | null; ticketCode: string }[];
 }) {
 	// Generate QR codes for each attendee
 	const attendeesWithQr = [];

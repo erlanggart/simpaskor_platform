@@ -35,7 +35,7 @@ export interface TicketPurchase {
 	userId: string | null;
 	buyerName: string;
 	buyerEmail: string;
-	buyerPhone: string | null;
+	buyerGender: string | null;
 	quantity: number;
 	totalAmount: number;
 	ticketCode: string;
@@ -45,6 +45,7 @@ export interface TicketPurchase {
 	notes: string | null;
 	createdAt: string;
 	updatedAt: string;
+	attendees?: TicketAttendee[];
 	event?: {
 		title: string;
 		slug?: string;
@@ -54,6 +55,18 @@ export interface TicketPurchase {
 		city?: string | null;
 		thumbnail?: string | null;
 	};
+}
+
+export interface TicketAttendee {
+	id: string;
+	purchaseId: string;
+	attendeeName: string;
+	attendeeEmail: string;
+	attendeeGender: string | null;
+	ticketCode: string;
+	status: TicketStatus;
+	usedAt: string | null;
+	createdAt: string;
 }
 
 export type TicketStatus = "PENDING" | "PAID" | "USED" | "CANCELLED" | "EXPIRED";

@@ -14,9 +14,13 @@ import {
 	LockOpenIcon,
 	LockClosedIcon,
 	ArrowPathIcon,
+	ChevronDownIcon,
+	ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { api } from "../../utils/api";
 import { EventTicketConfig, TicketPurchase } from "../../types/ticket";
 
@@ -49,6 +53,7 @@ const EventTicketing: React.FC = () => {
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
 	const [totalPurchases, setTotalPurchases] = useState(0);
+	const [expandedPurchaseId, setExpandedPurchaseId] = useState<string | null>(null);
 
 	// Scanner state
 	const [scanning, setScanning] = useState(false);
@@ -60,7 +65,7 @@ const EventTicketing: React.FC = () => {
 			ticketCode: string;
 			buyerName: string;
 			buyerEmail?: string;
-			buyerPhone?: string;
+			buyerGender?: string;
 			eventTitle?: string;
 			quantity?: number;
 			status: string;
@@ -326,6 +331,85 @@ const EventTicketing: React.FC = () => {
 		} catch (err: any) {
 			Swal.fire("Error", err.response?.data?.error || "Gagal mengubah status", "error");
 		}
+	};
+
+	const exportAttendeesToPDF = (purchasesList: TicketPurchase[]) => {
+		// Flatten all attendees from all purchases
+		const allAttendees: { no: number; name: string; email: string; gender: string; ticketCode: string; status: string; buyer: string }[] = [];
+		let no = 1;
+		for (const purchase of purchasesList) {
+			if (purchase.attendees && purchase.attendees.length > 0) {
+				for (const att of purchase.attendees) {
+					allAttendees.push({
+						no: no++,
+						name: att.attendeeName,
+						email: att.attendeeEmail,
+						gender: att.attendeeGender === "L" ? "Laki-laki" : att.attendeeGender === "P" ? "Perempuan" : "-",
+						ticketCode: att.ticketCode,
+						status: att.status,
+						buyer: purchase.buyerName,
+					});
+				}
+			}
+		}
+
+		if (allAttendees.length === 0) {
+			Swal.fire("Info", "Tidak ada data peserta untuk diekspor", "info");
+			return;
+		}
+
+		const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+		const pageWidth = doc.internal.pageSize.getWidth();
+		const primaryRed: [number, number, number] = [220, 38, 38];
+
+		// Title
+		doc.setFontSize(16);
+		doc.setTextColor(primaryRed[0], primaryRed[1], primaryRed[2]);
+		doc.setFont("helvetica", "bold");
+		doc.text("DAFTAR PESERTA TIKET", 14, 15);
+
+		doc.setFontSize(10);
+		doc.setTextColor(100, 100, 100);
+		doc.setFont("helvetica", "normal");
+		const dateStr = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+		doc.text(`Dicetak: ${dateStr}`, pageWidth - 14, 15, { align: "right" });
+		doc.text(`Total Peserta: ${allAttendees.length}`, 14, 21);
+
+		// Line separator
+		doc.setDrawColor(primaryRed[0], primaryRed[1], primaryRed[2]);
+		doc.setLineWidth(0.8);
+		doc.line(14, 24, pageWidth - 14, 24);
+
+		// Table
+		autoTable(doc, {
+			startY: 28,
+			head: [["No", "Nama Peserta", "Email", "Gender", "Kode Tiket", "Status", "Pembeli"]],
+			body: allAttendees.map((a) => [
+				a.no.toString(),
+				a.name,
+				a.email,
+				a.gender,
+				a.ticketCode,
+				a.status,
+				a.buyer,
+			]),
+			headStyles: {
+				fillColor: primaryRed,
+				textColor: [255, 255, 255],
+				fontStyle: "bold",
+				fontSize: 9,
+			},
+			bodyStyles: { fontSize: 8 },
+			alternateRowStyles: { fillColor: [254, 242, 242] },
+			styles: { cellPadding: 3 },
+			columnStyles: {
+				0: { cellWidth: 12, halign: "center" },
+				4: { fontStyle: "bold", cellWidth: 30 },
+				5: { cellWidth: 22, halign: "center" },
+			},
+		});
+
+		doc.save(`peserta-tiket-${new Date().toISOString().slice(0, 10)}.pdf`);
 	};
 
 	const formatDate = (date: string | null) => {
@@ -664,6 +748,16 @@ const EventTicketing: React.FC = () => {
 						</div>
 					) : (
 						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden">
+							{/* Export PDF Button */}
+							<div className="flex justify-end p-4 border-b dark:border-gray-700">
+								<button
+									onClick={() => exportAttendeesToPDF(purchases)}
+									className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+								>
+									<ArrowDownTrayIcon className="w-4 h-4" />
+									Export PDF
+								</button>
+							</div>
 							<div className="overflow-x-auto">
 								<table className="w-full">
 									<thead className="bg-gray-50 dark:bg-gray-900/50">
@@ -686,60 +780,106 @@ const EventTicketing: React.FC = () => {
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
 												Tanggal
 											</th>
-
+											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+												Detail
+											</th>
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-gray-100 dark:divide-gray-700">
 										{purchases.map((purchase) => (
-											<tr key={purchase.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
-												<td className="px-4 py-3">
-													<span className="font-mono text-sm text-red-600 dark:text-red-400 font-medium">
-														{purchase.ticketCode}
-													</span>
-												</td>
-												<td className="px-4 py-3">
-													<div>
-														<p className="text-sm font-medium text-gray-900 dark:text-white">
-															{purchase.buyerName}
-														</p>
-														<p className="text-xs text-gray-500 dark:text-gray-400">
-															{purchase.buyerEmail}
-														</p>
-													</div>
-												</td>
-												<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-													{purchase.quantity}
-												</td>
-												<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-													{purchase.totalAmount === 0 ? "GRATIS" : formatCurrency(purchase.totalAmount)}
-												</td>
-												<td className="px-4 py-3">
-													<div className="flex items-center gap-2">
-														{getStatusBadge(purchase.status)}
-														{(purchase.status === "PAID") && (
-															<>
-																<button
-																	onClick={() => handleUpdatePurchaseStatus(purchase.id, "USED")}
-																	title="Tandai Digunakan"
-																	className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
-																>
-																	<ClockIcon className="w-5 h-5" />
-																</button>
-																<button
-																	onClick={() => handleUpdatePurchaseStatus(purchase.id, "CANCELLED")}
-																	title="Batalkan"
-																	className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-																>
-																	<XCircleIcon className="w-5 h-5" />
-																</button>
-															</>
+											<React.Fragment key={purchase.id}>
+												<tr className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
+													<td className="px-4 py-3">
+														<span className="font-mono text-sm text-red-600 dark:text-red-400 font-medium">
+															{purchase.ticketCode}
+														</span>
+													</td>
+													<td className="px-4 py-3">
+														<div>
+															<p className="text-sm font-medium text-gray-900 dark:text-white">
+																{purchase.buyerName}
+															</p>
+															<p className="text-xs text-gray-500 dark:text-gray-400">
+																{purchase.buyerEmail}
+															</p>
+															{purchase.buyerGender && (
+																<p className="text-xs text-gray-400 dark:text-gray-500">
+																	{purchase.buyerGender === "L" ? "Laki-laki" : "Perempuan"}
+																</p>
+															)}
+														</div>
+													</td>
+													<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+														{purchase.quantity}
+													</td>
+													<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+														{purchase.totalAmount === 0 ? "GRATIS" : formatCurrency(purchase.totalAmount)}
+													</td>
+													<td className="px-4 py-3">
+														<div className="flex items-center gap-2">
+															{getStatusBadge(purchase.status)}
+															{(purchase.status === "PAID") && (
+																<>
+																	<button
+																		onClick={() => handleUpdatePurchaseStatus(purchase.id, "USED")}
+																		title="Tandai Digunakan"
+																		className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+																	>
+																		<ClockIcon className="w-5 h-5" />
+																	</button>
+																	<button
+																		onClick={() => handleUpdatePurchaseStatus(purchase.id, "CANCELLED")}
+																		title="Batalkan"
+																		className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+																	>
+																		<XCircleIcon className="w-5 h-5" />
+																	</button>
+																</>
+															)}
+														</div>
+													</td>
+													<td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+														{formatDate(purchase.createdAt || "")}
+													</td>
+													<td className="px-4 py-3">
+														{purchase.attendees && purchase.attendees.length > 0 && (
+															<button
+																onClick={() => setExpandedPurchaseId(expandedPurchaseId === purchase.id ? null : purchase.id)}
+																className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+																title="Lihat Peserta"
+															>
+																<ChevronDownIcon className={`w-5 h-5 transition-transform ${expandedPurchaseId === purchase.id ? "rotate-180" : ""}`} />
+															</button>
 														)}
-													</div>
-												</td>
-												<td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-													{formatDate(purchase.createdAt || "")}
-												</td>
-											</tr>
+													</td>
+												</tr>
+												{/* Expanded Attendees */}
+												{expandedPurchaseId === purchase.id && purchase.attendees && purchase.attendees.length > 0 && (
+													<tr>
+														<td colSpan={7} className="px-4 py-3 bg-gray-50/50 dark:bg-gray-900/30">
+															<div className="ml-4">
+																<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Daftar Peserta</p>
+																<div className="space-y-2">
+																	{purchase.attendees.map((att, idx) => (
+																		<div key={att.id} className="flex items-center gap-4 bg-white/60 dark:bg-white/[0.03] rounded-lg px-3 py-2 border border-gray-200/50 dark:border-white/[0.06]">
+																			<span className="text-xs font-bold text-gray-400 w-6">#{idx + 1}</span>
+																			<div className="flex-1 min-w-0">
+																				<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{att.attendeeName}</p>
+																				<p className="text-xs text-gray-500 dark:text-gray-400 truncate">{att.attendeeEmail}</p>
+																			</div>
+																			<span className="text-xs text-gray-500 dark:text-gray-400">
+																				{att.attendeeGender === "L" ? "Laki-laki" : att.attendeeGender === "P" ? "Perempuan" : "-"}
+																			</span>
+																			<span className="font-mono text-xs text-red-600 dark:text-red-400">{att.ticketCode}</span>
+																			{getStatusBadge(att.status)}
+																		</div>
+																	))}
+																</div>
+															</div>
+														</td>
+													</tr>
+												)}
+											</React.Fragment>
 										))}
 									</tbody>
 								</table>

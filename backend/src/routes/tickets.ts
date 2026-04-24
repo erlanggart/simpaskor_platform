@@ -177,7 +177,7 @@ const MAX_TICKETS_PER_ACCOUNT = 5;
 // POST /api/tickets/purchase - Purchase ticket (public, optional auth)
 router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
-		const { eventId, buyerName, buyerEmail, buyerPhone, attendees, notes } = req.body;
+		const { eventId, buyerName, buyerEmail, buyerGender, attendees, notes } = req.body;
 
 		if (!eventId || !buyerName || !buyerEmail) {
 			return res.status(400).json({ error: "Event, nama, dan email pembeli wajib diisi" });
@@ -261,7 +261,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					userId: req.user?.userId || null,
 					buyerName,
 					buyerEmail,
-					buyerPhone: buyerPhone || null,
+					buyerGender: buyerGender || null,
 					quantity,
 					totalAmount,
 					ticketCode,
@@ -285,7 +285,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 						purchaseId: purchase.id,
 						attendeeName: att.name.trim(),
 						attendeeEmail: att.email.trim(),
-						attendeePhone: att.phone?.trim() || null,
+						attendeeGender: att.gender || null,
 						ticketCode: attendeeCode,
 						status: isFree ? "PAID" : "PENDING",
 					},
@@ -315,7 +315,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					grossAmount: result.totalAmount,
 					customerName: buyerName,
 					customerEmail: buyerEmail,
-					customerPhone: buyerPhone,
+					customerPhone: undefined,
 					adminFee: 2000,
 					itemDetails: [
 						{
@@ -353,7 +353,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					attendees: result.attendees.map((a: any) => ({
 						name: a.attendeeName,
 						email: a.attendeeEmail,
-						phone: a.attendeePhone,
+						gender: a.attendeeGender,
 						ticketCode: a.ticketCode,
 					})),
 				});
@@ -634,6 +634,7 @@ router.get(
 					orderBy: { createdAt: "desc" },
 					skip,
 					take: limitNum,
+					include: { attendees: true },
 				}),
 				prisma.ticketPurchase.count({ where }),
 			]);
@@ -772,7 +773,7 @@ router.post(
 						ticketCode: updated.ticketCode,
 						buyerName: updated.attendeeName,
 						buyerEmail: updated.attendeeEmail,
-						buyerPhone: attendee.attendeePhone,
+						buyerGender: attendee.attendeeGender,
 						eventTitle: attendee.purchase.event.title,
 						eventDate: attendee.purchase.event.startDate,
 						venue: attendee.purchase.event.venue,
