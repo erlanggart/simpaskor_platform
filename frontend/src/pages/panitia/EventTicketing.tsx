@@ -51,6 +51,7 @@ const EventTicketing: React.FC = () => {
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
 	const [totalPurchases, setTotalPurchases] = useState(0);
+	const [paidUsedCount, setPaidUsedCount] = useState(0);
 
 	// Scanner state
 	const [scanning, setScanning] = useState(false);
@@ -128,6 +129,11 @@ const EventTicketing: React.FC = () => {
 			fetchPurchases();
 		}
 	}, [activeTab, eventId, page, search, statusFilter]);
+
+	// Fetch purchase counts on mount (for badge)
+	useEffect(() => {
+		if (eventId) fetchPurchases();
+	}, [eventId]);
 
 	// Cleanup scanner on unmount or tab change
 	useEffect(() => {
@@ -221,6 +227,7 @@ const EventTicketing: React.FC = () => {
 			setPurchases(res.data.data);
 			setTotalPages(res.data.totalPages);
 			setTotalPurchases(res.data.total);
+			if (res.data.paidUsedCount !== undefined) setPaidUsedCount(res.data.paidUsedCount);
 		} catch {
 			console.error("Error fetching purchases");
 		} finally {
@@ -555,7 +562,7 @@ const EventTicketing: React.FC = () => {
 					<ClipboardDocumentListIcon className="w-5 h-5" />
 					<span className="hidden sm:inline">Pembelian</span>
 					<span className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-semibold px-1.5 py-0.5 rounded-full">
-						{totalPurchases}
+						{paidUsedCount}
 					</span>
 				</button>
 			</div>

@@ -687,13 +687,27 @@ router.get(
 					orderBy: { createdAt: "desc" },
 					skip,
 					take: limitNum,
+					include: { attendees: true },
 				}),
 				prisma.ticketPurchase.count({ where }),
+			]);
+
+			// Also compute count of PAID/USED purchases (for badge) and total tickets sold
+			const [paidUsedCount, ticketsSold] = await Promise.all([
+				prisma.ticketPurchase.count({
+					where: { eventId, status: { in: ["PAID", "USED"] } },
+				}),
+				prisma.ticketPurchase.aggregate({
+					where: { eventId, status: { in: ["PAID", "USED"] } },
+					_sum: { quantity: true },
+				}),
 			]);
 
 			res.json({
 				data: purchases,
 				total,
+				paidUsedCount,
+				totalTicketsSold: ticketsSold._sum.quantity ?? 0,
 				page: pageNum,
 				totalPages: Math.ceil(total / limitNum),
 			});
