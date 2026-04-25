@@ -517,10 +517,57 @@ router.get(
 				});
 			}
 
+			// Compute real soldCount from actual PAID/USED purchases
+			const realSoldCount = await prisma.ticketPurchase.aggregate({
+				where: { eventId, status: { in: ["PAID", "USED"] } },
+				_sum: { quantity: true },
+			});
+			const actualSoldCount = realSoldCount._sum.quantity ?? 0;
+
+			// Auto-fix if stored soldCount is out of sync
+			if (actualSoldCount !== config.soldCount) {
+				console.log(`[tickets] soldCount out of sync for event ${eventId}: stored=${config.soldCount}, actual=${actualSoldCount}. Auto-fixing.`);
+				config = await prisma.eventTicketConfig.update({
+					where: { eventId },
+					data: { soldCount: actualSoldCount },
+				});
+			}
+
 			res.json({ ...config, event: event || null });
 		} catch (error) {
 			console.error("Error fetching ticket config:", error);
 			res.status(500).json({ error: "Gagal memuat konfigurasi tiket" });
+		}
+	}
+);
+
+// POST /api/tickets/admin/event/:eventId/toggle-ticketing - Open/close ticketing
+// POST /api/tickets/admin/event/:eventId/sync-sold-count - Recalculate soldCount from actual PAID/USED purchases
+router.post(
+	"/admin/event/:eventId/sync-sold-count",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const eventId = await resolveEventId(req.params.eventId);
+			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			const realSoldCount = await prisma.ticketPurchase.aggregate({
+				where: { eventId, status: { in: ["PAID", "USED"] } },
+				_sum: { quantity: true },
+			});
+			const actualSoldCount = realSoldCount._sum.quantity ?? 0;
+
+			const config = await prisma.eventTicketConfig.update({
+				where: { eventId },
+				data: { soldCount: actualSoldCount },
+			});
+
+			console.log(`[tickets] soldCount synced for event ${eventId}: soldCount=${actualSoldCount}`);
+			res.json({ message: `Sinkronisasi berhasil. Terjual: ${actualSoldCount} tiket`, config });
+		} catch (error) {
+			console.error("Error syncing sold count:", error);
+			res.status(500).json({ error: "Gagal sinkronisasi data terjual" });
 		}
 	}
 );

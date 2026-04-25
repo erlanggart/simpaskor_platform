@@ -41,6 +41,7 @@ const EventTicketing: React.FC = () => {
 	});
 	const [saving, setSaving] = useState(false);
 	const [togglingTicketing, setTogglingTicketing] = useState(false);
+	const [syncing, setSyncing] = useState(false);
 
 	// Purchases state
 	const [purchases, setPurchases] = useState<TicketPurchase[]>([]);
@@ -224,6 +225,25 @@ const EventTicketing: React.FC = () => {
 			console.error("Error fetching purchases");
 		} finally {
 			setPurchasesLoading(false);
+		}
+	};
+
+	const handleSyncSoldCount = async () => {
+		try {
+			setSyncing(true);
+			const res = await api.post(`/tickets/admin/event/${eventId}/sync-sold-count`);
+			setConfig((prev) => ({ ...prev, soldCount: res.data.config.soldCount }));
+			Swal.fire({
+				title: "Sinkronisasi Berhasil!",
+				text: res.data.message,
+				icon: "success",
+				timer: 2000,
+				showConfirmButton: false,
+			});
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal sinkronisasi", "error");
+		} finally {
+			setSyncing(false);
 		}
 	};
 
@@ -436,12 +456,28 @@ const EventTicketing: React.FC = () => {
 				<span className="text-gray-300 dark:text-gray-600 hidden sm:inline">|</span>
 				<div className="flex items-center gap-1.5 text-sm">
 					<span className="text-gray-500 dark:text-gray-400">Terjual</span>
-					<span className="font-semibold text-gray-900 dark:text-white">{config.soldCount}/{config.quota}</span>
+					<span className={`font-semibold ${config.soldCount > config.quota ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+						{config.soldCount}/{config.quota}
+					</span>
+					{config.soldCount > config.quota && (
+						<span className="text-xs text-red-500 font-medium">(melebihi kuota!)</span>
+					)}
 				</div>
 				<span className="text-gray-300 dark:text-gray-600">|</span>
 				<div className="flex items-center gap-1.5 text-sm">
 					<span className="text-gray-500 dark:text-gray-400 hidden sm:inline">Pendapatan</span>
 					<span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(config.soldCount * config.price)}</span>
+				</div>
+				<div className="ml-auto">
+					<button
+						onClick={handleSyncSoldCount}
+						disabled={syncing}
+						title="Sinkronisasi jumlah terjual dengan data aktual"
+						className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+					>
+						<ArrowPathIcon className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+						<span className="hidden sm:inline">Sinkronisasi</span>
+					</button>
 				</div>
 			</div>
 
