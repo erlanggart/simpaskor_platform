@@ -28,6 +28,7 @@ import {
 	LuBookOpen,
 	LuDatabase,
 	LuCreditCard,
+	LuBanknote,
 } from "react-icons/lu";
 import "../components/landing/LandingPage.css";
 
@@ -171,6 +172,7 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
 					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Kelola Paket", icon: LuCreditCard, path: "/admin/packages" },
+					{ name: "Pencairan", icon: LuBanknote, path: "/admin/disbursements" },
 					{ name: "Setting", icon: LuSettings, path: "/admin/settings" },
 					{ name: "Backup", icon: LuDatabase, path: "/admin/backup" }
 				);
@@ -188,6 +190,7 @@ export const DashboardLayout: React.FC = () => {
 						{ name: "Rekap", icon: LuChartBar, path: `/panitia/events/${slug}/rekapitulasi` },
 						{ name: "Tiket", icon: LuTicket, path: `/panitia/events/${slug}/ticketing` },
 						{ name: "Voting", icon: LuThumbsUp, path: `/panitia/events/${slug}/voting` },
+						{ name: "Pencairan", icon: LuCreditCard, path: `/panitia/events/${slug}/disbursement` },
 					];
 					// Filter menu items based on package tier features
 					const filteredItems = allPanitiaItems.filter(item => {

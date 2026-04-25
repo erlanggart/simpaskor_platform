@@ -55,6 +55,8 @@ model User {
   eventLikes         EventLike[]
   orders             Order[]
   ticketPurchases    TicketPurchase[]
+  disbursementRequests  Disbursement[]  @relation("DisbursementRequester")
+  disbursementProcessed Disbursement[]  @relation("DisbursementProcessor")
 
   @@map("users")
 }
@@ -213,6 +215,7 @@ model Event {
   votingConfig         EventVotingConfig?
   votingPurchases      VotingPurchase[]
   eventPayment         EventPayment?
+  disbursements        Disbursement[]
 
   @@map("events")
 }
@@ -1000,4 +1003,42 @@ model DailyVisitor {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("daily_visitors")
+}
+
+// ==========================================
+// DISBURSEMENT (Pencairan Dana Event)
+// ==========================================
+
+enum DisbursementStatus {
+  PENDING    // Diajukan oleh panitia, menunggu review superadmin
+  APPROVED   // Disetujui superadmin, menunggu transfer
+  TRANSFERRED // Sudah ditransfer oleh superadmin
+  REJECTED   // Ditolak superadmin
+}
+
+model Disbursement {
+  id              String             @id @default(uuid())
+  eventId         String             @map("event_id")
+  event           Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  requestedById   String             @map("requested_by_id")
+  requestedBy     User               @relation("DisbursementRequester", fields: [requestedById], references: [id])
+  amount          Float              // Jumlah yang diajukan untuk pencairan
+  bankName        String             @map("bank_name")
+  accountNumber   String             @map("account_number")
+  accountHolder   String             @map("account_holder")
+  notes           String?            // Catatan dari panitia
+  status          DisbursementStatus @default(PENDING)
+  adminNotes      String?            @map("admin_notes") // Catatan dari superadmin
+  processedById   String?            @map("processed_by_id")
+  processedBy     User?              @relation("DisbursementProcessor", fields: [processedById], references: [id])
+  processedAt     DateTime?          @map("processed_at")
+  transferProof   String?            @map("transfer_proof") // URL bukti transfer
+  transferredAt   DateTime?          @map("transferred_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@index([eventId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("disbursements")
 }

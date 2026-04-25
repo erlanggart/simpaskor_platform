@@ -13,18 +13,19 @@ export type FeatureKey =
 	| 'juara'         // Manajemen juara
 	| 'perform'       // Field rechecking / performance
 	| 'recap'         // Rekapitulasi
+	| 'disbursement'  // Pencairan dana
 
 /**
  * Maps each package tier to the features it includes.
  */
 const TIER_FEATURES: Record<PackageTierType, FeatureKey[]> = {
 	IKLAN: [],
-	TICKETING: ['ticketing'],
-	VOTING: ['voting'],
-	TICKETING_VOTING: ['ticketing', 'voting'],
-	BRONZE: ['scoring', 'ticketing', 'voting', 'registration', 'juara', 'perform', 'recap'],
-	SILVER: ['scoring', 'ticketing', 'voting', 'registration', 'juara', 'perform', 'recap'],
-	GOLD: ['scoring', 'ticketing', 'voting', 'registration', 'juara', 'perform', 'recap'],
+	TICKETING: ['ticketing', 'disbursement'],
+	VOTING: ['voting', 'disbursement'],
+	TICKETING_VOTING: ['ticketing', 'voting', 'disbursement'],
+	BRONZE: ['scoring', 'ticketing', 'voting', 'registration', 'juara', 'perform', 'recap', 'disbursement'],
+	SILVER: ['scoring', 'ticketing', 'voting', 'registration', 'juara', 'perform', 'recap', 'disbursement'],
+	GOLD: ['scoring', 'ticketing', 'voting', 'registration', 'juara', 'perform', 'recap', 'disbursement'],
 };
 
 /**
@@ -57,4 +58,5 @@ export const MENU_FEATURE_MAP: Record<string, FeatureKey> = {
 	'Rekap': 'recap',
 	'Tiket': 'ticketing',
 	'Voting': 'voting',
+	'Pencairan': 'disbursement',
 };

@@ -52,6 +52,7 @@ const GuideManagement = lazy(() => import("./pages/admin/GuideManagement"));
 const PackageManagement = lazy(() => import("./pages/admin/PackageManagement"));
 const AdminSettings = lazy(() => import("./pages/admin/Settings"));
 const AdminBackup = lazy(() => import("./pages/admin/Backup"));
+const DisbursementManagement = lazy(() => import("./pages/admin/DisbursementManagement"));
 const PanitiaDashboard = lazy(() => import("./pages/panitia/Dashboard"));
 const PanitiaEventsList = lazy(() => import("./pages/panitia/Events"));
 const PanitiaPanduan = lazy(() => import("./pages/panitia/Panduan"));
@@ -81,6 +82,7 @@ const FieldRechecking = lazy(() => import("./pages/panitia/FieldRechecking"));
 const PanitiaEventRecap = lazy(() => import("./pages/panitia/EventRecap"));
 const EventTicketing = lazy(() => import("./pages/panitia/EventTicketing"));
 const EventVoting = lazy(() => import("./pages/panitia/EventVoting"));
+const EventDisbursement = lazy(() => import("./pages/panitia/EventDisbursement"));
 const PerformanceHistory = lazy(() => import("./pages/shared/PerformanceHistory"));
 
 const LoadingFallback = () => (
@@ -151,6 +153,8 @@ function App() {
 							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
 							<Route path="events/:eventSlug/ticketing" element={<EventTicketing />} />
 							<Route path="events/:eventSlug/voting" element={<EventVoting />} />
+							<Route path="events/:eventSlug/disbursement" element={<EventDisbursement />} />
+							<Route path="disbursements" element={<DisbursementManagement />} />
 							<Route
 								path="assessment-categories"
 								element={<AssessmentCategoryManagement />}
@@ -225,6 +229,7 @@ function App() {
 							<Route path="events/:eventSlug/rekapitulasi" element={<PanitiaEventRecap />} />
 							<Route path="events/:eventSlug/ticketing" element={<EventTicketing />} />
 							<Route path="events/:eventSlug/voting" element={<EventVoting />} />
+							<Route path="events/:eventSlug/disbursement" element={<EventDisbursement />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>
