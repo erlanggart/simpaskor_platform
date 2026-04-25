@@ -77,21 +77,20 @@ app.use(
 	})
 );
 
-// Rate limiting - Lebih longgar untuk development
+// Rate limiting - Global limiter untuk semua request
 const RATE_LIMIT_WINDOW_MS = 1 * 60 * 1000; // 1 minute
 const limiter = rateLimit({
 	windowMs: RATE_LIMIT_WINDOW_MS,
-	max: 200, // limit each IP to 200 requests per minute (lebih dari cukup untuk development)
-	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-	// Skip rate limiting jika NODE_ENV === 'development'
-	skip: (req) => process.env.NODE_ENV === 'development',
-	// Custom handler untuk rate limit exceeded dengan message yang lebih informatif
+	max: 1000, // 1000 requests per minute (SPA makes many concurrent API calls per page)
+	standardHeaders: true,
+	legacyHeaders: false,
+	// Skip rate limiting for GET requests (browsing) and in development
+	skip: (req) => process.env.NODE_ENV === 'development' || req.method === 'GET',
 	handler: (req, res) => {
 		res.status(429).json({
 			error: "Too many requests",
 			message: "Terlalu banyak permintaan. Silakan tunggu sebentar dan coba lagi.",
-			retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000), // in seconds
+			retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
 		});
 	},
 });
@@ -101,12 +100,14 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Stricter rate limiters for payment/purchase endpoints
+// Stricter rate limiters for payment/purchase endpoints (only for write operations)
 const paymentLimiter = rateLimit({
 	windowMs: 60 * 1000,
-	max: 10,
+	max: 30, // 30 write requests per minute
 	standardHeaders: true,
 	legacyHeaders: false,
+	// Only count POST/PUT/PATCH/DELETE (write operations), skip GET (browsing)
+	skip: (req) => req.method === 'GET',
 	message: { error: "Terlalu banyak permintaan transaksi. Silakan tunggu sebentar." },
 });
 
