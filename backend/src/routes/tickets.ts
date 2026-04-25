@@ -812,8 +812,8 @@ router.post(
 					return res.status(400).json({ valid: false, error: "Tiket belum dibayar" });
 				}
 
-				// If purchase was scanned as a whole (USED) but attendee is still PAID, block
-				if (attendee.purchase.status === "USED" && attendee.status !== "USED") {
+				// If purchase was scanned as a whole (USED) but attendee hasn't been marked yet, sync & block
+				if (attendee.purchase.status === "USED") {
 					// Auto-sync attendee status then reject to prevent re-entry
 					await prisma.ticketAttendee.update({
 						where: { id: attendee.id },
