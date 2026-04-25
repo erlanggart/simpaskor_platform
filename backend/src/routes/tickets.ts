@@ -27,11 +27,23 @@ const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string
 	return event?.id || null;
 };
 
-// Generate unique ticket code
+// Generate unique ticket code with strong randomness
 const generateTicketCode = (): string => {
-	const timestamp = Date.now().toString(36).toUpperCase();
-	const random = crypto.randomBytes(4).toString("hex").toUpperCase();
-	return `TKT-${timestamp}-${random}`;
+	const random = crypto.randomBytes(10).toString("hex").toUpperCase();
+	return `TKT-${random.slice(0, 8)}-${random.slice(8)}`;
+};
+
+// Verify PANITIA owns the event (SUPERADMIN bypasses)
+const verifyEventOwnership = async (
+	req: AuthenticatedRequest,
+	eventId: string
+): Promise<boolean> => {
+	if (req.user?.role === "SUPERADMIN") return true;
+	const event = await prisma.event.findUnique({
+		where: { id: eventId },
+		select: { createdById: true },
+	});
+	return event?.createdById === req.user?.userId;
 };
 
 // ==========================================
@@ -226,34 +238,50 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 		}
 
 		const result = await prisma.$transaction(async (tx) => {
-			// Get ticket config with lock
-			const ticketConfig = await tx.eventTicketConfig.findUnique({
-				where: { eventId },
-			});
+			// Atomically reserve tickets: increment soldCount only if quota allows.
+			// This single UPDATE is concurrency-safe — no race condition possible.
+			// soldCount is reserved immediately for BOTH free and paid tickets.
+			// Failed/expired payments will release the reservation via webhook.
+			const reserved = await tx.$executeRaw`
+				UPDATE "EventTicketConfig"
+				SET "soldCount" = "soldCount" + ${quantity}
+				WHERE "eventId" = ${eventId}
+					AND "enabled" = true
+					AND "soldCount" + ${quantity} <= "quota"
+					AND (
+						"salesStartDate" IS NULL
+						OR "salesStartDate" <= NOW()
+					)
+					AND (
+						"salesEndDate" IS NULL
+						OR "salesEndDate" >= NOW()
+					)
+			`;
 
-			if (!ticketConfig || !ticketConfig.enabled) {
-				throw new Error("Tiket tidak tersedia untuk event ini");
-			}
-
-			// Check sales period
-			const now = new Date();
-			if (ticketConfig.salesStartDate && now < ticketConfig.salesStartDate) {
-				throw new Error("Penjualan tiket belum dimulai");
-			}
-			if (ticketConfig.salesEndDate && now > ticketConfig.salesEndDate) {
-				throw new Error("Penjualan tiket sudah ditutup");
-			}
-
-			// Check quota
-			const remaining = ticketConfig.quota - ticketConfig.soldCount;
-			if (remaining < quantity) {
+			if (reserved === 0) {
+				// Check why it failed for a specific error message
+				const config = await tx.eventTicketConfig.findUnique({
+					where: { eventId },
+					select: { enabled: true, quota: true, soldCount: true, salesStartDate: true, salesEndDate: true },
+				});
+				if (!config || !config.enabled) throw new Error("Tiket tidak tersedia untuk event ini");
+				const now = new Date();
+				if (config.salesStartDate && now < config.salesStartDate) throw new Error("Penjualan tiket belum dimulai");
+				if (config.salesEndDate && now > config.salesEndDate) throw new Error("Penjualan tiket sudah ditutup");
+				const remaining = config.quota - config.soldCount;
 				throw new Error(remaining === 0 ? "Tiket sudah habis" : `Sisa tiket hanya ${remaining}`);
 			}
 
+			// Get ticket price after reservation is confirmed
+			const ticketConfig = await tx.eventTicketConfig.findUnique({
+				where: { eventId },
+				select: { price: true },
+			});
+
 			// Create purchase
 			const ticketCode = generateTicketCode();
-			const totalAmount = ticketConfig.price * quantity;
-			const isFree = ticketConfig.price === 0;
+			const totalAmount = (ticketConfig?.price ?? 0) * quantity;
+			const isFree = (ticketConfig?.price ?? 0) === 0;
 
 			const purchase = await tx.ticketPurchase.create({
 				data: {
@@ -293,13 +321,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 				attendeeRecords.push(attendeeRecord);
 			}
 
-			// Only update sold count for FREE tickets (paid tickets update via webhook after payment)
-			if (isFree) {
-				await tx.eventTicketConfig.update({
-					where: { eventId },
-					data: { soldCount: { increment: quantity } },
-				});
-			}
+			// soldCount already incremented atomically above for both free and paid tickets
 
 			return { ...purchase, attendees: attendeeRecords };
 		});
@@ -392,20 +414,28 @@ router.get("/my", authenticate, async (req: AuthenticatedRequest, res: Response)
 	}
 });
 
-// GET /api/tickets/check/:ticketCode - Check ticket status by code (public)
-router.get("/check/:ticketCode", async (req: AuthenticatedRequest, res: Response) => {
+// GET /api/tickets/check/:ticketCode - Check ticket status by code (requires auth)
+router.get("/check/:ticketCode", authenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const ticket = await prisma.ticketPurchase.findUnique({
 			where: { ticketCode: req.params.ticketCode },
 			include: {
 				event: {
-					select: { title: true, startDate: true, endDate: true, venue: true, city: true },
+					select: { title: true, startDate: true, endDate: true, venue: true, city: true, createdById: true },
 				},
 			},
 		});
 
 		if (!ticket) {
 			return res.status(404).json({ error: "Tiket tidak ditemukan" });
+		}
+
+		// Only allow: ticket owner, event organizer, or superadmin
+		const isOwner = ticket.userId === req.user?.userId || ticket.buyerEmail === req.user?.email;
+		const isOrganizer = ticket.event.createdById === req.user?.userId;
+		const isSuperadmin = req.user?.role === "SUPERADMIN";
+		if (!isOwner && !isOrganizer && !isSuperadmin) {
+			return res.status(403).json({ error: "Tidak memiliki akses" });
 		}
 
 		res.json({
@@ -428,8 +458,8 @@ router.get("/check/:ticketCode", async (req: AuthenticatedRequest, res: Response
 // SEND TICKET TO EMAIL
 // ==========================================
 
-// POST /api/tickets/send-email - Send ticket QR code to email (server-generated QR codes)
-router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
+// POST /api/tickets/send-email - Send ticket QR code to email (requires auth)
+router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const { ticketCode, email } = req.body;
 
@@ -495,6 +525,11 @@ router.get(
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
 
+			// Verify PANITIA only accesses their own events
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
 				select: {
@@ -523,9 +558,9 @@ router.get(
 				});
 			}
 
-			// Compute real soldCount from actual PAID/USED purchases
+			// Compute real soldCount from active reservations (PENDING + PAID + USED)
 			const realSoldCount = await prisma.ticketPurchase.aggregate({
-				where: { eventId, status: { in: ["PAID", "USED"] } },
+				where: { eventId, status: { in: ["PENDING", "PAID", "USED"] } },
 				_sum: { quantity: true },
 			});
 			const actualSoldCount = realSoldCount._sum.quantity ?? 0;
@@ -548,7 +583,7 @@ router.get(
 );
 
 // POST /api/tickets/admin/event/:eventId/toggle-ticketing - Open/close ticketing
-// POST /api/tickets/admin/event/:eventId/sync-sold-count - Recalculate soldCount from actual PAID/USED purchases
+// POST /api/tickets/admin/event/:eventId/sync-sold-count - Recalculate soldCount from actual reservations
 router.post(
 	"/admin/event/:eventId/sync-sold-count",
 	authenticate,
@@ -558,8 +593,13 @@ router.post(
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
 
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
+			// Count PENDING + PAID + USED (all active reservations)
 			const realSoldCount = await prisma.ticketPurchase.aggregate({
-				where: { eventId, status: { in: ["PAID", "USED"] } },
+				where: { eventId, status: { in: ["PENDING", "PAID", "USED"] } },
 				_sum: { quantity: true },
 			});
 			const actualSoldCount = realSoldCount._sum.quantity ?? 0;
@@ -587,6 +627,10 @@ router.post(
 		try {
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
 
 			const existing = await prisma.eventTicketConfig.findUnique({
 				where: { eventId },
@@ -620,6 +664,10 @@ router.put(
 		try {
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
 
 			const { enabled, price, quota, description, salesStartDate, salesEndDate } = req.body;
 
@@ -661,6 +709,10 @@ router.get(
 		try {
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
 
 			const config = await prisma.eventTicketConfig.findUnique({ where: { eventId } });
 
@@ -772,6 +824,10 @@ router.get(
 
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
 
 			const where: any = { eventId };
 
@@ -899,7 +955,7 @@ router.post(
 					purchase: {
 						include: {
 							event: {
-								select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true },
+								select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true, createdById: true },
 							},
 						},
 					},
@@ -907,6 +963,11 @@ router.post(
 			});
 
 			if (attendee) {
+				// Verify PANITIA owns this event
+				if (!(await verifyEventOwnership(req, attendee.purchase.event.id))) {
+					return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+				}
+
 				// Validate attendee ticket
 				if (attendee.status === "USED") {
 					return res.status(400).json({
@@ -971,7 +1032,7 @@ router.post(
 				where: { ticketCode: code },
 				include: {
 					event: {
-						select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true },
+						select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true, createdById: true },
 					},
 				},
 			});
@@ -981,6 +1042,11 @@ router.post(
 					valid: false,
 					error: "Tiket tidak ditemukan",
 				});
+			}
+
+			// Verify PANITIA owns this event
+			if (!(await verifyEventOwnership(req, ticket.event.id))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
 			}
 
 			if (ticket.status === "USED") {

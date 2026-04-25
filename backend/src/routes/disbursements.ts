@@ -98,8 +98,9 @@ router.post(
 			const { eventId } = req.params;
 			const { amount, bankName, accountNumber, accountHolder, notes } = req.body;
 
-			if (!amount || amount <= 0) {
-				return res.status(400).json({ error: "Jumlah pencairan harus lebih dari 0" });
+			const parsedAmount = Number(amount);
+			if (!parsedAmount || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || parsedAmount > 10_000_000_000) {
+				return res.status(400).json({ error: "Jumlah pencairan tidak valid" });
 			}
 			if (!bankName?.trim() || !accountNumber?.trim() || !accountHolder?.trim()) {
 				return res.status(400).json({ error: "Data rekening bank wajib diisi lengkap" });
@@ -129,53 +130,61 @@ router.post(
 				});
 			}
 
-			// Calculate available balance
-			const [ticketRevenue, votingRevenue] = await Promise.all([
-				prisma.ticketPurchase.aggregate({
-					where: { eventId, status: { in: ["PAID", "USED"] } },
-					_sum: { totalAmount: true },
-				}),
-				prisma.votingPurchase.aggregate({
-					where: { eventId, status: "PAID" },
-					_sum: { totalAmount: true },
-				}),
-			]);
+			// Calculate available balance and create disbursement in a single transaction
+			// to prevent race condition where multiple requests pass the balance check
+			const disbursement = await prisma.$transaction(async (tx) => {
+				// Lock existing disbursements for this event to prevent concurrent requests
+				await tx.$queryRaw`SELECT id FROM "Disbursement" WHERE "eventId" = ${eventId} FOR UPDATE`;
 
-			const totalRevenue = (ticketRevenue._sum.totalAmount ?? 0) + (votingRevenue._sum.totalAmount ?? 0);
+				const [ticketRevenue, votingRevenue] = await Promise.all([
+					tx.ticketPurchase.aggregate({
+						where: { eventId, status: { in: ["PAID", "USED"] } },
+						_sum: { totalAmount: true },
+					}),
+					tx.votingPurchase.aggregate({
+						where: { eventId, status: "PAID" },
+						_sum: { totalAmount: true },
+					}),
+				]);
 
-			const existingDisbursements = await prisma.disbursement.findMany({
-				where: { eventId, status: { in: ["PENDING", "APPROVED", "TRANSFERRED"] } },
-			});
+				const totalRevenue = (ticketRevenue._sum.totalAmount ?? 0) + (votingRevenue._sum.totalAmount ?? 0);
 
-			const totalCommitted = existingDisbursements.reduce((sum, d) => sum + d.amount, 0);
-			const availableBalance = totalRevenue - totalCommitted;
-
-			if (amount > availableBalance) {
-				return res.status(400).json({
-					error: `Saldo tidak mencukupi. Saldo tersedia: Rp ${availableBalance.toLocaleString("id-ID")}`,
+				const existingDisbursements = await tx.disbursement.findMany({
+					where: { eventId, status: { in: ["PENDING", "APPROVED", "TRANSFERRED"] } },
 				});
-			}
 
-			const disbursement = await prisma.disbursement.create({
-				data: {
-					eventId: event.id,
-					requestedById: req.user!.userId,
-					amount,
-					bankName: bankName.trim(),
-					accountNumber: accountNumber.trim(),
-					accountHolder: accountHolder.trim(),
-					notes: notes?.trim() || null,
-				},
-				include: {
-					requestedBy: { select: { id: true, name: true, email: true } },
-				},
+				const totalCommitted = existingDisbursements.reduce((sum, d) => sum + d.amount, 0);
+				const availableBalance = totalRevenue - totalCommitted;
+
+				if (parsedAmount > availableBalance) {
+					throw new Error(`Saldo tidak mencukupi. Saldo tersedia: Rp ${availableBalance.toLocaleString("id-ID")}`);
+				}
+
+				return tx.disbursement.create({
+					data: {
+						eventId: event.id,
+						requestedById: req.user!.userId,
+						amount: parsedAmount,
+						bankName: bankName.trim(),
+						accountNumber: accountNumber.trim(),
+						accountHolder: accountHolder.trim(),
+						notes: notes?.trim() || null,
+					},
+					include: {
+						requestedBy: { select: { id: true, name: true, email: true } },
+					},
+				});
 			});
 
 			res.status(201).json({
 				message: "Pengajuan pencairan berhasil dibuat",
 				disbursement,
 			});
-		} catch (error) {
+		} catch (error: any) {
+			// Handle balance insufficient error from transaction
+			if (error.message?.includes("Saldo tidak mencukupi")) {
+				return res.status(400).json({ error: error.message });
+			}
 			console.error("Error creating disbursement:", error);
 			res.status(500).json({ error: "Gagal membuat pengajuan pencairan" });
 		}

@@ -43,12 +43,12 @@ const PORT = process.env.PORT || 3001;
 app.use(
 	helmet({
 		crossOriginResourcePolicy: { policy: "cross-origin" },
-		// Disable X-Frame-Options to allow PDF embedding in iframe
-		frameguard: false,
+		// Allow iframe embedding only for upload previews
+		frameguard: { action: "sameorigin" },
 	})
 );
 
-// CORS configuration
+// CORS configuration - strict whitelist
 const allowedOrigins = [
 	"http://localhost:5173",
 	"http://localhost:5174",
@@ -56,10 +56,19 @@ const allowedOrigins = [
 	"https://localhost:5174",
 	...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 	...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.replace("http://", "https://")] : []),
-];
+].filter(Boolean);
+
 app.use(
 	cors({
-		origin: allowedOrigins,
+		origin: (origin, callback) => {
+			// Allow requests with no origin (server-to-server, webhooks)
+			if (!origin) return callback(null, true);
+			if (allowedOrigins.includes(origin)) {
+				callback(null, true);
+			} else {
+				callback(new Error("Not allowed by CORS"));
+			}
+		},
 		credentials: true,
 		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization"],
@@ -91,6 +100,22 @@ app.use(limiter);
 // Increase body size limit for base64 image uploads
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Stricter rate limiters for payment/purchase endpoints
+const paymentLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 10,
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: { error: "Terlalu banyak permintaan transaksi. Silakan tunggu sebentar." },
+});
+
+const webhookLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 300,
+	standardHeaders: true,
+	legacyHeaders: false,
+});
 
 // Serve static files for uploads with proper headers for iframe embedding
 app.use("/uploads", (req, res, next) => {
@@ -151,11 +176,11 @@ app.use("/api/juara-categories", juaraCategoryRoutes);
 app.use("/api/performance", performanceFieldRoutes);
 app.use("/api/admin", adminStatsRoutes);
 app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/tickets", ticketRoutes);
-app.use("/api/voting", votingRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/registration-payments", registrationPaymentRoutes);
+app.use("/api/orders", paymentLimiter, orderRoutes);
+app.use("/api/tickets", paymentLimiter, ticketRoutes);
+app.use("/api/voting", paymentLimiter, votingRoutes);
+app.use("/api/payments", webhookLimiter, paymentRoutes);
+app.use("/api/registration-payments", paymentLimiter, registrationPaymentRoutes);
 app.use("/api/guides", guideRoutes);
 app.use("/api/event-submissions", eventSubmissionRoutes);
 app.use("/api/event-payments", eventPaymentRoutes);

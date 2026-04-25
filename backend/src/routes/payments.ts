@@ -95,6 +95,12 @@ async function handleOrderPayment(
 		return;
 	}
 
+	// Idempotency guard: skip if already in terminal state
+	if (order.status === "CONFIRMED" || order.status === "CANCELLED") {
+		console.log(`[Midtrans] Order ${midtransOrderId} already ${order.status}, skipping`);
+		return;
+	}
+
 	if (result === "success") {
 		// Payment confirmed: update status AND reduce stock now
 		const items = await prisma.orderItem.findMany({
@@ -154,8 +160,14 @@ async function handleTicketPayment(
 		return;
 	}
 
+	// Idempotency guard: skip if already in terminal state
+	if (ticket.status === "PAID" || ticket.status === "USED" || ticket.status === "CANCELLED" || ticket.status === "EXPIRED") {
+		console.log(`[Midtrans] Ticket ${midtransOrderId} already ${ticket.status}, skipping`);
+		return;
+	}
+
 	if (result === "success") {
-		// Payment confirmed: update status AND increment soldCount now
+		// Payment confirmed: update status (soldCount already reserved at purchase time)
 		await prisma.$transaction(async (tx) => {
 			await tx.ticketPurchase.update({
 				where: { id: ticket.id },
@@ -170,10 +182,7 @@ async function handleTicketPayment(
 				where: { purchaseId: ticket.id },
 				data: { status: "PAID" },
 			});
-			await tx.eventTicketConfig.update({
-				where: { eventId: ticket.eventId },
-				data: { soldCount: { increment: ticket.quantity } },
-			});
+			// soldCount was already incremented atomically during purchase — no need to increment again
 		});
 
 		// Send ticket email with QR code to buyer (include all attendee tickets)
@@ -200,13 +209,20 @@ async function handleTicketPayment(
 			console.error(`[Email] Failed to send ticket email to ${ticket.buyerEmail}:`, emailError);
 		}
 	} else if (result === "failed" || result === "expired") {
-		// Payment failed/expired: just cancel (soldCount was never incremented for paid tickets)
-		await prisma.ticketPurchase.update({
-			where: { id: ticket.id },
-			data: {
-				status: result === "expired" ? "EXPIRED" : "CANCELLED",
-				paymentType,
-			},
+		// Payment failed/expired: cancel purchase and RELEASE reserved tickets
+		await prisma.$transaction(async (tx) => {
+			await tx.ticketPurchase.update({
+				where: { id: ticket.id },
+				data: {
+					status: result === "expired" ? "EXPIRED" : "CANCELLED",
+					paymentType,
+				},
+			});
+			// Release the reserved soldCount back to quota
+			await tx.eventTicketConfig.update({
+				where: { eventId: ticket.eventId },
+				data: { soldCount: { decrement: ticket.quantity } },
+			});
 		});
 	}
 }
@@ -226,6 +242,12 @@ async function handleVotingPayment(
 	});
 	if (!purchase) {
 		console.warn(`[Midtrans] Voting purchase not found: ${midtransOrderId}`);
+		return;
+	}
+
+	// Idempotency guard: skip if already in terminal state
+	if (purchase.status === "PAID" || purchase.status === "CANCELLED" || purchase.status === "EXPIRED") {
+		console.log(`[Midtrans] Voting ${midtransOrderId} already ${purchase.status}, skipping`);
 		return;
 	}
 
@@ -278,6 +300,12 @@ async function handleRegistrationPayment(
 		return;
 	}
 
+	// Idempotency guard: skip if already in terminal state
+	if (payment.status === "PAID" || payment.status === "CANCELLED" || payment.status === "EXPIRED") {
+		console.log(`[Midtrans] Registration ${midtransOrderId} already ${payment.status}, skipping`);
+		return;
+	}
+
 	if (result === "success") {
 		await prisma.$transaction(async (tx) => {
 			await tx.registrationPayment.update({
@@ -319,6 +347,12 @@ async function handleEventPayment(
 	});
 	if (!payment) {
 		console.warn(`[Midtrans] Event payment not found: ${midtransOrderId}`);
+		return;
+	}
+
+	// Idempotency guard: skip if already in terminal state
+	if (payment.status === "PAID" || payment.status === "CANCELLED" || payment.status === "EXPIRED") {
+		console.log(`[Midtrans] Event ${midtransOrderId} already ${payment.status}, skipping`);
 		return;
 	}
 

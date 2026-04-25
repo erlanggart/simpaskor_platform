@@ -27,11 +27,23 @@ const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string
 	return event?.id || null;
 };
 
-// Generate unique purchase code
+// Generate unique purchase code with strong randomness
 const generatePurchaseCode = (): string => {
-	const timestamp = Date.now().toString(36).toUpperCase();
-	const random = crypto.randomBytes(4).toString("hex").toUpperCase();
-	return `VOT-${timestamp}-${random}`;
+	const random = crypto.randomBytes(10).toString("hex").toUpperCase();
+	return `VOT-${random.slice(0, 8)}-${random.slice(8)}`;
+};
+
+// Verify PANITIA owns the event (SUPERADMIN bypasses)
+const verifyEventOwnership = async (
+	req: AuthenticatedRequest,
+	eventId: string
+): Promise<boolean> => {
+	if (req.user?.role === "SUPERADMIN") return true;
+	const event = await prisma.event.findUnique({
+		where: { id: eventId },
+		select: { createdById: true },
+	});
+	return event?.createdById === req.user?.userId;
 };
 
 // ==========================================
@@ -331,10 +343,6 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 			return res.status(400).json({ error: "Kode pembelian tidak valid untuk event ini" });
 		}
 
-		if (purchase.usedVotes >= purchase.voteCount) {
-			return res.status(400).json({ error: "Semua vote pada kode pembelian ini sudah digunakan" });
-		}
-
 		// Check nominee belongs to category
 		const nominee = await prisma.votingNominee.findFirst({
 			where: { id: nomineeId, categoryId },
@@ -346,6 +354,19 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 		const voterIp = req.headers["x-forwarded-for"]?.toString().split(",")[0] || req.socket.remoteAddress || "";
 
 		const result = await prisma.$transaction(async (tx) => {
+			// Atomically increment usedVotes only if credits remain (prevents double-spend)
+			const reserved = await tx.$executeRaw`
+				UPDATE "VotingPurchase"
+				SET "usedVotes" = "usedVotes" + 1
+				WHERE "id" = ${purchase.id}
+					AND "status" = 'PAID'
+					AND "usedVotes" < "voteCount"
+			`;
+
+			if (reserved === 0) {
+				throw new Error("Semua vote pada kode pembelian ini sudah digunakan");
+			}
+
 			const vote = await tx.votingVote.create({
 				data: {
 					categoryId,
@@ -362,16 +383,16 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 				data: { voteCount: { increment: 1 } },
 			});
 
-			await tx.votingPurchase.update({
-				where: { id: purchase.id },
-				data: { usedVotes: { increment: 1 } },
-			});
+			// usedVotes already incremented atomically above
 
 			return vote;
 		});
 
 		res.status(201).json({ message: "Vote berhasil!", vote: result });
-	} catch (error) {
+	} catch (error: any) {
+		if (error.message?.includes("Semua vote")) {
+			return res.status(400).json({ error: error.message });
+		}
 		console.error("Error casting paid vote:", error);
 		res.status(500).json({ error: "Gagal melakukan vote" });
 	}
@@ -468,8 +489,8 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 	}
 });
 
-// GET /api/voting/check/:purchaseCode - Check purchase status
-router.get("/check/:purchaseCode", async (req: AuthenticatedRequest, res: Response) => {
+// GET /api/voting/check/:purchaseCode - Check purchase status (requires auth)
+router.get("/check/:purchaseCode", authenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const purchase = await prisma.votingPurchase.findUnique({
 			where: { purchaseCode: req.params.purchaseCode },
@@ -504,8 +525,8 @@ router.get("/check/:purchaseCode", async (req: AuthenticatedRequest, res: Respon
 // SEND VOTING CODE TO EMAIL
 // ==========================================
 
-// POST /api/voting/send-email - Send voting purchase code to email
-router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
+// POST /api/voting/send-email - Send voting purchase code to email (requires auth)
+router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const { purchaseCode, email } = req.body;
 
@@ -560,6 +581,10 @@ router.get(
 		try {
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
 
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
@@ -629,6 +654,10 @@ router.put(
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
 
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
 			const { enabled, isPaid, pricePerVote, startDate, endDate } = req.body;
 
 			const config = await prisma.eventVotingConfig.upsert({
@@ -668,6 +697,10 @@ router.post(
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
 
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
 			const config = await prisma.eventVotingConfig.update({
 				where: { eventId },
 				data: {
@@ -693,6 +726,10 @@ router.post(
 		try {
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
 
 			// Ensure config exists
 			let config = await prisma.eventVotingConfig.findUnique({ where: { eventId } });
@@ -994,6 +1031,10 @@ router.get(
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
 
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
 			const config = await prisma.eventVotingConfig.findUnique({
 				where: { eventId },
 				include: {
@@ -1044,6 +1085,10 @@ router.get(
 
 			const eventId = await resolveEventId(req.params.eventId);
 			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
 
 			const where: any = { eventId };
 
