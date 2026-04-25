@@ -42,7 +42,6 @@ const EventTicketing: React.FC = () => {
 	});
 	const [saving, setSaving] = useState(false);
 	const [togglingTicketing, setTogglingTicketing] = useState(false);
-	const [syncing, setSyncing] = useState(false);
 
 	// Dashboard state
 	const [dashboard, setDashboard] = useState<{
@@ -265,25 +264,6 @@ const EventTicketing: React.FC = () => {
 		}
 	};
 
-	const handleSyncSoldCount = async () => {
-		try {
-			setSyncing(true);
-			const res = await api.post(`/tickets/admin/event/${eventId}/sync-sold-count`);
-			setConfig((prev) => ({ ...prev, soldCount: res.data.config.soldCount }));
-			Swal.fire({
-				title: "Sinkronisasi Berhasil!",
-				text: res.data.message,
-				icon: "success",
-				timer: 2000,
-				showConfirmButton: false,
-			});
-		} catch (err: any) {
-			Swal.fire("Gagal", err.response?.data?.error || "Gagal sinkronisasi", "error");
-		} finally {
-			setSyncing(false);
-		}
-	};
-
 	const handleToggleTicketing = async () => {
 		const isOpen = config.enabled;
 		const result = await Swal.fire({
@@ -481,40 +461,6 @@ const EventTicketing: React.FC = () => {
 					<p className="text-sm text-gray-500 dark:text-gray-400">
 						Kelola penjualan tiket untuk event ini
 					</p>
-				</div>
-			</div>
-
-			{/* Stats Summary */}
-			<div className="flex items-center gap-3 mb-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm">
-				<span className={`w-3 h-3 rounded-full flex-shrink-0 ${config.enabled ? "bg-green-500" : "bg-red-500"}`} title={config.enabled ? "Aktif" : "Nonaktif"} />
-				<span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-300">
-					{config.enabled ? "Aktif" : "Nonaktif"}
-				</span>
-				<span className="text-gray-300 dark:text-gray-600 hidden sm:inline">|</span>
-				<div className="flex items-center gap-1.5 text-sm">
-					<span className="text-gray-500 dark:text-gray-400">Terjual</span>
-					<span className={`font-semibold ${config.soldCount > config.quota ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
-						{config.soldCount}/{config.quota}
-					</span>
-					{config.soldCount > config.quota && (
-						<span className="text-xs text-red-500 font-medium">(melebihi kuota!)</span>
-					)}
-				</div>
-				<span className="text-gray-300 dark:text-gray-600">|</span>
-				<div className="flex items-center gap-1.5 text-sm">
-					<span className="text-gray-500 dark:text-gray-400 hidden sm:inline">Pendapatan</span>
-					<span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(config.soldCount * config.price)}</span>
-				</div>
-				<div className="ml-auto">
-					<button
-						onClick={handleSyncSoldCount}
-						disabled={syncing}
-						title="Sinkronisasi jumlah terjual dengan data aktual"
-						className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
-					>
-						<ArrowPathIcon className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-						<span className="hidden sm:inline">Sinkronisasi</span>
-					</button>
 				</div>
 			</div>
 
