@@ -13,7 +13,7 @@ import {
 	generateMidtransOrderId,
 	PaymentPrefix,
 } from "../lib/midtrans";
-import { sendTicketEmail, sendTicketEmailFromServer } from "../lib/email";
+import { sendTicketEmailFromServer } from "../lib/email";
 
 const router = Router();
 
@@ -428,13 +428,13 @@ router.get("/check/:ticketCode", async (req: AuthenticatedRequest, res: Response
 // SEND TICKET TO EMAIL
 // ==========================================
 
-// POST /api/tickets/send-email - Send ticket QR code to email
+// POST /api/tickets/send-email - Send ticket QR code to email (server-generated QR codes)
 router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
 	try {
-		const { ticketCode, email, qrImageBase64 } = req.body;
+		const { ticketCode, email } = req.body;
 
-		if (!ticketCode || !email || !qrImageBase64) {
-			return res.status(400).json({ error: "Kode tiket, email, dan QR code wajib diisi" });
+		if (!ticketCode || !email) {
+			return res.status(400).json({ error: "Kode tiket dan email wajib diisi" });
 		}
 
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -448,6 +448,7 @@ router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
 				event: {
 					select: { title: true, startDate: true, venue: true, city: true },
 				},
+				attendees: true,
 			},
 		});
 
@@ -455,7 +456,7 @@ router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
 			return res.status(404).json({ error: "Tiket tidak ditemukan" });
 		}
 
-		await sendTicketEmail({
+		await sendTicketEmailFromServer({
 			to: email,
 			buyerName: ticket.buyerName,
 			ticketCode: ticket.ticketCode,
@@ -465,7 +466,12 @@ router.post("/send-email", async (req: AuthenticatedRequest, res: Response) => {
 			city: ticket.event.city,
 			quantity: ticket.quantity,
 			totalAmount: ticket.totalAmount,
-			qrImageBase64,
+			attendees: ticket.attendees.map((a) => ({
+				name: a.attendeeName,
+				email: a.attendeeEmail,
+				phone: a.attendeePhone,
+				ticketCode: a.ticketCode,
+			})),
 		});
 
 		res.json({ message: "Tiket berhasil dikirim ke email" });
@@ -798,12 +804,22 @@ router.post(
 					});
 				}
 
-				if (attendee.purchase.status === "CANCELLED") {
+					if (attendee.purchase.status === "CANCELLED") {
 					return res.status(400).json({ valid: false, error: "Tiket telah dibatalkan" });
 				}
 
 				if (attendee.status === "PENDING" || attendee.purchase.status === "PENDING") {
 					return res.status(400).json({ valid: false, error: "Tiket belum dibayar" });
+				}
+
+				// If purchase was scanned as a whole (USED) but attendee is still PAID, block
+				if (attendee.purchase.status === "USED" && attendee.status !== "USED") {
+					// Auto-sync attendee status then reject to prevent re-entry
+					await prisma.ticketAttendee.update({
+						where: { id: attendee.id },
+						data: { status: "USED", usedAt: new Date() },
+					});
+					return res.status(400).json({ valid: false, error: "Tiket ini sudah digunakan (seluruh paket tiket sudah di-scan)", ticket: { ticketCode: attendee.ticketCode, buyerName: attendee.attendeeName, status: "USED" } });
 				}
 
 				// Mark attendee ticket as USED
@@ -899,14 +915,18 @@ router.post(
 				});
 			}
 
-			// Status is PAID — mark as USED
-			const updated = await prisma.ticketPurchase.update({
-				where: { id: ticket.id },
-				data: {
-					status: "USED",
-					usedAt: new Date(),
-				},
-			});
+			// Status is PAID — mark purchase AND all attendees as USED atomically
+			const usedAt = new Date();
+			const [updated] = await prisma.$transaction([
+				prisma.ticketPurchase.update({
+					where: { id: ticket.id },
+					data: { status: "USED", usedAt },
+				}),
+				prisma.ticketAttendee.updateMany({
+					where: { purchaseId: ticket.id, status: "PAID" },
+					data: { status: "USED", usedAt },
+				}),
+			]);
 
 			res.json({
 				valid: true,

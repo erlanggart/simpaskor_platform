@@ -28,7 +28,9 @@ const ETicketingPage: React.FC = () => {
 		quantity: number;
 		totalAmount: number;
 		message: string;
+		attendees?: { attendeeName: string; attendeeEmail: string; attendeePhone?: string | null; ticketCode: string }[];
 	} | null>(null);
+	const [activeAttendeeIdx, setActiveAttendeeIdx] = useState(0);
 
 	// Purchase form
 	const [buyerName, setBuyerName] = useState(user?.name || "");
@@ -184,14 +186,9 @@ const ETicketingPage: React.FC = () => {
 
 		try {
 			setSendingEmail(true);
-			// Generate QR code as base64 from hidden canvas
-			const qrCanvas = document.getElementById("ticket-qr-canvas") as HTMLCanvasElement;
-			const qrImageBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
-
 			await api.post("/tickets/send-email", {
 				ticketCode: ticketResult.ticketCode,
 				email: sendEmail.trim(),
-				qrImageBase64,
 			});
 
 			Swal.fire("Berhasil", `Tiket berhasil dikirim ke ${sendEmail.trim()}`, "success");
@@ -261,6 +258,7 @@ const ETicketingPage: React.FC = () => {
 				// Open Midtrans Snap payment popup
 				pay(snapToken, {
 					onSuccess: () => {
+						setActiveAttendeeIdx(0);
 						setTicketResult({
 							ticketCode: res.data.ticket.ticketCode,
 							eventTitle: selectedEvent.title,
@@ -268,19 +266,10 @@ const ETicketingPage: React.FC = () => {
 							quantity: attendees.length,
 							totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
 							message: "Pembayaran berhasil! Tiket Anda sudah aktif. E-Ticket akan dikirim ke email Anda.",
+							attendees: res.data.ticket.attendees || [],
 						});
-						// Send ticket email immediately via API
-						setTimeout(() => {
-							const qrCanvas = document.getElementById("ticket-qr-canvas") as HTMLCanvasElement;
-							const qrImageBase64 = qrCanvas ? qrCanvas.toDataURL("image/png") : "";
-							if (qrImageBase64) {
-								api.post("/tickets/send-email", {
-									ticketCode: res.data.ticket.ticketCode,
-									email: buyerEmail.trim(),
-									qrImageBase64,
-								}).catch((err) => console.error("Send ticket email failed:", err));
-							}
-						}, 1500);
+						// Email is sent automatically by the Midtrans payment webhook (sendTicketEmailFromServer)
+						// No need to send again from frontend
 						fetchEvents();
 					},
 					onPending: () => {
@@ -304,6 +293,7 @@ const ETicketingPage: React.FC = () => {
 			} else {
 				// Free ticket or Snap not available
 				setShowPurchaseModal(false);
+				setActiveAttendeeIdx(0);
 				setTicketResult({
 					ticketCode: res.data.ticket.ticketCode,
 					eventTitle: selectedEvent.title,
@@ -311,6 +301,7 @@ const ETicketingPage: React.FC = () => {
 					quantity: attendees.length,
 					totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
 					message: res.data.message,
+					attendees: res.data.ticket.attendees || [],
 				});
 				fetchEvents();
 			}
@@ -738,7 +729,7 @@ const ETicketingPage: React.FC = () => {
 			{ticketResult && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
 					<div className="absolute inset-0 bg-black/50" />
-					<div className="relative bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-xl w-full max-w-md overflow-hidden">
+					<div className="relative bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
 						<div className="p-6 text-center" id="ticket-content">
 							{/* Success Icon */}
 							<div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
@@ -752,30 +743,105 @@ const ETicketingPage: React.FC = () => {
 								{ticketResult.message}
 							</p>
 
-							{/* QR Code (visible) */}
-							<div className="bg-white p-4 rounded-xl inline-block mb-4 shadow-inner">
-								<QRCodeSVG
-									value={ticketResult.ticketCode}
-									size={180}
-									level="H"
-									includeMargin={true}
-								/>
-							</div>
-							{/* Hidden QRCodeCanvas for download */}
-							<div style={{ position: "absolute", left: "-9999px" }}>
-								<QRCodeCanvas
-									id="ticket-qr-canvas"
-									value={ticketResult.ticketCode}
-									size={300}
-									level="H"
-									includeMargin={true}
-								/>
-							</div>
+							{/* Per-attendee QR codes */}
+							{ticketResult.attendees && ticketResult.attendees.length > 0 ? (
+								<>
+									{/* Navigator for multiple attendees */}
+									{ticketResult.attendees.length > 1 && (
+										<div className="flex items-center justify-between mb-3">
+											<button
+												onClick={() => setActiveAttendeeIdx((i) => Math.max(0, i - 1))}
+												disabled={activeAttendeeIdx === 0}
+												className="p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white disabled:opacity-30"
+											>
+												<LuChevronLeft className="w-5 h-5" />
+											</button>
+											<span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+												Tiket {activeAttendeeIdx + 1} / {ticketResult.attendees.length}
+											</span>
+											<button
+												onClick={() => setActiveAttendeeIdx((i) => Math.min(ticketResult.attendees!.length - 1, i + 1))}
+												disabled={activeAttendeeIdx === ticketResult.attendees.length - 1}
+												className="p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white disabled:opacity-30"
+											>
+												<LuChevronRight className="w-5 h-5" />
+											</button>
+										</div>
+									)}
 
-							{/* Ticket Code */}
-							<p className="text-2xl font-mono font-bold text-red-600 dark:text-red-400 mb-4 tracking-wider">
-								{ticketResult.ticketCode}
-							</p>
+									{/* Active attendee QR */}
+									{(() => {
+										const att = ticketResult.attendees![activeAttendeeIdx]!;
+										return (
+											<div className="bg-gray-50 dark:bg-white/[0.03] rounded-xl p-4 mb-4 border border-gray-200/50 dark:border-white/[0.06]">
+												<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+													{att.attendeeName}
+												</p>
+												<p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{att.attendeeEmail}</p>
+												<div className="bg-white p-4 rounded-xl inline-block shadow-inner mb-3">
+													<QRCodeSVG
+														value={att.ticketCode}
+														size={180}
+														level="H"
+														includeMargin={true}
+													/>
+												</div>
+												<p className="text-sm font-mono font-bold text-red-600 dark:text-red-400 tracking-wider">
+													{att.ticketCode}
+												</p>
+											</div>
+										);
+									})()}
+
+									{/* Dot indicators for multiple attendees */}
+									{ticketResult.attendees.length > 1 && (
+										<div className="flex justify-center gap-1.5 mb-4">
+											{ticketResult.attendees.map((_, i) => (
+												<button
+													key={i}
+													onClick={() => setActiveAttendeeIdx(i)}
+													className={`w-2 h-2 rounded-full transition-colors ${i === activeAttendeeIdx ? "bg-red-600" : "bg-gray-300 dark:bg-gray-600"}`}
+												/>
+											))}
+										</div>
+									)}
+
+									{/* Hidden QRCodeCanvas for the active attendee (for download) */}
+									<div style={{ position: "absolute", left: "-9999px" }}>
+										<QRCodeCanvas
+											id="ticket-qr-canvas"
+											value={ticketResult.attendees[activeAttendeeIdx]?.ticketCode || ticketResult.ticketCode}
+											size={300}
+											level="H"
+											includeMargin={true}
+										/>
+									</div>
+								</>
+							) : (
+								<>
+									{/* Fallback: purchase-level QR (legacy / no attendee data) */}
+									<div className="bg-white p-4 rounded-xl inline-block mb-4 shadow-inner">
+										<QRCodeSVG
+											value={ticketResult.ticketCode}
+											size={180}
+											level="H"
+											includeMargin={true}
+										/>
+									</div>
+									<div style={{ position: "absolute", left: "-9999px" }}>
+										<QRCodeCanvas
+											id="ticket-qr-canvas"
+											value={ticketResult.ticketCode}
+											size={300}
+											level="H"
+											includeMargin={true}
+										/>
+									</div>
+									<p className="text-2xl font-mono font-bold text-red-600 dark:text-red-400 mb-4 tracking-wider">
+										{ticketResult.ticketCode}
+									</p>
+								</>
+							)}
 
 							{/* Ticket Details */}
 							<div className="bg-white/50 dark:bg-white/[0.03] rounded-xl p-3 mb-5 text-sm text-left space-y-1.5 border border-gray-200/50 dark:border-white/[0.06]">
@@ -807,8 +873,14 @@ const ETicketingPage: React.FC = () => {
 								</div>
 							</div>
 
+							{ticketResult.attendees && ticketResult.attendees.length > 1 && (
+								<p className="text-xs text-blue-600 dark:text-blue-400 mb-3 font-medium">
+									💡 Setiap peserta memiliki QR code unik. Geser untuk melihat tiket masing-masing peserta.
+								</p>
+							)}
+
 							<p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-								Simpan atau unduh tiket ini sebagai bukti pembelian.
+								E-Ticket dengan QR code juga dikirim ke email masing-masing peserta.
 							</p>
 
 							{autoEmailSent && (
@@ -852,9 +924,11 @@ const ETicketingPage: React.FC = () => {
 									const ctx = canvas.getContext("2d")!;
 									const padding = 60;
 									const qrSize = 300;
+									const activeAtt = ticketResult.attendees?.[activeAttendeeIdx];
 									const details = [
 										["Event", ticketResult.eventTitle],
-										["Nama", ticketResult.buyerName],
+										["Nama", activeAtt ? activeAtt.attendeeName : ticketResult.buyerName],
+										...(activeAtt ? [["Email", activeAtt.attendeeEmail]] : []),
 										["Jumlah", `${ticketResult.quantity} tiket`],
 										["Total", ticketResult.totalAmount === 0 ? "GRATIS" : formatCurrency(ticketResult.totalAmount)],
 									];
@@ -904,7 +978,8 @@ const ETicketingPage: React.FC = () => {
 									// Ticket Code
 									ctx.fillStyle = "#dc2626";
 									ctx.font = "bold 28px monospace";
-									ctx.fillText(ticketResult.ticketCode, W / 2, y + 24);
+									const displayCode = ticketResult.attendees?.[activeAttendeeIdx]?.ticketCode || ticketResult.ticketCode;
+									ctx.fillText(displayCode, W / 2, y + 24);
 									y += 50;
 
 									// Dashed separator
@@ -939,8 +1014,9 @@ const ETicketingPage: React.FC = () => {
 									ctx.fillText("Simpan tiket ini sebagai bukti pembelian.", W / 2, y + 12);
 
 									// Download
+									const downloadCode = ticketResult.attendees?.[activeAttendeeIdx]?.ticketCode || ticketResult.ticketCode;
 									const link = document.createElement("a");
-									link.download = `ticket-${ticketResult.ticketCode}.png`;
+									link.download = `ticket-${downloadCode}.png`;
 									link.href = canvas.toDataURL("image/png");
 									link.click();
 								}}
