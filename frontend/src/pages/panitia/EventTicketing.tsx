@@ -14,6 +14,7 @@ import {
 	LockOpenIcon,
 	LockClosedIcon,
 	ArrowPathIcon,
+	EnvelopeIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
@@ -325,6 +326,42 @@ const EventTicketing: React.FC = () => {
 			});
 		} catch (err: any) {
 			Swal.fire("Error", err.response?.data?.error || "Gagal mengubah status", "error");
+		}
+	};
+
+	const handleResendTicketEmail = async (purchaseId: string, buyerEmail: string) => {
+		const { value: email } = await Swal.fire({
+			title: "Kirim Ulang Email Tiket",
+			html: `<p class="text-sm text-gray-500 mb-2">Email akan dikirim dengan QR code tiket ke alamat email di bawah. Anda dapat mengubah email tujuan jika email asli tidak valid.</p>`,
+			input: "email",
+			inputLabel: "Email Tujuan",
+			inputValue: buyerEmail,
+			inputPlaceholder: "masukkan email tujuan",
+			showCancelButton: true,
+			confirmButtonText: "Kirim Email",
+			cancelButtonText: "Batal",
+			confirmButtonColor: "#dc2626",
+			inputValidator: (value) => {
+				if (!value) return "Email wajib diisi";
+				const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+				if (!emailRegex.test(value)) return "Format email tidak valid";
+				return null;
+			},
+		});
+
+		if (!email) return;
+
+		try {
+			const res = await api.post(`/tickets/admin/resend-email/${purchaseId}`, { email });
+			Swal.fire({
+				title: "Berhasil!",
+				text: res.data.message,
+				icon: "success",
+				timer: 2000,
+				showConfirmButton: false,
+			});
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengirim email", "error");
 		}
 	};
 
@@ -686,7 +723,9 @@ const EventTicketing: React.FC = () => {
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
 												Tanggal
 											</th>
-
+											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+												Aksi
+											</th>
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -716,6 +755,22 @@ const EventTicketing: React.FC = () => {
 												<td className="px-4 py-3">
 													<div className="flex items-center gap-2">
 														{getStatusBadge(purchase.status)}
+													</div>
+												</td>
+												<td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+													{formatDate(purchase.createdAt || "")}
+												</td>
+												<td className="px-4 py-3">
+													<div className="flex items-center gap-1">
+														{(purchase.status === "PAID" || purchase.status === "USED") && (
+															<button
+																onClick={() => handleResendTicketEmail(purchase.id, purchase.buyerEmail)}
+																title="Kirim Ulang Email"
+																className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg"
+															>
+																<EnvelopeIcon className="w-5 h-5" />
+															</button>
+														)}
 														{(purchase.status === "PAID") && (
 															<>
 																<button
@@ -735,9 +790,6 @@ const EventTicketing: React.FC = () => {
 															</>
 														)}
 													</div>
-												</td>
-												<td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-													{formatDate(purchase.createdAt || "")}
 												</td>
 											</tr>
 										))}

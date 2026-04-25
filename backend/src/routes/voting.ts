@@ -1085,4 +1085,55 @@ router.get(
 // Purchase status is managed automatically by Midtrans payment webhook
 // No manual confirmation/cancellation endpoint needed
 
+// POST /api/voting/admin/resend-email/:purchaseId - Resend voting purchase code email (admin troubleshoot)
+router.post(
+	"/admin/resend-email/:purchaseId",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { email } = req.body;
+
+			const purchase = await prisma.votingPurchase.findUnique({
+				where: { id: req.params.purchaseId },
+				include: {
+					event: {
+						select: { title: true },
+					},
+				},
+			});
+
+			if (!purchase) {
+				return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
+			}
+
+			if (purchase.status !== "PAID") {
+				return res.status(400).json({ error: "Email hanya bisa dikirim untuk pembelian yang sudah dibayar" });
+			}
+
+			const targetEmail = email?.trim() || purchase.buyerEmail;
+			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+			if (!emailRegex.test(targetEmail)) {
+				return res.status(400).json({ error: "Format email tidak valid" });
+			}
+
+			await sendVotingPurchaseEmail({
+				to: targetEmail,
+				buyerName: purchase.buyerName,
+				purchaseCode: purchase.purchaseCode,
+				eventTitle: purchase.event.title,
+				voteCount: purchase.voteCount,
+				totalAmount: purchase.totalAmount,
+			});
+
+			console.log(`[Admin] Voting email resent to ${targetEmail} for purchase ${purchase.id} by admin ${req.user?.userId}`);
+
+			res.json({ message: `Email kode vote berhasil dikirim ke ${targetEmail}` });
+		} catch (error: any) {
+			console.error("Error resending voting email:", error);
+			res.status(500).json({ error: "Gagal mengirim email. Pastikan konfigurasi SMTP sudah benar." });
+		}
+	}
+);
+
 export default router;

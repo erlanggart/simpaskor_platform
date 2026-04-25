@@ -158,7 +158,6 @@ const EVotingPage: React.FC = () => {
 			setShowCodeEntry(false);
 			setPurchaseCode("");
 			setPaidVoteTarget(null);
-			setVotedNominees((prev) => new Set([...prev, paidVoteTarget.nomineeId]));
 
 			Swal.fire({
 				title: "Vote Berhasil!",

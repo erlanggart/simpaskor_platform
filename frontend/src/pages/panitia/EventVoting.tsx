@@ -11,6 +11,7 @@ import {
 	UserGroupIcon,
 	UserIcon,
 	LockClosedIcon,
+	EnvelopeIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -158,6 +159,42 @@ const EventVoting: React.FC = () => {
 			console.error("Error fetching purchases");
 		} finally {
 			setPurchasesLoading(false);
+		}
+	};
+
+	const handleResendVotingEmail = async (purchaseId: string, buyerEmail: string) => {
+		const { value: email } = await Swal.fire({
+			title: "Kirim Ulang Email Kode Vote",
+			html: `<p class="text-sm text-gray-500 mb-2">Email akan dikirim dengan kode vote ke alamat email di bawah. Anda dapat mengubah email tujuan jika email asli tidak valid.</p>`,
+			input: "email",
+			inputLabel: "Email Tujuan",
+			inputValue: buyerEmail,
+			inputPlaceholder: "masukkan email tujuan",
+			showCancelButton: true,
+			confirmButtonText: "Kirim Email",
+			cancelButtonText: "Batal",
+			confirmButtonColor: "#dc2626",
+			inputValidator: (value) => {
+				if (!value) return "Email wajib diisi";
+				const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+				if (!emailRegex.test(value)) return "Format email tidak valid";
+				return null;
+			},
+		});
+
+		if (!email) return;
+
+		try {
+			const res = await api.post(`/voting/admin/resend-email/${purchaseId}`, { email });
+			Swal.fire({
+				title: "Berhasil!",
+				text: res.data.message,
+				icon: "success",
+				timer: 2000,
+				showConfirmButton: false,
+			});
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengirim email", "error");
 		}
 	};
 
@@ -1128,15 +1165,20 @@ const EventVoting: React.FC = () => {
 									</div>
 									<div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/40">
 										<span className="text-xs text-gray-500">{formatDate(p.createdAt)}</span>
-										<div className="flex gap-2">
+										<div className="flex gap-2 items-center">
+											{p.status === "PAID" && (
+												<button
+													onClick={() => handleResendVotingEmail(p.id, p.buyerEmail)}
+													title="Kirim Ulang Email Kode Vote"
+													className="flex items-center gap-1.5 text-xs px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+												>
+													<EnvelopeIcon className="w-3.5 h-3.5" />
+													Kirim Ulang Email
+												</button>
+											)}
 											{p.status === "PENDING" && (
 												<span className="text-xs px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-lg">
 													Menunggu pembayaran via Midtrans
-												</span>
-											)}
-											{p.status === "PAID" && (
-												<span className="text-xs px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg">
-													Pembayaran dikonfirmasi otomatis
 												</span>
 											)}
 										</div>

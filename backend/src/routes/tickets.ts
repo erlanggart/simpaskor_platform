@@ -884,4 +884,65 @@ router.post(
 	}
 );
 
+// POST /api/tickets/admin/resend-email/:purchaseId - Resend ticket email (admin troubleshoot)
+router.post(
+	"/admin/resend-email/:purchaseId",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { email } = req.body;
+
+			const purchase = await prisma.ticketPurchase.findUnique({
+				where: { id: req.params.purchaseId },
+				include: {
+					event: {
+						select: { title: true, startDate: true, venue: true, city: true },
+					},
+					attendees: true,
+				},
+			});
+
+			if (!purchase) {
+				return res.status(404).json({ error: "Pembelian tiket tidak ditemukan" });
+			}
+
+			if (purchase.status !== "PAID" && purchase.status !== "USED") {
+				return res.status(400).json({ error: "Email hanya bisa dikirim untuk tiket yang sudah dibayar" });
+			}
+
+			const targetEmail = email?.trim() || purchase.buyerEmail;
+			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+			if (!emailRegex.test(targetEmail)) {
+				return res.status(400).json({ error: "Format email tidak valid" });
+			}
+
+			await sendTicketEmailFromServer({
+				to: targetEmail,
+				buyerName: purchase.buyerName,
+				ticketCode: purchase.ticketCode,
+				eventTitle: purchase.event.title,
+				eventDate: purchase.event.startDate.toISOString(),
+				venue: purchase.event.venue,
+				city: purchase.event.city,
+				quantity: purchase.quantity,
+				totalAmount: purchase.totalAmount,
+				attendees: purchase.attendees.map((a) => ({
+					name: a.attendeeName,
+					email: a.attendeeEmail,
+					phone: a.attendeePhone,
+					ticketCode: a.ticketCode,
+				})),
+			});
+
+			console.log(`[Admin] Ticket email resent to ${targetEmail} for purchase ${purchase.id} by admin ${req.user?.userId}`);
+
+			res.json({ message: `Email tiket berhasil dikirim ke ${targetEmail}` });
+		} catch (error: any) {
+			console.error("Error resending ticket email:", error);
+			res.status(500).json({ error: "Gagal mengirim email. Pastikan konfigurasi SMTP sudah benar." });
+		}
+	}
+);
+
 export default router;
