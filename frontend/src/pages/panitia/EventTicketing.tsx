@@ -15,6 +15,7 @@ import {
 	LockClosedIcon,
 	ArrowPathIcon,
 	EnvelopeIcon,
+	ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
@@ -23,7 +24,7 @@ import { EventTicketConfig, TicketPurchase } from "../../types/ticket";
 
 const EventTicketing: React.FC = () => {
 	const { eventSlug } = useParams();
-	const [activeTab, setActiveTab] = useState<"config" | "purchases" | "scan">("config");
+	const [activeTab, setActiveTab] = useState<"dashboard" | "config" | "purchases" | "scan">("dashboard");
 	const [loading, setLoading] = useState(true);
 	const [eventId, setEventId] = useState<string>("");
 
@@ -42,6 +43,15 @@ const EventTicketing: React.FC = () => {
 	const [saving, setSaving] = useState(false);
 	const [togglingTicketing, setTogglingTicketing] = useState(false);
 	const [syncing, setSyncing] = useState(false);
+
+	// Dashboard state
+	const [dashboard, setDashboard] = useState<{
+		summary: { totalRevenue: number; totalTickets: number; totalTransactions: number; checkedIn: number; quota: number; price: number; remaining: number };
+		breakdown: { paid: { count: number; tickets: number; revenue: number }; used: { count: number; tickets: number; revenue: number }; cancelled: number; expired: number; pending: number };
+		dailySales: { date: string; count: number; revenue: number; tickets?: number }[];
+		recentTransactions: { id: string; buyerName: string; buyerEmail: string; quantity: number; totalAmount: number; status: string; paidAt: string; ticketCode: string }[];
+	} | null>(null);
+	const [dashboardLoading, setDashboardLoading] = useState(false);
 
 	// Purchases state
 	const [purchases, setPurchases] = useState<TicketPurchase[]>([]);
@@ -134,6 +144,26 @@ const EventTicketing: React.FC = () => {
 	useEffect(() => {
 		if (eventId) fetchPurchases();
 	}, [eventId]);
+
+	// Fetch dashboard
+	useEffect(() => {
+		if (activeTab === "dashboard" && eventId) {
+			fetchDashboard();
+		}
+	}, [activeTab, eventId]);
+
+	const fetchDashboard = async () => {
+		if (!eventId) return;
+		try {
+			setDashboardLoading(true);
+			const res = await api.get(`/tickets/admin/event/${eventId}/dashboard`);
+			setDashboard(res.data);
+		} catch {
+			console.error("Error fetching dashboard");
+		} finally {
+			setDashboardLoading(false);
+		}
+	};
 
 	// Cleanup scanner on unmount or tab change
 	useEffect(() => {
@@ -527,6 +557,17 @@ const EventTicketing: React.FC = () => {
 			{/* Tabs */}
 			<div className="flex gap-2 mb-6">
 				<button
+					onClick={() => setActiveTab("dashboard")}
+					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+						activeTab === "dashboard"
+							? "bg-red-600 text-white shadow-sm"
+							: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
+					}`}
+				>
+					<ChartBarIcon className="w-5 h-5" />
+					<span className="hidden sm:inline">Dashboard</span>
+				</button>
+				<button
 					onClick={() => {
 						setActiveTab("scan");
 						setScanResult(null);
@@ -566,6 +607,165 @@ const EventTicketing: React.FC = () => {
 					</span>
 				</button>
 			</div>
+
+			{/* Dashboard Tab */}
+			{activeTab === "dashboard" && (
+				<div className="space-y-6">
+					{dashboardLoading ? (
+						<div className="flex justify-center py-12">
+							<ArrowPathIcon className="w-8 h-8 text-gray-400 animate-spin" />
+						</div>
+					) : dashboard ? (
+						<>
+							{/* Summary Cards */}
+							<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+								<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
+									<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Total Pendapatan</p>
+									<p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(dashboard.summary.totalRevenue)}</p>
+									<p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{dashboard.summary.totalTransactions} transaksi</p>
+								</div>
+								<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
+									<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Tiket Terjual</p>
+									<p className="text-2xl font-bold text-gray-900 dark:text-white">{dashboard.summary.totalTickets}<span className="text-base font-normal text-gray-400">/{dashboard.summary.quota}</span></p>
+									<div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+										<div
+											className={`h-2 rounded-full transition-all ${dashboard.summary.totalTickets > dashboard.summary.quota ? "bg-red-500" : "bg-green-500"}`}
+											style={{ width: `${Math.min(100, (dashboard.summary.totalTickets / (dashboard.summary.quota || 1)) * 100)}%` }}
+										/>
+									</div>
+									<p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Sisa: {dashboard.summary.remaining} tiket</p>
+								</div>
+								<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
+									<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Check-in</p>
+									<p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{dashboard.summary.checkedIn}</p>
+									<p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+										{dashboard.summary.totalTickets > 0
+											? `${Math.round((dashboard.summary.checkedIn / dashboard.summary.totalTickets) * 100)}% dari tiket terjual`
+											: "Belum ada tiket"}
+									</p>
+								</div>
+								<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
+									<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Harga Tiket</p>
+									<p className="text-2xl font-bold text-gray-900 dark:text-white">
+										{dashboard.summary.price === 0 ? "GRATIS" : formatCurrency(dashboard.summary.price)}
+									</p>
+									<p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Per tiket</p>
+								</div>
+							</div>
+
+							{/* Status Breakdown */}
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
+								<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Status Pembelian</h3>
+								<div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+									<div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+										<p className="text-2xl font-bold text-green-600 dark:text-green-400">{dashboard.breakdown.paid.count}</p>
+										<p className="text-xs text-green-600 dark:text-green-400 font-medium">PAID</p>
+										<p className="text-[10px] text-gray-400 mt-0.5">{dashboard.breakdown.paid.tickets} tiket</p>
+									</div>
+									<div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+										<p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{dashboard.breakdown.used.count}</p>
+										<p className="text-xs text-blue-600 dark:text-blue-400 font-medium">USED</p>
+										<p className="text-[10px] text-gray-400 mt-0.5">{dashboard.breakdown.used.tickets} tiket</p>
+									</div>
+									<div className="text-center p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
+										<p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{dashboard.breakdown.pending}</p>
+										<p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">PENDING</p>
+									</div>
+									<div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
+										<p className="text-2xl font-bold text-red-600 dark:text-red-400">{dashboard.breakdown.cancelled}</p>
+										<p className="text-xs text-red-600 dark:text-red-400 font-medium">CANCELLED</p>
+									</div>
+									<div className="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+										<p className="text-2xl font-bold text-gray-500 dark:text-gray-400">{dashboard.breakdown.expired}</p>
+										<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">EXPIRED</p>
+									</div>
+								</div>
+							</div>
+
+							{/* Daily Sales Chart (simple bar) */}
+							{dashboard.dailySales.length > 0 && (
+								<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
+									<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Penjualan 30 Hari Terakhir</h3>
+									<div className="space-y-2">
+										{(() => {
+											const maxRevenue = Math.max(...dashboard.dailySales.map(d => d.revenue), 1);
+											return dashboard.dailySales.map((day) => (
+												<div key={day.date} className="flex items-center gap-3 text-sm">
+													<span className="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">
+														{new Date(day.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+													</span>
+													<div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+														<div
+															className="h-full bg-green-500 dark:bg-green-600 rounded-full flex items-center justify-end pr-2 transition-all"
+															style={{ width: `${Math.max(5, (day.revenue / maxRevenue) * 100)}%` }}
+														>
+															{day.revenue > maxRevenue * 0.15 && (
+																<span className="text-[10px] text-white font-medium whitespace-nowrap">{formatCurrency(day.revenue)}</span>
+															)}
+														</div>
+													</div>
+													<span className="text-xs text-gray-500 dark:text-gray-400 w-24 text-right flex-shrink-0">
+														{day.count} trx · {(day as any).tickets || day.count} tiket
+													</span>
+												</div>
+											));
+										})()}
+									</div>
+								</div>
+							)}
+
+							{/* Recent Transactions */}
+							{dashboard.recentTransactions.length > 0 && (
+								<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
+									<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Transaksi Terakhir</h3>
+									<div className="overflow-x-auto">
+										<table className="w-full text-sm">
+											<thead>
+												<tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+													<th className="pb-2 font-medium">Pembeli</th>
+													<th className="pb-2 font-medium">Kode</th>
+													<th className="pb-2 font-medium text-center">Qty</th>
+													<th className="pb-2 font-medium text-right">Total</th>
+													<th className="pb-2 font-medium text-center">Status</th>
+													<th className="pb-2 font-medium text-right">Waktu</th>
+												</tr>
+											</thead>
+											<tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
+												{dashboard.recentTransactions.map((tx) => (
+													<tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+														<td className="py-2.5">
+															<p className="font-medium text-gray-900 dark:text-white">{tx.buyerName}</p>
+															<p className="text-xs text-gray-400">{tx.buyerEmail}</p>
+														</td>
+														<td className="py-2.5 font-mono text-xs text-gray-500">{tx.ticketCode}</td>
+														<td className="py-2.5 text-center">{tx.quantity}</td>
+														<td className="py-2.5 text-right font-medium">{tx.totalAmount === 0 ? "GRATIS" : formatCurrency(tx.totalAmount)}</td>
+														<td className="py-2.5 text-center">
+															<span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+																tx.status === "USED" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+																: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+															}`}>
+																{tx.status}
+															</span>
+														</td>
+														<td className="py-2.5 text-right text-xs text-gray-500">
+															{tx.paidAt ? new Date(tx.paidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "-"}
+														</td>
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
+								</div>
+							)}
+						</>
+					) : (
+						<div className="text-center py-12 text-gray-500 dark:text-gray-400">
+							Tidak ada data dashboard
+						</div>
+					)}
+				</div>
+			)}
 
 			{/* Config Tab */}
 			{activeTab === "config" && (

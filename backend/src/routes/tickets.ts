@@ -652,6 +652,112 @@ router.put(
 	}
 );
 
+// GET /api/tickets/admin/event/:eventId/dashboard - Dashboard stats for ticket sales
+router.get(
+	"/admin/event/:eventId/dashboard",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const eventId = await resolveEventId(req.params.eventId);
+			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			const config = await prisma.eventTicketConfig.findUnique({ where: { eventId } });
+
+			// Revenue by status
+			const [paidStats, usedStats, cancelledCount, expiredCount, pendingCount] = await Promise.all([
+				prisma.ticketPurchase.aggregate({
+					where: { eventId, status: "PAID" },
+					_sum: { totalAmount: true, quantity: true },
+					_count: true,
+				}),
+				prisma.ticketPurchase.aggregate({
+					where: { eventId, status: "USED" },
+					_sum: { totalAmount: true, quantity: true },
+					_count: true,
+				}),
+				prisma.ticketPurchase.count({ where: { eventId, status: "CANCELLED" } }),
+				prisma.ticketPurchase.count({ where: { eventId, status: "EXPIRED" } }),
+				prisma.ticketPurchase.count({ where: { eventId, status: "PENDING" } }),
+			]);
+
+			// Daily sales (last 30 days)
+			const thirtyDaysAgo = new Date();
+			thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+			const dailySales: { date: string; count: number; revenue: number }[] = [];
+
+			const recentPurchases = await prisma.ticketPurchase.findMany({
+				where: {
+					eventId,
+					status: { in: ["PAID", "USED"] },
+					paidAt: { gte: thirtyDaysAgo },
+				},
+				select: { paidAt: true, totalAmount: true, quantity: true },
+				orderBy: { paidAt: "asc" },
+			});
+
+			const salesByDate = new Map<string, { count: number; revenue: number; tickets: number }>();
+			for (const p of recentPurchases) {
+				const date = (p.paidAt || new Date()).toISOString().split("T")[0]!;
+				const existing = salesByDate.get(date) || { count: 0, revenue: 0, tickets: 0 };
+				existing.count += 1;
+				existing.revenue += p.totalAmount;
+				existing.tickets += p.quantity;
+				salesByDate.set(date, existing);
+			}
+			for (const [date, data] of salesByDate) {
+				dailySales.push({ date, ...data });
+			}
+
+			// Recent purchases (last 10)
+			const recentTransactions = await prisma.ticketPurchase.findMany({
+				where: { eventId, status: { in: ["PAID", "USED"] } },
+				orderBy: { paidAt: "desc" },
+				take: 10,
+				select: {
+					id: true,
+					buyerName: true,
+					buyerEmail: true,
+					quantity: true,
+					totalAmount: true,
+					status: true,
+					paidAt: true,
+					ticketCode: true,
+				},
+			});
+
+			const totalRevenue = (paidStats._sum.totalAmount ?? 0) + (usedStats._sum.totalAmount ?? 0);
+			const totalTickets = (paidStats._sum.quantity ?? 0) + (usedStats._sum.quantity ?? 0);
+			const totalTransactions = paidStats._count + usedStats._count;
+			const checkedIn = usedStats._sum.quantity ?? 0;
+
+			res.json({
+				summary: {
+					totalRevenue,
+					totalTickets,
+					totalTransactions,
+					checkedIn,
+					quota: config?.quota ?? 0,
+					price: config?.price ?? 0,
+					remaining: Math.max(0, (config?.quota ?? 0) - totalTickets),
+				},
+				breakdown: {
+					paid: { count: paidStats._count, tickets: paidStats._sum.quantity ?? 0, revenue: paidStats._sum.totalAmount ?? 0 },
+					used: { count: usedStats._count, tickets: usedStats._sum.quantity ?? 0, revenue: usedStats._sum.totalAmount ?? 0 },
+					cancelled: cancelledCount,
+					expired: expiredCount,
+					pending: pendingCount,
+				},
+				dailySales,
+				recentTransactions,
+			});
+		} catch (error) {
+			console.error("Error fetching ticket dashboard:", error);
+			res.status(500).json({ error: "Gagal memuat dashboard tiket" });
+		}
+	}
+);
+
 // GET /api/tickets/admin/event/:eventId/purchases - List ticket purchases for event
 router.get(
 	"/admin/event/:eventId/purchases",
