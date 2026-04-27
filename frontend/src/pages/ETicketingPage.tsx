@@ -464,6 +464,11 @@ const ETicketingPage: React.FC = () => {
 													</span>
 												</div>
 											)}
+											{event.ticketConfig?.description && (
+												<p className="text-[8px] lg:text-[9px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+													{event.ticketConfig.description}
+												</p>
+											)}
 											<div className="mt-auto pt-3">
 												<p className="text-[11px] lg:text-sm font-bold text-red-600 dark:text-red-400">
 													{getTicketBadge(event).label}
