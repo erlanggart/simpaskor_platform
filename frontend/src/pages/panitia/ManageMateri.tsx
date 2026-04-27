@@ -13,6 +13,7 @@ import { PBBTemplateRecommendation } from "../../components/materials/PBBTemplat
 import MaterialForm, { ScoreCategoryInput, SchoolCategory } from "../../components/materials/MaterialForm";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
 
 interface ScoreOption {
 	id?: string;
@@ -565,6 +566,233 @@ const ManageMateri: React.FC = () => {
 		doc.save("lembar-penilaian-materi.pdf");
 	};
 
+	// Export all materials to Excel with clean formatting
+	const exportToExcel = async () => {
+		if (categories.length === 0) return;
+
+		const workbook = new ExcelJS.Workbook();
+		workbook.creator = "Simpaskor";
+		workbook.created = new Date();
+
+		// Color mapping for Excel (ARGB format)
+		const excelColorMap: Record<string, string> = {
+			red: "FFDC2626",
+			orange: "FFEA580C",
+			yellow: "FFCA8A04",
+			green: "FF16A34A",
+			blue: "FF2563EB",
+			purple: "FF9333EA",
+			gray: "FF6B7280",
+		};
+
+		categories.forEach((category) => {
+			if (category.materials.length === 0) return;
+
+			// Sheet name max 31 chars
+			const sheetName = category.categoryName.substring(0, 31);
+			const worksheet = workbook.addWorksheet(sheetName);
+
+			const sortedMaterials = [...category.materials].sort((a, b) => a.number - b.number);
+
+			// Collect all unique score categories
+			const allScoreCats: { name: string; color: string; order: number; maxOptions: number }[] = [];
+			sortedMaterials.forEach((mat) => {
+				mat.scoreCategories.forEach((sc) => {
+					const existing = allScoreCats.find((a) => a.name === sc.name);
+					if (!existing) {
+						allScoreCats.push({ name: sc.name, color: sc.color || "gray", order: sc.order, maxOptions: sc.options.length });
+					} else if (sc.options.length > existing.maxOptions) {
+						existing.maxOptions = sc.options.length;
+					}
+				});
+			});
+			allScoreCats.sort((a, b) => a.order - b.order);
+
+			const totalOptionCols = allScoreCats.reduce((sum, sc) => sum + sc.maxOptions, 0);
+			const totalCols = 2 + totalOptionCols; // No + Materi + score option columns
+
+			// === Row 1: Title ===
+			worksheet.mergeCells(1, 1, 1, totalCols);
+			const titleCell = worksheet.getCell(1, 1);
+			titleCell.value = "LEMBAR PENILAIAN MATERI";
+			titleCell.font = { bold: true, size: 14, color: { argb: "FFDC2626" } };
+			titleCell.alignment = { horizontal: "center", vertical: "middle" };
+			titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF5F5" } };
+			worksheet.getRow(1).height = 28;
+
+			// === Row 2: Category name ===
+			worksheet.mergeCells(2, 1, 2, totalCols);
+			const catCell = worksheet.getCell(2, 1);
+			catCell.value = `Kategori: ${category.categoryName}`;
+			catCell.font = { bold: true, size: 11, color: { argb: "FF3C3C3C" } };
+			catCell.alignment = { horizontal: "center", vertical: "middle" };
+			worksheet.getRow(2).height = 22;
+
+			// === Row 3: Info row ===
+			const dateStr = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+			worksheet.mergeCells(3, 1, 3, Math.max(1, Math.floor(totalCols / 2)));
+			worksheet.getCell(3, 1).value = `Total Materi: ${category.materials.length}`;
+			worksheet.getCell(3, 1).font = { size: 9, color: { argb: "FF787878" } };
+			worksheet.getCell(3, 1).alignment = { horizontal: "left", vertical: "middle" };
+
+			if (totalCols > 1) {
+				worksheet.mergeCells(3, Math.floor(totalCols / 2) + 1, 3, totalCols);
+				const dateCell = worksheet.getCell(3, Math.floor(totalCols / 2) + 1);
+				dateCell.value = `Dicetak: ${dateStr}`;
+				dateCell.font = { size: 9, color: { argb: "FF787878" } };
+				dateCell.alignment = { horizontal: "right", vertical: "middle" };
+			}
+			worksheet.getRow(3).height = 18;
+
+			// === Row 4: Max score breakdown ===
+			if (category.maxScoreBreakdown && category.maxScoreBreakdown.length > 0) {
+				const maxInfo = category.maxScoreBreakdown
+					.map((b) => `${b.schoolCategoryName}: ${b.maxScore} (×${b.juryCount} juri = ${b.totalMaxScore})`)
+					.join("  |  ");
+				worksheet.mergeCells(4, 1, 4, totalCols);
+				const maxCell = worksheet.getCell(4, 1);
+				maxCell.value = `Maks. Nilai: ${maxInfo}`;
+				maxCell.font = { size: 9, italic: true, color: { argb: "FF646464" } };
+				maxCell.alignment = { horizontal: "center", vertical: "middle" };
+				worksheet.getRow(4).height = 18;
+			}
+
+			// === Row 5: Separator (empty row) ===
+			worksheet.getRow(5).height = 6;
+
+			// === Row 6: Header row 1 - Category group headers ===
+			const headerRow1 = 6;
+			const headerRow2 = 7;
+
+			// No column header (merged 2 rows)
+			worksheet.mergeCells(headerRow1, 1, headerRow2, 1);
+			const noHeader = worksheet.getCell(headerRow1, 1);
+			noHeader.value = "No";
+			noHeader.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+			noHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
+			noHeader.alignment = { horizontal: "center", vertical: "middle" };
+			noHeader.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+
+			// Materi column header (merged 2 rows)
+			worksheet.mergeCells(headerRow1, 2, headerRow2, 2);
+			const matHeader = worksheet.getCell(headerRow1, 2);
+			matHeader.value = "Materi Penilaian";
+			matHeader.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+			matHeader.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F2937" } };
+			matHeader.alignment = { horizontal: "center", vertical: "middle" };
+			matHeader.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+
+			// Score category group headers (Row 6) + option sub-headers (Row 7)
+			let colIdx = 3;
+			allScoreCats.forEach((sc) => {
+				const startCol = colIdx;
+				const endCol = colIdx + sc.maxOptions - 1;
+
+				// Merge category header across its options
+				if (sc.maxOptions > 1) {
+					worksheet.mergeCells(headerRow1, startCol, headerRow1, endCol);
+				}
+				const catHeaderCell = worksheet.getCell(headerRow1, startCol);
+				catHeaderCell.value = sc.name.toUpperCase();
+				catHeaderCell.font = { bold: true, size: 9, color: { argb: "FFFFFFFF" } };
+				catHeaderCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: excelColorMap[sc.color] || excelColorMap.gray } };
+				catHeaderCell.alignment = { horizontal: "center", vertical: "middle" };
+				catHeaderCell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+
+				// Also style the merged cells
+				for (let i = startCol + 1; i <= endCol; i++) {
+					const mergedCell = worksheet.getCell(headerRow1, i);
+					mergedCell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+				}
+
+				// Sub-header row: option names from reference material
+				const refMat = sortedMaterials.find((m) => m.scoreCategories.some((s) => s.name === sc.name));
+				const refSc = refMat?.scoreCategories.find((s) => s.name === sc.name);
+				const refOptions = refSc ? [...refSc.options].sort((a, b) => a.order - b.order) : [];
+
+				for (let i = 0; i < sc.maxOptions; i++) {
+					const subCell = worksheet.getCell(headerRow2, colIdx + i);
+					subCell.value = refOptions[i]?.name || "";
+					subCell.font = { size: 8, color: { argb: "FF374151" } };
+					subCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F4F6" } };
+					subCell.alignment = { horizontal: "center", vertical: "middle" };
+					subCell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+				}
+
+				colIdx += sc.maxOptions;
+			});
+
+			worksheet.getRow(headerRow1).height = 22;
+			worksheet.getRow(headerRow2).height = 18;
+
+			// === Data rows (starting at row 8) ===
+			sortedMaterials.forEach((material, idx) => {
+				const rowNum = headerRow2 + 1 + idx;
+				const row = worksheet.getRow(rowNum);
+
+				// Alternate row background
+				const altBg = idx % 2 === 1 ? "FFF9FAFB" : "FFFFFFFF";
+
+				// No column
+				const noCell = row.getCell(1);
+				noCell.value = material.number;
+				noCell.font = { bold: true, size: 10, color: { argb: "FFDC2626" } };
+				noCell.alignment = { horizontal: "center", vertical: "middle" };
+				noCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: altBg } };
+				noCell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+
+				// Material name column
+				const nameCell = row.getCell(2);
+				nameCell.value = material.name.toUpperCase();
+				nameCell.font = { bold: true, size: 9 };
+				nameCell.alignment = { vertical: "middle", wrapText: true };
+				nameCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: altBg } };
+				nameCell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+
+				// Score values
+				let dataColIdx = 3;
+				allScoreCats.forEach((sc) => {
+					const materialSc = material.scoreCategories.find((s) => s.name === sc.name);
+					const sortedOptions = materialSc ? [...materialSc.options].sort((a, b) => a.order - b.order) : [];
+
+					for (let i = 0; i < sc.maxOptions; i++) {
+						const cell = row.getCell(dataColIdx + i);
+						if (sortedOptions[i]) {
+							cell.value = sortedOptions[i].score;
+							cell.font = { bold: true, size: 10 };
+						} else {
+							cell.value = materialSc ? "" : "—";
+							cell.font = { color: { argb: "FFB4B4B4" } };
+						}
+						cell.alignment = { horizontal: "center", vertical: "middle" };
+						cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: altBg } };
+						cell.border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+					}
+					dataColIdx += sc.maxOptions;
+				});
+
+				row.height = 22;
+			});
+
+			// === Set column widths ===
+			worksheet.getColumn(1).width = 6;   // No
+			worksheet.getColumn(2).width = 32;   // Materi Penilaian
+			for (let i = 3; i <= totalCols; i++) {
+				worksheet.getColumn(i).width = 10; // Score columns
+			}
+		});
+
+		// Generate and download
+		const buffer = await workbook.xlsx.writeBuffer();
+		const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = "lembar-penilaian-materi.xlsx";
+		link.click();
+		URL.revokeObjectURL(url);
+	};
+
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -587,13 +815,22 @@ const ManageMateri: React.FC = () => {
 						</p>
 					</div>
 					{categories.some((c) => c.materials.length > 0) && (
-						<button
-							onClick={exportToPDF}
-							className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-						>
-							<ArrowDownTrayIcon className="w-4 h-4" />
-							Ekspor PDF
-						</button>
+						<div className="flex items-center gap-2">
+							<button
+								onClick={exportToExcel}
+								className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+							>
+								<ArrowDownTrayIcon className="w-4 h-4" />
+								Ekspor Excel
+							</button>
+							<button
+								onClick={exportToPDF}
+								className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+							>
+								<ArrowDownTrayIcon className="w-4 h-4" />
+								Ekspor PDF
+							</button>
+						</div>
 					)}
 				</div>
 
