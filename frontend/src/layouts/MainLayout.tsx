@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../hooks/useAuth";
-import { LuHouse, LuStore, LuTicket, LuVote, LuCalendar } from "react-icons/lu";
+import { LuHouse, LuStore, LuTicket, LuVote, LuCalendar, LuMenu, LuX } from "react-icons/lu";
 import "../components/landing/LandingPage.css";
 
 interface MainLayoutProps {
@@ -23,6 +23,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
 	const { isAuthenticated, user } = useAuth();
 	const location = useLocation();
+	const [showMobileMenu, setShowMobileMenu] = useState(false);
+	const isIPhone = typeof navigator !== "undefined" && /iPhone|iPod/i.test(navigator.userAgent);
 
 	return (
 		<div className="h-screen w-screen overflow-hidden relative">
@@ -33,13 +35,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 			{/* ===== Top Header Bar ===== */}
 			{showNavbar && (
 				<header className="fixed top-0 left-0 md:left-[72px] right-0 h-14 z-40 flex items-center justify-between md:justify-end px-4 md:px-8">
-					{/* Left: Logo + Brand */}
+					{/* Left: Logo + iPhone hamburger */}
 					<div className="flex md:hidden items-center gap-3">
-						<img
-							src="/simpaskor.webp"
-							alt="Simpaskor"
-							className="w-7 h-7 object-contain"
-						/>
+						{isIPhone ? (
+							<button
+								type="button"
+								onClick={() => setShowMobileMenu(true)}
+								className="w-10 h-10 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/60 dark:border-white/[0.08] text-gray-700 dark:text-gray-200 flex items-center justify-center backdrop-blur-xl"
+								aria-label="Buka menu"
+							>
+								<LuMenu className="w-5 h-5" />
+							</button>
+						) : (
+							<img
+								src="/simpaskor.webp"
+								alt="Simpaskor"
+								className="w-7 h-7 object-contain"
+							/>
+						)}
 						{/* <span className="text-sm font-bold text-gray-800 dark:text-white tracking-wide hidden sm:block">
 							SIMPASKOR
 						</span> */}
@@ -139,15 +152,76 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 			{/* ===== Main Content Area ===== */}
 			<main
 				className={`h-screen overflow-y-auto relative z-10 ${
-					showNavbar ? "pl-0 md:pl-[72px] pt-14 pb-16 md:pb-0" : ""
+					showNavbar
+						? isIPhone
+							? "pl-0 md:pl-[72px] pt-14 pb-0 md:pb-0"
+							: "pl-0 md:pl-[72px] pt-14 pb-16 md:pb-0"
+						: ""
 				}`}
 				style={showNavbar ? { height: "100vh" } : undefined}
 			>
 				<Outlet />
 			</main>
 
+			{/* ===== iPhone Hamburger Menu ===== */}
+			{showNavbar && isIPhone && showMobileMenu && (
+				<>
+					<button
+						type="button"
+						className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm md:hidden"
+						onClick={() => setShowMobileMenu(false)}
+						aria-label="Tutup menu"
+					/>
+					<div className="fixed left-3 right-3 top-3 z-[60] md:hidden rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/60 dark:border-white/[0.08] shadow-2xl shadow-black/10 overflow-hidden">
+						<div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/50 dark:border-white/[0.06]">
+							<div className="flex items-center gap-3 min-w-0">
+								<img
+									src="/simpaskor.webp"
+									alt="Simpaskor"
+									className="w-8 h-8 object-contain"
+								/>
+								<span className="text-sm font-bold text-gray-900 dark:text-white">Simpaskor</span>
+							</div>
+							<button
+								type="button"
+								onClick={() => setShowMobileMenu(false)}
+								className="w-9 h-9 rounded-xl text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white flex items-center justify-center"
+								aria-label="Tutup menu"
+							>
+								<LuX className="w-5 h-5" />
+							</button>
+						</div>
+						<div className="p-2">
+							{featureNav.map((item) => {
+								const isActive =
+									item.to === "/"
+										? location.pathname === "/"
+										: location.pathname.startsWith(item.to);
+								const Icon = item.icon;
+
+								return (
+									<Link
+										key={item.to}
+										to={item.to}
+										onClick={() => setShowMobileMenu(false)}
+										className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
+											isActive
+												? "bg-red-500/10 text-red-600 dark:text-red-400"
+												: "text-gray-700 dark:text-gray-300 hover:bg-gray-100/70 dark:hover:bg-white/[0.06]"
+										}`}
+									>
+										<Icon className="w-5 h-5" />
+										{item.label}
+									</Link>
+								);
+							})}
+						</div>
+					</div>
+				</>
+			)}
+
 			{/* ===== Mobile Bottom Navigation ===== */}
-			{showNavbar && (
+			{showNavbar && !isIPhone && (
 				<nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
 					<div className="mx-3 mb-3 px-2 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.06] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.08] shadow-lg shadow-black/5 dark:shadow-black/20">
 						<div className="flex items-center justify-around">
