@@ -20,7 +20,7 @@ interface PinnedEvent {
 	commentsCount?: number;
 }
 
-const MAX_ITEMS = 10;
+const MAX_ITEMS = 8;
 
 const LandingEventGrid: React.FC = () => {
 	const [pinnedEvents, setPinnedEvents] = useState<PinnedEvent[]>([]);
@@ -162,8 +162,8 @@ const LandingEventGrid: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
-				{Array.from({ length: 10 }).map((_, i) => (
+			<div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-2.5">
+				{Array.from({ length: MAX_ITEMS }).map((_, i) => (
 					<div
 						key={i}
 						className="rounded-xl bg-gray-200/50 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.04] animate-pulse"
@@ -189,7 +189,7 @@ const LandingEventGrid: React.FC = () => {
 
 	return (
 		<div className="w-full">
-			<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
+			<div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-2.5">
 				{displayEvents.map((event) => {
 					const status = getStatusLabel(event.status, event.isPinned);
 
@@ -199,8 +199,7 @@ const LandingEventGrid: React.FC = () => {
 							to={`/events/${event.slug || event.id}`}
 							className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-orange-400/30 dark:hover:border-orange-500/20 transition-all duration-300 hover:scale-[1.02]"
 						>
-							{/* Poster - 2:3 ratio */}
-							<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-orange-900/10 to-red-900/10 overflow-hidden">
+							<div className="relative aspect-[2/3] max-h-[44vh] w-full bg-gradient-to-br from-orange-900/10 to-red-900/10 overflow-hidden">
 								{event.thumbnail ? (
 									<img
 										src={getImageUrl(event.thumbnail)}
@@ -234,7 +233,7 @@ const LandingEventGrid: React.FC = () => {
 								</div>
 							</div>
 
-							<div className="p-1.5 lg:p-2">
+							<div className="min-h-[74px] p-1.5 lg:p-2">
 								<h4 className="text-[9px] lg:text-[10px] font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1">
 									{event.title}
 								</h4>

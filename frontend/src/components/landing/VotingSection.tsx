@@ -80,13 +80,13 @@ const VotingSection: React.FC = () => {
 	};
 
 	return (
-		<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
-			<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 lg:mb-8">
+		<div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-10 lg:px-12 md:pr-20 lg:pr-24">
+			<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
 				<div>
 					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-3">
 						DUKUNG FAVORITMU
 					</p>
-					<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-none mb-2 landing-title-gradient-voting">
+					<h1 className="text-4xl sm:text-5xl md:text-6xl font-black leading-none mb-2 landing-title-gradient-voting">
 						E-VOTING
 					</h1>
 					<div className="flex items-center gap-4">
@@ -121,7 +121,7 @@ const VotingSection: React.FC = () => {
 					</Link>
 				</div>
 			) : (
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 					{events.map((event) => {
 						const badge = getVotingStatusBadge(event);
 						return (
@@ -130,7 +130,7 @@ const VotingSection: React.FC = () => {
 								key={event.id}
 								className="group overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-lg shadow-gray-200/80 transition-all duration-300 hover:-translate-y-1 hover:border-purple-400/30 hover:shadow-xl hover:shadow-purple-200/70 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-purple-500/20"
 							>
-								<div className="relative aspect-[4/5] w-full bg-gradient-to-br from-purple-100 via-pink-50 to-red-100 overflow-hidden dark:from-purple-900/10 dark:via-pink-900/10 dark:to-red-900/10">
+								<div className="relative aspect-[3/4] max-h-[52vh] w-full bg-gradient-to-br from-purple-100 via-pink-50 to-red-100 overflow-hidden dark:from-purple-900/10 dark:via-pink-900/10 dark:to-red-900/10">
 									{event.thumbnail ? (
 										<img
 											src={getImageUrl(event.thumbnail)}
@@ -151,8 +151,8 @@ const VotingSection: React.FC = () => {
 									<div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 								</div>
 
-								<div className="flex min-h-[150px] flex-col p-4">
-									<h3 className="text-base font-bold text-gray-900 dark:text-white leading-snug line-clamp-2 mb-3">
+								<div className="flex min-h-[122px] flex-col p-3.5">
+									<h3 className="text-sm lg:text-base font-bold text-gray-900 dark:text-white leading-snug line-clamp-2 mb-2">
 										{event.title}
 									</h3>
 									<div className="space-y-1.5 text-gray-400 dark:text-gray-500">
@@ -167,8 +167,8 @@ const VotingSection: React.FC = () => {
 											</div>
 										)}
 									</div>
-									<div className="mt-auto pt-5 flex items-center justify-between gap-3">
-										<p className="text-lg font-black text-red-600 dark:text-red-400">
+									<div className="mt-auto pt-4 flex items-center justify-between gap-3">
+										<p className="text-base lg:text-lg font-black text-red-600 dark:text-red-400">
 											{getVotingPriceLabel(event)}
 										</p>
 										<span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">

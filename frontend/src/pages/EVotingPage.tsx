@@ -3,7 +3,7 @@ import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
-import { VotingEvent, VotingNominee } from "../types/voting";
+import { VotingEvent } from "../types/voting";
 import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuThumbsUp, LuCircleCheck, LuCrown, LuMedal } from "react-icons/lu";
 import Swal from "sweetalert2";
 

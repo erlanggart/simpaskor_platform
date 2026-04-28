@@ -5,9 +5,9 @@ import LandingEventGrid from "./LandingEventGrid";
 
 const EventSection: React.FC = () => {
 	return (
-		<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
+		<div className="relative z-10 w-full max-w-5xl mx-auto px-6 md:px-10 lg:px-12 md:pr-20 lg:pr-24">
 			{/* Header */}
-			<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4 lg:mb-6">
+			<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
 				<div>
 					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-3">
 						KELOLA & IKUTI EVENT
