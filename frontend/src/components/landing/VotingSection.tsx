@@ -73,18 +73,6 @@ const VotingSection: React.FC = () => {
 		return true;
 	};
 
-	if (loading) {
-		return (
-			<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
-				<div className="flex items-center justify-center py-20">
-					<div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600 border-t-transparent" />
-				</div>
-			</div>
-		);
-	}
-
-	if (events.length === 0) return null;
-
 	// Show the first event with nominees
 	const featuredEvent = events.find(
 		(e) => e.votingConfig?.categories?.some((c) => c.nominees && c.nominees.length > 0)
@@ -123,6 +111,23 @@ const VotingSection: React.FC = () => {
 				</Link>
 			</div>
 
+			{loading ? (
+				<div className="flex items-center justify-center py-20">
+					<div className="animate-spin rounded-full h-8 w-8 border-2 border-red-600 border-t-transparent" />
+				</div>
+			) : events.length === 0 ? (
+				<div className="text-center py-12">
+					<LuThumbsUp className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+					<p className="text-sm text-gray-500 dark:text-gray-400">Belum ada event voting tersedia</p>
+					<Link
+						to="/e-voting"
+						className="inline-flex items-center gap-2 mt-4 text-sm text-purple-600 dark:text-purple-400 hover:underline"
+					>
+						Lihat halaman E-Voting <LuArrowRight className="w-3.5 h-3.5" />
+					</Link>
+				</div>
+			) : (
+				<>
 			{/* Featured Event */}
 			{featuredEvent && (
 				<div className="mb-6">
@@ -202,7 +207,7 @@ const VotingSection: React.FC = () => {
 			)}
 
 			{/* CTA */}
-			{isVotingOpen(featuredEvent) && topNominees.length > 0 && (
+			{featuredEvent && isVotingOpen(featuredEvent) && topNominees.length > 0 && (
 				<div className="mt-6 text-center">
 					<Link
 						to="/e-voting"
@@ -213,6 +218,8 @@ const VotingSection: React.FC = () => {
 						<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
 					</Link>
 				</div>
+			)}
+				</>
 			)}
 		</div>
 	);

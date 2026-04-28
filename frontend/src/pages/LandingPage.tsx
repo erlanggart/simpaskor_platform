@@ -8,29 +8,32 @@ import {
 	LuLayoutGrid,
 	LuGavel,
 	LuHouse,
-	LuPackage,
 	LuEye,
 	LuThumbsUp,
+	LuStore,
+	LuTicket,
 } from "react-icons/lu";
 import { useLandingData } from "../hooks/useLandingData";
 import HeroSection from "../components/landing/HeroSection";
 import EventSection from "../components/landing/EventSection";
+import TicketingSection from "../components/landing/TicketingSection";
 import VotingSection from "../components/landing/VotingSection";
 import KlasemenSection from "../components/landing/KlasemenSection";
 import PinnedPersonCarousel from "../components/landing/PinnedPersonCarousel";
 import JuriDetailModal from "../components/landing/JuriDetailModal";
-import PricingSection from "../components/landing/PricingSection";
+import MarketplaceSection from "../components/landing/MarketplaceSection";
 import "../components/landing/LandingPage.css";
 
 // Right-side section navigation labels
 const sectionNavLabels = [
 	{ id: "hero", label: "Hero", icon: LuHouse },
 	{ id: "events", label: "Event", icon: LuLayoutGrid },
+	{ id: "ticketing", label: "Ticketing", icon: LuTicket },
 	{ id: "voting", label: "Voting", icon: LuThumbsUp },
-	{ id: "klasemen", label: "Klasemen", icon: LuTrophy },
 	{ id: "jury", label: "Juri", icon: LuGavel },
 	{ id: "pelatih", label: "Pelatih", icon: LuUsers },
-	{ id: "pricing", label: "Paket", icon: LuPackage },
+	{ id: "klasemen", label: "Klasemen", icon: LuTrophy },
+	{ id: "marketplace", label: "Marketplace", icon: LuStore },
 ];
 
 const LandingPage: React.FC = () => {
@@ -164,19 +167,14 @@ const LandingPage: React.FC = () => {
 					<EventSection />
 				</section>
 
-				{/* ===== SECTION 3: E-VOTING ===== */}
+				{/* ===== SECTION 3: E-TICKETING ===== */}
 				<section ref={setSectionRef(2)} className="landing-section-inner">
-					<VotingSection />
+					<TicketingSection />
 				</section>
 
-				{/* ===== SECTION 4: KLASEMEN ===== */}
+				{/* ===== SECTION 4: E-VOTING ===== */}
 				<section ref={setSectionRef(3)} className="landing-section-inner">
-					<KlasemenSection
-						top5={klasemen.top5}
-						year={klasemen.year}
-						totalEvents={klasemen.totalEvents}
-						loading={loading}
-					/>
+					<VotingSection />
 				</section>
 
 				{/* ===== SECTION 5: JURY ===== */}
@@ -273,9 +271,19 @@ const LandingPage: React.FC = () => {
 					</div>
 				</section>
 
-				{/* ===== SECTION 7: PRICING / DAFTAR EVENT ===== */}
-				<section ref={setSectionRef(6)} className="landing-section-inner landing-section-pricing">
-					<PricingSection />
+				{/* ===== SECTION 7: KLASEMEN ===== */}
+				<section ref={setSectionRef(6)} className="landing-section-inner">
+					<KlasemenSection
+						top5={klasemen.top5}
+						year={klasemen.year}
+						totalEvents={klasemen.totalEvents}
+						loading={loading}
+					/>
+				</section>
+
+				{/* ===== SECTION 8: MARKETPLACE ===== */}
+				<section ref={setSectionRef(7)} className="landing-section-inner">
+					<MarketplaceSection />
 				</section>
 
 			</div>
