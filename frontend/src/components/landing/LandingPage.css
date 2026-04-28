@@ -556,6 +556,12 @@ html:not(.dark) .section-icon-glow-blue::before {
 	}
 }
 
+@media (max-width: 767px) {
+	.has-mobile-bottom-nav .wa-float-btn {
+		bottom: calc(5.75rem + env(safe-area-inset-bottom));
+	}
+}
+
 @keyframes wa-bounce-in {
 	0% {
 		opacity: 0;

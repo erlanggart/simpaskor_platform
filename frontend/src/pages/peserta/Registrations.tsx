@@ -5,13 +5,14 @@ import { EventRegistration, ParticipationGroup, PersonMember } from "../../types
 import {
 	CalendarIcon,
 	MapPinIcon,
+	BuildingOffice2Icon,
 	UserGroupIcon,
-	TrashIcon,
 	UserIcon,
 	ChevronDownIcon,
 	ChevronUpIcon,
 	ArrowPathIcon,
 	CreditCardIcon,
+	EyeIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from "@heroicons/react/24/solid";
 import Swal from "sweetalert2";
@@ -67,45 +68,6 @@ const PesertaRegistrations: React.FC = () => {
 			month: "long",
 			year: "numeric",
 		});
-	};
-
-	const handleCancelGroup = async (
-		registrationId: string,
-		groupId: string,
-		groupName: string
-	) => {
-		const result = await Swal.fire({
-			title: "Batalkan Tim?",
-			html: `Yakin ingin membatalkan pendaftaran tim <strong>${groupName}</strong>?`,
-			icon: "warning",
-			showCancelButton: true,
-			confirmButtonColor: "#EF4444",
-			cancelButtonColor: "#6B7280",
-			confirmButtonText: "Ya, Batalkan",
-			cancelButtonText: "Tidak",
-		});
-
-		if (result.isConfirmed) {
-			try {
-				await api.delete(`/registrations/${registrationId}/groups/${groupId}`);
-
-				await Swal.fire({
-					icon: "success",
-					title: "Tim Dibatalkan",
-					text: `Pendaftaran ${groupName} telah dibatalkan`,
-				});
-
-				fetchRegistrations();
-			} catch (error: any) {
-				Swal.fire({
-					icon: "error",
-					title: "Gagal Membatalkan",
-					text:
-						error.response?.data?.error ||
-						"Terjadi kesalahan saat membatalkan tim",
-				});
-			}
-		}
 	};
 
 	const handleCancelRegistration = async (
@@ -242,13 +204,13 @@ const PesertaRegistrations: React.FC = () => {
 				bg: "bg-yellow-100 dark:bg-yellow-900",
 				text: "text-yellow-800 dark:text-yellow-200",
 				icon: <ClockIcon className="h-4 w-4" />,
-				label: "Menunggu Konfirmasi",
+				label: "Menunggu Persetujuan",
 			},
 			PENDING: {
 				bg: "bg-yellow-100 dark:bg-yellow-900",
 				text: "text-yellow-800 dark:text-yellow-200",
 				icon: <ClockIcon className="h-4 w-4" />,
-				label: "Menunggu Konfirmasi",
+				label: "Menunggu Persetujuan",
 			},
 			CONFIRMED: {
 				bg: "bg-green-100 dark:bg-green-900",
@@ -282,7 +244,7 @@ const PesertaRegistrations: React.FC = () => {
 
 		return (
 			<span
-				className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}
+				className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold shadow-sm ${config.bg} ${config.text}`}
 			>
 				{config.icon}
 				{config.label}
@@ -328,74 +290,164 @@ const PesertaRegistrations: React.FC = () => {
 						const allGroups = registration.groups || [];
 						const activeGroups = allGroups.filter((g) => g.status === "ACTIVE");
 						const cancelledGroups = allGroups.filter((g) => g.status === "CANCELLED");
+						const displayGroupCount = activeGroups.length > 0 ? activeGroups.length : cancelledGroups.length;
+						const activeGroupNames = activeGroups.map((g: ParticipationGroup) => g.groupName).join(", ");
+						const activeMemberCount = activeGroups.reduce((total, group) => {
+							const members = parseMemberData(group.memberData);
+							return total + (members.length > 0 ? members.length : group.teamMembers);
+						}, 0);
+						const canCancelRegistration =
+							(registration.status === "REGISTERED" || registration.status === "PENDING_PAYMENT") &&
+							activeGroups.length > 0;
+						const waNumber = registration.event?.contactPhone?.replace(/[^0-9]/g, "");
+						const waHref = waNumber
+							? `https://wa.me/${waNumber}?text=${encodeURIComponent(
+								`Halo, saya ingin bertanya mengenai pendaftaran:\n` +
+								`Event: ${registration.event?.title || ""}\n` +
+								`Sekolah: ${registration.schoolName || "-"}\n` +
+								`Tim: ${activeGroupNames || "-"}\n` +
+								`Biaya: Rp ${registration.registrationPayment?.amount?.toLocaleString("id-ID") || "0"}`
+							)}`
+							: null;
+						const actionButtonCount = [
+							registration.status === "PENDING_PAYMENT",
+							Boolean(waHref),
+							canCancelRegistration,
+						].filter(Boolean).length;
 
 						return (
 							<div
 								key={registration.id}
-								className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow-md overflow-hidden"
+								className="relative pt-5"
 							>
-								{/* Header */}
-								<div className="p-6">
-									<div className="flex items-start justify-between mb-4">
-										<div className="flex-1">
-											<h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-												{registration.event?.title}
-											</h3>
-											<div className="space-y-1">
-												<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-													<CalendarIcon className="h-4 w-4 mr-2" />
-													{registration.event &&
-														formatDate(registration.event.startDate)}
+								<div className="absolute right-4 top-0 z-10 sm:right-6">
+									{getStatusBadge(registration.status)}
+								</div>
+
+								<div className="overflow-hidden rounded-lg border border-red-100/80 bg-white/90 shadow-md shadow-red-100/60 backdrop-blur-sm dark:border-red-900/30 dark:bg-gray-800/70 dark:shadow-black/30">
+									<div className="p-4 pt-6 sm:p-6 sm:pt-7 lg:p-7">
+										<div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+											<div className="min-w-0">
+												<h3 className="text-[26px] font-semibold leading-tight tracking-normal text-gray-900 dark:text-white sm:text-3xl lg:text-[34px]">
+													{registration.event?.title}
+												</h3>
+
+												<div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-4 text-gray-700 dark:text-gray-200 sm:gap-x-8">
+													<div className="flex min-w-0 items-center gap-3">
+														<CalendarIcon className="h-8 w-8 flex-shrink-0 text-red-600 dark:text-red-400" />
+														<span className="min-w-0 truncate text-sm font-medium sm:text-base">
+															{registration.event ? formatDate(registration.event.startDate) : "-"}
+														</span>
+													</div>
+													<div className="flex min-w-0 items-center gap-3">
+														<MapPinIcon className="h-8 w-8 flex-shrink-0 text-red-600 dark:text-red-400" />
+														<span className="min-w-0 truncate text-sm font-medium sm:text-base">
+															{registration.event?.location || "-"}
+														</span>
+													</div>
+													<div className="flex min-w-0 items-center gap-3">
+														<BuildingOffice2Icon className="h-8 w-8 flex-shrink-0 text-red-600 dark:text-red-400" />
+														<span className="min-w-0 truncate text-sm font-medium sm:text-base">
+															{registration.schoolName || "Instansi"}
+														</span>
+													</div>
+													<div className="flex min-w-0 items-center gap-3">
+														<UserGroupIcon className="h-8 w-8 flex-shrink-0 text-red-600 dark:text-red-400" />
+														<span className="min-w-0 truncate text-sm font-medium sm:text-base">
+															{displayGroupCount} Tim
+														</span>
+													</div>
 												</div>
-												{registration.event?.location && (
-													<div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-														<MapPinIcon className="h-4 w-4 mr-2" />
-														{registration.event.location}
+											</div>
+
+											<div className="hidden rounded-lg border border-red-100 bg-red-50/60 p-4 dark:border-red-900/40 dark:bg-red-950/20 lg:block">
+												<p className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-300">
+													Ringkasan
+												</p>
+												<div className="mt-3 grid grid-cols-2 gap-3">
+													<div>
+														<p className="text-2xl font-semibold text-red-700 dark:text-red-200">
+															{activeGroups.length}
+														</p>
+														<p className="text-xs text-gray-500 dark:text-gray-400">Tim aktif</p>
+													</div>
+													<div>
+														<p className="text-2xl font-semibold text-red-700 dark:text-red-200">
+															{activeMemberCount}
+														</p>
+														<p className="text-xs text-gray-500 dark:text-gray-400">Personil</p>
+													</div>
+												</div>
+												{activeGroupNames && (
+													<p className="mt-3 line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
+														{activeGroupNames}
+													</p>
+												)}
+												{cancelledGroups.length > 0 && (
+													<p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+														{cancelledGroups.length} tim dibatalkan
+													</p>
+												)}
+											</div>
+										</div>
+
+										<div className="mt-4 border-t border-red-100 pt-4 dark:border-red-900/30">
+											<div className="space-y-2 lg:flex lg:items-center lg:gap-2 lg:space-y-0">
+												<button
+													type="button"
+													onClick={() => setExpandedId(isExpanded ? null : registration.id)}
+													className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20 lg:w-auto lg:min-w-[9rem]"
+													aria-expanded={isExpanded}
+												>
+													<EyeIcon className="h-4 w-4" />
+													{isExpanded ? "Sembunyikan" : "Lihat Detail"}
+												</button>
+
+												{actionButtonCount > 0 && activeGroups.length > 0 && (
+													<div
+														className={`grid gap-2 lg:flex lg:w-auto ${
+															actionButtonCount === 1 ? "grid-cols-1" : "grid-cols-2"
+														}`}
+													>
+														{registration.status === "PENDING_PAYMENT" && (
+															<button
+																onClick={() => handlePayRegistration(registration.id)}
+																disabled={payingId === registration.id}
+																className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:bg-green-400 lg:w-auto"
+															>
+																<CreditCardIcon className="h-4 w-4" />
+																{payingId === registration.id ? "Memproses..." : "Bayar Sekarang"}
+															</button>
+														)}
+														{waHref && (
+															<a
+																href={waHref}
+																target="_blank"
+																rel="noopener noreferrer"
+																className="inline-flex w-full items-center justify-center rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 lg:w-auto"
+															>
+																WA Panitia
+															</a>
+														)}
+														{canCancelRegistration && (
+															<button
+																onClick={() =>
+																	handleCancelRegistration(
+																		registration.id,
+																		registration.event?.title || "Event"
+																	)
+																}
+																className="inline-flex w-full items-center justify-center rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20 lg:w-auto"
+															>
+																Batalkan Pendaftaran
+															</button>
+														)}
 													</div>
 												)}
 											</div>
 										</div>
-										<div>{getStatusBadge(registration.status)}</div>
-									</div>
 
-									
-
-									{/* Info Sekolah & Tim */}
-									<div>
-										{/* Nama Sekolah/Instansi */}
-										{registration.schoolName && (
-											<div className="mb-3 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-												<span className="font-medium">Sekolah/Instansi:</span>
-												<span>{registration.schoolName}</span>
-											</div>
-										)}
-
-										{/* Ringkasan Tim */}
-										<div className="flex items-center justify-between mb-3">
-											<div>
-												<h4 className="font-medium text-gray-900 dark:text-white">
-													{activeGroups.length} Tim Aktif
-													{cancelledGroups.length > 0 && (
-														<span className="text-gray-500 dark:text-gray-400 font-normal">
-															{" "}({cancelledGroups.length} dibatalkan)
-														</span>
-													)}
-												</h4>
-												{activeGroups.length > 0 && (
-													<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-														{activeGroups.map((g: ParticipationGroup) => g.groupName).join(", ")}
-													</p>
-												)}
-											</div>
-											<button
-												onClick={() =>
-													setExpandedId(isExpanded ? null : registration.id)
-												}
-												className="text-sm text-red-600 dark:text-red-400 hover:underline"
-											>
-												{isExpanded ? "Sembunyikan Detail" : "Lihat Detail"}
-											</button>
-										</div>
+										<div className="mt-4 space-y-4">
 
 										{isExpanded && (
 											<div className="space-y-4">
@@ -414,71 +466,61 @@ const PesertaRegistrations: React.FC = () => {
 													return (
 														<div
 															key={group.id}
-															className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden"
+															className="overflow-hidden rounded-lg border border-red-100 bg-white shadow-sm dark:border-red-900/40 dark:bg-gray-900"
 														>
 															{/* Team Header */}
-															<div className="p-4 flex items-start justify-between">
-																<div className="flex-1">
-																	<div className="flex items-center gap-2 mb-1">
-																		<UserGroupIcon className="h-5 w-5 text-red-600" />
-																		<span className="font-semibold text-gray-900 dark:text-white">
-																			{group.groupName}
-																		</span>
-																		{group.schoolCategory && (
-																			<span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
-																				{group.schoolCategory.name}
-																			</span>
-																		)}
-																	</div>
-																	<div className="text-sm text-gray-600 dark:text-gray-400">
-																		{members.length > 0 ? `${members.length} personil` : `${group.teamMembers} anggota`}
+															<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+																<div className="min-w-0 flex-1">
+																	<div className="flex min-w-0 items-start gap-3">
+																		<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300">
+																			<UserGroupIcon className="h-5 w-5" />
+																		</div>
+																		<div className="min-w-0">
+																			<div className="flex flex-wrap items-center gap-2">
+																				<span className="font-semibold text-gray-900 dark:text-white">
+																					{group.groupName}
+																				</span>
+																				{group.schoolCategory && (
+																					<span className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
+																						{group.schoolCategory.name}
+																					</span>
+																				)}
+																			</div>
+																			<div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+																				{members.length > 0 ? `${members.length} personil` : `${group.teamMembers} anggota`}
+																			</div>
+																		</div>
 																	</div>
 																	{group.notes && (
-																		<div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+																		<div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
 																			<span className="font-medium">Catatan:</span> {group.notes}
 																		</div>
 																	)}
 																</div>
-																<div className="flex items-center gap-2">
-																	{members.length > 0 && (
-																		<button
-																			onClick={() => setExpandedTeamId(isTeamExpanded ? null : group.id)}
-																			className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400 hover:underline"
-																		>
-																			{isTeamExpanded ? (
-																				<>
-																					<ChevronUpIcon className="h-4 w-4" />
-																					Tutup
-																				</>
-																			) : (
-																				<>
-																					<ChevronDownIcon className="h-4 w-4" />
-																					Lihat Personil
-																				</>
-																			)}
-																		</button>
-																	)}
-																	{registration.status === "REGISTERED" && (
-																		<button
-																			onClick={() =>
-																				handleCancelGroup(
-																					registration.id,
-																					group.id,
-																					group.groupName
-																				)
-																			}
-																			className="text-red-600 hover:text-red-700 dark:text-red-400 ml-2"
-																			title="Batalkan Tim"
-																		>
-																			<TrashIcon className="h-5 w-5" />
-																		</button>
-																	)}
-																</div>
+																{members.length > 0 && (
+																	<button
+																		type="button"
+																		onClick={() => setExpandedTeamId(isTeamExpanded ? null : group.id)}
+																		className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-900/50 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20 sm:w-auto"
+																	>
+																		{isTeamExpanded ? (
+																			<>
+																				<ChevronUpIcon className="h-4 w-4" />
+																				Tutup Personil
+																			</>
+																		) : (
+																			<>
+																				<ChevronDownIcon className="h-4 w-4" />
+																				Lihat Personil
+																			</>
+																		)}
+																	</button>
+																)}
 															</div>
 
 															{/* Personnel Details */}
 															{isTeamExpanded && members.length > 0 && (
-																<div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-800/50">
+																<div className="space-y-5 border-t border-red-100 bg-red-50/40 p-4 dark:border-red-900/40 dark:bg-red-950/10">
 																	{/* Komandan / Danton */}
 																	{danton && (
 																		<div className="mb-4">
@@ -693,20 +735,22 @@ const PesertaRegistrations: React.FC = () => {
 																{members.length > 0 ? `${members.length} personil` : `${group.teamMembers} anggota`}
 															</div>
 														</div>
-														<button
-															onClick={() =>
-																handleRestoreGroup(
-																	registration.id,
-																	group.id,
-																	group.groupName
-																)
-															}
-															className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 flex items-center gap-1 text-sm font-medium"
-															title="Pulihkan Tim"
-														>
-															<ArrowPathIcon className="h-5 w-5" />
-															<span>Pulihkan</span>
-														</button>
+														{registration.status !== "CANCELLED" && (
+															<button
+																onClick={() =>
+																	handleRestoreGroup(
+																		registration.id,
+																		group.id,
+																		group.groupName
+																	)
+																}
+																className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 flex items-center gap-1 text-sm font-medium"
+																title="Pulihkan Tim"
+															>
+																<ArrowPathIcon className="h-5 w-5" />
+																<span>Pulihkan</span>
+															</button>
+														)}
 													</div>
 												</div>
 											);
@@ -715,62 +759,16 @@ const PesertaRegistrations: React.FC = () => {
 								)}
 							</div>
 						)}
-
-						{/* Cancel Registration */}
-						{(registration.status === "REGISTERED" || registration.status === "PENDING_PAYMENT") && activeGroups.length > 0 && (
-							<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40 flex items-center gap-4 flex-wrap">
-								{registration.status === "PENDING_PAYMENT" && (
-									<button
-										onClick={() => handlePayRegistration(registration.id)}
-										disabled={payingId === registration.id}
-										className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg transition-colors"
-									>
-										<CreditCardIcon className="h-4 w-4" />
-										{payingId === registration.id ? "Memproses..." : "Bayar Sekarang"}
-									</button>
-								)}
-								{/* WA Panitia button for manual payment registrations */}
-								{registration.registrationPayment?.paymentMethod === "MANUAL" &&
-									registration.registrationPayment?.status !== "PAID" &&
-									registration.event?.contactPhone && (
-									<a
-										href={`https://wa.me/${registration.event.contactPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-											`Halo, saya ingin konfirmasi pembayaran pendaftaran:\n` +
-											`Event: ${registration.event?.title || ""}\n` +
-											`Sekolah: ${registration.schoolName || "-"}\n` +
-											`Tim: ${activeGroups.map(g => g.groupName).join(", ")}\n` +
-											`Biaya: Rp ${registration.registrationPayment?.amount?.toLocaleString("id-ID") || "0"}`
-										)}`}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors"
-									>
-										<svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.597-.832-6.328-2.222l-.152-.123-3.178 1.065 1.065-3.178-.123-.152A9.935 9.935 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
-										WA Panitia
-									</a>
-								)}
-								<button
-									onClick={() =>
-										handleCancelRegistration(
-											registration.id,
-											registration.event?.title || "Event"
-										)
-									}
-									className="text-sm text-red-600 dark:text-red-400 hover:underline"
-								>
-										Batalkan Pendaftaran
-									</button>
-								</div>
-							)}
+										</div>
 
 							{/* Re-register button for cancelled registrations */}
 							{registration.status === "CANCELLED" && registration.event && (
 								<div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/40">
 									<Link
-										to={`/peserta/events/${registration.event.slug || registration.event.id}/register`}
-										className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+										to={`/peserta/events/${registration.event.slug || registration.event.id}/register?mode=reregister&registrationId=${registration.id}`}
+										className="inline-flex w-full items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:bg-red-400 sm:w-auto"
 									>
-										Daftar Ulang
+										Edit & Daftar Ulang
 									</Link>
 							</div>
 						)}

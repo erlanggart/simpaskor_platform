@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
@@ -29,6 +29,7 @@ import {
 	LuDatabase,
 	LuCreditCard,
 	LuBanknote,
+	LuBell,
 } from "react-icons/lu";
 import "../components/landing/LandingPage.css";
 
@@ -44,8 +45,11 @@ export const DashboardLayout: React.FC = () => {
 	const { theme, toggleTheme } = useTheme();
 	const location = useLocation();
 	const navigate = useNavigate();
+	const mainRef = useRef<HTMLElement | null>(null);
 	const [showMoreMenu, setShowMoreMenu] = useState(false);
+	const [showNotifications, setShowNotifications] = useState(false);
 	const [themeAnimating, setThemeAnimating] = useState(false);
+	const [isMobileContentAtTop, setIsMobileContentAtTop] = useState(true);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
 	const [activeJuryEvent, setActiveJuryEvent] = useState<any>(null);
 
@@ -56,6 +60,12 @@ export const DashboardLayout: React.FC = () => {
 	// Extract eventSlug from URL for Panitia
 	const panitiaEventSlugMatch = location.pathname.match(/\/panitia\/events\/([^/]+)/);
 	const panitiaEventSlug = panitiaEventSlugMatch ? panitiaEventSlugMatch[1] : null;
+
+	useEffect(() => {
+		setShowNotifications(false);
+		setShowMoreMenu(false);
+		setIsMobileContentAtTop(true);
+	}, [location.pathname]);
 
 	useEffect(() => {
 		if (user?.role === "PANITIA") {
@@ -284,6 +294,14 @@ export const DashboardLayout: React.FC = () => {
 
 	const isActive = (path: string) => location.pathname === path;
 
+	const handleMainScroll = () => {
+		const scrollTop = mainRef.current?.scrollTop ?? 0;
+		const nextIsAtTop = scrollTop <= 2;
+		setIsMobileContentAtTop((current) => (
+			current === nextIsAtTop ? current : nextIsAtTop
+		));
+	};
+
 	const menuItems = getMenuItems();
 	const profilePath = getProfilePath();
 
@@ -301,6 +319,87 @@ export const DashboardLayout: React.FC = () => {
 			{/* Fixed background with grid + gradient */}
 			<div className="main-layout-bg" />
 			<div className="neon-red-lines" />
+
+			{/* ===== Mobile Top Bar ===== */}
+			<header className="fixed top-0 left-0 right-0 z-40 md:hidden h-14 px-3 flex items-center justify-between">
+				<Link to="/" className="flex min-w-0 items-center gap-2" aria-label="Simpaskor">
+					<div className="w-10 h-10 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/60 dark:border-white/[0.08] flex items-center justify-center backdrop-blur-xl overflow-hidden">
+						<img
+							src="/simpaskor.webp"
+							alt="Simpaskor"
+							className="w-7 h-7 object-contain"
+						/>
+					</div>
+					<span
+						className={`overflow-hidden whitespace-nowrap text-sm font-bold tracking-wide text-gray-900 dark:text-white transition-all duration-300 ${
+							isMobileContentAtTop
+								? "max-w-28 opacity-100 translate-x-0"
+								: "max-w-0 opacity-0 -translate-x-2"
+						}`}
+					>
+						Simpaskor
+					</span>
+				</Link>
+
+				<div className="flex items-center gap-2">
+					<div className="relative">
+						<button
+							type="button"
+							onClick={() => {
+								setShowMoreMenu(false);
+								setShowNotifications((current) => !current);
+							}}
+							className="relative w-10 h-10 rounded-xl bg-gray-100/80 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-gray-200/60 dark:border-white/[0.08] text-gray-700 dark:text-gray-200 flex items-center justify-center backdrop-blur-xl transition-all"
+							aria-label="Notifikasi"
+							aria-expanded={showNotifications}
+						>
+							<LuBell className="w-5 h-5" />
+							<span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-950" />
+						</button>
+
+						{showNotifications && (
+							<>
+								<button
+									type="button"
+									className="fixed inset-0 z-30 cursor-default"
+									onClick={() => setShowNotifications(false)}
+									aria-label="Tutup notifikasi"
+								/>
+								<div className="fixed right-3 top-14 z-50 w-[calc(100vw-1.5rem)] max-w-72 overflow-hidden rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-gray-200/60 dark:border-white/[0.08] shadow-2xl shadow-black/10 dark:shadow-black/40 backdrop-blur-xl">
+									<div className="px-4 py-3 border-b border-gray-200/50 dark:border-white/[0.06]">
+										<p className="text-xs font-semibold text-gray-900 dark:text-white">Notifikasi</p>
+									</div>
+									<div className="px-4 py-4">
+										<p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+											Belum ada notifikasi baru.
+										</p>
+									</div>
+								</div>
+							</>
+						)}
+					</div>
+
+					<button
+						type="button"
+						onClick={() => {
+							setShowNotifications(false);
+							setThemeAnimating(true);
+							toggleTheme();
+							setTimeout(() => setThemeAnimating(false), 500);
+						}}
+						className="w-10 h-10 rounded-xl bg-gray-100/80 hover:bg-gray-200/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-gray-200/60 dark:border-white/[0.08] text-gray-700 dark:text-gray-200 flex items-center justify-center backdrop-blur-xl transition-all"
+						aria-label={theme === "light" ? "Aktifkan mode gelap" : "Aktifkan mode terang"}
+					>
+						<div className={`transition-all duration-500 ${themeAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"}`}>
+							{theme === "light" ? (
+								<LuMoon className="w-5 h-5" />
+							) : (
+								<LuSun className="w-5 h-5" />
+							)}
+						</div>
+					</button>
+				</div>
+			</header>
 
 			{/* ===== Left Sidebar Navigation (desktop) ===== */}
 			<nav className="fixed left-0 top-0 h-screen w-16 md:w-20 z-50 hidden md:flex flex-col items-center gap-2 border-r border-gray-200/10 dark:border-white/5 overflow-hidden">
@@ -471,7 +570,11 @@ export const DashboardLayout: React.FC = () => {
 			</nav>
 
 			{/* ===== Main Content Area ===== */}
-			<main className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-20 pb-20 md:pb-6">
+			<main
+				ref={mainRef}
+				onScroll={handleMainScroll}
+				className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-20 pt-14 md:pt-0 pb-20 md:pb-6"
+			>
 				<Outlet />
 			</main>
 

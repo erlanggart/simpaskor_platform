@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import {
 	ArrowLeftIcon,
 	CalendarIcon,
@@ -51,6 +51,34 @@ interface PersonMember {
 	name: string;
 	photo: File | null;
 	photoPreview: string;
+	existingPhotoUrl?: string | null;
+}
+
+interface ExistingRegistrationMember {
+	id?: string;
+	name: string;
+	photo?: string | null;
+	role: "PASUKAN" | "DANTON" | "CADANGAN" | "OFFICIAL" | "PELATIH";
+}
+
+interface ExistingRegistrationGroup {
+	id: string;
+	groupName: string;
+	schoolCategoryId: string;
+	teamMembers: number;
+	memberData: string | null;
+	notes: string | null;
+}
+
+interface ExistingRegistrationDetail {
+	id: string;
+	eventId: string;
+	schoolName: string | null;
+	supportingDoc: string | null;
+	groups: ExistingRegistrationGroup[];
+	registrationPayment?: {
+		paymentMethod: string | null;
+	} | null;
 }
 
 interface TeamData {
@@ -64,6 +92,10 @@ interface TeamData {
 	pelatih: PersonMember[];
 	notes: string;
 }
+
+type MemberRole = "pasukan" | "danton" | "cadangan" | "official" | "pelatih";
+type RepeatableMemberRole = Exclude<MemberRole, "danton">;
+type RegistrationMemberRole = "PASUKAN" | "DANTON" | "CADANGAN" | "OFFICIAL" | "PELATIH";
 
 const generateClientId = (): string => {
 	const cryptoObject = globalThis.crypto;
@@ -112,17 +144,570 @@ const createInitialTeam = (name: string, categoryId: string = ""): TeamData => (
 	notes: "",
 });
 
+const getAssetUrl = (url: string | null | undefined): string => {
+	if (!url) return "";
+	if (url.startsWith("http://") || url.startsWith("https://")) return url;
+
+	const backendUrl =
+		import.meta.env.VITE_BACKEND_URL ||
+		import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
+		"";
+
+	return `${backendUrl}${url}`;
+};
+
+const parseExistingMembers = (memberData: string | null): ExistingRegistrationMember[] => {
+	if (!memberData) return [];
+	try {
+		const parsed = JSON.parse(memberData);
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return [];
+	}
+};
+
+const createMemberFromExisting = (member: ExistingRegistrationMember): PersonMember => ({
+	id: member.id || generateClientId(),
+	name: member.name || "",
+	photo: null,
+	photoPreview: getAssetUrl(member.photo),
+	existingPhotoUrl: member.photo || null,
+});
+
+const buildTeamFromExistingGroup = (group: ExistingRegistrationGroup, index: number): TeamData => {
+	const members = parseExistingMembers(group.memberData);
+
+	if (members.length === 0) {
+		return {
+			...createInitialTeam(group.groupName || `Tim ${index + 1}`, group.schoolCategoryId),
+			pasukan: Array.from(
+				{ length: Math.max(1, group.teamMembers - 1) },
+				() => createEmptyMember()
+			),
+			notes: group.notes || "",
+		};
+	}
+
+	const byRole = (role: ExistingRegistrationMember["role"]) =>
+		members.filter((member) => member.role === role).map(createMemberFromExisting);
+
+	return {
+		id: group.id || generateClientId(),
+		groupName: group.groupName || `Tim ${index + 1}`,
+		schoolCategoryId: group.schoolCategoryId,
+		pasukan: byRole("PASUKAN"),
+		danton: byRole("DANTON")[0] || createEmptyMember(),
+		cadangan: byRole("CADANGAN"),
+		official: byRole("OFFICIAL"),
+		pelatih: byRole("PELATIH"),
+		notes: group.notes || "",
+	};
+};
+
+const getTotalMembers = (team: TeamData): number => {
+	return team.pasukan.length + 1 + team.cadangan.length + team.official.length + team.pelatih.length;
+};
+
+const buildCategoryUsage = (categoryUsageKey: string): Record<string, number> => {
+	const usage: Record<string, number> = {};
+	if (!categoryUsageKey) return usage;
+
+	for (const categoryId of categoryUsageKey.split("|")) {
+		if (!categoryId) continue;
+		usage[categoryId] = (usage[categoryId] ?? 0) + 1;
+	}
+
+	return usage;
+};
+
+const roleConfig: Record<
+	RepeatableMemberRole,
+	{
+		title: string;
+		cardClassName: string;
+		avatarClassName: string;
+		iconClassName: string;
+		inputClassName: string;
+		addButtonClassName: string;
+		addIconClassName: string;
+		addTextClassName: string;
+		gridClassName: string;
+	}
+> = {
+	pasukan: {
+		title: "Pasukan",
+		cardClassName: "bg-gray-50 dark:bg-gray-700 rounded-lg p-2 sm:p-3 relative group",
+		avatarClassName: "w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-500 hover:border-red-500",
+		iconClassName: "w-5 h-5 sm:w-6 sm:h-6 text-gray-400",
+		inputClassName: "w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center",
+		addButtonClassName: "flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-green-500 transition-colors min-h-[100px]",
+		addIconClassName: "w-6 h-6 text-gray-400 hover:text-green-500",
+		addTextClassName: "text-xs text-gray-500 dark:text-gray-400 mt-1",
+		gridClassName: "flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 order-2 md:order-1",
+	},
+	cadangan: {
+		title: "Cadangan",
+		cardClassName: "bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2 sm:p-3 relative group border border-amber-200 dark:border-amber-700",
+		avatarClassName: "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-amber-100 dark:bg-amber-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-amber-300 dark:border-amber-600 hover:border-amber-500",
+		iconClassName: "w-4 h-4 sm:w-5 sm:h-5 text-amber-400",
+		inputClassName: "w-full px-2 py-1 text-xs border border-amber-300 dark:border-amber-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center",
+		addButtonClassName: "flex flex-col items-center justify-center bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-amber-300 dark:border-amber-600 hover:border-amber-500 transition-colors min-h-[90px]",
+		addIconClassName: "w-5 h-5 text-amber-400 hover:text-amber-500",
+		addTextClassName: "text-xs text-amber-500 dark:text-amber-400 mt-1",
+		gridClassName: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3",
+	},
+	official: {
+		title: "Official",
+		cardClassName: "bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 sm:p-3 relative group border border-blue-200 dark:border-blue-700",
+		avatarClassName: "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-500",
+		iconClassName: "w-4 h-4 sm:w-5 sm:h-5 text-blue-400",
+		inputClassName: "w-full px-2 py-1 text-xs border border-blue-300 dark:border-blue-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center",
+		addButtonClassName: "flex flex-col items-center justify-center bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-500 transition-colors min-h-[90px]",
+		addIconClassName: "w-5 h-5 text-blue-400 hover:text-blue-500",
+		addTextClassName: "text-xs text-blue-500 dark:text-blue-400 mt-1",
+		gridClassName: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3",
+	},
+	pelatih: {
+		title: "Pelatih",
+		cardClassName: "bg-green-50 dark:bg-green-900/20 rounded-lg p-2 sm:p-3 relative group border border-green-200 dark:border-green-700",
+		avatarClassName: "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-green-300 dark:border-green-600 hover:border-green-500",
+		iconClassName: "w-4 h-4 sm:w-5 sm:h-5 text-green-400",
+		inputClassName: "w-full px-2 py-1 text-xs border border-green-300 dark:border-green-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center",
+		addButtonClassName: "flex flex-col items-center justify-center bg-green-50 dark:bg-green-900/10 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-green-300 dark:border-green-600 hover:border-green-500 transition-colors min-h-[90px]",
+		addIconClassName: "w-5 h-5 text-green-400 hover:text-green-500",
+		addTextClassName: "text-xs text-green-500 dark:text-green-400 mt-1",
+		gridClassName: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3",
+	},
+};
+
+interface TeamMutationHandlers {
+	onUpdateTeam: (teamId: string, field: keyof TeamData, value: TeamData[keyof TeamData]) => void;
+	onUpdateMember: (
+		teamId: string,
+		role: MemberRole,
+		memberId: string,
+		field: keyof PersonMember,
+		value: PersonMember[keyof PersonMember]
+	) => void;
+	onMemberPhoto: (teamId: string, role: MemberRole, memberId: string, file: File | null) => void;
+	onAddMember: (teamId: string, role: RepeatableMemberRole) => void;
+	onRemoveMember: (teamId: string, role: RepeatableMemberRole, memberId: string) => void;
+}
+
+interface RoleMemberCardProps extends Pick<TeamMutationHandlers, "onUpdateMember" | "onMemberPhoto" | "onRemoveMember"> {
+	teamId: string;
+	role: RepeatableMemberRole;
+	member: PersonMember;
+	memberIndex: number;
+	canRemove: boolean;
+}
+
+const RoleMemberCard = memo<RoleMemberCardProps>(
+	({ teamId, role, member, memberIndex, canRemove, onUpdateMember, onMemberPhoto, onRemoveMember }) => {
+		const config = roleConfig[role];
+		const label = `${config.title} ${memberIndex + 1}`;
+
+		const handleNameChange = useCallback(
+			(e: React.ChangeEvent<HTMLInputElement>) => {
+				onUpdateMember(teamId, role, member.id, "name", e.target.value);
+			},
+			[member.id, onUpdateMember, role, teamId]
+		);
+
+		const handlePhotoChange = useCallback(
+			(e: React.ChangeEvent<HTMLInputElement>) => {
+				const file = e.target.files?.[0];
+				if (file) onMemberPhoto(teamId, role, member.id, file);
+				e.target.value = "";
+			},
+			[member.id, onMemberPhoto, role, teamId]
+		);
+
+		const handleRemove = useCallback(() => {
+			onRemoveMember(teamId, role, member.id);
+		}, [member.id, onRemoveMember, role, teamId]);
+
+		return (
+			<div className={config.cardClassName}>
+				{canRemove && (
+					<button
+						type="button"
+						onClick={handleRemove}
+						aria-label={`Hapus ${label}`}
+						className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+					>
+						&times;
+					</button>
+				)}
+				<div className="flex justify-center mb-2">
+					<label className="relative cursor-pointer">
+						<div className={config.avatarClassName}>
+							{member.photoPreview ? (
+								<img
+									src={member.photoPreview}
+									alt={member.name || label}
+									className="w-full h-full object-cover"
+								/>
+							) : (
+								<CameraIcon className={config.iconClassName} />
+							)}
+						</div>
+						<input
+							type="file"
+							accept="image/jpeg,image/png,image/jpg"
+							onChange={handlePhotoChange}
+							className="hidden"
+						/>
+					</label>
+				</div>
+				<input
+					type="text"
+					value={member.name}
+					onChange={handleNameChange}
+					placeholder={label}
+					className={config.inputClassName}
+				/>
+			</div>
+		);
+	}
+);
+
+RoleMemberCard.displayName = "RoleMemberCard";
+
+interface RepeatableRoleSectionProps extends Pick<TeamMutationHandlers, "onUpdateMember" | "onMemberPhoto" | "onAddMember" | "onRemoveMember"> {
+	teamId: string;
+	role: RepeatableMemberRole;
+	members: PersonMember[];
+}
+
+const RepeatableRoleSection = memo<RepeatableRoleSectionProps>(
+	({ teamId, role, members, onUpdateMember, onMemberPhoto, onAddMember, onRemoveMember }) => {
+		const config = roleConfig[role];
+		const canRemoveMember = role !== "pasukan" || members.length > 1;
+
+		return (
+			<div className={role === "pasukan" ? "" : "mb-4"}>
+				{role !== "pasukan" && (
+					<div className="mb-3">
+						<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+							{config.title} ({members.length} orang)
+						</h4>
+					</div>
+				)}
+				<div className={config.gridClassName}>
+					{members.map((member, idx) => (
+						<RoleMemberCard
+							key={member.id}
+							teamId={teamId}
+							role={role}
+							member={member}
+							memberIndex={idx}
+							canRemove={canRemoveMember}
+							onUpdateMember={onUpdateMember}
+							onMemberPhoto={onMemberPhoto}
+							onRemoveMember={onRemoveMember}
+						/>
+					))}
+					<button
+						type="button"
+						onClick={() => onAddMember(teamId, role)}
+						className={config.addButtonClassName}
+					>
+						<PlusIcon className={config.addIconClassName} />
+						<span className={config.addTextClassName}>Tambah</span>
+					</button>
+				</div>
+			</div>
+		);
+	},
+	(prevProps, nextProps) =>
+		prevProps.teamId === nextProps.teamId &&
+		prevProps.role === nextProps.role &&
+		prevProps.members === nextProps.members &&
+		prevProps.onUpdateMember === nextProps.onUpdateMember &&
+		prevProps.onMemberPhoto === nextProps.onMemberPhoto &&
+		prevProps.onAddMember === nextProps.onAddMember &&
+		prevProps.onRemoveMember === nextProps.onRemoveMember
+);
+
+RepeatableRoleSection.displayName = "RepeatableRoleSection";
+
+interface DantonCardProps extends Pick<TeamMutationHandlers, "onUpdateMember" | "onMemberPhoto"> {
+	teamId: string;
+	member: PersonMember;
+}
+
+const DantonCard = memo<DantonCardProps>(({ teamId, member, onUpdateMember, onMemberPhoto }) => {
+	const handleNameChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			onUpdateMember(teamId, "danton", member.id, "name", e.target.value);
+		},
+		[member.id, onUpdateMember, teamId]
+	);
+
+	const handlePhotoChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const file = e.target.files?.[0];
+			if (file) onMemberPhoto(teamId, "danton", member.id, file);
+			e.target.value = "";
+		},
+		[member.id, onMemberPhoto, teamId]
+	);
+
+	return (
+		<div className="w-full md:w-32 order-1 md:order-2">
+			<div className="text-center mb-2">
+				<span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase">
+					Komandan
+				</span>
+			</div>
+			<div className="bg-red-50 dark:bg-red-900/30 rounded-lg p-3 border-2 border-red-200 dark:border-red-700 flex md:flex-col items-center md:items-stretch gap-3 md:gap-0">
+				<div className="flex justify-center md:mb-2 flex-shrink-0">
+					<label className="relative cursor-pointer">
+						<div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-red-100 dark:bg-red-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-red-300 dark:border-red-600 hover:border-red-500">
+							{member.photoPreview ? (
+								<img
+									src={member.photoPreview}
+									alt={member.name || "Danton"}
+									className="w-full h-full object-cover"
+								/>
+							) : (
+								<UserIcon className="w-6 h-6 md:w-8 md:h-8 text-red-400" />
+							)}
+						</div>
+						<input
+							type="file"
+							accept="image/jpeg,image/png,image/jpg"
+							onChange={handlePhotoChange}
+							className="hidden"
+						/>
+					</label>
+				</div>
+				<input
+					type="text"
+					value={member.name}
+					onChange={handleNameChange}
+					placeholder="Nama Danton"
+					className="flex-1 md:w-full px-2 py-1 text-xs border border-red-300 dark:border-red-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
+				/>
+			</div>
+		</div>
+	);
+});
+
+DantonCard.displayName = "DantonCard";
+
+interface TeamCardProps extends TeamMutationHandlers {
+	team: TeamData;
+	teamIndex: number;
+	canRemoveTeam: boolean;
+	schoolCategoryLimits?: SchoolCategoryLimit[];
+	categoryUsage: Record<string, number>;
+	onRemoveTeam: (teamId: string) => void;
+}
+
+const TeamCard = memo<TeamCardProps>(
+	({
+		team,
+		teamIndex,
+		canRemoveTeam,
+		schoolCategoryLimits,
+		categoryUsage,
+		onRemoveTeam,
+		onUpdateTeam,
+		onUpdateMember,
+		onMemberPhoto,
+		onAddMember,
+		onRemoveMember,
+	}) => {
+		const handleCategoryChange = useCallback(
+			(e: React.ChangeEvent<HTMLSelectElement>) => {
+				onUpdateTeam(team.id, "schoolCategoryId", e.target.value);
+			},
+			[onUpdateTeam, team.id]
+		);
+
+		const handleGroupNameChange = useCallback(
+			(e: React.ChangeEvent<HTMLInputElement>) => {
+				onUpdateTeam(team.id, "groupName", e.target.value);
+			},
+			[onUpdateTeam, team.id]
+		);
+
+		const handleNotesChange = useCallback(
+			(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+				onUpdateTeam(team.id, "notes", e.target.value);
+			},
+			[onUpdateTeam, team.id]
+		);
+
+		const handleRemoveTeam = useCallback(() => {
+			onRemoveTeam(team.id);
+		}, [onRemoveTeam, team.id]);
+
+		return (
+			<div className="border border-gray-200/60 dark:border-gray-700/40 rounded-lg p-3 sm:p-4">
+				<div className="flex items-start justify-between mb-4">
+					<h3 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">
+						Tim #{teamIndex + 1}
+						<span className="ml-1 sm:ml-2 text-xs sm:text-sm font-normal text-gray-500">
+							({getTotalMembers(team)} personil)
+						</span>
+					</h3>
+					{canRemoveTeam && (
+						<button
+							type="button"
+							onClick={handleRemoveTeam}
+							className="text-red-500 hover:text-red-700"
+						>
+							<TrashIcon className="w-5 h-5" />
+						</button>
+					)}
+				</div>
+
+				<div className="mb-4">
+					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+						Kategori Sekolah <span className="text-red-500">*</span>
+					</label>
+					<select
+						value={team.schoolCategoryId}
+						onChange={handleCategoryChange}
+						className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+						required
+					>
+						<option value="">Pilih Kategori</option>
+						{schoolCategoryLimits?.map((limit) => {
+							const categoryId = limit.schoolCategory.id;
+							const isCurrentSelection = team.schoolCategoryId === categoryId;
+							const usedByOtherTeams = Math.max(
+								0,
+								(categoryUsage[categoryId] ?? 0) - (isCurrentSelection ? 1 : 0)
+							);
+							const available = Math.max(
+								0,
+								limit.maxParticipants - (limit.currentParticipants ?? 0) - usedByOtherTeams
+							);
+
+							return (
+								<option
+									key={categoryId}
+									value={categoryId}
+									disabled={available <= 0 && !isCurrentSelection}
+								>
+									{limit.schoolCategory.name}{" "}
+									{isCurrentSelection
+										? "(Dipilih)"
+										: available > 0
+											? `(${available} slot tersedia)`
+											: "(Penuh)"}
+								</option>
+							);
+						})}
+					</select>
+				</div>
+
+				<div className="mb-4">
+					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+						Nama Tim <span className="text-red-500">*</span>
+					</label>
+					<input
+						type="text"
+						value={team.groupName}
+						onChange={handleGroupNameChange}
+						placeholder="Contoh: Tim A"
+						className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+						required
+					/>
+				</div>
+
+				<div className="mb-6">
+					<div className="mb-3">
+						<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+							Pasukan ({team.pasukan.length} orang)
+						</h4>
+					</div>
+					<div className="flex flex-col md:flex-row gap-4">
+						<RepeatableRoleSection
+							teamId={team.id}
+							role="pasukan"
+							members={team.pasukan}
+							onUpdateMember={onUpdateMember}
+							onMemberPhoto={onMemberPhoto}
+							onAddMember={onAddMember}
+							onRemoveMember={onRemoveMember}
+						/>
+						<DantonCard
+							teamId={team.id}
+							member={team.danton}
+							onUpdateMember={onUpdateMember}
+							onMemberPhoto={onMemberPhoto}
+						/>
+					</div>
+				</div>
+
+				<RepeatableRoleSection
+					teamId={team.id}
+					role="cadangan"
+					members={team.cadangan}
+					onUpdateMember={onUpdateMember}
+					onMemberPhoto={onMemberPhoto}
+					onAddMember={onAddMember}
+					onRemoveMember={onRemoveMember}
+				/>
+				<RepeatableRoleSection
+					teamId={team.id}
+					role="official"
+					members={team.official}
+					onUpdateMember={onUpdateMember}
+					onMemberPhoto={onMemberPhoto}
+					onAddMember={onAddMember}
+					onRemoveMember={onRemoveMember}
+				/>
+				<RepeatableRoleSection
+					teamId={team.id}
+					role="pelatih"
+					members={team.pelatih}
+					onUpdateMember={onUpdateMember}
+					onMemberPhoto={onMemberPhoto}
+					onAddMember={onAddMember}
+					onRemoveMember={onRemoveMember}
+				/>
+
+				<div>
+					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+						Catatan (Opsional)
+					</label>
+					<textarea
+						value={team.notes}
+						onChange={handleNotesChange}
+						placeholder="Catatan tambahan untuk tim ini..."
+						rows={2}
+						className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+					/>
+				</div>
+			</div>
+		);
+	}
+);
+
+TeamCard.displayName = "TeamCard";
+
 const EventRegister: React.FC = () => {
 	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { user } = useAuth();
 	const { pay, isSnapReady } = usePayment();
+	const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+	const registrationId = searchParams.get("registrationId");
+	const isReregisterMode = searchParams.get("mode") === "reregister" && Boolean(registrationId);
 
 	const [event, setEvent] = useState<Event | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; label: string } | null>(null);
+	const [submitStatus, setSubmitStatus] = useState("Menyiapkan pendaftaran...");
 
 	// Form state
 	const [schoolName, setSchoolName] = useState<string>("");
@@ -130,6 +715,18 @@ const EventRegister: React.FC = () => {
 	const [supportingDoc, setSupportingDoc] = useState<File | null>(null);
 	const [supportingDocPreview, setSupportingDocPreview] = useState<string>("");
 	const [paymentMethod, setPaymentMethod] = useState<"MIDTRANS" | "MANUAL">("MIDTRANS");
+	const categoryUsageKey = useMemo(
+		() => teams.map((team) => team.schoolCategoryId).join("|"),
+		[teams]
+	);
+	const categoryUsage = useMemo(
+		() => buildCategoryUsage(categoryUsageKey),
+		[categoryUsageKey]
+	);
+	const totalFee = useMemo(
+		() => (event?.registrationFee ? event.registrationFee * teams.length : 0),
+		[event?.registrationFee, teams.length]
+	);
 
 	// Check if registration is closed
 	const isRegistrationClosed = event?.registrationDeadline
@@ -138,14 +735,14 @@ const EventRegister: React.FC = () => {
 
 	useEffect(() => {
 		fetchEventDetail();
-	}, [eventSlug]);
+	}, [eventSlug, registrationId]);
 
 	useEffect(() => {
 		// Auto-fill institution from user profile
-		if (user?.profile?.institution) {
+		if (!isReregisterMode && user?.profile?.institution) {
 			setSchoolName(user.profile.institution);
 		}
-	}, [user]);
+	}, [isReregisterMode, user]);
 
 	const fetchEventDetail = async () => {
 		try {
@@ -157,8 +754,32 @@ const EventRegister: React.FC = () => {
 			if (response.data.schoolCategoryLimits?.length === 1) {
 				setTeams(prev => prev.map((t, i) => i === 0 ? { ...t, schoolCategoryId: response.data.schoolCategoryLimits[0].schoolCategory.id } : t));
 			}
+
+			if (registrationId) {
+				const registrationResponse = await api.get<ExistingRegistrationDetail>(
+					`/registrations/${registrationId}?includeCancelled=true`
+				);
+				const registration = registrationResponse.data;
+
+				if (registration.eventId !== response.data.id) {
+					throw new Error("Data pendaftaran tidak sesuai dengan event ini");
+				}
+
+				setSchoolName(registration.schoolName || user?.profile?.institution || "");
+				if (registration.supportingDoc) {
+					setSupportingDocPreview(registration.supportingDoc.split("/").pop() || "Dokumen sebelumnya");
+				}
+				if (registration.registrationPayment?.paymentMethod === "MANUAL") {
+					setPaymentMethod("MANUAL");
+				}
+
+				const restoredTeams = registration.groups.map(buildTeamFromExistingGroup);
+				if (restoredTeams.length > 0) {
+					setTeams(restoredTeams);
+				}
+			}
 		} catch (err: any) {
-			setError(err.response?.data?.message || "Gagal memuat detail event");
+			setError(err.response?.data?.message || err.response?.data?.error || err.message || "Gagal memuat detail event");
 		} finally {
 			setLoading(false);
 		}
@@ -182,157 +803,139 @@ const EventRegister: React.FC = () => {
 		}).format(amount);
 	};
 
-	const getAvailableSlotsForTeam = (categoryId: string, currentTeamId: string): number => {
-		if (!event?.schoolCategoryLimits) return 0;
-		const limit = event.schoolCategoryLimits.find(
-			(l) => l.schoolCategory.id === categoryId
+	const addTeam = useCallback(() => {
+		setTeams((prevTeams) => {
+			const newTeamNumber = prevTeams.length + 1;
+			const defaultCategoryId = event?.schoolCategoryLimits?.find((limit) => {
+				const available = limit.maxParticipants - (limit.currentParticipants ?? 0);
+				const used = prevTeams.filter((team) => team.schoolCategoryId === limit.schoolCategory.id).length;
+				return available - used > 0;
+			})?.schoolCategory.id || "";
+
+			return [...prevTeams, createInitialTeam(`Tim ${newTeamNumber}`, defaultCategoryId)];
+		});
+	}, [event?.schoolCategoryLimits]);
+
+	const removeTeam = useCallback((teamId: string) => {
+		setTeams((prevTeams) => {
+			if (prevTeams.length <= 1) {
+				Swal.fire({
+					icon: "warning",
+					title: "Tidak dapat menghapus",
+					text: "Minimal harus ada satu tim",
+				});
+				return prevTeams;
+			}
+
+			return prevTeams.filter((team) => team.id !== teamId);
+		});
+	}, []);
+
+	const updateTeam = useCallback((teamId: string, field: keyof TeamData, value: TeamData[keyof TeamData]) => {
+		setTeams((prevTeams) =>
+			prevTeams.map((team) => (team.id !== teamId ? team : { ...team, [field]: value }))
 		);
-		if (!limit) return 0;
-		// Count how many OTHER teams in current form already use this category
-		const teamsUsingCategory = teams.filter(t => t.schoolCategoryId === categoryId && t.id !== currentTeamId).length;
-		return Math.max(0, limit.maxParticipants - (limit.currentParticipants || 0) - teamsUsingCategory);
-	};
-
-	const getTotalFee = (): number => {
-		if (!event?.registrationFee) return 0;
-		return event.registrationFee * teams.length;
-	};
-
-	const getTotalMembers = (team: TeamData): number => {
-		return team.pasukan.length + 1 + team.cadangan.length + team.official.length + team.pelatih.length; // pasukan + danton + cadangan + official + pelatih
-	};
-
-	const addTeam = () => {
-		const newTeamNumber = teams.length + 1;
-		// Find first category with available slots
-		const defaultCategoryId = event?.schoolCategoryLimits?.find(l => {
-			const available = l.maxParticipants - (l.currentParticipants || 0);
-			const used = teams.filter(t => t.schoolCategoryId === l.schoolCategory.id).length;
-			return available - used > 0;
-		})?.schoolCategory.id || "";
-
-		setTeams([...teams, createInitialTeam(`Tim ${newTeamNumber}`, defaultCategoryId)]);
-	};
-
-	const removeTeam = (teamId: string) => {
-		if (teams.length <= 1) {
-			Swal.fire({
-				icon: "warning",
-				title: "Tidak dapat menghapus",
-				text: "Minimal harus ada satu tim",
-			});
-			return;
-		}
-		setTeams(teams.filter((t) => t.id !== teamId));
-	};
-
-	const updateTeam = (teamId: string, field: keyof TeamData, value: any) => {
-		setTeams(
-			teams.map((t) => (t.id !== teamId ? t : { ...t, [field]: value }))
-		);
-	};
+	}, []);
 
 	// Update member in specific role array
-	const updateMember = (
+	const updateMember = useCallback((
 		teamId: string,
-		role: "pasukan" | "danton" | "cadangan" | "official" | "pelatih",
+		role: MemberRole,
 		memberId: string,
 		field: keyof PersonMember,
-		value: any
+		value: PersonMember[keyof PersonMember]
 	) => {
-		setTeams(
-			teams.map((t) => {
-				if (t.id !== teamId) return t;
+		setTeams((prevTeams) =>
+			prevTeams.map((team) => {
+				if (team.id !== teamId) return team;
 				if (role === "danton") {
-					const updatedDanton: PersonMember = { ...t.danton, [field]: value };
-					return { ...t, danton: updatedDanton };
+					const updatedDanton: PersonMember = { ...team.danton, [field]: value };
+					return { ...team, danton: updatedDanton };
 				}
-				const members = [...t[role]];
+				const members = [...team[role]];
 				const idx = members.findIndex((m) => m.id === memberId);
-				if (idx !== -1 && members[idx]) {
-					const updatedMember: PersonMember = { ...members[idx], [field]: value };
-					members[idx] = updatedMember;
-				}
-				return { ...t, [role]: members };
+				const currentMember = members[idx];
+				if (idx === -1 || !currentMember) return team;
+
+				members[idx] = { ...currentMember, [field]: value };
+				return { ...team, [role]: members };
 			})
 		);
-	};
+	}, []);
 
 	// Handle photo upload for a member
-	const handleMemberPhoto = (
+	const handleMemberPhoto = useCallback((
 		teamId: string,
-		role: "pasukan" | "danton" | "cadangan" | "official" | "pelatih",
+		role: MemberRole,
 		memberId: string,
 		file: File | null
 	) => {
-		if (file) {
-			// Validate file type
-			const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-			if (!allowedTypes.includes(file.type)) {
-				Swal.fire({
-					icon: "error",
-					title: "Format tidak didukung",
-					text: "File harus berupa JPG atau PNG",
-				});
-				return;
-			}
-			// Validate file size (max 2MB)
-			if (file.size > 2 * 1024 * 1024) {
-				Swal.fire({
-					icon: "error",
-					title: "File terlalu besar",
-					text: "Ukuran foto maksimal 2MB",
-				});
-				return;
-			}
-			const preview = URL.createObjectURL(file);
-			setTeams(
-				teams.map((t) => {
-					if (t.id !== teamId) return t;
-					if (role === "danton") {
-						const updatedDanton: PersonMember = { ...t.danton, photo: file, photoPreview: preview };
-						return { ...t, danton: updatedDanton };
-					}
-					const members = [...t[role]];
-					const idx = members.findIndex((m) => m.id === memberId);
-					if (idx !== -1 && members[idx]) {
-						const updatedMember: PersonMember = { ...members[idx], photo: file, photoPreview: preview };
-						members[idx] = updatedMember;
-					}
-					return { ...t, [role]: members };
-				})
-			);
-		}
-	};
+		if (!file) return;
 
-	// Add/remove members from role arrays
-	const addMemberToRole = (teamId: string, role: "pasukan" | "cadangan" | "official" | "pelatih") => {
-		setTeams(
-			teams.map((t) => {
-				if (t.id !== teamId) return t;
-				return { ...t, [role]: [...t[role], createEmptyMember()] };
+		const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+		if (!allowedTypes.includes(file.type)) {
+			Swal.fire({
+				icon: "error",
+				title: "Format tidak didukung",
+				text: "File harus berupa JPG atau PNG",
+			});
+			return;
+		}
+		if (file.size > 2 * 1024 * 1024) {
+			Swal.fire({
+				icon: "error",
+				title: "File terlalu besar",
+				text: "Ukuran foto maksimal 2MB",
+			});
+			return;
+		}
+
+		const preview = URL.createObjectURL(file);
+		setTeams((prevTeams) =>
+			prevTeams.map((team) => {
+				if (team.id !== teamId) return team;
+				if (role === "danton") {
+					const updatedDanton: PersonMember = { ...team.danton, photo: file, photoPreview: preview };
+					return { ...team, danton: updatedDanton };
+				}
+				const members = [...team[role]];
+				const idx = members.findIndex((m) => m.id === memberId);
+				const currentMember = members[idx];
+				if (idx === -1 || !currentMember) return team;
+
+				members[idx] = { ...currentMember, photo: file, photoPreview: preview };
+				return { ...team, [role]: members };
 			})
 		);
-	};
+	}, []);
 
-	const removeMemberFromRole = (teamId: string, role: "pasukan" | "cadangan" | "official" | "pelatih", memberId: string) => {
-		setTeams(
-			teams.map((t) => {
-				if (t.id !== teamId) return t;
-				const members = t[role].filter((m) => m.id !== memberId);
-				// Only pasukan requires minimum 1
+	// Add/remove members from role arrays
+	const addMemberToRole = useCallback((teamId: string, role: RepeatableMemberRole) => {
+		setTeams((prevTeams) =>
+			prevTeams.map((team) => {
+				if (team.id !== teamId) return team;
+				return { ...team, [role]: [...team[role], createEmptyMember()] };
+			})
+		);
+	}, []);
+
+	const removeMemberFromRole = useCallback((teamId: string, role: RepeatableMemberRole, memberId: string) => {
+		setTeams((prevTeams) =>
+			prevTeams.map((team) => {
+				if (team.id !== teamId) return team;
+				const members = team[role].filter((m) => m.id !== memberId);
 				if (role === "pasukan" && members.length === 0) {
 					Swal.fire({
 						icon: "warning",
 						title: "Tidak dapat menghapus",
 						text: "Minimal harus ada satu pasukan",
 					});
-					return t;
+					return team;
 				}
-				return { ...t, [role]: members };
+				return { ...team, [role]: members };
 			})
 		);
-	};
+	}, []);
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -435,18 +1038,89 @@ const EventRegister: React.FC = () => {
 
 		setSubmitting(true);
 		setUploadProgress(null);
+		setSubmitStatus("Menyiapkan data pendaftaran...");
 
 		try {
-			// Count total photos to upload for progress tracking
-			let totalPhotos = supportingDoc ? 1 : 0;
-			for (const team of teams) {
-				totalPhotos += team.pasukan.filter(m => m.photo).length;
-				if (team.danton.photo) totalPhotos++;
-				totalPhotos += team.cadangan.filter(m => m.photo).length;
-				totalPhotos += team.official.filter(m => m.photo).length;
-				totalPhotos += team.pelatih.filter(m => m.photo).length;
-			}
+			type RegistrationMemberPayload = {
+				name: string;
+				photo: string | null;
+				role: RegistrationMemberRole;
+			};
+			type PreparedGroup = {
+				groupName: string;
+				schoolCategoryId: string;
+				notes?: string;
+				members: RegistrationMemberPayload[];
+			};
+			type UploadTask = {
+				file: File;
+				label: string;
+				onComplete: (url: string) => void;
+			};
+
+			const uploadTasks: UploadTask[] = [];
 			let uploadedCount = 0;
+			let supportingDocUrl: string | undefined;
+
+			if (supportingDoc) {
+				uploadTasks.push({
+					file: supportingDoc,
+					label: "Dokumen pendukung",
+					onComplete: (url) => {
+						supportingDocUrl = url;
+					},
+				});
+			}
+
+			const preparedGroups: PreparedGroup[] = teams.map((team, teamIndex) => {
+				const teamLabel = team.groupName.trim() || `Tim ${teamIndex + 1}`;
+				const members: RegistrationMemberPayload[] = [];
+				const addPreparedMember = (
+					member: PersonMember,
+					role: RegistrationMemberRole,
+					roleLabel: string,
+					fallbackLabel: string
+				) => {
+					const memberData: RegistrationMemberPayload = {
+						name: member.name.trim(),
+						photo: member.existingPhotoUrl || null,
+						role,
+					};
+					members.push(memberData);
+
+					if (member.photo) {
+						const labelName = member.name.trim() || fallbackLabel;
+						uploadTasks.push({
+							file: member.photo,
+							label: `${teamLabel} - ${roleLabel} ${labelName}`,
+							onComplete: (url) => {
+								memberData.photo = url;
+							},
+						});
+					}
+				};
+
+				team.pasukan.forEach((member, index) => {
+					addPreparedMember(member, "PASUKAN", "Pasukan", `${index + 1}`);
+				});
+				addPreparedMember(team.danton, "DANTON", "Danton", "tanpa nama");
+				team.cadangan.forEach((member, index) => {
+					addPreparedMember(member, "CADANGAN", "Cadangan", `${index + 1}`);
+				});
+				team.official.forEach((member, index) => {
+					addPreparedMember(member, "OFFICIAL", "Official", `${index + 1}`);
+				});
+				team.pelatih.forEach((member, index) => {
+					addPreparedMember(member, "PELATIH", "Pelatih", `${index + 1}`);
+				});
+
+				return {
+					groupName: team.groupName.trim(),
+					schoolCategoryId: team.schoolCategoryId,
+					notes: team.notes.trim() || undefined,
+					members,
+				};
+			});
 
 			// Upload a single file with retry logic
 			const uploadSingleFile = async (photo: File, label: string, maxRetries = 2): Promise<string> => {
@@ -461,7 +1135,7 @@ const EventRegister: React.FC = () => {
 							timeout: 60000, // 60 seconds per file
 						});
 						uploadedCount++;
-						setUploadProgress({ current: uploadedCount, total: totalPhotos, label });
+						setUploadProgress({ current: uploadedCount, total: uploadTasks.length, label });
 						return uploadResponse.data.url;
 					} catch (err: any) {
 						lastError = err;
@@ -481,82 +1155,43 @@ const EventRegister: React.FC = () => {
 				throw new Error(lastError.response?.data?.error || `Gagal upload "${label}": ${lastError.message}`);
 			};
 
-			// Upload member photo (returns null if no photo)
-			const uploadMemberPhoto = async (photo: File | null, label: string): Promise<string | null> => {
-				if (!photo) return null;
-				return uploadSingleFile(photo, label);
-			};
+			const uploadFiles = async (tasks: UploadTask[]) => {
+				if (tasks.length === 0) return;
 
-			// First upload supporting document if provided
-			let supportingDocUrl: string | undefined;
-			if (supportingDoc) {
-				setUploadProgress({ current: 0, total: totalPhotos, label: "Dokumen pendukung" });
-				supportingDocUrl = await uploadSingleFile(supportingDoc, "Dokumen pendukung");
-			}
+				setSubmitStatus("Mengunggah dokumen dan foto...");
+				setUploadProgress({ current: 0, total: tasks.length, label: "Memulai upload" });
 
-			// Upload photos sequentially with controlled concurrency (3 at a time)
-			const CONCURRENCY = 3;
-			const uploadBatch = async <T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> => {
-				const results: R[] = [];
-				for (let i = 0; i < items.length; i += CONCURRENCY) {
-					const batch = items.slice(i, i + CONCURRENCY);
-					const batchResults = await Promise.all(batch.map(fn));
-					results.push(...batchResults);
-				}
-				return results;
-			};
+				let nextTaskIndex = 0;
+				const concurrency = Math.min(4, tasks.length);
+				const workers = Array.from({ length: concurrency }, async () => {
+					while (nextTaskIndex < tasks.length) {
+						const task = tasks[nextTaskIndex];
+						nextTaskIndex++;
+						if (!task) continue;
 
-			// Prepare registration data - process teams sequentially
-			const groupsData = [];
-			for (let ti = 0; ti < teams.length; ti++) {
-				const team = teams[ti]!;
-				const teamLabel = team.groupName || `Tim ${ti + 1}`;
-
-				// Upload pasukan photos in batches
-				const pasukanWithPhotos = await uploadBatch(team.pasukan, async (m) => ({
-					name: m.name.trim(),
-					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Pasukan ${m.name || 'tanpa nama'}`),
-					role: "PASUKAN",
-				}));
-
-				const dantonPhoto = await uploadMemberPhoto(team.danton.photo, `${teamLabel} - Danton ${team.danton.name || ''}`);
-				const dantonData = {
-					name: team.danton.name.trim(),
-					photo: dantonPhoto,
-					role: "DANTON",
-				};
-
-				const cadanganWithPhotos = await uploadBatch(team.cadangan, async (m) => ({
-					name: m.name.trim(),
-					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Cadangan ${m.name || 'tanpa nama'}`),
-					role: "CADANGAN",
-				}));
-
-				const officialWithPhotos = await uploadBatch(team.official, async (m) => ({
-					name: m.name.trim(),
-					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Official ${m.name || 'tanpa nama'}`),
-					role: "OFFICIAL",
-				}));
-
-				const pelatihWithPhotos = await uploadBatch(team.pelatih, async (m) => ({
-					name: m.name.trim(),
-					photo: await uploadMemberPhoto(m.photo, `${teamLabel} - Pelatih ${m.name || 'tanpa nama'}`),
-					role: "PELATIH",
-				}));
-
-				const allMembers = [...pasukanWithPhotos, dantonData, ...cadanganWithPhotos, ...officialWithPhotos, ...pelatihWithPhotos];
-				const memberNames = allMembers.filter(m => m.name).map(m => m.name);
-				const totalMembers = allMembers.length;
-
-				groupsData.push({
-					groupName: team.groupName.trim(),
-					schoolCategoryId: team.schoolCategoryId,
-					teamMembers: totalMembers,
-					memberNames: JSON.stringify(memberNames),
-					memberData: JSON.stringify(allMembers),
-					notes: team.notes.trim() || undefined,
+						const uploadedUrl = await uploadSingleFile(task.file, task.label);
+						task.onComplete(uploadedUrl);
+					}
 				});
-			}
+
+				await Promise.all(workers);
+			};
+
+			await uploadFiles(uploadTasks);
+			setSubmitStatus("Menyimpan pendaftaran...");
+
+			const groupsData = preparedGroups.map((group) => {
+				const memberNames = group.members.filter((member) => member.name).map((member) => member.name);
+
+				return {
+					groupName: group.groupName,
+					schoolCategoryId: group.schoolCategoryId,
+					teamMembers: group.members.length,
+					memberNames: JSON.stringify(memberNames),
+					memberData: JSON.stringify(group.members),
+					notes: group.notes,
+				};
+			});
 
 			const registrationData = {
 				eventId: event.id, // Use event.id (UUID) instead of URL param (might be slug)
@@ -572,6 +1207,7 @@ const EventRegister: React.FC = () => {
 			// If payment required, initiate Midtrans payment
 			if (paymentRequired) {
 				try {
+					setSubmitStatus("Menyiapkan pembayaran...");
 					const paymentRes = await api.post(`/registrations/${registration.id}/pay`);
 					const { snapToken, midtransOrderId } = paymentRes.data.payment;
 
@@ -661,6 +1297,7 @@ const EventRegister: React.FC = () => {
 				}
 				navigate("/peserta/registrations");
 			} else if (event.registrationFee && event.registrationFee > 0 && paymentMethod === "MANUAL") {
+				setSubmitStatus("Menyelesaikan pendaftaran...");
 				// Manual payment - show contact info
 				const contactInfo = event.contactPhone
 					? `<p class="text-sm text-gray-600 mt-2">Hubungi panitia: <strong>${event.contactPersonName || "Panitia"}</strong></p>
@@ -680,6 +1317,7 @@ const EventRegister: React.FC = () => {
 				});
 				navigate("/peserta/registrations");
 			} else {
+				setSubmitStatus("Menyelesaikan pendaftaran...");
 				// No payment required
 				await Swal.fire({
 					icon: "success",
@@ -707,6 +1345,7 @@ const EventRegister: React.FC = () => {
 		} finally {
 			setSubmitting(false);
 			setUploadProgress(null);
+			setSubmitStatus("Menyiapkan pendaftaran...");
 		}
 	};
 
@@ -739,6 +1378,38 @@ const EventRegister: React.FC = () => {
 
 	return (
 		<div className="min-h-screen py-4 sm:py-8 px-3 sm:px-4">
+			{submitting && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/60 px-4 backdrop-blur-sm">
+					<div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl dark:bg-gray-800" role="status" aria-live="polite">
+						<div className="flex items-center gap-3">
+							<div className="h-10 w-10 flex-shrink-0 animate-spin rounded-full border-4 border-red-100 border-t-red-600 dark:border-red-950 dark:border-t-red-400"></div>
+							<div>
+								<p className="font-semibold text-gray-900 dark:text-white">
+									{submitting ? submitStatus : "Memproses pendaftaran..."}
+								</p>
+								<p className="text-sm text-gray-600 dark:text-gray-400">
+									Mohon tunggu, jangan tutup halaman ini.
+								</p>
+							</div>
+						</div>
+
+						{uploadProgress && uploadProgress.total > 0 && (
+							<div className="mt-4">
+								<div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400">
+									<span>{uploadProgress.label}</span>
+									<span>{uploadProgress.current}/{uploadProgress.total} file</span>
+								</div>
+								<div className="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+									<div
+										className="h-2.5 rounded-full bg-red-600 transition-all duration-300"
+										style={{ width: `${Math.round((uploadProgress.current / uploadProgress.total) * 100)}%` }}
+									></div>
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+			)}
 			<div className="max-w-6xl mx-auto">
 				{/* Header */}
 				<div className="mb-4 sm:mb-6">
@@ -750,10 +1421,12 @@ const EventRegister: React.FC = () => {
 						Kembali ke Detail Event
 					</button>
 					<h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-						Pendaftaran Event
+						{isReregisterMode ? "Edit Daftar Ulang" : "Pendaftaran Event"}
 					</h1>
 					<p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-						Lengkapi formulir di bawah untuk mendaftar ke event ini
+						{isReregisterMode
+							? "Data lama sudah dimuat. Silakan ubah tim atau personil sebelum submit ulang."
+							: "Lengkapi formulir di bawah untuk mendaftar ke event ini"}
 					</p>
 				</div>
 
@@ -882,409 +1555,20 @@ const EventRegister: React.FC = () => {
 
 								<div className="space-y-4 sm:space-y-6">
 									{teams.map((team, teamIndex) => (
-										<div
+										<TeamCard
 											key={team.id}
-											className="border border-gray-200/60 dark:border-gray-700/40 rounded-lg p-3 sm:p-4"
-										>
-											<div className="flex items-start justify-between mb-4">
-												<h3 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">
-													Tim #{teamIndex + 1}
-													<span className="ml-1 sm:ml-2 text-xs sm:text-sm font-normal text-gray-500">
-														({getTotalMembers(team)} personil)
-													</span>
-												</h3>
-												{teams.length > 1 && (
-													<button
-														type="button"
-														onClick={() => removeTeam(team.id)}
-														className="text-red-500 hover:text-red-700"
-													>
-														<TrashIcon className="w-5 h-5" />
-													</button>
-												)}
-											</div>
-
-											{/* School Category per Team */}
-											<div className="mb-4">
-												<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-													Kategori Sekolah <span className="text-red-500">*</span>
-												</label>
-												<select
-													value={team.schoolCategoryId}
-													onChange={(e) => updateTeam(team.id, "schoolCategoryId", e.target.value)}
-													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
-													required
-												>
-													<option value="">Pilih Kategori</option>
-													{event.schoolCategoryLimits?.map((limit) => {
-														const available = getAvailableSlotsForTeam(limit.schoolCategory.id, team.id);
-														const isCurrentSelection = team.schoolCategoryId === limit.schoolCategory.id;
-														return (
-															<option
-																key={limit.schoolCategory.id}
-																value={limit.schoolCategory.id}
-																disabled={available <= 0 && !isCurrentSelection}
-															>
-																{limit.schoolCategory.name}{" "}
-																{isCurrentSelection
-																	? "(Dipilih)"
-																	: available > 0
-																		? `(${available} slot tersedia)`
-																		: "(Penuh)"}
-															</option>
-														);
-													})}
-												</select>
-											</div>
-
-											{/* Team Name */}
-											<div className="mb-4">
-												<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-													Nama Tim <span className="text-red-500">*</span>
-												</label>
-												<input
-													type="text"
-													value={team.groupName}
-													onChange={(e) =>
-														updateTeam(team.id, "groupName", e.target.value)
-													}
-													placeholder="Contoh: Tim A"
-													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
-													required
-												/>
-											</div>
-
-											{/* Pasukan and Danton Grid */}
-											<div className="mb-6">
-												<div className="mb-3">
-													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-														Pasukan ({team.pasukan.length} orang)
-													</h4>
-												</div>
-												<div className="flex flex-col md:flex-row gap-4">
-													{/* Pasukan Grid - responsive columns */}
-													<div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 order-2 md:order-1">
-														{team.pasukan.map((member, idx) => (
-															<div
-																key={member.id}
-																className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2 sm:p-3 relative group"
-															>
-																{team.pasukan.length > 1 && (
-																	<button
-																		type="button"
-																		onClick={() => removeMemberFromRole(team.id, "pasukan", member.id)}
-																		className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-																	>
-																		×
-																	</button>
-																)}
-																{/* Photo Upload */}
-																<div className="flex justify-center mb-2">
-																	<label className="relative cursor-pointer">
-																		<div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-500 hover:border-red-500">
-																			{member.photoPreview ? (
-																				<img
-																					src={member.photoPreview}
-																					alt={member.name || `Pasukan ${idx + 1}`}
-																					className="w-full h-full object-cover"
-																				/>
-																			) : (
-																				<CameraIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
-																			)}
-																		</div>
-																		<input
-																			type="file"
-																			accept="image/jpeg,image/png,image/jpg"
-																			onChange={(e) => {
-																				const file = e.target.files?.[0];
-																				if (file) handleMemberPhoto(team.id, "pasukan", member.id, file);
-																			}}
-																			className="hidden"
-																		/>
-																	</label>
-																</div>
-																<input
-																	type="text"
-																	value={member.name}
-																	onChange={(e) =>
-																		updateMember(team.id, "pasukan", member.id, "name", e.target.value)
-																	}
-																	placeholder={`Pasukan ${idx + 1}`}
-																	className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
-																/>
-															</div>
-														))}
-													{/* Add Pasukan Button */}
-													<button
-														type="button"
-														onClick={() => addMemberToRole(team.id, "pasukan")}
-														className="flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-green-500 transition-colors min-h-[100px]"
-													>
-														<PlusIcon className="w-6 h-6 text-gray-400 hover:text-green-500" />
-														<span className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tambah</span>
-													</button>
-												</div>
-
-													{/* Danton - Top on mobile, Right Side on desktop */}
-													<div className="w-full md:w-32 order-1 md:order-2">
-														<div className="text-center mb-2">
-															<span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase">
-																Komandan
-															</span>
-														</div>
-														<div className="bg-red-50 dark:bg-red-900/30 rounded-lg p-3 border-2 border-red-200 dark:border-red-700 flex md:flex-col items-center md:items-stretch gap-3 md:gap-0">
-															{/* Photo Upload */}
-															<div className="flex justify-center md:mb-2 flex-shrink-0">
-																<label className="relative cursor-pointer">
-																	<div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-red-100 dark:bg-red-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-red-300 dark:border-red-600 hover:border-red-500">
-																		{team.danton.photoPreview ? (
-																			<img
-																				src={team.danton.photoPreview}
-																				alt={team.danton.name || "Danton"}
-																				className="w-full h-full object-cover"
-																			/>
-																		) : (
-																			<UserIcon className="w-6 h-6 md:w-8 md:h-8 text-red-400" />
-																		)}
-																	</div>
-																	<input
-																		type="file"
-																		accept="image/jpeg,image/png,image/jpg"
-																		onChange={(e) => {
-																			const file = e.target.files?.[0];
-																			if (file) handleMemberPhoto(team.id, "danton", team.danton.id, file);
-																		}}
-																		className="hidden"
-																	/>
-																</label>
-															</div>
-															<input
-																type="text"
-																value={team.danton.name}
-																onChange={(e) =>
-																	updateMember(team.id, "danton", team.danton.id, "name", e.target.value)
-																}
-																placeholder="Nama Danton"
-																className="flex-1 md:w-full px-2 py-1 text-xs border border-red-300 dark:border-red-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
-															/>
-														</div>
-													</div>
-												</div>
-											</div>
-
-											{/* Cadangan Section */}
-											<div className="mb-4">
-												<div className="mb-3">
-													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-														Cadangan ({team.cadangan.length} orang)
-													</h4>
-												</div>
-												<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-													{team.cadangan.map((member, idx) => (
-														<div
-															key={member.id}
-															className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2 sm:p-3 relative group border border-amber-200 dark:border-amber-700"
-														>
-															<button
-																type="button"
-																onClick={() => removeMemberFromRole(team.id, "cadangan", member.id)}
-																className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-															>
-																×
-															</button>
-															{/* Photo Upload */}
-															<div className="flex justify-center mb-2">
-																<label className="relative cursor-pointer">
-																	<div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-amber-100 dark:bg-amber-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-amber-300 dark:border-amber-600 hover:border-amber-500">
-																		{member.photoPreview ? (
-																			<img
-																				src={member.photoPreview}
-																				alt={member.name || `Cadangan ${idx + 1}`}
-																				className="w-full h-full object-cover"
-																			/>
-																		) : (
-																			<CameraIcon className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-																		)}
-																	</div>
-																	<input
-																		type="file"
-																		accept="image/jpeg,image/png,image/jpg"
-																		onChange={(e) => {
-																			const file = e.target.files?.[0];
-																			if (file) handleMemberPhoto(team.id, "cadangan", member.id, file);
-																		}}
-																		className="hidden"
-																	/>
-																</label>
-															</div>
-															<input
-																type="text"
-																value={member.name}
-																onChange={(e) =>
-																	updateMember(team.id, "cadangan", member.id, "name", e.target.value)
-																}
-																placeholder={`Cadangan ${idx + 1}`}
-																className="w-full px-2 py-1 text-xs border border-amber-300 dark:border-amber-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
-															/>
-														</div>
-													))}
-												{/* Add Cadangan Button */}
-												<button
-													type="button"
-													onClick={() => addMemberToRole(team.id, "cadangan")}
-													className="flex flex-col items-center justify-center bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-amber-300 dark:border-amber-600 hover:border-amber-500 transition-colors min-h-[90px]"
-												>
-													<PlusIcon className="w-5 h-5 text-amber-400 hover:text-amber-500" />
-													<span className="text-xs text-amber-500 dark:text-amber-400 mt-1">Tambah</span>
-												</button>
-												</div>
-											</div>
-
-											{/* Official Section */}
-											<div className="mb-4">
-												<div className="mb-3">
-													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-														Official ({team.official.length} orang)
-													</h4>
-												</div>
-												<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-													{team.official.map((member, idx) => (
-														<div
-															key={member.id}
-															className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 sm:p-3 relative group border border-blue-200 dark:border-blue-700"
-														>
-															<button
-																type="button"
-																onClick={() => removeMemberFromRole(team.id, "official", member.id)}
-																className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-															>
-																×
-															</button>
-															<div className="flex justify-center mb-2">
-																<label className="relative cursor-pointer">
-																	<div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-500">
-																		{member.photoPreview ? (
-																			<img
-																				src={member.photoPreview}
-																				alt={member.name || `Official ${idx + 1}`}
-																				className="w-full h-full object-cover"
-																			/>
-																		) : (
-																			<CameraIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-																		)}
-																	</div>
-																	<input
-																		type="file"
-																		accept="image/jpeg,image/png,image/jpg"
-																		onChange={(e) => {
-																			const file = e.target.files?.[0];
-																			if (file) handleMemberPhoto(team.id, "official", member.id, file);
-																		}}
-																		className="hidden"
-																	/>
-																</label>
-															</div>
-															<input
-																type="text"
-																value={member.name}
-																onChange={(e) =>
-																	updateMember(team.id, "official", member.id, "name", e.target.value)
-																}
-																placeholder={`Official ${idx + 1}`}
-																className="w-full px-2 py-1 text-xs border border-blue-300 dark:border-blue-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
-															/>
-														</div>
-													))}
-												<button
-													type="button"
-													onClick={() => addMemberToRole(team.id, "official")}
-													className="flex flex-col items-center justify-center bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-blue-300 dark:border-blue-600 hover:border-blue-500 transition-colors min-h-[90px]"
-												>
-													<PlusIcon className="w-5 h-5 text-blue-400 hover:text-blue-500" />
-													<span className="text-xs text-blue-500 dark:text-blue-400 mt-1">Tambah</span>
-												</button>
-												</div>
-											</div>
-
-											{/* Pelatih Section */}
-											<div className="mb-4">
-												<div className="mb-3">
-													<h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-														Pelatih ({team.pelatih.length} orang)
-													</h4>
-												</div>
-												<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-													{team.pelatih.map((member, idx) => (
-														<div
-															key={member.id}
-															className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 sm:p-3 relative group border border-green-200 dark:border-green-700"
-														>
-															<button
-																type="button"
-																onClick={() => removeMemberFromRole(team.id, "pelatih", member.id)}
-																className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-															>
-																×
-															</button>
-															<div className="flex justify-center mb-2">
-																<label className="relative cursor-pointer">
-																	<div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-green-300 dark:border-green-600 hover:border-green-500">
-																		{member.photoPreview ? (
-																			<img
-																				src={member.photoPreview}
-																				alt={member.name || `Pelatih ${idx + 1}`}
-																				className="w-full h-full object-cover"
-																			/>
-																		) : (
-																			<CameraIcon className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
-																		)}
-																	</div>
-																	<input
-																		type="file"
-																		accept="image/jpeg,image/png,image/jpg"
-																		onChange={(e) => {
-																			const file = e.target.files?.[0];
-																			if (file) handleMemberPhoto(team.id, "pelatih", member.id, file);
-																		}}
-																		className="hidden"
-																	/>
-																</label>
-															</div>
-															<input
-																type="text"
-																value={member.name}
-																onChange={(e) =>
-																	updateMember(team.id, "pelatih", member.id, "name", e.target.value)
-																}
-																placeholder={`Pelatih ${idx + 1}`}
-																className="w-full px-2 py-1 text-xs border border-green-300 dark:border-green-600 rounded bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white text-center"
-															/>
-														</div>
-													))}
-												<button
-													type="button"
-													onClick={() => addMemberToRole(team.id, "pelatih")}
-													className="flex flex-col items-center justify-center bg-green-50 dark:bg-green-900/10 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg p-2 sm:p-3 border-2 border-dashed border-green-300 dark:border-green-600 hover:border-green-500 transition-colors min-h-[90px]"
-												>
-													<PlusIcon className="w-5 h-5 text-green-400 hover:text-green-500" />
-													<span className="text-xs text-green-500 dark:text-green-400 mt-1">Tambah</span>
-												</button>
-												</div>
-											</div>
-
-											<div>
-												<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-													Catatan (Opsional)
-												</label>
-												<textarea
-													value={team.notes}
-													onChange={(e) => updateTeam(team.id, "notes", e.target.value)}
-													placeholder="Catatan tambahan untuk tim ini..."
-													rows={2}
-													className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
-												/>
-											</div>
-										</div>
+											team={team}
+											teamIndex={teamIndex}
+											canRemoveTeam={teams.length > 1}
+											schoolCategoryLimits={event.schoolCategoryLimits}
+											categoryUsage={categoryUsage}
+											onRemoveTeam={removeTeam}
+											onUpdateTeam={updateTeam}
+											onUpdateMember={updateMember}
+											onMemberPhoto={handleMemberPhoto}
+											onAddMember={addMemberToRole}
+											onRemoveMember={removeMemberFromRole}
+										/>
 									))}
 								</div>
 							</div>
@@ -1388,7 +1672,7 @@ const EventRegister: React.FC = () => {
 											Total Biaya:
 										</span>
 										<span className="font-bold text-red-600 dark:text-red-400">
-											{formatCurrency(getTotalFee())}
+											{formatCurrency(totalFee)}
 										</span>
 									</div>
 								</div>
@@ -1480,12 +1764,12 @@ const EventRegister: React.FC = () => {
 											<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
 											{uploadProgress
 												? `Mengupload ${uploadProgress.current}/${uploadProgress.total}...`
-												: "Mendaftar..."}
+												: submitStatus}
 										</>
 									) : (
 										<>
 											<CheckCircleIcon className="w-5 h-5 mr-2" />
-											Daftar Sekarang
+											{isReregisterMode ? "Simpan Daftar Ulang" : "Daftar Sekarang"}
 										</>
 									)}
 								</button>

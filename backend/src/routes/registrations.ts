@@ -172,6 +172,7 @@ router.get("/:id", authenticate, async (req: AuthenticatedRequest, res) => {
 	try {
 		const userId = req.user!.userId;
 		const { id } = req.params;
+		const includeCancelled = req.query.includeCancelled === "true";
 
 		const registration = await prisma.eventParticipation.findFirst({
 			where: {
@@ -189,10 +190,9 @@ router.get("/:id", authenticate, async (req: AuthenticatedRequest, res) => {
 					},
 				},
 				schoolCategory: true,
+				registrationPayment: true,
 				groups: {
-					where: {
-						status: "ACTIVE",
-					},
+					...(includeCancelled ? {} : { where: { status: "ACTIVE" } }),
 					orderBy: {
 						createdAt: "asc",
 					},
@@ -257,6 +257,7 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 			},
 			include: {
 				groups: true,
+				registrationPayment: true,
 			},
 		});
 
@@ -302,9 +303,13 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 		// Determine initial status based on whether event has fee and payment method
 		const hasFee = event.registrationFee && Number(event.registrationFee) > 0;
 		const chosenPaymentMethod = validatedData.paymentMethod || "MIDTRANS";
+		const existingPayment = existingRegistration?.registrationPayment;
+		const registrationFeeAlreadyPaid = existingPayment?.status === "PAID";
 		// MANUAL payment goes straight to REGISTERED (waiting panitia confirmation)
 		// MIDTRANS payment goes to PENDING_PAYMENT (waiting online payment)
-		const initialStatus = hasFee ? (chosenPaymentMethod === "MANUAL" ? "REGISTERED" : "PENDING_PAYMENT") : "REGISTERED";
+		const initialStatus = hasFee && !registrationFeeAlreadyPaid
+			? (chosenPaymentMethod === "MANUAL" ? "REGISTERED" : "PENDING_PAYMENT")
+			: "REGISTERED";
 
 		let registration;
 
@@ -386,7 +391,7 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 		}
 
 		// For manual payment, create a RegistrationPayment record with PENDING status
-		if (hasFee && chosenPaymentMethod === "MANUAL") {
+		if (hasFee && !registrationFeeAlreadyPaid && chosenPaymentMethod === "MANUAL") {
 			await prisma.registrationPayment.upsert({
 				where: { participationId: registration.id },
 				update: {
@@ -412,7 +417,7 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 					: "Registration saved. Please complete payment."
 				: "Registration successful",
 			registration,
-			paymentRequired: hasFee && chosenPaymentMethod !== "MANUAL",
+			paymentRequired: hasFee && !registrationFeeAlreadyPaid && chosenPaymentMethod !== "MANUAL",
 			paymentMethod: chosenPaymentMethod,
 		});
 	} catch (error) {
@@ -965,6 +970,171 @@ router.patch(
 		}
 	}
 );
+
+// PATCH /api/registrations/:id/restore - Restore a cancelled registration with its existing groups
+router.patch("/:id/restore", authenticate, async (req: AuthenticatedRequest, res) => {
+	try {
+		const userId = req.user!.userId;
+		const { id } = req.params;
+
+		const registration = await prisma.eventParticipation.findFirst({
+			where: {
+				id,
+				userId,
+			},
+			include: {
+				event: {
+					include: {
+						schoolCategoryLimits: {
+							include: {
+								schoolCategory: true,
+							},
+						},
+					},
+				},
+				groups: true,
+				registrationPayment: true,
+			},
+		});
+
+		if (!registration) {
+			return res.status(404).json({ error: "Registration not found" });
+		}
+
+		if (registration.status !== "CANCELLED") {
+			return res.status(400).json({ error: "Registration is not cancelled" });
+		}
+
+		if (registration.event.status !== "PUBLISHED") {
+			return res.status(400).json({ error: "Event is not open for registration" });
+		}
+
+		if (
+			registration.event.registrationDeadline &&
+			new Date() > registration.event.registrationDeadline
+		) {
+			return res.status(400).json({ error: "Registration deadline has passed" });
+		}
+
+		const groupsToRestore = registration.groups;
+
+		if (groupsToRestore.length === 0) {
+			return res.status(400).json({ error: "No team data to restore" });
+		}
+
+		const categoryUsage: Record<string, number> = {};
+		for (const group of groupsToRestore) {
+			categoryUsage[group.schoolCategoryId] =
+				(categoryUsage[group.schoolCategoryId] || 0) + 1;
+		}
+
+		for (const [categoryId, needed] of Object.entries(categoryUsage)) {
+			const limit = registration.event.schoolCategoryLimits.find(
+				(l: { schoolCategoryId: string }) => l.schoolCategoryId === categoryId
+			);
+
+			if (!limit) continue;
+
+			const taken = await prisma.participationGroup.count({
+				where: {
+					schoolCategoryId: categoryId,
+					participation: {
+						eventId: registration.eventId,
+						id: { not: registration.id },
+						status: { notIn: ["CANCELLED"] },
+					},
+					status: "ACTIVE",
+				},
+			});
+
+			if (taken + needed > limit.maxParticipants) {
+				return res.status(400).json({
+					error: `Kuota kategori ${limit.schoolCategory.name} sudah penuh. Sisa slot: ${Math.max(
+						0,
+						limit.maxParticipants - taken
+					)}`,
+				});
+			}
+		}
+
+		const hasFee =
+			registration.event.registrationFee &&
+			Number(registration.event.registrationFee) > 0;
+		const existingPayment = registration.registrationPayment;
+		const paymentMethod =
+			existingPayment?.paymentMethod === "MANUAL" ? "MANUAL" : "MIDTRANS";
+		const isPaid = existingPayment?.status === "PAID";
+		const restoredStatus =
+			hasFee && !isPaid
+				? paymentMethod === "MANUAL"
+					? "REGISTERED"
+					: "PENDING_PAYMENT"
+				: "REGISTERED";
+
+		await prisma.$transaction(async (tx) => {
+			await tx.participationGroup.updateMany({
+				where: {
+					participationId: registration.id,
+					status: "CANCELLED",
+				},
+				data: {
+					status: "ACTIVE",
+				},
+			});
+
+			await tx.eventParticipation.update({
+				where: { id: registration.id },
+				data: {
+					status: restoredStatus,
+				},
+			});
+
+			if (hasFee && !isPaid) {
+				await tx.registrationPayment.upsert({
+					where: { participationId: registration.id },
+					update: {
+						amount: Number(registration.event.registrationFee),
+						status: "PENDING",
+						paymentMethod,
+						midtransOrderId: paymentMethod === "MIDTRANS" ? null : undefined,
+						snapToken: paymentMethod === "MIDTRANS" ? null : undefined,
+					},
+					create: {
+						participationId: registration.id,
+						eventId: registration.eventId,
+						userId,
+						amount: Number(registration.event.registrationFee),
+						status: "PENDING",
+						paymentMethod,
+					},
+				});
+			}
+		});
+
+		const restoredRegistration = await prisma.eventParticipation.findUnique({
+			where: { id: registration.id },
+			include: {
+				event: true,
+				groups: {
+					include: {
+						schoolCategory: true,
+					},
+				},
+				registrationPayment: true,
+			},
+		});
+
+		res.json({
+			message: "Registration restored successfully",
+			registration: restoredRegistration,
+			paymentRequired: Boolean(hasFee && !isPaid && paymentMethod === "MIDTRANS"),
+			paymentMethod,
+		});
+	} catch (error) {
+		console.error("Error restoring registration:", error);
+		res.status(500).json({ error: "Failed to restore registration" });
+	}
+});
 
 // DELETE /api/registrations/:id - Cancel entire registration
 router.delete("/:id", authenticate, async (req: AuthenticatedRequest, res) => {

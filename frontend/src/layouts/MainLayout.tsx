@@ -27,7 +27,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 	const isIPhone = typeof navigator !== "undefined" && /iPhone|iPod/i.test(navigator.userAgent);
 
 	return (
-		<div className="h-screen w-screen overflow-hidden relative">
+		<div
+			className={`h-screen w-screen overflow-hidden relative ${
+				showNavbar && !isIPhone ? "has-mobile-bottom-nav" : ""
+			}`}
+		>
 			{/* Fixed background with grid + gradient (dark/light aware) */}
 			<div className="main-layout-bg" />
 			<div className="neon-red-lines" />
