@@ -23,6 +23,7 @@ export async function sendTicketEmail(params: {
 	city: string | null;
 	quantity: number;
 	totalAmount: number;
+	ticketDescription?: string | null;
 	qrImageBase64: string;
 	attendees?: { name: string; email: string; phone?: string | null; ticketCode: string; qrBase64?: string }[];
 }) {
@@ -84,6 +85,7 @@ export async function sendTicketEmail(params: {
             <tr><td style="padding:8px 16px;color:#6b7280;font-size:13px;">Lokasi</td><td style="padding:8px 16px;color:#111827;font-size:13px;font-weight:600;text-align:right;">${location}</td></tr>
             <tr><td style="padding:8px 16px;color:#6b7280;font-size:13px;">Jumlah Tiket</td><td style="padding:8px 16px;color:#111827;font-size:13px;font-weight:600;text-align:right;">${params.quantity} tiket</td></tr>
             <tr><td style="padding:8px 16px;color:#6b7280;font-size:13px;">Total</td><td style="padding:8px 16px;color:#111827;font-size:13px;font-weight:600;text-align:right;">${formattedAmount}</td></tr>
+            ${params.ticketDescription ? `<tr><td style="padding:8px 16px;color:#6b7280;font-size:13px;vertical-align:top;">Deskripsi Tiket</td><td style="padding:8px 16px;color:#111827;font-size:13px;font-weight:600;text-align:right;line-height:1.5;">${params.ticketDescription}</td></tr>` : ''}
           </table>
 
           ${params.attendees && params.attendees.length > 0 ? `
@@ -174,6 +176,7 @@ export async function sendTicketEmailFromServer(params: {
 	city: string | null;
 	quantity: number;
 	totalAmount: number;
+	ticketDescription?: string | null;
 	attendees?: { name: string; email: string; phone?: string | null; ticketCode: string }[];
 }) {
 	// Generate QR codes for each attendee

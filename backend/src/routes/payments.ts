@@ -150,7 +150,13 @@ async function handleTicketPayment(
 		where: { midtransOrderId },
 		include: {
 			event: {
-				select: { title: true, startDate: true, venue: true, city: true },
+				select: {
+					title: true,
+					startDate: true,
+					venue: true,
+					city: true,
+					ticketConfig: { select: { description: true } },
+				},
 			},
 			attendees: true,
 		},
@@ -197,6 +203,7 @@ async function handleTicketPayment(
 				city: ticket.event.city,
 				quantity: ticket.quantity,
 				totalAmount: ticket.totalAmount,
+				ticketDescription: ticket.event.ticketConfig?.description || null,
 				attendees: ticket.attendees.map((a) => ({
 					name: a.attendeeName,
 					email: a.attendeeEmail,

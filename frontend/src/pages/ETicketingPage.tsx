@@ -28,6 +28,7 @@ const ETicketingPage: React.FC = () => {
 		quantity: number;
 		totalAmount: number;
 		message: string;
+		ticketDescription?: string | null;
 		attendees?: { attendeeName: string; attendeeEmail: string; attendeePhone?: string | null; ticketCode: string }[];
 	} | null>(null);
 	const [activeAttendeeIdx, setActiveAttendeeIdx] = useState(0);
@@ -266,6 +267,7 @@ const ETicketingPage: React.FC = () => {
 							quantity: attendees.length,
 							totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
 							message: "Pembayaran berhasil! Tiket Anda sudah aktif. E-Ticket akan dikirim ke email Anda.",
+							ticketDescription: selectedEvent.ticketConfig?.description || null,
 							attendees: res.data.ticket.attendees || [],
 						});
 						// Email is sent automatically by the Midtrans payment webhook (sendTicketEmailFromServer)
@@ -301,6 +303,7 @@ const ETicketingPage: React.FC = () => {
 					quantity: attendees.length,
 					totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
 					message: res.data.message,
+					ticketDescription: selectedEvent.ticketConfig?.description || null,
 					attendees: res.data.ticket.attendees || [],
 				});
 				fetchEvents();
@@ -571,6 +574,14 @@ const ETicketingPage: React.FC = () => {
 												(selectedEvent.ticketConfig?.soldCount || 0)} tiket
 										</span>
 									</div>
+									{selectedEvent.ticketConfig?.description && (
+										<div className="pt-2 border-t border-gray-200/50 dark:border-white/[0.06]">
+											<span className="block text-gray-500 dark:text-gray-400 mb-1">Deskripsi Tiket</span>
+											<p className="text-gray-900 dark:text-white font-medium leading-relaxed whitespace-pre-line">
+												{selectedEvent.ticketConfig.description}
+											</p>
+										</div>
+									)}
 								</div>
 							</div>
 
@@ -876,6 +887,14 @@ const ETicketingPage: React.FC = () => {
 											: formatCurrency(ticketResult.totalAmount)}
 									</span>
 								</div>
+								{ticketResult.ticketDescription && (
+									<div className="pt-1.5 border-t border-gray-200/50 dark:border-white/[0.06]">
+										<span className="block text-gray-500 dark:text-gray-400 mb-1">Deskripsi Tiket</span>
+										<p className="text-gray-900 dark:text-white font-medium leading-relaxed whitespace-pre-line">
+											{ticketResult.ticketDescription}
+										</p>
+									</div>
+								)}
 							</div>
 
 							{ticketResult.attendees && ticketResult.attendees.length > 1 && (
@@ -936,6 +955,7 @@ const ETicketingPage: React.FC = () => {
 										...(activeAtt ? [["Email", activeAtt.attendeeEmail]] : []),
 										["Jumlah", `${ticketResult.quantity} tiket`],
 										["Total", ticketResult.totalAmount === 0 ? "GRATIS" : formatCurrency(ticketResult.totalAmount)],
+										...(ticketResult.ticketDescription ? [["Deskripsi", ticketResult.ticketDescription.slice(0, 80)]] : []),
 									];
 									const H = padding + 60 + 20 + qrSize + 30 + 40 + 30 + details.length * 40 + 40 + padding;
 									canvas.width = W;

@@ -34,7 +34,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
 			{/* ===== Top Header Bar ===== */}
 			{showNavbar && (
-				<header className="fixed top-0 left-0 md:left-[72px] right-0 h-14 z-40 flex items-center justify-between md:justify-end px-4 md:px-8">
+				<header className="absolute top-0 left-0 md:left-[72px] right-0 h-14 z-40 flex items-center justify-between md:justify-end px-4 md:px-8">
 					{/* Left: Logo + iPhone hamburger */}
 					<div className="flex md:hidden items-center gap-3">
 						{isIPhone ? (

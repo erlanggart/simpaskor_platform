@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LuArrowRight, LuThumbsUp, LuUser } from "react-icons/lu";
+import { LuArrowRight, LuCalendar, LuMapPin, LuThumbsUp } from "react-icons/lu";
 import { api } from "../../utils/api";
 import { config } from "../../utils/config";
 
@@ -10,6 +10,9 @@ interface VotingEventSummary {
 	slug: string | null;
 	thumbnail: string | null;
 	startDate: string;
+	location: string | null;
+	city: string | null;
+	venue: string | null;
 	votingConfig: {
 		isPaid: boolean;
 		pricePerVote: number;
@@ -18,13 +21,6 @@ interface VotingEventSummary {
 		categories: {
 			id: string;
 			title: string;
-			nominees?: {
-				id: string;
-				nomineeName: string;
-				nomineePhoto: string | null;
-				nomineeSubtitle: string | null;
-				voteCount: number;
-			}[];
 		}[];
 	} | null;
 }
@@ -37,25 +33,14 @@ const VotingSection: React.FC = () => {
 		const fetchVotingEvents = async () => {
 			try {
 				const res = await api.get("/voting/events", { params: { limit: 6 } });
-				const eventsData = res.data.data || [];
-				// Fetch detail for each event to get nominees
-				const detailed = await Promise.all(
-					eventsData.slice(0, 3).map(async (evt: any) => {
-						try {
-							const detail = await api.get(`/voting/events/${evt.id}`);
-							return detail.data;
-						} catch {
-							return evt;
-						}
-					})
-				);
-				setEvents(detailed);
+				setEvents((res.data.data || []).slice(0, 3));
 			} catch {
 				console.error("Failed to fetch voting events");
 			} finally {
 				setLoading(false);
 			}
 		};
+
 		fetchVotingEvents();
 	}, []);
 
@@ -65,28 +50,37 @@ const VotingSection: React.FC = () => {
 		return `${config.api.backendUrl}${imageUrl}`;
 	};
 
-	const isVotingOpen = (evt: VotingEventSummary): boolean => {
-		if (!evt.votingConfig) return false;
-		const now = new Date();
-		if (evt.votingConfig.startDate && new Date(evt.votingConfig.startDate) > now) return false;
-		if (evt.votingConfig.endDate && new Date(evt.votingConfig.endDate) < now) return false;
-		return true;
+	const formatShortDate = (date: string) => {
+		return new Date(date).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+		});
 	};
 
-	// Show the first event with nominees
-	const featuredEvent = events.find(
-		(e) => e.votingConfig?.categories?.some((c) => c.nominees && c.nominees.length > 0)
-	) || events[0];
+	const getVotingStatusBadge = (event: VotingEventSummary): { label: string; className: string } => {
+		if (!event.votingConfig) return { label: "Vote", className: "bg-red-500/85 text-white" };
+		const now = new Date();
+		if (event.votingConfig.startDate && new Date(event.votingConfig.startDate) > now) {
+			return { label: "Segera", className: "bg-orange-500/85 text-white" };
+		}
+		if (event.votingConfig.endDate && new Date(event.votingConfig.endDate) < now) {
+			return { label: "Selesai", className: "bg-gray-600/85 text-white" };
+		}
+		return { label: "Buka", className: "bg-emerald-500/85 text-white" };
+	};
 
-	const featuredCategory = featuredEvent?.votingConfig?.categories?.find(
-		(c) => c.nominees && c.nominees.length > 0
-	);
-
-	const topNominees = featuredCategory?.nominees?.slice(0, 6) || [];
+	const getVotingPriceLabel = (event: VotingEventSummary): string => {
+		if (!event.votingConfig) return "Voting";
+		if (!event.votingConfig.isPaid) return "Gratis Vote";
+		return `${new Intl.NumberFormat("id-ID", {
+			style: "currency",
+			currency: "IDR",
+			minimumFractionDigits: 0,
+		}).format(event.votingConfig.pricePerVote)}/vote`;
+	};
 
 	return (
 		<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
-			{/* Header */}
 			<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 lg:mb-8">
 				<div>
 					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-3">
@@ -127,99 +121,66 @@ const VotingSection: React.FC = () => {
 					</Link>
 				</div>
 			) : (
-				<>
-			{/* Featured Event */}
-			{featuredEvent && (
-				<div className="mb-6">
-					<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{featuredEvent.title}</h2>
-					{featuredCategory && (
-						<p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{featuredCategory.title}</p>
-					)}
-				</div>
-			)}
-
-			{/* Nominees Grid */}
-			{topNominees.length > 0 ? (
-				<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-					{topNominees.map((nominee, idx) => {
-						const maxVotes = topNominees[0]?.voteCount || 1;
-						const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+					{events.map((event) => {
+						const badge = getVotingStatusBadge(event);
 						return (
 							<Link
 								to="/e-voting"
-								key={nominee.id}
-								className="group bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] overflow-hidden hover:border-purple-300 dark:hover:border-purple-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/5"
+								key={event.id}
+								className="group overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-lg shadow-gray-200/80 transition-all duration-300 hover:-translate-y-1 hover:border-purple-400/30 hover:shadow-xl hover:shadow-purple-200/70 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-purple-500/20"
 							>
-								{/* Photo */}
-								<div className="aspect-[3/4] bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 flex items-center justify-center relative overflow-hidden">
-									{nominee.nomineePhoto ? (
+								<div className="relative aspect-[4/5] w-full bg-gradient-to-br from-purple-100 via-pink-50 to-red-100 overflow-hidden dark:from-purple-900/10 dark:via-pink-900/10 dark:to-red-900/10">
+									{event.thumbnail ? (
 										<img
-											src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
-											alt={nominee.nomineeName}
-											className="w-full h-full object-cover object-top"
+											src={getImageUrl(event.thumbnail)}
+											alt={event.title}
+											className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+											loading="lazy"
 										/>
 									) : (
-										<LuUser className="w-10 h-10 text-gray-400 dark:text-gray-500" />
-									)}
-									{idx < 3 && (
-										<div className={`absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
-											idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : "bg-amber-700"
-										}`}>
-											{idx + 1}
+										<div className="w-full h-full flex items-center justify-center">
+											<LuThumbsUp className="w-10 h-10 text-gray-400/50 dark:text-gray-600" />
 										</div>
 									)}
+									<div className="absolute top-3 left-3">
+										<span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm ${badge.className}`}>
+											{badge.label}
+										</span>
+									</div>
+									<div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 								</div>
 
-								{/* Info */}
-								<div className="p-3">
-									<h3 className="text-xs font-semibold text-gray-900 dark:text-white truncate">{nominee.nomineeName}</h3>
-									{nominee.nomineeSubtitle && (
-										<p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{nominee.nomineeSubtitle}</p>
-									)}
-									<div className="mt-2">
-										<div className="flex items-center justify-between text-[10px] mb-1">
-											<span className="text-gray-400 flex items-center gap-0.5"><LuThumbsUp className="w-2.5 h-2.5" /> Vote</span>
-											<span className="font-semibold text-purple-600 dark:text-purple-400">{nominee.voteCount}</span>
+								<div className="flex min-h-[150px] flex-col p-4">
+									<h3 className="text-base font-bold text-gray-900 dark:text-white leading-snug line-clamp-2 mb-3">
+										{event.title}
+									</h3>
+									<div className="space-y-1.5 text-gray-400 dark:text-gray-500">
+										<div className="flex items-center gap-2">
+											<LuCalendar className="w-4 h-4 flex-shrink-0" />
+											<span className="text-xs">{formatShortDate(event.startDate)}</span>
 										</div>
-										<div className="w-full bg-gray-100 dark:bg-white/[0.06] rounded-full h-1">
-											<div
-												className="h-1 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
-												style={{ width: `${pct}%` }}
-											/>
-										</div>
+										{(event.venue || event.city || event.location) && (
+											<div className="flex items-center gap-2">
+												<LuMapPin className="w-4 h-4 flex-shrink-0" />
+												<span className="text-xs line-clamp-1">{event.city || event.venue || event.location}</span>
+											</div>
+										)}
+									</div>
+									<div className="mt-auto pt-5 flex items-center justify-between gap-3">
+										<p className="text-lg font-black text-red-600 dark:text-red-400">
+											{getVotingPriceLabel(event)}
+										</p>
+										<span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
+											Detail
+											<LuArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+										</span>
 									</div>
 								</div>
 							</Link>
 						);
 					})}
 				</div>
-			) : (
-				<div className="text-center py-12">
-					<LuThumbsUp className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-					<p className="text-sm text-gray-500 dark:text-gray-400">Belum ada nominasi voting tersedia</p>
-					<Link
-						to="/e-voting"
-						className="inline-flex items-center gap-2 mt-4 text-sm text-purple-600 dark:text-purple-400 hover:underline"
-					>
-						Lihat halaman E-Voting <LuArrowRight className="w-3.5 h-3.5" />
-					</Link>
-				</div>
-			)}
-
-			{/* CTA */}
-			{featuredEvent && isVotingOpen(featuredEvent) && topNominees.length > 0 && (
-				<div className="mt-6 text-center">
-					<Link
-						to="/e-voting"
-						className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all duration-300 group"
-					>
-						<LuThumbsUp className="w-4 h-4" />
-						<span>Vote Sekarang</span>
-						<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-					</Link>
-				</div>
-			)}
-				</>
 			)}
 		</div>
 	);

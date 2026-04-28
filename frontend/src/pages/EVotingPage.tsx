@@ -4,7 +4,7 @@ import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
 import { VotingEvent, VotingNominee } from "../types/voting";
-import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuThumbsUp, LuCircleCheck } from "react-icons/lu";
+import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuThumbsUp, LuCircleCheck, LuCrown, LuMedal } from "react-icons/lu";
 import Swal from "sweetalert2";
 
 const EVotingPage: React.FC = () => {
@@ -334,6 +334,10 @@ const EVotingPage: React.FC = () => {
 	];
 
 	const currentCategory = selectedEvent?.votingConfig?.categories.find((c) => c.id === selectedCategoryId);
+	const sortedNominees = [...(currentCategory?.nominees || [])].sort((a, b) => b.voteCount - a.voteCount);
+	const podiumNominees = sortedNominees.slice(0, 3);
+	const remainingNominees = sortedNominees.slice(3);
+	const podiumOrder = podiumNominees;
 
 	// Event detail / voting view
 	if (selectedEvent) {
@@ -431,75 +435,96 @@ const EVotingPage: React.FC = () => {
 						</div>
 					)}
 
-					{/* Nominees grid */}
-					{currentCategory?.nominees && currentCategory.nominees.length > 0 ? (
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-							{currentCategory.nominees.map((nominee: VotingNominee, idx: number) => {
-								const isVoted = votedNominees.has(nominee.id);
-								const maxVotes = currentCategory.nominees?.[0]?.voteCount || 1;
-								const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
+					{/* Nominees podium */}
+					{sortedNominees.length > 0 ? (
+						<div className="space-y-8">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 md:items-end">
+								{podiumOrder.map((nominee) => {
+									const rank = sortedNominees.findIndex((item) => item.id === nominee.id) + 1;
+									const isVoted = votedNominees.has(nominee.id);
+									const maxVotes = sortedNominees[0]?.voteCount || 1;
+									const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
+									const isFirst = rank === 1;
+									const podiumClass =
+										rank === 1
+											? "md:order-2 md:-mt-8"
+											: rank === 2
+												? "md:order-1"
+												: "md:order-3";
+									const rankTheme =
+										rank === 1
+											? "from-yellow-400 via-amber-400 to-orange-500 text-yellow-950"
+											: rank === 2
+												? "from-slate-200 via-gray-300 to-slate-400 text-slate-800"
+												: "from-amber-700 via-orange-700 to-yellow-700 text-white";
 
-								return (
-									<div
-										key={nominee.id}
-											className={`bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border overflow-hidden transition-all ${
-												isVoted ? "border-red-500 ring-1 ring-red-500" : "border-gray-200/50 dark:border-white/[0.06]"
+									return (
+										<div
+											key={nominee.id}
+											className={`voting-podium-card ${podiumClass} ${isFirst ? "voting-podium-winner" : ""} ${
+												isVoted ? "ring-2 ring-green-400/70" : ""
 											}`}
 										>
-											{/* Photo */}
-											<div className="aspect-[3/4] bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10 flex items-center justify-center relative overflow-hidden">
-											{nominee.nomineePhoto ? (
-												<img src={nominee.nomineePhoto} alt={nominee.nomineeName} className="w-full h-full object-cover object-top" />
-											) : (
-													<LuUser className="w-16 h-16 text-gray-400 dark:text-gray-500" />
-											)}
-											{/* Rank badge */}
-											{idx < 3 && (
-												<div className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-													idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : "bg-amber-700"
-												}`}>
-													{idx + 1}
+											<div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${rankTheme}`} />
+											<div className="relative p-4">
+												<div className="flex items-center justify-between mb-3">
+													<div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r ${rankTheme} text-xs font-black shadow-lg`}>
+														{rank === 1 ? <LuCrown className="w-4 h-4" /> : <LuMedal className="w-4 h-4" />}
+														Juara {rank}
+													</div>
+													<span className="text-xs font-bold text-red-600 dark:text-red-400">{nominee.voteCount} vote</span>
 												</div>
-											)}
-										</div>
 
-										{/* Info */}
-										<div className="p-4">
-											<h3 className="font-semibold text-gray-900 dark:text-white truncate">{nominee.nomineeName}</h3>
-											{nominee.nomineeSubtitle && (
-												<p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{nominee.nomineeSubtitle}</p>
-											)}
-
-											{/* Vote count bar */}
-											<div className="mt-3 mb-3">
-												<div className="flex items-center justify-between text-xs mb-1">
-													<span className="text-gray-500 dark:text-gray-400">Vote</span>
-													<span className="font-semibold text-red-600 dark:text-red-400">{nominee.voteCount}</span>
+												<div className={`relative mx-auto overflow-hidden rounded-2xl border-4 ${
+													rank === 1 ? "h-64 border-yellow-300 shadow-yellow-300/30" : "h-56 border-white/70 dark:border-white/10"
+												} shadow-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10`}>
+													{nominee.nomineePhoto ? (
+														<img
+															src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
+															alt={nominee.nomineeName}
+															className="w-full h-full object-cover object-top"
+														/>
+													) : (
+														<div className="w-full h-full flex items-center justify-center">
+															<LuUser className="w-16 h-16 text-gray-400 dark:text-gray-500" />
+														</div>
+													)}
+													<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-4 pt-12">
+														<h3 className="text-white font-black text-lg leading-tight truncate">{nominee.nomineeName}</h3>
+														{nominee.nomineeSubtitle && (
+															<p className="text-white/75 text-xs truncate mt-0.5">{nominee.nomineeSubtitle}</p>
+														)}
+													</div>
 												</div>
-												<div className="w-full bg-gray-100 dark:bg-white/[0.06] rounded-full h-1.5">
-													<div
-														className="h-1.5 rounded-full bg-red-500 transition-all"
-														style={{ width: `${pct}%` }}
-													/>
-												</div>
-											</div>
 
-											{/* Vote button */}
-											<button
-												onClick={() => {
-													if (selectedEvent.votingConfig?.isPaid) {
-														handlePaidVote(currentCategory.id, nominee.id);
-													} else {
-														handleFreeVote(currentCategory.id, nominee.id);
-													}
-												}}
-												disabled={voting || isVoted || !isVotingOpen(selectedEvent)}
-												className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
-													isVoted
-														? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-														: !isVotingOpen(selectedEvent)
-															? "bg-gray-100 text-gray-400 dark:bg-white/[0.04] dark:text-gray-600 cursor-not-allowed"
-															: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+												<div className="mt-4">
+													<div className="h-2 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
+														<div
+															className={`h-full rounded-full bg-gradient-to-r ${rankTheme} transition-all duration-700`}
+															style={{ width: `${pct}%` }}
+														/>
+													</div>
+												</div>
+
+												<div className={`mt-4 rounded-t-xl bg-gradient-to-r ${rankTheme} ${isFirst ? "h-16" : "h-12"} flex items-center justify-center shadow-lg`}>
+													<span className="text-3xl font-black">#{rank}</span>
+												</div>
+
+												<button
+													onClick={() => {
+														if (selectedEvent.votingConfig?.isPaid) {
+															handlePaidVote(currentCategory!.id, nominee.id);
+														} else {
+															handleFreeVote(currentCategory!.id, nominee.id);
+														}
+													}}
+													disabled={voting || isVoted || !isVotingOpen(selectedEvent)}
+													className={`mt-4 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-colors ${
+														isVoted
+															? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+															: !isVotingOpen(selectedEvent)
+																? "bg-gray-100 text-gray-400 dark:bg-white/[0.04] dark:text-gray-600 cursor-not-allowed"
+																: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
 													}`}
 												>
 													{isVoted ? (
@@ -508,20 +533,96 @@ const EVotingPage: React.FC = () => {
 															Sudah Vote
 														</>
 													) : !isVotingOpen(selectedEvent) ? (
-														<>
-															{getVotingStatus(selectedEvent).color === "amber" ? "Belum Dibuka" : "Sudah Ditutup"}
-														</>
+														getVotingStatus(selectedEvent).color === "amber" ? "Belum Dibuka" : "Sudah Ditutup"
 													) : (
 														<>
 															<LuThumbsUp className="w-4 h-4" />
-														Vote
-													</>
-												)}
-											</button>
+															Vote
+														</>
+													)}
+												</button>
+											</div>
 										</div>
+									);
+								})}
+							</div>
+
+							{remainingNominees.length > 0 && (
+								<div>
+									<h3 className="text-sm font-bold uppercase tracking-[0.25em] text-gray-400 dark:text-gray-500 mb-4">Nominee Lainnya</h3>
+									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+										{remainingNominees.map((nominee, idx) => {
+											const rank = idx + 4;
+											const isVoted = votedNominees.has(nominee.id);
+											const maxVotes = sortedNominees[0]?.voteCount || 1;
+											const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
+
+											return (
+												<div
+													key={nominee.id}
+													className={`bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border overflow-hidden transition-all ${
+														isVoted ? "border-red-500 ring-1 ring-red-500" : "border-gray-200/50 dark:border-white/[0.06]"
+													}`}
+												>
+													<div className="flex gap-3 p-3">
+														<div className="relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10">
+															{nominee.nomineePhoto ? (
+																<img
+																	src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
+																	alt={nominee.nomineeName}
+																	className="w-full h-full object-cover object-top"
+																/>
+															) : (
+																<div className="w-full h-full flex items-center justify-center">
+																	<LuUser className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+																</div>
+															)}
+															<div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-gray-900/80 text-white text-[10px] font-bold">
+																#{rank}
+															</div>
+														</div>
+														<div className="min-w-0 flex-1">
+															<h4 className="font-semibold text-gray-900 dark:text-white truncate">{nominee.nomineeName}</h4>
+															{nominee.nomineeSubtitle && (
+																<p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{nominee.nomineeSubtitle}</p>
+															)}
+															<div className="mt-3 mb-3">
+																<div className="flex items-center justify-between text-xs mb-1">
+																	<span className="text-gray-500 dark:text-gray-400">Vote</span>
+																	<span className="font-semibold text-red-600 dark:text-red-400">{nominee.voteCount}</span>
+																</div>
+																<div className="w-full bg-gray-100 dark:bg-white/[0.06] rounded-full h-1.5">
+																	<div className="h-1.5 rounded-full bg-red-500 transition-all" style={{ width: `${pct}%` }} />
+																</div>
+															</div>
+															<button
+																onClick={() => {
+																	if (selectedEvent.votingConfig?.isPaid) {
+																		handlePaidVote(currentCategory!.id, nominee.id);
+																	} else {
+																		handleFreeVote(currentCategory!.id, nominee.id);
+																	}
+																}}
+																disabled={voting || isVoted || !isVotingOpen(selectedEvent)}
+																className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
+																	isVoted
+																		? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+																		: !isVotingOpen(selectedEvent)
+																			? "bg-gray-100 text-gray-400 dark:bg-white/[0.04] dark:text-gray-600 cursor-not-allowed"
+																			: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+																}`}
+															>
+																{isVoted ? <LuCircleCheck className="w-4 h-4" /> : <LuThumbsUp className="w-4 h-4" />}
+																{isVoted ? "Sudah Vote" : "Vote"}
+															</button>
+														</div>
+													</div>
+												</div>
+											);
+										})}
 									</div>
-								);
-							})}
+								</div>
+							)}
 						</div>
 					) : (
 						<div className="text-center py-12 text-gray-500 dark:text-gray-400">

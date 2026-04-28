@@ -275,7 +275,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			// Get ticket price after reservation is confirmed
 			const ticketConfig = await tx.eventTicketConfig.findUnique({
 				where: { eventId },
-				select: { price: true },
+				select: { price: true, description: true },
 			});
 
 			// Create purchase
@@ -323,7 +323,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 
 			// soldCount already incremented atomically above for both free and paid tickets
 
-			return { ...purchase, attendees: attendeeRecords };
+			return { ...purchase, attendees: attendeeRecords, ticketDescription: ticketConfig?.description || null };
 		});
 
 		// Generate Midtrans Snap token for paid tickets
@@ -372,6 +372,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					city: result.event?.city || null,
 					quantity: result.quantity,
 					totalAmount: 0,
+					ticketDescription: result.ticketDescription,
 					attendees: result.attendees.map((a: any) => ({
 						name: a.attendeeName,
 						email: a.attendeeEmail,
@@ -476,7 +477,13 @@ router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: 
 			where: { ticketCode },
 			include: {
 				event: {
-					select: { title: true, startDate: true, venue: true, city: true },
+					select: {
+						title: true,
+						startDate: true,
+						venue: true,
+						city: true,
+						ticketConfig: { select: { description: true } },
+					},
 				},
 				attendees: true,
 			},
@@ -496,6 +503,7 @@ router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: 
 			city: ticket.event.city,
 			quantity: ticket.quantity,
 			totalAmount: ticket.totalAmount,
+			ticketDescription: ticket.event.ticketConfig?.description || null,
 			attendees: ticket.attendees.map((a) => ({
 				name: a.attendeeName,
 				email: a.attendeeEmail,
@@ -1150,7 +1158,13 @@ router.post(
 				where: { id: req.params.purchaseId },
 				include: {
 					event: {
-						select: { title: true, startDate: true, venue: true, city: true },
+						select: {
+							title: true,
+							startDate: true,
+							venue: true,
+							city: true,
+							ticketConfig: { select: { description: true } },
+						},
 					},
 					attendees: true,
 				},
@@ -1180,6 +1194,7 @@ router.post(
 				city: purchase.event.city,
 				quantity: purchase.quantity,
 				totalAmount: purchase.totalAmount,
+				ticketDescription: purchase.event.ticketConfig?.description || null,
 				attendees: purchase.attendees.map((a) => ({
 					name: a.attendeeName,
 					email: a.attendeeEmail,
