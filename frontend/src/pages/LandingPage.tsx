@@ -42,6 +42,7 @@ const LandingPage: React.FC = () => {
 	const sectionRefs = useRef<(HTMLElement | null)[]>([]);
 	const { pinnedEvents, publicStats, juries, pelatih, klasemen, loading } = useLandingData();
 	const [selectedJuriId, setSelectedJuriId] = useState<string | null>(null);
+	const isIPhone = typeof navigator !== "undefined" && /iPhone|iPod/i.test(navigator.userAgent);
 
 	const scrollToSection = useCallback((index: number) => {
 		sectionRefs.current[index]?.scrollIntoView({ behavior: "smooth" });
@@ -293,7 +294,7 @@ const LandingPage: React.FC = () => {
 				href="https://wa.me/6285111209133?text=Halo%20Admin%20Simpaskor!%20Saya%20ingin%20bertanya%20mengenai%20layanan%20Simpaskor."
 				target="_blank"
 				rel="noopener noreferrer"
-				className="fixed right-6 md:bottom-6 z-50 w-14 h-14 rounded-full bg-[#25D366] text-white shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(37,211,102,0.5)] active:scale-95 wa-float-btn"
+				className={`fixed right-6 md:bottom-6 z-50 w-14 h-14 rounded-full bg-[#25D366] text-white shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(37,211,102,0.5)] active:scale-95 wa-float-btn${isIPhone ? " wa-float-btn--iphone" : ""}`}
 				aria-label="Hubungi Admin via WhatsApp"
 			>
 				<svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
