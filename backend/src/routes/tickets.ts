@@ -243,18 +243,18 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			// soldCount is reserved immediately for BOTH free and paid tickets.
 			// Failed/expired payments will release the reservation via webhook.
 			const reserved = await tx.$executeRaw`
-				UPDATE "EventTicketConfig"
-				SET "soldCount" = "soldCount" + ${quantity}
-				WHERE "eventId" = ${eventId}
+				UPDATE "event_ticket_configs"
+				SET "sold_count" = "sold_count" + ${quantity}
+				WHERE "event_id" = ${eventId}
 					AND "enabled" = true
-					AND "soldCount" + ${quantity} <= "quota"
+					AND "sold_count" + ${quantity} <= "quota"
 					AND (
-						"salesStartDate" IS NULL
-						OR "salesStartDate" <= NOW()
+						"sales_start_date" IS NULL
+						OR "sales_start_date" <= NOW()
 					)
 					AND (
-						"salesEndDate" IS NULL
-						OR "salesEndDate" >= NOW()
+						"sales_end_date" IS NULL
+						OR "sales_end_date" >= NOW()
 					)
 			`;
 
