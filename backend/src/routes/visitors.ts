@@ -19,13 +19,13 @@ router.post("/track", async (req: Request, res: Response) => {
 	try {
 		const today = getTodayDate();
 
-		await prisma.dailyVisitor.upsert({
+		const record = await prisma.dailyVisitor.upsert({
 			where: { date: today },
 			update: { count: { increment: 1 } },
 			create: { date: today, count: 1 },
 		});
 
-		res.json({ success: true });
+		res.json({ success: true, count: record.count });
 	} catch (error) {
 		console.error("Error tracking visitor:", error);
 		res.status(500).json({ error: "Gagal mencatat kunjungan" });

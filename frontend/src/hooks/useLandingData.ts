@@ -66,6 +66,8 @@ interface UseLandingDataReturn {
 	refetch: () => void;
 }
 
+let hasTrackedLandingVisit = false;
+
 export const useLandingData = (): UseLandingDataReturn => {
 	const [pinnedEvents, setPinnedEvents] = useState<PinnedEvent[]>([]);
 	const [events, setEvents] = useState<Event[]>([]);
@@ -101,8 +103,12 @@ export const useLandingData = (): UseLandingDataReturn => {
 				api.get("/visitors/today"),
 			]);
 
-			// Track visit
-			api.post("/visitors/track").catch(() => {});
+			let todayVisitors = visitorsRes.data.count || 0;
+			if (!hasTrackedLandingVisit) {
+				hasTrackedLandingVisit = true;
+				const trackRes = await api.post("/visitors/track").catch(() => null);
+				todayVisitors = trackRes?.data?.count || todayVisitors;
+			}
 
 			pinnedRes && setPinnedEvents(pinnedRes.data);
 			eventsRes && setEvents(eventsRes.data.data || eventsRes.data);
@@ -111,7 +117,7 @@ export const useLandingData = (): UseLandingDataReturn => {
 			statsRes && setPelatih(statsRes.data.pelatih || []);
 			setPublicStats({
 				...(statsRes.data.stats || { juriCount: 0, pesertaCount: 0, eventsCount: 0, availableEventsCount: 0, completedEventsCount: 0 }),
-				todayVisitors: visitorsRes.data.count || 0,
+				todayVisitors,
 			});
 			setKlasemen(klasemenRes.data || { year: new Date().getFullYear(), top5: [], full: [], totalEvents: 0 });
 			setError(null);
