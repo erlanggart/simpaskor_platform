@@ -59,7 +59,6 @@ const EventTicketing: React.FC = () => {
 	const [statusFilter, setStatusFilter] = useState("");
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
-	const [totalPurchases, setTotalPurchases] = useState(0);
 	const [paidUsedCount, setPaidUsedCount] = useState(0);
 
 	// Scanner state
@@ -255,7 +254,6 @@ const EventTicketing: React.FC = () => {
 			const res = await api.get(`/tickets/admin/event/${eventId}/purchases`, { params });
 			setPurchases(res.data.data);
 			setTotalPages(res.data.totalPages);
-			setTotalPurchases(res.data.total);
 			if (res.data.paidUsedCount !== undefined) setPaidUsedCount(res.data.paidUsedCount);
 		} catch {
 			console.error("Error fetching purchases");

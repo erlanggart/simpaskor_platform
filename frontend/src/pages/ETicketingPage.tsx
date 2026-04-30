@@ -208,11 +208,16 @@ const ETicketingPage: React.FC = () => {
 		}
 		// Validate all attendees
 		for (let i = 0; i < attendees.length; i++) {
-			if (!attendees[i].name.trim()) {
+			const attendee = attendees[i];
+			if (!attendee) {
+				continue;
+			}
+
+			if (!attendee.name.trim()) {
 				Swal.fire("Error", `Nama peserta tiket #${i + 1} wajib diisi`, "error");
 				return;
 			}
-			if (!attendees[i].email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(attendees[i].email)) {
+			if (!attendee.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(attendee.email)) {
 				Swal.fire("Error", `Email peserta tiket #${i + 1} tidak valid`, "error");
 				return;
 			}
@@ -670,9 +675,11 @@ const ETicketingPage: React.FC = () => {
 														type="text"
 														value={att.name}
 														onChange={(e) => {
-															const newAtt = [...attendees];
-															newAtt[idx] = { ...newAtt[idx], name: e.target.value };
-															setAttendees(newAtt);
+															setAttendees((prev) =>
+																prev.map((item, i) =>
+																	i === idx ? { ...item, name: e.target.value } : item
+																)
+															);
 														}}
 														className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 														placeholder="Nama *"
@@ -681,9 +688,11 @@ const ETicketingPage: React.FC = () => {
 														type="email"
 														value={att.email}
 														onChange={(e) => {
-															const newAtt = [...attendees];
-															newAtt[idx] = { ...newAtt[idx], email: e.target.value };
-															setAttendees(newAtt);
+															setAttendees((prev) =>
+																prev.map((item, i) =>
+																	i === idx ? { ...item, email: e.target.value } : item
+																)
+															);
 														}}
 														className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 														placeholder="Email *"
@@ -692,9 +701,11 @@ const ETicketingPage: React.FC = () => {
 													type="tel"
 													value={att.phone}
 													onChange={(e) => {
-														const newAtt = [...attendees];
-														newAtt[idx] = { ...newAtt[idx], phone: e.target.value };
-														setAttendees(newAtt);
+														setAttendees((prev) =>
+															prev.map((item, i) =>
+																i === idx ? { ...item, phone: e.target.value } : item
+															)
+														);
 													}}
 													className="px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
 													placeholder="No. HP"

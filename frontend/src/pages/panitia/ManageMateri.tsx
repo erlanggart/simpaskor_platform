@@ -757,8 +757,9 @@ const ManageMateri: React.FC = () => {
 
 					for (let i = 0; i < sc.maxOptions; i++) {
 						const cell = row.getCell(dataColIdx + i);
-						if (sortedOptions[i]) {
-							cell.value = sortedOptions[i].score;
+						const option = sortedOptions[i];
+						if (option) {
+							cell.value = option.score;
 							cell.font = { bold: true, size: 10 };
 						} else {
 							cell.value = materialSc ? "" : "—";
