@@ -43,9 +43,6 @@ const EventsAvailable: React.FC = () => {
 		return events.filter((event) => !activeRegisteredEventIds.has(event.id));
 	}, [events, activeRegisteredEventIds]);
 
-	const hiddenRegisteredCount = useMemo(() => {
-		return activeRegisteredEventIds.size;
-	}, [activeRegisteredEventIds]);
 
 	if (loading) {
 		return (
@@ -79,30 +76,21 @@ const EventsAvailable: React.FC = () => {
 
 	return (
 		<div className="min-h-screen transition-colors">
-			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			<div className="px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-6">
 					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">
 						EVENT PESERTA
 					</p>
 					<h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-1">
-						Event Belum Terdaftar
+						Event Tersedia
 					</h1>
 					<p className="text-sm text-gray-500 dark:text-gray-400">
-						Lihat seluruh event publik dan temukan event yang belum pernah Anda daftari.
+						Lihat seluruh event yang tersedia di Simpaskor
 					</p>
 				</div>
 
-				<div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/60 dark:border-white/[0.08] bg-white/70 dark:bg-white/[0.03] px-4 py-3 backdrop-blur-sm">
-					<span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300 px-3 py-1 text-xs font-semibold">
-						{availableEvents.length} event tersedia
-					</span>
-					{hiddenRegisteredCount > 0 && (
-						<span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 px-3 py-1 text-xs font-semibold">
-							{hiddenRegisteredCount} event disembunyikan karena sudah terdaftar
-						</span>
-					)}
-				</div>
+				
 
 				{availableEvents.length === 0 ? (
 					<div className="text-center py-16">

@@ -78,6 +78,7 @@ env (3)
 database/*.sql
 !database/init.sql
 database/*.dump
+database-server-download/
 
 # Root SQL files (jika ada)
 *.sql

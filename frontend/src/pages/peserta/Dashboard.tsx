@@ -1,297 +1,801 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../utils/api";
+import { config } from "../../utils/config";
 import { useAuth } from "../../hooks/useAuth";
-import { 
-	TrophyIcon, 
-	CalendarIcon, 
-	ChartBarIcon,
-	ArrowRightIcon,
-	ClipboardDocumentListIcon,
-	UserGroupIcon,
-	ExclamationTriangleIcon,
-} from "@heroicons/react/24/outline";
+import { Event, EventRegistration } from "../../types/landing";
+import { TicketPurchase } from "../../types/ticket";
+import { VotingEvent } from "../../types/voting";
+import {
+	LuCalendar,
+	LuChevronRight,
+	LuCircleAlert,
+	LuCircleCheck,
+	LuClock,
+	LuMapPin,
+	LuSearch,
+	LuTicket,
+	LuTrophy,
+	LuUser,
+	LuVote,
+	LuCircleX,
+} from "react-icons/lu";
 
-interface Statistics {
-	totalEvents: number;
-	eventsWithScores: number;
-	totalScore: number;
-	totalMaterialsEvaluated: number;
-	averageScore: number | null;
-}
+type SearchableEvent = {
+	event: Event;
+	registration?: EventRegistration;
+};
 
-interface RecentEvent {
-	id: string;
-	status: string;
-	event: {
-		id: string;
-		title: string;
-		slug: string;
-		startDate: string;
-		thumbnail: string | null;
+type BadgeMeta = {
+	label: string;
+	className: string;
+	icon: React.ReactNode;
+};
+
+const getImageUrl = (url?: string | null): string | null => {
+	if (!url) return null;
+	if (url.startsWith("http://") || url.startsWith("https://")) return url;
+	return `${config.api.backendUrl}${url}`;
+};
+
+const formatDate = (dateString?: string | null) => {
+	if (!dateString) return "-";
+	return new Date(dateString).toLocaleDateString("id-ID", {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+	});
+};
+
+const formatCurrentTime = (date: Date) => {
+	return date.toLocaleTimeString("id-ID", {
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	});
+};
+
+const formatCurrentDate = (date: Date) => {
+	return date.toLocaleDateString("id-ID", {
+		weekday: "short",
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+	});
+};
+
+const formatCurrency = (amount?: number | null) => {
+	if (!amount) return "Gratis";
+	return new Intl.NumberFormat("id-ID", {
+		style: "currency",
+		currency: "IDR",
+		minimumFractionDigits: 0,
+	}).format(amount);
+};
+
+const getEventPath = (event: Pick<Event, "id" | "slug">) =>
+	`/events/${event.slug || event.id}`;
+
+const getEventLocation = (
+	event?: Pick<Event, "venue" | "city" | "location"> | null
+) => event?.venue || event?.city || event?.location || "Lokasi belum tersedia";
+
+const isActiveRegistration = (status?: string) =>
+	status !== "CANCELLED" && status !== "REJECTED";
+
+const getRegistrationStatusMeta = (status?: string): BadgeMeta => {
+	switch (status) {
+		case "PENDING_PAYMENT":
+			return {
+				label: "Menunggu Pembayaran",
+				className:
+					"bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-500/20",
+				icon: <LuClock className="h-3.5 w-3.5" />,
+			};
+		case "REGISTERED":
+		case "PENDING":
+			return {
+				label: "Menunggu Persetujuan",
+				className:
+					"bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+				icon: <LuClock className="h-3.5 w-3.5" />,
+			};
+		case "CONFIRMED":
+		case "APPROVED":
+			return {
+				label: "Terdaftar",
+				className:
+					"bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+				icon: <LuCircleCheck className="h-3.5 w-3.5" />,
+			};
+		case "CANCELLED":
+			return {
+				label: "Dibatalkan",
+				className:
+					"bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
+				icon: <LuCircleX className="h-3.5 w-3.5" />,
+			};
+		case "REJECTED":
+			return {
+				label: "Ditolak",
+				className:
+					"bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
+				icon: <LuCircleX className="h-3.5 w-3.5" />,
+			};
+		default:
+			return {
+				label: "Terdaftar",
+				className:
+					"bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/[0.04] dark:text-gray-300 dark:border-white/10",
+				icon: <LuCircleCheck className="h-3.5 w-3.5" />,
+			};
+	}
+};
+
+const getTicketStatusMeta = (status: TicketPurchase["status"]): BadgeMeta => {
+	switch (status) {
+		case "PAID":
+			return {
+				label: "Dibayar",
+				className:
+					"bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+				icon: <LuCircleCheck className="h-3.5 w-3.5" />,
+			};
+		case "USED":
+			return {
+				label: "Sudah Dipakai",
+				className:
+					"bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
+				icon: <LuTicket className="h-3.5 w-3.5" />,
+			};
+		case "PENDING":
+			return {
+				label: "Menunggu Pembayaran",
+				className:
+					"bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+				icon: <LuClock className="h-3.5 w-3.5" />,
+			};
+		case "CANCELLED":
+			return {
+				label: "Dibatalkan",
+				className:
+					"bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
+				icon: <LuCircleX className="h-3.5 w-3.5" />,
+			};
+		case "EXPIRED":
+			return {
+				label: "Kedaluwarsa",
+				className:
+					"bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/[0.04] dark:text-gray-300 dark:border-white/10",
+				icon: <LuClock className="h-3.5 w-3.5" />,
+			};
+		default:
+			return {
+				label: status,
+				className:
+					"bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/[0.04] dark:text-gray-300 dark:border-white/10",
+				icon: <LuTicket className="h-3.5 w-3.5" />,
+			};
+	}
+};
+
+const getVotingStatusMeta = (event: VotingEvent): BadgeMeta => {
+	const now = new Date();
+	const startDate = event.votingConfig?.startDate
+		? new Date(event.votingConfig.startDate)
+		: null;
+	const endDate = event.votingConfig?.endDate
+		? new Date(event.votingConfig.endDate)
+		: null;
+
+	if (startDate && startDate > now) {
+		return {
+			label: "Akan Dibuka",
+			className:
+				"bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+			icon: <LuClock className="h-3.5 w-3.5" />,
+		};
+	}
+
+	if (endDate && endDate < now) {
+		return {
+			label: "Ditutup",
+			className:
+				"bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/[0.04] dark:text-gray-300 dark:border-white/10",
+			icon: <LuCircleX className="h-3.5 w-3.5" />,
+		};
+	}
+
+	return {
+		label: "Voting Dibuka",
+		className:
+			"bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+		icon: <LuVote className="h-3.5 w-3.5" />,
 	};
-}
+};
+
+const StatusBadge: React.FC<{ meta: BadgeMeta }> = ({ meta }) => (
+	<span
+		className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold ${meta.className}`}
+	>
+		{meta.icon}
+		{meta.label}
+	</span>
+);
+
+const EventThumb: React.FC<{
+	src?: string | null;
+	alt: string;
+	className?: string;
+}> = ({ src, alt, className = "h-14 w-14" }) => {
+	const imageUrl = getImageUrl(src);
+
+	return (
+		<div
+			className={`${className} flex flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-300`}
+		>
+			{imageUrl ? (
+				<img src={imageUrl} alt={alt} className="h-full w-full object-cover" />
+			) : (
+				<LuCalendar className="h-5 w-5" />
+			)}
+		</div>
+	);
+};
+
+const EmptyState: React.FC<{
+	icon: React.ReactNode;
+	title: string;
+	action?: React.ReactNode;
+}> = ({ icon, title, action }) => (
+	<div className="rounded-lg border border-dashed border-gray-200 bg-white/50 px-4 py-6 text-center dark:border-white/10 dark:bg-white/[0.02]">
+		<div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-400 dark:bg-white/[0.05]">
+			{icon}
+		</div>
+		<p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+			{title}
+		</p>
+		{action && <div className="mt-4">{action}</div>}
+	</div>
+);
 
 const PesertaDashboard: React.FC = () => {
 	const { user } = useAuth();
-	const [statistics, setStatistics] = useState<Statistics | null>(null);
-	const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
+	const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
+	const [events, setEvents] = useState<Event[]>([]);
+	const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
+	const [tickets, setTickets] = useState<TicketPurchase[]>([]);
+	const [votingEvents, setVotingEvents] = useState<VotingEvent[]>([]);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [currentTime, setCurrentTime] = useState(new Date());
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		fetchData();
+		fetchDashboardData();
 	}, []);
 
-	const fetchData = async () => {
+	useEffect(() => {
+		const timer = window.setInterval(() => {
+			setCurrentTime(new Date());
+		}, 30000);
+
+		return () => window.clearInterval(timer);
+	}, []);
+
+	const fetchDashboardData = async () => {
 		try {
 			setLoading(true);
-			const [statsRes, eventsRes] = await Promise.all([
-				api.get("/evaluations/my-statistics"),
-				api.get("/evaluations/my-events"),
+			const [
+				registrationsRes,
+				eventsRes,
+				featuredRes,
+				ticketsRes,
+				votingRes,
+			] = await Promise.all([
+				api.get("/registrations/my"),
+				api.get("/events?limit=100"),
+				api.get("/events/featured?limit=8"),
+				api.get("/tickets/my"),
+				api.get("/voting/events", { params: { limit: 50 } }),
 			]);
-			setStatistics(statsRes.data);
-			setRecentEvents(eventsRes.data?.slice(0, 3) || []);
+
+			setRegistrations(registrationsRes.data || []);
+			setEvents(eventsRes.data?.data || eventsRes.data || []);
+			setFeaturedEvents(featuredRes.data || []);
+			setTickets(ticketsRes.data || []);
+			setVotingEvents(votingRes.data?.data || votingRes.data || []);
 		} catch (error) {
-			console.error("Error fetching data:", error);
+			console.error("Error fetching peserta dashboard data:", error);
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString("id-ID", {
-			day: "numeric",
-			month: "short",
-			year: "numeric",
+	const registrationByEventId = useMemo(() => {
+		return new Map(
+			registrations.map((registration) => [registration.eventId, registration])
+		);
+	}, [registrations]);
+
+	const searchableEvents = useMemo(() => {
+		const eventMap = new Map<string, SearchableEvent>();
+
+		events.forEach((event) => {
+			eventMap.set(event.id, {
+				event,
+				registration: registrationByEventId.get(event.id),
+			});
 		});
-	};
+
+		registrations.forEach((registration) => {
+			if (registration.event) {
+				eventMap.set(registration.event.id, {
+					event: registration.event,
+					registration,
+				});
+			}
+		});
+
+		return Array.from(eventMap.values());
+	}, [events, registrationByEventId, registrations]);
+
+	const searchResults = useMemo(() => {
+		const query = searchQuery.trim().toLowerCase();
+		if (!query) return [];
+
+		return searchableEvents
+			.filter(({ event }) => {
+				const haystack = [
+					event.title,
+					event.category,
+					event.level,
+					event.location,
+					event.city,
+					event.province,
+					event.organizer,
+				]
+					.filter(Boolean)
+					.join(" ")
+					.toLowerCase();
+
+				return haystack.includes(query);
+			})
+			.sort((a, b) => {
+				const aRegistered = a.registration && isActiveRegistration(a.registration.status);
+				const bRegistered = b.registration && isActiveRegistration(b.registration.status);
+				if (aRegistered !== bRegistered) return aRegistered ? -1 : 1;
+				return (
+					new Date(a.event.startDate).getTime() -
+					new Date(b.event.startDate).getTime()
+				);
+			})
+			.slice(0, 6);
+	}, [searchQuery, searchableEvents]);
+
+	const latestRegistrations = useMemo(
+		() => registrations.slice(0, 7),
+		[registrations]
+	);
+
+	const latestTickets = useMemo(() => tickets.slice(0, 7), [tickets]);
+
+	const participantVotingEvents = useMemo(() => {
+		const activeEventIds = new Set(
+			registrations
+				.filter((registration) => isActiveRegistration(registration.status))
+				.map((registration) => registration.eventId)
+		);
+		const now = new Date();
+
+		return votingEvents
+			.filter((event) => {
+				const endDate = event.votingConfig?.endDate
+					? new Date(event.votingConfig.endDate)
+					: null;
+
+				return (
+					activeEventIds.has(event.id) &&
+					event.votingConfig?.enabled &&
+					(!endDate || endDate >= now)
+				);
+			})
+			.slice(0, 3);
+	}, [registrations, votingEvents]);
+
+	const avatarUrl = getImageUrl(user?.profile?.avatar);
+	const displayName = user?.name || "Peserta";
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-64">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+			<div className="flex min-h-[60vh] items-center justify-center">
+				<div className="h-10 w-10 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Header */}
-				<div className="mb-8">
-					<h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-						Dashboard Peserta
-					</h1>
-					<p className="text-gray-600 dark:text-gray-400">
-						Selamat datang! Lihat ringkasan aktivitas dan penilaian Anda
-					</p>
-				</div>
+		<div className="min-h-screen ">
+			<div className=" px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+				<header className="mb-5 flex items-center justify-between gap-4">
+					<div className="flex min-w-0 items-center gap-3">
+						<div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-300">
+							{avatarUrl ? (
+								<img
+									src={avatarUrl}
+									alt={displayName}
+									className="h-full w-full object-cover"
+								/>
+							) : (
+								<LuUser className="h-6 w-6" />
+							)}
+						</div>
+						<div className="min-w-0">
+							<p className="text-sm text-gray-500 dark:text-gray-400">
+								Selamat datang
+							</p>
+							<h1 className="truncate text-xl font-bold text-gray-950 dark:text-white sm:text-2xl">
+								{displayName}
+							</h1>
+						</div>
+					</div>
+					<div className="flex-shrink-0 text-right">
+						<p className="text-lg font-bold leading-none text-gray-950 dark:text-white">
+							{formatCurrentTime(currentTime)}
+						</p>
+						<p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+							{formatCurrentDate(currentTime)}
+						</p>
+					</div>
+				</header>
 
-				{/* Unverified Account Banner */}
+				<section className="mb-7">
+					<div className="relative">
+						<LuSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+						<input
+							type="search"
+							value={searchQuery}
+							onChange={(event) => setSearchQuery(event.target.value)}
+							placeholder="Cari event"
+							className="h-12 w-full rounded-lg border border-gray-200 bg-white pl-11 pr-4 text-sm font-medium text-gray-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-gray-500"
+						/>
+					</div>
+
+					{searchQuery.trim() && (
+						<div className="mt-3 space-y-2">
+							{searchResults.length > 0 ? (
+								searchResults.map(({ event, registration }) => {
+									const isRegistered =
+										registration && isActiveRegistration(registration.status);
+
+									return (
+										<Link
+											key={event.id}
+											to={getEventPath(event)}
+											className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 transition hover:border-red-200 hover:bg-red-50/40 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+										>
+											<EventThumb
+												src={event.thumbnail}
+												alt={event.title}
+												className="h-12 w-12"
+											/>
+											<div className="min-w-0 flex-1">
+												<p className="truncate text-sm font-semibold text-gray-950 dark:text-white">
+													{event.title}
+												</p>
+												<p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+													{getEventLocation(event)}
+												</p>
+											</div>
+											<span
+												className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${
+													isRegistered
+														? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
+														: "border-gray-200 bg-gray-50 text-gray-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-300"
+												}`}
+											>
+												{isRegistered ? "Terdaftar" : "Belum Terdaftar"}
+											</span>
+										</Link>
+									);
+								})
+							) : (
+								<EmptyState
+									icon={<LuSearch className="h-5 w-5" />}
+									title="Event tidak ditemukan"
+								/>
+							)}
+						</div>
+					)}
+
+					<div className="mt-5 flex items-center justify-between gap-3">
+						<div>
+							<h2 className="text-base font-bold text-gray-950 dark:text-white">
+								Event Unggulan Simpaskor
+							</h2>
+							<p className="text-xs text-gray-500 dark:text-gray-400">
+								Rekomendasi event pilihan
+							</p>
+						</div>
+						<Link
+							to="/peserta/events"
+							className="inline-flex flex-shrink-0 items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700 dark:text-red-400"
+						>
+							Event
+							<LuChevronRight className="h-4 w-4" />
+						</Link>
+					</div>
+
+					{featuredEvents.length > 0 ? (
+						<div className="-mx-4 mt-3 overflow-x-auto px-4 pb-2">
+							<div className="flex gap-3">
+								{featuredEvents.map((event) => (
+									<Link
+										key={event.id}
+										to={getEventPath(event)}
+										className="w-40 flex-none overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:border-red-200 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-red-500/30 sm:w-40"
+									>
+										<div className="relative aspect-[2/3] bg-red-50 dark:bg-red-500/10">
+											{event.thumbnail ? (
+												<img
+													src={getImageUrl(event.thumbnail) || ""}
+													alt={event.title}
+													className="h-full w-full object-cover"
+												/>
+											) : (
+												<div className="flex h-full items-center justify-center text-red-500 dark:text-red-300">
+													<LuTrophy className="h-8 w-8" />
+												</div>
+											)}
+											<span className="absolute left-2 top-2 rounded-lg bg-amber-500 px-2 py-1 text-[11px] font-bold text-white">
+												Unggulan
+											</span>
+										</div>
+										<div className="p-3">
+											<h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold text-gray-950 dark:text-white">
+												{event.title}
+											</h3>
+											<div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+												<LuCalendar className="h-3.5 w-3.5 flex-shrink-0" />
+												<span>{formatDate(event.startDate)}</span>
+											</div>
+											<div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+												<LuMapPin className="h-3.5 w-3.5 flex-shrink-0" />
+												<span className="truncate">{getEventLocation(event)}</span>
+											</div>
+										</div>
+									</Link>
+								))}
+							</div>
+						</div>
+					) : (
+						<EmptyState
+							icon={<LuTrophy className="h-5 w-5" />}
+							title="Belum ada event unggulan"
+						/>
+					)}
+				</section>
+
 				{user && (user.status === "PENDING" || !user.emailVerified) && (
-					<div className="mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-4">
+					<div className="mb-7 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
 						<div className="flex items-start gap-3">
-							<ExclamationTriangleIcon className="h-6 w-6 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+							<LuCircleAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-300" />
 							<div>
-								<h3 className="font-semibold text-amber-800 dark:text-amber-300">
+								<h2 className="text-sm font-bold text-amber-800 dark:text-amber-200">
 									Akun Belum Diverifikasi
-								</h3>
-								<p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-									Akun Anda masih berstatus <span className="font-medium">Pending</span>. 
-									Hubungi admin atau panitia event untuk verifikasi akun Anda agar dapat mengikuti event dan mendapatkan penilaian.
+								</h2>
+								<p className="mt-1 text-sm text-amber-700 dark:text-amber-200/80">
+									Hubungi admin atau panitia event untuk verifikasi akun Anda.
 								</p>
 							</div>
 						</div>
 					</div>
 				)}
 
-				{/* Statistics Cards */}
-				<div className="mb-8">
-					<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-						Statistik Penilaian
-					</h2>
-					<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-4">
-							<div className="flex items-center gap-3">
-								<div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-									<CalendarIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-								</div>
-								<div>
-									<div className="text-2xl font-bold text-gray-900 dark:text-white">
-										{statistics?.totalEvents || 0}
-									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
-										Event Diikuti
-									</div>
-								</div>
-							</div>
+				<section className="mb-7">
+					<div className="mb-3 flex items-center justify-between gap-3">
+						<div>
+							<h2 className="text-base font-bold text-gray-950 dark:text-white">
+								Pendaftaran Terbaru
+							</h2>
+							<p className="text-xs text-gray-500 dark:text-gray-400">
+								Pendaftaran event terbaru yang Anda ikuti
+							</p>
 						</div>
-						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-4">
-							<div className="flex items-center gap-3">
-								<div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-									<TrophyIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
-								</div>
-								<div>
-									<div className="text-2xl font-bold text-gray-900 dark:text-white">
-										{statistics?.eventsWithScores || 0}
-									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
-										Sudah Dinilai
-									</div>
-								</div>
-							</div>
-						</div>
-						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-4">
-							<div className="flex items-center gap-3">
-								<div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-									<ChartBarIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-								</div>
-								<div>
-									<div className="text-2xl font-bold text-gray-900 dark:text-white">
-										{statistics?.totalScore?.toFixed(1) || "0"}
-									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
-										Total Nilai
-									</div>
-								</div>
-							</div>
-						</div>
-						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-4">
-							<div className="flex items-center gap-3">
-								<div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-									<TrophyIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-								</div>
-								<div>
-									<div className="text-2xl font-bold text-gray-900 dark:text-white">
-										{statistics?.averageScore?.toFixed(2) || "-"}
-									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400">
-										Rata-rata
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				{/* Quick Links */}
-				<div className="mb-8">
-					<h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-						Menu Cepat
-					</h2>
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-						<Link
-							to="/peserta/events"
-							className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md p-6 text-white hover:from-blue-600 hover:to-blue-700 transition-all"
-						>
-							<div className="flex items-center gap-4">
-								<div className="p-3 bg-white/20 rounded-xl">
-									<CalendarIcon className="h-8 w-8" />
-								</div>
-								<div>
-									<h3 className="font-semibold text-lg">Event Tersedia</h3>
-									<p className="text-blue-100 text-sm">Cari dan daftar event baru</p>
-								</div>
-							</div>
-						</Link>
 						<Link
 							to="/peserta/registrations"
-							className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-6 text-white hover:from-green-600 hover:to-green-700 transition-all"
+							className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-700"
 						>
-							<div className="flex items-center gap-4">
-								<div className="p-3 bg-white/20 rounded-xl">
-									<ClipboardDocumentListIcon className="h-8 w-8" />
-								</div>
-								<div>
-									<h3 className="font-semibold text-lg">Pendaftaran Saya</h3>
-									<p className="text-green-100 text-sm">Lihat status pendaftaran</p>
-								</div>
-							</div>
-						</Link>
-						<Link
-							to="/peserta/assessment-history"
-							className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-md p-6 text-white hover:from-purple-600 hover:to-purple-700 transition-all"
-						>
-							<div className="flex items-center gap-4">
-								<div className="p-3 bg-white/20 rounded-xl">
-									<ChartBarIcon className="h-8 w-8" />
-								</div>
-								<div>
-									<h3 className="font-semibold text-lg">Riwayat Penilaian</h3>
-									<p className="text-purple-100 text-sm">Lihat nilai dari juri</p>
-								</div>
-							</div>
+							Lihat Lainnya
+							<LuChevronRight className="h-4 w-4" />
 						</Link>
 					</div>
-				</div>
 
-				{/* Recent Events */}
-				{recentEvents.length > 0 && (
-					<div>
-						<div className="flex items-center justify-between mb-4">
-							<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-								Event Terakhir Diikuti
-							</h2>
-							<Link
-								to="/peserta/assessment-history"
-								className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 flex items-center gap-1"
-							>
-								Lihat Semua
-								<ArrowRightIcon className="h-4 w-4" />
-							</Link>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-							{recentEvents.map((participation) => (
+					{latestRegistrations.length > 0 ? (
+						<div className="space-y-3">
+							{latestRegistrations.map((registration) => (
 								<Link
-									key={participation.id}
-									to={`/peserta/assessment-history/${participation.event.slug}`}
-									className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+									key={registration.id}
+									to="/peserta/registrations"
+									className="flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-red-200 hover:bg-red-50/30 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
 								>
-									<div className="h-32 bg-gray-200 dark:bg-gray-700">
-										{participation.event.thumbnail ? (
-											<img
-												src={participation.event.thumbnail}
-												alt={participation.event.title}
-												className="w-full h-full object-cover"
-											/>
-										) : (
-											<div className="w-full h-full flex items-center justify-center">
-												<UserGroupIcon className="h-12 w-12 text-gray-400" />
+									<EventThumb
+										src={registration.event?.thumbnail}
+										alt={registration.event?.title || "Event"}
+										className="h-16 w-16"
+									/>
+									<div className="min-w-0 flex-1">
+										<div className="flex min-w-0 items-start justify-between gap-2">
+											<div className="min-w-0">
+												<h3 className="line-clamp-2 text-sm font-bold text-gray-950 dark:text-white">
+													{registration.event?.title || "Event"}
+												</h3>
+												<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+													{formatDate(registration.event?.startDate)}
+												</p>
 											</div>
-										)}
-									</div>
-									<div className="p-4">
-										<h3 className="font-medium text-gray-900 dark:text-white line-clamp-1">
-											{participation.event.title}
-										</h3>
-										<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-											{formatDate(participation.event.startDate)}
-										</p>
+											<LuChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+										</div>
+										<div className="mt-3">
+											<StatusBadge
+												meta={getRegistrationStatusMeta(registration.status)}
+											/>
+										</div>
 									</div>
 								</Link>
 							))}
 						</div>
-					</div>
-				)}
+					) : (
+						<EmptyState
+							icon={<LuCalendar className="h-5 w-5" />}
+							title="Belum ada pendaftaran"
+							action={
+								<Link
+									to="/peserta/events"
+									className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+								>
+									Cari Event
+								</Link>
+							}
+						/>
+					)}
+				</section>
 
-				{/* Empty State */}
-				{!statistics?.totalEvents && (
-					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-8 text-center">
-						<UserGroupIcon className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-						<h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-							Belum Ada Event
-						</h3>
-						<p className="text-gray-500 dark:text-gray-400 mb-6">
-							Anda belum terdaftar di event manapun. Mulai dengan mencari event yang tersedia.
-						</p>
+				<section className="mb-7">
+					<div className="mb-3 flex items-center justify-between gap-3">
+						<div>
+							<h2 className="text-base font-bold text-gray-950 dark:text-white">
+								Pembelian Ticket
+							</h2>
+							<p className="text-xs text-gray-500 dark:text-gray-400">
+								Ticket event yang baru saja Anda beli
+							</p>
+						</div>
 						<Link
-							to="/peserta/events"
-							className="inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+							to="/e-ticketing"
+							className="inline-flex flex-shrink-0 items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700 dark:text-red-400"
 						>
-							<CalendarIcon className="h-5 w-5 mr-2" />
-							Cari Event
+							Ticket
+							<LuChevronRight className="h-4 w-4" />
 						</Link>
 					</div>
+
+					{latestTickets.length > 0 ? (
+						<div className="space-y-3">
+							{latestTickets.map((ticket) => (
+								<Link
+									key={ticket.id}
+									to="/e-ticketing"
+									className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-red-200 hover:bg-red-50/30 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+								>
+									<div className="flex gap-3">
+										<EventThumb
+											src={ticket.event?.thumbnail}
+											alt={ticket.event?.title || "Ticket"}
+											className="h-16 w-16"
+										/>
+										<div className="min-w-0 flex-1">
+											<div className="flex min-w-0 items-start justify-between gap-2">
+												<div className="min-w-0">
+													<h3 className="line-clamp-2 text-sm font-bold text-gray-950 dark:text-white">
+														{ticket.event?.title || "Event Ticket"}
+													</h3>
+													<p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+														{ticket.quantity} tiket · {formatCurrency(ticket.totalAmount)}
+													</p>
+												</div>
+												<LuChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+											</div>
+											<div className="mt-3 flex flex-wrap items-center gap-2">
+												<StatusBadge meta={getTicketStatusMeta(ticket.status)} />
+												<span className="rounded-lg bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">
+													{ticket.ticketCode}
+												</span>
+											</div>
+										</div>
+									</div>
+								</Link>
+							))}
+						</div>
+					) : (
+						<EmptyState
+							icon={<LuTicket className="h-5 w-5" />}
+							title="Belum ada pembelian ticket"
+							action={
+								<Link
+									to="/e-ticketing"
+									className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+								>
+									Cari Ticket
+								</Link>
+							}
+						/>
+					)}
+				</section>
+
+				{participantVotingEvents.length > 0 && (
+					<section className="mb-7">
+						<div className="mb-3 flex items-center justify-between gap-3">
+							<div>
+								<h2 className="text-base font-bold text-gray-950 dark:text-white">
+									E-Voting Event Anda
+								</h2>
+								<p className="text-xs text-gray-500 dark:text-gray-400">
+									Event yang sedang membuka voting
+								</p>
+							</div>
+							<Link
+								to="/e-voting"
+								className="inline-flex flex-shrink-0 items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700 dark:text-red-400"
+							>
+								Voting
+								<LuChevronRight className="h-4 w-4" />
+							</Link>
+						</div>
+
+						<div className="space-y-3">
+							{participantVotingEvents.map((event) => {
+								const categoryCount =
+									event.votingConfig?.categories?.length || 0;
+
+								return (
+									<Link
+										key={event.id}
+										to="/e-voting"
+										className="flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-red-200 hover:bg-red-50/30 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+									>
+										<EventThumb
+											src={event.thumbnail}
+											alt={event.title}
+											className="h-16 w-16"
+										/>
+										<div className="min-w-0 flex-1">
+											<div className="flex min-w-0 items-start justify-between gap-2">
+												<div className="min-w-0">
+													<h3 className="line-clamp-2 text-sm font-bold text-gray-950 dark:text-white">
+														{event.title}
+													</h3>
+													<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+														{categoryCount} kategori voting
+													</p>
+												</div>
+												<LuChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+											</div>
+											<div className="mt-3 flex flex-wrap items-center gap-2">
+												<StatusBadge meta={getVotingStatusMeta(event)} />
+												<span className="rounded-lg bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">
+													{event.votingConfig?.isPaid
+														? `${formatCurrency(
+																event.votingConfig.pricePerVote
+														  )}/vote`
+														: "Gratis"}
+												</span>
+											</div>
+										</div>
+									</Link>
+								);
+							})}
+						</div>
+					</section>
 				)}
 			</div>
 		</div>
