@@ -22,6 +22,50 @@ interface DbInfo {
 	tables: TableInfo[];
 }
 
+interface BackupJob {
+	id: string;
+	status: "running" | "completed" | "failed";
+	filename: string;
+	createdAt: string;
+	updatedAt: string;
+	finishedAt?: string;
+	sizeBytes?: number;
+	error?: string;
+}
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const formatBytes = (bytes?: number): string => {
+	if (!bytes) {
+		return "0 B";
+	}
+
+	const units = ["B", "KB", "MB", "GB", "TB"];
+	const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+	const value = bytes / Math.pow(1024, index);
+	return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
+const getErrorMessage = async (err: any, fallback: string): Promise<string> => {
+	const data = err.response?.data;
+
+	if (data instanceof Blob) {
+		try {
+			const text = await data.text();
+			const parsed = JSON.parse(text);
+			return parsed.error || parsed.message || fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	if (err instanceof Error && err.message) {
+		return err.message;
+	}
+
+	return data?.error || data?.message || fallback;
+};
+
 const Backup = () => {
 	const [dbInfo, setDbInfo] = useState<DbInfo | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -47,23 +91,65 @@ const Backup = () => {
 	const handleDownload = async () => {
 		try {
 			setDownloading(true);
-			const res = await api.get("/backup/download", { responseType: "blob" });
 
-			const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-			const filename = `backup_simpaskor_${timestamp}.sql`;
+			Swal.fire({
+				title: "Membuat backup",
+				html: `<div class="text-sm text-gray-600">Menyiapkan job backup...</div>`,
+				allowOutsideClick: false,
+				allowEscapeKey: false,
+				showConfirmButton: false,
+				didOpen: () => Swal.showLoading(),
+			});
+
+			let job: BackupJob;
+			try {
+				const startRes = await api.post("/backup/jobs");
+				job = startRes.data.job;
+			} catch (err: any) {
+				if (err.response?.status === 409 && err.response?.data?.job) {
+					job = err.response.data.job;
+				} else {
+					throw err;
+				}
+			}
+
+			while (job.status === "running") {
+				Swal.update({
+					html: `<div class="text-sm text-gray-600">Backup sedang dibuat di server${job.sizeBytes ? ` (${formatBytes(job.sizeBytes)})` : ""}...</div>`,
+				});
+
+				await delay(2000);
+				const statusRes = await api.get(`/backup/jobs/${job.id}`, { timeout: 0 });
+				job = statusRes.data.job;
+			}
+
+			if (job.status === "failed") {
+				throw new Error(job.error || "Gagal membuat backup database");
+			}
+
+			Swal.update({
+				html: `<div class="text-sm text-gray-600">File siap (${formatBytes(job.sizeBytes)}). Mengunduh...</div>`,
+			});
+
+			const res = await api.get(`/backup/jobs/${job.id}/download`, {
+				responseType: "blob",
+				timeout: 0,
+			});
 
 			const url = window.URL.createObjectURL(new Blob([res.data]));
 			const a = document.createElement("a");
 			a.href = url;
-			a.download = filename;
+			a.download = job.filename;
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);
 			window.URL.revokeObjectURL(url);
 
+			Swal.close();
 			Swal.fire("Berhasil", "Backup berhasil diunduh", "success");
 		} catch (err: any) {
-			Swal.fire("Error", err.response?.data?.error || "Gagal mengunduh backup", "error");
+			const message = await getErrorMessage(err, "Gagal mengunduh backup");
+			Swal.fire("Error", message, "error");
 		} finally {
 			setDownloading(false);
 		}
@@ -167,7 +253,7 @@ const Backup = () => {
 
 					<div className="mb-4 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-500/[0.05] border border-blue-100 dark:border-blue-500/10">
 						<p className="text-xs text-blue-600 dark:text-blue-400">
-							File backup berisi semua tabel, data, dan struktur database saat ini.
+							Server akan membuat file backup terlebih dahulu, lalu mengunduhnya setelah siap.
 						</p>
 					</div>
 
@@ -179,7 +265,7 @@ const Backup = () => {
 						{downloading ? (
 							<>
 								<div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-								Mengunduh...
+								Membuat backup...
 							</>
 						) : (
 							<>
