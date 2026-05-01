@@ -130,7 +130,7 @@ const JuriEventPenilaian: React.FC = () => {
 	const [eventTitle, setEventTitle] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [searchTerm, setSearchTerm] = useState("");
-	const [selectedTab, setSelectedTab] = useState<string>("all");
+	const [selectedTab, setSelectedTab] = useState<string>("");
 	
 	// Offline data
 	const [offlineData, setOfflineData] = useState<OfflineParticipantData[]>([]);
@@ -402,6 +402,38 @@ const JuriEventPenilaian: React.FC = () => {
 		}
 	};
 
+	const getSchoolCategoryOrder = (name: string) => {
+		const normalizedName = name.trim().toUpperCase();
+		const orderedNames = ["SD", "MI", "SMP", "MTS", "SMA", "SMK", "MA", "PURNA"];
+		const order = orderedNames.findIndex(
+			(categoryName) =>
+				normalizedName === categoryName ||
+				normalizedName.startsWith(`${categoryName} `)
+		);
+
+		return order === -1 ? Number.MAX_SAFE_INTEGER : order;
+	};
+
+	const schoolCategories = Array.from(
+		new Map(
+			participants
+				.filter(p => p.schoolCategory)
+				.map(p => [p.schoolCategory!.id, p.schoolCategory!])
+		).values()
+	).sort((a, b) => {
+		const orderDiff = getSchoolCategoryOrder(a.name) - getSchoolCategoryOrder(b.name);
+		return orderDiff || a.name.localeCompare(b.name, "id-ID");
+	});
+
+	const uncategorizedCount = participants.filter(p => !p.schoolCategory).length;
+	const availableTabIds = [
+		...schoolCategories.map((cat) => cat.id),
+		...(uncategorizedCount > 0 ? ["uncategorized"] : []),
+	];
+	const activeTab = selectedTab && availableTabIds.includes(selectedTab)
+		? selectedTab
+		: availableTabIds[0] || "";
+
 	const filteredParticipants = participants
 		.filter((p) => {
 			const searchLower = searchTerm.toLowerCase();
@@ -412,11 +444,12 @@ const JuriEventPenilaian: React.FC = () => {
 				p.members?.some(m => m.toLowerCase().includes(searchLower)) ||
 				p.schoolCategory?.name?.toLowerCase().includes(searchLower);
 			
-			if (selectedTab !== "all") {
-				if (selectedTab === "uncategorized") {
-					return matchesSearch && !p.schoolCategory;
-				}
-				return matchesSearch && p.schoolCategory?.id === selectedTab;
+			if (activeTab === "uncategorized") {
+				return matchesSearch && !p.schoolCategory;
+			}
+
+			if (activeTab) {
+				return matchesSearch && p.schoolCategory?.id === activeTab;
 			}
 			
 			return matchesSearch;
@@ -430,28 +463,18 @@ const JuriEventPenilaian: React.FC = () => {
 			return 0;
 		});
 
-	const schoolCategories = Array.from(
-		new Map(
-			participants
-				.filter(p => p.schoolCategory)
-				.map(p => [p.schoolCategory!.id, p.schoolCategory!])
-		).values()
-	);
-
-	const uncategorizedCount = participants.filter(p => !p.schoolCategory).length;
 	const totalParticipants = participants.length;
 	const completedCount = participants.filter(p => getParticipantMaterialStatus(p.id).isComplete).length;
 
-	const getParticipantDisplayName = (participant: Participant) => {
-		return participant.teamName?.trim() || participant.registrant.institution || participant.registrant.name;
+	const getParticipantInstitutionName = (participant: Participant) => {
+		return participant.registrant.institution?.trim() || participant.registrant.name;
 	};
 
-	const getParticipantSubtitle = (participant: Participant) => {
-		const subtitleParts = [
-			participant.registrant.institution,
-		].filter(Boolean);
+	const getParticipantTeamName = (participant: Participant) => {
+		const teamName = participant.teamName?.trim();
+		const institutionName = getParticipantInstitutionName(participant);
 
-		return subtitleParts.join(" - ");
+		return teamName && teamName !== institutionName ? teamName : "";
 	};
 
 	if (loading) {
@@ -694,16 +717,6 @@ const JuriEventPenilaian: React.FC = () => {
 				{/* Category Tabs */}
 				<div className="mb-4">
 					<nav className="flex gap-2 overflow-x-auto p-1 bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl rounded-xl border border-gray-200/50 dark:border-white/[0.06]">
-						<button
-							onClick={() => setSelectedTab("all")}
-							className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all whitespace-nowrap ${
-								selectedTab === "all"
-									? "bg-red-600 text-white shadow-lg shadow-red-500/20"
-									: "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.06]"
-							}`}
-						>
-							Semua ({participants.length})
-						</button>
 						{schoolCategories.map((cat) => {
 							const count = participants.filter(p => p.schoolCategory?.id === cat.id).length;
 							return (
@@ -711,7 +724,7 @@ const JuriEventPenilaian: React.FC = () => {
 									key={cat.id}
 									onClick={() => setSelectedTab(cat.id)}
 									className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all whitespace-nowrap ${
-										selectedTab === cat.id
+										activeTab === cat.id
 											? "bg-red-600 text-white shadow-lg shadow-red-500/20"
 											: "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.06]"
 									}`}
@@ -724,7 +737,7 @@ const JuriEventPenilaian: React.FC = () => {
 							<button
 								onClick={() => setSelectedTab("uncategorized")}
 								className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all whitespace-nowrap ${
-									selectedTab === "uncategorized"
+									activeTab === "uncategorized"
 										? "bg-red-600 text-white shadow-lg shadow-red-500/20"
 										: "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/[0.06]"
 								}`}
@@ -781,16 +794,11 @@ const JuriEventPenilaian: React.FC = () => {
 															? "text-gray-500 dark:text-gray-400" 
 															: "text-gray-900 dark:text-white"
 													}`}>
-														{getParticipantDisplayName(participant)}
+														{getParticipantInstitutionName(participant)}
 													</h3>
-													{getParticipantSubtitle(participant) && (
+													{getParticipantTeamName(participant) && (
 														<span className="text-gray-500 dark:text-gray-400 text-sm">
-															{getParticipantSubtitle(participant)}
-														</span>
-													)}
-													{participant.schoolCategory && selectedTab === "all" && (
-														<span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full">
-															{participant.schoolCategory.name}
+															— {getParticipantTeamName(participant)}
 														</span>
 													)}
 													{isComplete && (

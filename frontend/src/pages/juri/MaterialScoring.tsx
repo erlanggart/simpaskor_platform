@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from "react";
 import { useParams, Link, useNavigate, useOutletContext } from "react-router-dom";
 import {
 	LuArrowLeft,
@@ -102,12 +102,31 @@ const MaterialScoring: React.FC = () => {
 	const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 	const [isOnline, setIsOnline] = useState(navigator.onLine);
 	const [showReconnected, setShowReconnected] = useState(false);
+	const promptedLocalDraftKeyRef = useRef<string | null>(null);
 
 	useLayoutEffect(() => {
 		window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 		document.documentElement.scrollTop = 0;
 		document.body.scrollTop = 0;
 	}, [eventSlug, participantId]);
+
+	const getParticipantInstitutionName = useCallback(() => {
+		if (!participant) return "Peserta";
+		return participant.registrant.institution?.trim() || participant.registrant.name;
+	}, [participant]);
+
+	const getParticipantTeamName = useCallback(() => {
+		if (!participant) return "";
+		const teamName = participant.teamName?.trim();
+		const institutionName = getParticipantInstitutionName();
+		return teamName && teamName !== institutionName ? teamName : "";
+	}, [participant, getParticipantInstitutionName]);
+
+	const getParticipantDisplayName = useCallback(() => {
+		const institutionName = getParticipantInstitutionName();
+		const teamName = getParticipantTeamName();
+		return teamName ? `${institutionName} - ${teamName}` : institutionName;
+	}, [getParticipantInstitutionName, getParticipantTeamName]);
 
 	// Listen for online/offline events
 	useEffect(() => {
@@ -252,17 +271,11 @@ const MaterialScoring: React.FC = () => {
 			// Check for local changes
 			const localData = loadFromLocalStorage();
 			if (localData && localData.scores.length > 0) {
-				const hasChanges = localData.scores.some((localScore) => {
-					const serverScore = serverScores.find(s => s.materialId === localScore.materialId);
-					if (!serverScore) return false;
-					return (
-						localScore.score !== serverScore.score ||
-						localScore.scoreCategoryName !== serverScore.scoreCategoryName ||
-						localScore.isSkipped !== serverScore.isSkipped
-					);
-				});
+				const hasLocalSelections = localData.scores.some(
+					(localScore) => localScore.score !== null || localScore.isSkipped
+				);
 
-				if (hasChanges) {
+				if (hasLocalSelections) {
 					const mergedScores = serverScores.map((serverScore) => {
 						const localScore = localData.scores.find(s => s.materialId === serverScore.materialId);
 						if (localScore && (localScore.score !== null || localScore.isSkipped)) {
@@ -274,7 +287,9 @@ const MaterialScoring: React.FC = () => {
 					setHasLocalChanges(true);
 					setLastSavedAt(localData.savedAt);
 					
-					if (navigator.onLine) {
+					const localDraftKey = getLocalStorageKey();
+					if (navigator.onLine && promptedLocalDraftKeyRef.current !== localDraftKey) {
+						promptedLocalDraftKeyRef.current = localDraftKey;
 						Swal.fire({
 							icon: "info",
 							title: "Data Lokal Ditemukan",
@@ -481,7 +496,7 @@ const MaterialScoring: React.FC = () => {
 					notes: e.notes || '',
 				})),
 				savedAt: new Date().toISOString(),
-				participantName: participant?.teamName || participant?.registrant.institution || 'Unknown',
+				participantName: getParticipantDisplayName(),
 				schoolCategoryName: participant?.schoolCategory?.name,
 			};
 			saveOfflineData(offlineData);
@@ -535,7 +550,7 @@ const MaterialScoring: React.FC = () => {
 					notes: e.notes || '',
 				})),
 				savedAt: new Date().toISOString(),
-				participantName: participant?.teamName || participant?.registrant.institution || 'Unknown',
+				participantName: getParticipantDisplayName(),
 				schoolCategoryName: participant?.schoolCategory?.name,
 			};
 			saveOfflineData(offlineData);
@@ -665,10 +680,15 @@ const MaterialScoring: React.FC = () => {
 								<LuUsers className="w-5 h-5 text-red-500 flex-shrink-0" />
 								<div className="min-w-0 flex-1">
 									<p className="font-bold text-gray-900 dark:text-white text-sm truncate">
-										{participant.teamName}
+										{getParticipantInstitutionName()}
+										{getParticipantTeamName() && (
+											<span className="ml-2 font-semibold text-gray-500 dark:text-gray-400">
+												— {getParticipantTeamName()}
+											</span>
+										)}
 									</p>
 									<p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-										{participant.schoolCategory?.name} • {participant.registrant.institution}
+										{participant.schoolCategory?.name || "Tanpa kategori"}
 									</p>
 								</div>
 								{/* Mini Progress */}
