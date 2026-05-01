@@ -111,6 +111,17 @@ const parseMemberData = (memberDataStr: string | null): PersonMember[] => {
 	}
 };
 
+const schoolCategoryOrder = ["SD", "MI", "SMP", "MTS", "SMA", "SMK", "MA", "PURNA"];
+
+const getSchoolCategoryOrder = (name: string) => {
+	const normalizedName = name.trim().toUpperCase();
+	const exactIndex = schoolCategoryOrder.findIndex((category) => normalizedName === category);
+	if (exactIndex !== -1) return exactIndex;
+
+	const partialIndex = schoolCategoryOrder.findIndex((category) => normalizedName.includes(category));
+	return partialIndex === -1 ? schoolCategoryOrder.length : partialIndex;
+};
+
 const EventParticipantManagement: React.FC = () => {
 	const { eventSlug } = useParams<{ eventSlug: string }>();
 	const navigate = useNavigate();
@@ -126,12 +137,26 @@ const EventParticipantManagement: React.FC = () => {
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
 	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [activeSchoolCategoryId, setActiveSchoolCategoryId] = useState<string>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [processingId, setProcessingId] = useState<string | null>(null);
 
 	useEffect(() => {
 		fetchEventAndRegistrations();
 	}, [eventSlug]);
+
+	useEffect(() => {
+		if (activeSchoolCategoryId === "all") return;
+
+		const hasActiveCategory = registrations.some((reg) =>
+			reg.schoolCategory?.id === activeSchoolCategoryId ||
+			reg.groups.some((group) => group.schoolCategory?.id === activeSchoolCategoryId)
+		);
+
+		if (!hasActiveCategory) {
+			setActiveSchoolCategoryId("all");
+		}
+	}, [activeSchoolCategoryId, registrations]);
 
 	const fetchEventAndRegistrations = async () => {
 		try {
@@ -330,6 +355,57 @@ const EventParticipantManagement: React.FC = () => {
 		});
 	};
 
+	const schoolCategoryMap = new Map<string, SchoolCategory>();
+	const schoolCategoryCounts = new Map<string, number>();
+
+	registrations.forEach((reg) => {
+		if (reg.schoolCategory) {
+			schoolCategoryMap.set(reg.schoolCategory.id, reg.schoolCategory);
+		}
+
+		reg.groups.forEach((group) => {
+			if (!group.schoolCategory) return;
+
+			schoolCategoryMap.set(group.schoolCategory.id, group.schoolCategory);
+			if (group.status !== "CANCELLED") {
+				schoolCategoryCounts.set(
+					group.schoolCategory.id,
+					(schoolCategoryCounts.get(group.schoolCategory.id) || 0) + 1
+				);
+			}
+		});
+	});
+
+	const schoolCategoryTabs = Array.from(schoolCategoryMap.values()).sort((a, b) => {
+		const orderDiff = getSchoolCategoryOrder(a.name) - getSchoolCategoryOrder(b.name);
+		return orderDiff || a.name.localeCompare(b.name, "id-ID");
+	});
+
+	const allActiveGroupCount = registrations.reduce(
+		(sum, reg) => sum + reg.groups.filter((group) => group.status !== "CANCELLED").length,
+		0
+	);
+
+	const matchesActiveSchoolCategory = (reg: Registration) => {
+		if (activeSchoolCategoryId === "all") return true;
+
+		return (
+			reg.schoolCategory?.id === activeSchoolCategoryId ||
+			reg.groups.some((group) => group.schoolCategory?.id === activeSchoolCategoryId)
+		);
+	};
+
+	const getVisibleGroups = (reg: Registration) => {
+		if (activeSchoolCategoryId === "all") return reg.groups;
+
+		return reg.groups.filter((group) => group.schoolCategory?.id === activeSchoolCategoryId);
+	};
+
+	const handleSchoolCategoryTabChange = (categoryId: string) => {
+		setActiveSchoolCategoryId(categoryId);
+		setExpandedGroupId(null);
+	};
+
 	// Filter registrations
 	const filteredRegistrations = registrations.filter((reg) => {
 		// Status filter
@@ -340,13 +416,20 @@ const EventParticipantManagement: React.FC = () => {
 			return false;
 		}
 
+		if (!matchesActiveSchoolCategory(reg)) {
+			return false;
+		}
+
 		// Search filter
 		if (searchQuery) {
 			const query = searchQuery.toLowerCase();
 			const matchesUser = reg.user.name.toLowerCase().includes(query) || reg.user.email.toLowerCase().includes(query);
 			const matchesSchool = reg.schoolName?.toLowerCase().includes(query);
-			const matchesTeam = reg.groups.some((g) => g.groupName.toLowerCase().includes(query));
-			return matchesUser || matchesSchool || matchesTeam;
+			const matchesCategory = reg.schoolCategory?.name.toLowerCase().includes(query);
+			const visibleGroups = getVisibleGroups(reg);
+			const matchesTeam = visibleGroups.some((g) => g.groupName.toLowerCase().includes(query));
+			const matchesGroupCategory = visibleGroups.some((g) => g.schoolCategory?.name.toLowerCase().includes(query));
+			return matchesUser || matchesSchool || matchesCategory || matchesTeam || matchesGroupCategory;
 		}
 
 		return true;
@@ -436,13 +519,73 @@ const EventParticipantManagement: React.FC = () => {
 					</div>
 				</div>
 
+				{/* School Category Tabs */}
+				{schoolCategoryTabs.length > 0 && (
+					<div className="mb-6">
+						<div className="flex items-center justify-between gap-3 mb-3">
+							<h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+								Kategori Sekolah
+							</h2>
+							<span className="text-xs text-gray-500 dark:text-gray-400">
+								{activeSchoolCategoryId === "all"
+									? `${allActiveGroupCount} tim`
+									: `${schoolCategoryCounts.get(activeSchoolCategoryId) || 0} tim`}
+							</span>
+						</div>
+						<div className="flex gap-2 overflow-x-auto pb-1">
+							<button
+								type="button"
+								onClick={() => handleSchoolCategoryTabChange("all")}
+								className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+									activeSchoolCategoryId === "all"
+										? "bg-red-600 border-red-600 text-white"
+										: "bg-white/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-red-300 dark:hover:border-red-700"
+								}`}
+							>
+								Semua
+								<span className={`text-xs ${
+									activeSchoolCategoryId === "all"
+										? "text-red-100"
+										: "text-gray-500 dark:text-gray-400"
+								}`}>
+									{allActiveGroupCount}
+								</span>
+							</button>
+							{schoolCategoryTabs.map((category) => {
+								const isActive = activeSchoolCategoryId === category.id;
+								const count = schoolCategoryCounts.get(category.id) || 0;
+
+								return (
+									<button
+										key={category.id}
+										type="button"
+										onClick={() => handleSchoolCategoryTabChange(category.id)}
+										className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+											isActive
+												? "bg-red-600 border-red-600 text-white"
+												: "bg-white/80 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-red-300 dark:hover:border-red-700"
+										}`}
+									>
+										{category.name}
+										<span className={`text-xs ${
+											isActive ? "text-red-100" : "text-gray-500 dark:text-gray-400"
+										}`}>
+											{count}
+										</span>
+									</button>
+								);
+							})}
+						</div>
+					</div>
+				)}
+
 				{/* Search */}
 				<div className="mb-6">
 					<div className="relative">
 						<MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
 						<input
 							type="text"
-							placeholder="Cari nama peserta, email, sekolah, atau tim..."
+							placeholder="Cari nama peserta, email, sekolah, kategori, atau tim..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
@@ -465,7 +608,8 @@ const EventParticipantManagement: React.FC = () => {
 					<div className="space-y-4">
 						{filteredRegistrations.map((registration) => {
 							const isExpanded = expandedId === registration.id;
-							const activeGroups = registration.groups.filter((g) => g.status === "ACTIVE");
+							const visibleGroups = getVisibleGroups(registration);
+							const activeGroups = visibleGroups.filter((g) => g.status === "ACTIVE");
 							const isProcessing = processingId === registration.id;
 
 							return (
@@ -600,7 +744,7 @@ const EventParticipantManagement: React.FC = () => {
 												Detail Tim
 											</h4>
 											<div className="space-y-4">
-												{registration.groups.map((group) => {
+												{visibleGroups.map((group) => {
 													const members = parseMemberData(group.memberData);
 													const isGroupExpanded = expandedGroupId === group.id;
 													const pasukan = members.filter((m) => m.role === "PASUKAN");
