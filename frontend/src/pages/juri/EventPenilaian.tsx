@@ -442,6 +442,18 @@ const JuriEventPenilaian: React.FC = () => {
 	const totalParticipants = participants.length;
 	const completedCount = participants.filter(p => getParticipantMaterialStatus(p.id).isComplete).length;
 
+	const getParticipantDisplayName = (participant: Participant) => {
+		return participant.teamName?.trim() || participant.registrant.institution || participant.registrant.name;
+	};
+
+	const getParticipantSubtitle = (participant: Participant) => {
+		const subtitleParts = [
+			participant.registrant.institution,
+		].filter(Boolean);
+
+		return subtitleParts.join(" - ");
+	};
+
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">
@@ -769,11 +781,13 @@ const JuriEventPenilaian: React.FC = () => {
 															? "text-gray-500 dark:text-gray-400" 
 															: "text-gray-900 dark:text-white"
 													}`}>
-														{participant.registrant.institution || participant.registrant.name}
+														{getParticipantDisplayName(participant)}
 													</h3>
-													<span className="text-gray-500 dark:text-gray-400 text-sm">
-														— {participant.teamName}
-													</span>
+													{getParticipantSubtitle(participant) && (
+														<span className="text-gray-500 dark:text-gray-400 text-sm">
+															{getParticipantSubtitle(participant)}
+														</span>
+													)}
 													{participant.schoolCategory && selectedTab === "all" && (
 														<span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold rounded-full">
 															{participant.schoolCategory.name}

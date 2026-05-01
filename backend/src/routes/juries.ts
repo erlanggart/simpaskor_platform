@@ -740,7 +740,7 @@ router.get(
 								id: p.user.id,
 								name: p.user.name,
 								email: p.user.email,
-								institution: p.user.profile?.institution || null,
+								institution: p.schoolName || p.user.profile?.institution || null,
 							},
 						};
 					});
@@ -749,7 +749,7 @@ router.get(
 				return [{
 					id: p.id, // Use participation ID
 					participationId: p.id,
-					teamName: p.user.name,
+					teamName: p.teamName || p.schoolName || p.user.name,
 					status: p.status,
 					schoolCategory: p.schoolCategory as { id: string; name: string } | null,
 					members: [p.user.name],
@@ -759,7 +759,7 @@ router.get(
 						id: p.user.id,
 						name: p.user.name,
 						email: p.user.email,
-						institution: p.user.profile?.institution || null,
+						institution: p.schoolName || p.user.profile?.institution || null,
 					},
 				}];
 			});

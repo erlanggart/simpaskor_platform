@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import { useParams, Link, useNavigate, useOutletContext } from "react-router-dom";
 import {
 	LuArrowLeft,
@@ -102,6 +102,12 @@ const MaterialScoring: React.FC = () => {
 	const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 	const [isOnline, setIsOnline] = useState(navigator.onLine);
 	const [showReconnected, setShowReconnected] = useState(false);
+
+	useLayoutEffect(() => {
+		window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+		document.documentElement.scrollTop = 0;
+		document.body.scrollTop = 0;
+	}, [eventSlug, participantId]);
 
 	// Listen for online/offline events
 	useEffect(() => {
