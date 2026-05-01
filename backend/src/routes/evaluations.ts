@@ -1457,28 +1457,59 @@ router.get(
 
 			const juryNameMap = new Map(juryAssignments.map((j) => [j.jury.id, j.jury.name]));
 
-			// Build: for each (participantId, categoryId, juryId) -> count how many material evaluations exist
-			const materialCountMap = new Map<string, { count: number; materialIds: Set<string> }>();
+			// Build: for each (participantId, categoryId, juryId) -> count material evaluations.
+			// Duplicates are only rows for the same material scored more than once by the same jury.
+			const materialCountMap = new Map<string, {
+				totalRows: number;
+				scoredCount: number;
+				materialIds: Set<string>;
+				duplicateMaterialIds: Set<string>;
+			}>();
+			const materialRowCountMap = new Map<string, {
+				count: number;
+				participantId: string;
+				eventCategoryId: string;
+				juryId: string;
+				materialId: string;
+			}>();
 			for (const me of materialEvaluations) {
 				const catId = materialToCategoryMap.get(me.materialId);
 				if (!catId) continue;
 				const key = `${me.participantId}:${catId}:${me.juryId}`;
 				if (!materialCountMap.has(key)) {
-					materialCountMap.set(key, { count: 0, materialIds: new Set() });
+					materialCountMap.set(key, {
+						totalRows: 0,
+						scoredCount: 0,
+						materialIds: new Set(),
+						duplicateMaterialIds: new Set(),
+					});
 				}
 				const entry = materialCountMap.get(key)!;
-				// Check if this materialId was already counted (true duplicate record)
+				entry.totalRows += 1;
+				if (!me.isSkipped && me.score !== null) {
+					entry.scoredCount += 1;
+				}
 				if (entry.materialIds.has(me.materialId)) {
-					// This should never happen due to DB unique constraint, but check anyway
-					entry.count += 1;
+					entry.duplicateMaterialIds.add(me.materialId);
 				} else {
 					entry.materialIds.add(me.materialId);
-					entry.count += 1;
 				}
+
+				const rowKey = `${key}:${me.materialId}`;
+				if (!materialRowCountMap.has(rowKey)) {
+					materialRowCountMap.set(rowKey, {
+						count: 0,
+						participantId: me.participantId,
+						eventCategoryId: catId,
+						juryId: me.juryId,
+						materialId: me.materialId,
+					});
+				}
+				materialRowCountMap.get(rowKey)!.count += 1;
 			}
 
 			const issues: Array<{
-				type: "material_duplicate" | "material_excess" | "missing_score" | "score_exceeds_max";
+				type: "material_duplicate" | "material_excess" | "missing_score" | "score_exceeds_max" | "jury_score_gap";
 				severity: "error" | "warning";
 				participantId: string;
 				participantName: string;
@@ -1490,23 +1521,54 @@ router.get(
 				fixAction?: "delete_jury_category" | "recalculate" | "none";
 			}> = [];
 
+			const eventAssessmentCategoryMap = new Map(
+				event.assessmentCategories.map((eac) => [eac.id, eac])
+			);
+
+			for (const duplicate of materialRowCountMap.values()) {
+				if (duplicate.count <= 1) continue;
+
+				const eac = eventAssessmentCategoryMap.get(duplicate.eventCategoryId);
+				const categoryName = eac?.assessmentCategory.name || "Unknown";
+				const juryName = juryNameMap.get(duplicate.juryId) || "Unknown";
+				const materialName = materialNameMap.get(duplicate.materialId) || "Unknown";
+
+				issues.push({
+					type: "material_duplicate",
+					severity: "error",
+					participantId: duplicate.participantId,
+					participantName: participantNameMap.get(duplicate.participantId) || "Unknown",
+					category: categoryName,
+					juryId: duplicate.juryId,
+					juryName,
+					eventCategoryId: duplicate.eventCategoryId,
+					message: `Juri "${juryName}" memiliki ${duplicate.count} nilai untuk materi "${materialName}" pada kategori "${categoryName}". Ini termasuk materi ganda karena materi yang sama tersimpan lebih dari sekali oleh juri yang sama.`,
+					fixAction: "delete_jury_category",
+				});
+			}
+
 			// Check each participant x category x jury
 			for (const participant of participants) {
 				for (const eac of event.assessmentCategories) {
 					const catId = eac.assessmentCategoryId;
 					const catName = eac.assessmentCategory.name;
 					const expectedMaterialCount = materialsPerCategory.get(eac.id) || 0;
+					const assignedJuries = juryAssignments.filter((ja) =>
+						ja.assignedCategories.some((ac) => ac.assessmentCategoryId === catId)
+					);
+					const scoredCounts: Array<{ juryId: string; juryName: string; count: number }> = [];
 
-					for (const ja of juryAssignments) {
-						const isAssigned = ja.assignedCategories.some(
-							(ac) => ac.assessmentCategoryId === catId
-						);
-						if (!isAssigned) continue;
-
+					for (const ja of assignedJuries) {
 						const key = `${participant.id}:${eac.id}:${ja.jury.id}`;
 						const evalData = materialCountMap.get(key);
+						const scoredCount = evalData?.scoredCount || 0;
+						scoredCounts.push({
+							juryId: ja.jury.id,
+							juryName: ja.jury.name,
+							count: scoredCount,
+						});
 
-						if (!evalData || evalData.count === 0) {
+						if (!evalData || evalData.totalRows === 0) {
 							// Missing: jury hasn't scored any material for this participant-category
 							issues.push({
 								type: "missing_score",
@@ -1520,19 +1582,40 @@ router.get(
 								message: `Juri "${ja.jury.name}" belum menilai materi apapun untuk kategori "${catName}"`,
 								fixAction: "none",
 							});
-						} else if (expectedMaterialCount > 0 && evalData.count > expectedMaterialCount) {
-							// EXCESS: more evaluations than expected materials = bug/duplicate
+						} else if (
+							assignedJuries.length === 1 &&
+							expectedMaterialCount > 0 &&
+							scoredCount > expectedMaterialCount &&
+							evalData.duplicateMaterialIds.size === 0
+						) {
 							issues.push({
-								type: "material_excess",
-								severity: "error",
+								type: "jury_score_gap",
+								severity: "warning",
 								participantId: participant.id,
 								participantName: participant.groupName,
 								category: catName,
 								juryId: ja.jury.id,
 								juryName: ja.jury.name,
 								eventCategoryId: eac.id,
-								message: `Juri "${ja.jury.name}" memiliki ${evalData.count} nilai materi, padahal hanya ada ${expectedMaterialCount} materi di kategori "${catName}" (kemungkinan materi terhitung ganda!)`,
-								fixAction: "delete_jury_category",
+								message: `Jumlah nilai materi juri "${ja.jury.name}" (${scoredCount}) tidak sesuai dengan jumlah materi acuan (${expectedMaterialCount}) pada kategori "${catName}". Periksa apakah ada materi yang belum dinilai atau data penilaian belum lengkap.`,
+								fixAction: "none",
+							});
+						}
+					}
+
+					if (scoredCounts.length >= 2) {
+						const uniqueCounts = new Set(scoredCounts.map((item) => item.count));
+						const hasAnyScore = scoredCounts.some((item) => item.count > 0);
+						if (hasAnyScore && uniqueCounts.size > 1) {
+							issues.push({
+								type: "jury_score_gap",
+								severity: "warning",
+								participantId: participant.id,
+								participantName: participant.groupName,
+								category: catName,
+								eventCategoryId: eac.id,
+								message: `Kesenjangan jumlah nilai antar juri di kategori "${catName}": ${scoredCounts.map((item) => `${item.juryName} (${item.count})`).join(", ")}. Ini bukan nilai ganda; periksa apakah ada materi yang belum dinilai, dilewati, atau bernilai 0.`,
+								fixAction: "none",
 							});
 						}
 					}
@@ -1567,14 +1650,14 @@ router.get(
 						juryId: ev.juryId,
 						juryName: juryNameMap.get(ev.juryId) || "Unknown",
 						eventCategoryId: eac?.id,
-						message: `Nilai juri "${juryNameMap.get(ev.juryId)}" (${ev.score}) melebihi batas maksimum (${realMaxScore}) di kategori "${eac?.assessmentCategory.name}" — kemungkinan nilai materi terhitung ganda!`,
-						fixAction: "delete_jury_category",
+						message: `Nilai juri "${juryNameMap.get(ev.juryId)}" (${ev.score}) melebihi batas maksimum (${realMaxScore}) di kategori "${eac?.assessmentCategory.name}". Periksa konfigurasi maksimum atau rincian nilai materi.`,
+						fixAction: "none",
 					});
 				}
 			}
 
 			// Also check summed material scores against computed maxScore
-			for (const [key, evalData] of materialCountMap) {
+			for (const key of materialCountMap.keys()) {
 				const parts = key.split(":");
 				const participantId = parts[0]!;
 				const eacId = parts[1]!;
@@ -1606,14 +1689,15 @@ router.get(
 						juryId: juryId,
 						juryName: juryNameMap.get(juryId) || "Unknown",
 						eventCategoryId: eac.id,
-						message: `Total nilai materi oleh juri "${juryNameMap.get(juryId)}" = ${totalScore}, melebihi batas maksimum (${maxScore}) di kategori "${eac.assessmentCategory.name}" (kemungkinan nilai materi ganda!)`,
-						fixAction: "delete_jury_category",
+						message: `Total nilai materi oleh juri "${juryNameMap.get(juryId)}" = ${totalScore}, melebihi batas maksimum (${maxScore}) di kategori "${eac.assessmentCategory.name}". Periksa konfigurasi maksimum atau rincian nilai materi.`,
+						fixAction: "none",
 					});
 				}
 			}
 
 			// Summary
-			const materialDuplicates = issues.filter((i) => i.type === "material_excess" || i.type === "material_duplicate");
+			const materialDuplicates = issues.filter((i) => i.type === "material_duplicate");
+			const juryScoreGaps = issues.filter((i) => i.type === "jury_score_gap" || i.type === "material_excess");
 			const missingScores = issues.filter((i) => i.type === "missing_score");
 			const scoreExceeds = issues.filter((i) => i.type === "score_exceeds_max");
 
@@ -1622,6 +1706,7 @@ router.get(
 				totalIssues: issues.length,
 				summary: {
 					materialDuplicates: materialDuplicates.length,
+					juryScoreGaps: juryScoreGaps.length,
 					missingScores: missingScores.length,
 					scoreExceedsMax: scoreExceeds.length,
 				},

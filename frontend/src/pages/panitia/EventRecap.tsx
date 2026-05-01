@@ -109,7 +109,7 @@ interface RecapItem {
 }
 
 interface VerificationIssue {
-  type: "duplicate" | "missing" | "mismatch" | "material_excess" | "score_exceeds_max";
+  type: "missing" | "mismatch" | "material_duplicate" | "material_excess" | "score_exceeds_max" | "jury_score_gap";
   severity: "error" | "warning";
   participantName: string;
   participantId: string;
@@ -124,10 +124,10 @@ interface VerificationIssue {
 
 interface VerificationResult {
   totalIssues: number;
-  duplicates: VerificationIssue[];
   missing: VerificationIssue[];
   mismatches: VerificationIssue[];
   materialIssues: VerificationIssue[];
+  juryGaps: VerificationIssue[];
   isClean: boolean;
 }
 
@@ -538,10 +538,10 @@ const PanitiaEventRecap: React.FC = () => {
 
     setIsVerifying(true);
 
-    const duplicates: VerificationIssue[] = [];
     const missing: VerificationIssue[] = [];
     const mismatches: VerificationIssue[] = [];
     const materialIssues: VerificationIssue[] = [];
+    const juryGaps: VerificationIssue[] = [];
 
     // Build jury-to-category assignment map
     const juryAssignments = new Map<string, Set<string>>();
@@ -573,30 +573,9 @@ const PanitiaEventRecap: React.FC = () => {
           }
         }
 
-        // 2. Check for DUPLICATE scores: identical scores from different juries (suspicious)
         const validScores = catScore.scores.filter((s) => s.score !== null);
-        if (validScores.length >= 2) {
-          const scoreMap = new Map<number, string[]>();
-          for (const s of validScores) {
-            const key = s.score!;
-            if (!scoreMap.has(key)) scoreMap.set(key, []);
-            scoreMap.get(key)!.push(s.juryName);
-          }
-          for (const [score, juryNames] of scoreMap) {
-            if (juryNames.length >= 2) {
-              duplicates.push({
-                type: "duplicate",
-                severity: "warning",
-                participantName: pName,
-                participantId: pId,
-                category: catScore.categoryName,
-                message: `${juryNames.length} juri (${juryNames.join(", ")}) memberikan nilai sama (${score}) pada kategori "${catScore.categoryName}"`,
-              });
-            }
-          }
-        }
 
-        // 3. Check for MISMATCH: totalScore != sum of individual jury scores + extraAdjustment
+        // 2. Check for MISMATCH: totalScore != sum of individual jury scores + extraAdjustment
         const sumOfScores = validScores.reduce((sum, s) => sum + (s.score || 0), 0);
         const extraAdj = catScore.extraAdjustment || 0;
         const expectedTotal = sumOfScores + extraAdj;
@@ -612,7 +591,7 @@ const PanitiaEventRecap: React.FC = () => {
           });
         }
 
-        // 4. Check for score exceeding maxScore (possible material duplication)
+        // 3. Check for score exceeding maxScore
         for (const s of validScores) {
           if (s.score !== null && s.score > s.maxScore) {
             materialIssues.push({
@@ -622,12 +601,12 @@ const PanitiaEventRecap: React.FC = () => {
               participantId: pId,
               category: catScore.categoryName,
               juryName: s.juryName,
-              message: `Nilai juri "${s.juryName}" (${s.score}) melebihi batas maksimum (${s.maxScore}) di kategori "${catScore.categoryName}" — kemungkinan nilai materi terhitung ganda!`,
+              message: `Nilai juri "${s.juryName}" (${s.score}) melebihi batas maksimum (${s.maxScore}) di kategori "${catScore.categoryName}". Periksa konfigurasi maksimum atau rincian nilai materi.`,
             });
           }
         }
 
-        // 5. Check inconsistent scoredMaterials count between juries
+        // 4. Check inconsistent scored material count between juries
         const scoredMaterialCounts = validScores
           .filter((s) => s.scoredMaterials !== undefined && s.scoredMaterials !== null)
           .map((s) => ({ juryName: s.juryName, count: s.scoredMaterials! }));
@@ -636,13 +615,13 @@ const PanitiaEventRecap: React.FC = () => {
           const maxCount = Math.max(...counts);
           const minCount = Math.min(...counts);
           if (maxCount !== minCount) {
-            materialIssues.push({
-              type: "material_excess",
+            juryGaps.push({
+              type: "jury_score_gap",
               severity: "warning",
               participantName: pName,
               participantId: pId,
               category: catScore.categoryName,
-              message: `Jumlah materi yang dinilai tidak konsisten di kategori "${catScore.categoryName}": ${scoredMaterialCounts.map((s) => `${s.juryName} (${s.count})`).join(", ")}`,
+              message: `Kesenjangan jumlah nilai antar juri di kategori "${catScore.categoryName}": ${scoredMaterialCounts.map((s) => `${s.juryName} (${s.count})`).join(", ")}. Ini bisa terjadi jika ada materi bernilai 0, dilewati, atau belum dinilai.`,
             });
           }
         }
@@ -671,9 +650,9 @@ const PanitiaEventRecap: React.FC = () => {
       const backendData = backendRes.data;
       if (backendData.issues && Array.isArray(backendData.issues)) {
         for (const issue of backendData.issues) {
-          if (issue.type === "material_excess" || issue.type === "material_duplicate") {
+          if (issue.type === "material_duplicate") {
             materialIssues.push({
-              type: "material_excess",
+              type: "material_duplicate",
               severity: "error",
               participantName: issue.participantName,
               participantId: issue.participantId,
@@ -684,6 +663,27 @@ const PanitiaEventRecap: React.FC = () => {
               message: issue.message,
               fixAction: issue.fixAction || "delete_jury_category",
             });
+          } else if (issue.type === "material_excess" || issue.type === "jury_score_gap") {
+            const alreadyExists = juryGaps.some(
+              (gap) =>
+                gap.participantId === issue.participantId &&
+                gap.category === issue.category &&
+                gap.juryName === issue.juryName
+            );
+            if (!alreadyExists) {
+              juryGaps.push({
+                type: "jury_score_gap",
+                severity: "warning",
+                participantName: issue.participantName,
+                participantId: issue.participantId,
+                category: issue.category,
+                juryId: issue.juryId,
+                juryName: issue.juryName,
+                eventCategoryId: issue.eventCategoryId,
+                message: issue.message,
+                fixAction: "none",
+              });
+            }
           } else if (issue.type === "score_exceeds_max") {
             // Only add if not already caught by frontend check
             const alreadyExists = materialIssues.some(
@@ -704,7 +704,7 @@ const PanitiaEventRecap: React.FC = () => {
                 juryName: issue.juryName,
                 eventCategoryId: issue.eventCategoryId,
                 message: issue.message,
-                fixAction: issue.fixAction || "delete_jury_category",
+                fixAction: issue.fixAction || "none",
               });
             }
           } else if (issue.type === "missing_score") {
@@ -736,12 +736,12 @@ const PanitiaEventRecap: React.FC = () => {
     }
 
     const result: VerificationResult = {
-      totalIssues: duplicates.length + missing.length + mismatches.length + materialIssues.length,
-      duplicates,
+      totalIssues: missing.length + mismatches.length + materialIssues.length + juryGaps.length,
       missing,
       mismatches,
       materialIssues,
-      isClean: duplicates.length === 0 && missing.length === 0 && mismatches.length === 0 && materialIssues.length === 0,
+      juryGaps,
+      isClean: missing.length === 0 && mismatches.length === 0 && materialIssues.length === 0 && juryGaps.length === 0,
     };
 
     setVerificationResult(result);
@@ -750,7 +750,7 @@ const PanitiaEventRecap: React.FC = () => {
   };
 
   // Fix a single verification issue
-  const fixIssue = async (issue: VerificationIssue, issueIndex: number, listKey: "materialIssues" | "mismatches" | "missing" | "duplicates") => {
+  const fixIssue = async (issue: VerificationIssue, issueIndex: number, listKey: "materialIssues" | "mismatches" | "missing") => {
     if (!eventSlug || !issue.fixAction || issue.fixAction === "none" || issue.fixed) return;
 
     const fixId = `${listKey}-${issueIndex}`;
@@ -774,9 +774,9 @@ const PanitiaEventRecap: React.FC = () => {
         updated[listKey] = list;
         updated.totalIssues = [
           ...updated.materialIssues,
+          ...updated.juryGaps,
           ...updated.mismatches,
           ...updated.missing,
-          ...updated.duplicates,
         ].filter((i) => !i.fixed).length;
         return updated;
       });
@@ -792,7 +792,7 @@ const PanitiaEventRecap: React.FC = () => {
   const fixAllIssues = async () => {
     if (!verificationResult || !eventSlug) return;
 
-    const allFixable: Array<{ issue: VerificationIssue; index: number; listKey: "materialIssues" | "mismatches" | "missing" | "duplicates" }> = [];
+    const allFixable: Array<{ issue: VerificationIssue; index: number; listKey: "materialIssues" | "mismatches" | "missing" }> = [];
 
     (["materialIssues", "mismatches"] as const).forEach((key) => {
       verificationResult[key].forEach((issue, i) => {
@@ -837,9 +837,9 @@ const PanitiaEventRecap: React.FC = () => {
       if (!prev) return prev;
       const remaining = [
         ...prev.materialIssues,
+        ...prev.juryGaps,
         ...prev.mismatches,
         ...prev.missing,
-        ...prev.duplicates,
       ].filter((i) => !i.fixed).length;
       return { ...prev, totalIssues: remaining };
     });
@@ -1830,7 +1830,7 @@ const PanitiaEventRecap: React.FC = () => {
                     Tidak Ada Masalah!
                   </p>
                   <p className="text-gray-600 dark:text-gray-400">
-                  Tidak ditemukan materi ganda, nilai yang hilang, atau penjumlahan yang tidak sesuai.
+                  Tidak ditemukan materi ganda, kesenjangan nilai antar juri, nilai yang hilang, atau penjumlahan yang tidak sesuai.
                   </p>
                 </div>
               ) : (
@@ -1843,7 +1843,15 @@ const PanitiaEventRecap: React.FC = () => {
                         : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
                     }`}>
                       <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{verificationResult.materialIssues.length}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Materi Ganda</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Materi / Maks</p>
+                    </div>
+                    <div className={`rounded-lg p-3 text-center border ${
+                      verificationResult.juryGaps.length > 0
+                        ? "bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800"
+                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
+                    }`}>
+                      <p className="text-2xl font-bold text-sky-600 dark:text-sky-400">{verificationResult.juryGaps.length}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Kesenjangan Juri</p>
                     </div>
                     <div className={`rounded-lg p-3 text-center border ${
                       verificationResult.mismatches.length > 0
@@ -1860,14 +1868,6 @@ const PanitiaEventRecap: React.FC = () => {
                     }`}>
                       <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{verificationResult.missing.length}</p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Nilai Belum Diisi</p>
-                    </div>
-                    <div className={`rounded-lg p-3 text-center border ${
-                      verificationResult.duplicates.length > 0
-                        ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
-                        : "bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600"
-                    }`}>
-                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{verificationResult.duplicates.length}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Nilai Identik</p>
                     </div>
                   </div>
 
@@ -1907,6 +1907,33 @@ const PanitiaEventRecap: React.FC = () => {
                                 {issue.fixAction === "delete_jury_category" ? "Hapus Nilai" : "Hitung Ulang"}
                               </button>
                             )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Jury Score Gaps Section */}
+                  {verificationResult.juryGaps.length > 0 && (
+                    <div>
+                      <h4 className="flex items-center gap-2 text-sm font-semibold text-sky-700 dark:text-sky-400 mb-2">
+                        <ExclamationTriangleIcon className="w-4 h-4" />
+                        Kesenjangan Nilai Antar Juri ({verificationResult.juryGaps.length})
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Jumlah materi yang memiliki nilai tidak sama antar juri. Ini bukan nilai ganda dan perlu dicek pada detail penilaian.
+                      </p>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {verificationResult.juryGaps.map((issue, i) => (
+                          <div
+                            key={`gap-${i}`}
+                            className="flex items-start gap-3 p-3 bg-sky-50 dark:bg-sky-900/10 border border-sky-200 dark:border-sky-800/50 rounded-lg"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-sky-500 mt-1.5 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{issue.participantName}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{issue.message}</p>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1982,32 +2009,6 @@ const PanitiaEventRecap: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Duplicates Section */}
-                  {verificationResult.duplicates.length > 0 && (
-                    <div>
-                      <h4 className="flex items-center gap-2 text-sm font-semibold text-orange-700 dark:text-orange-400 mb-2">
-                        <ExclamationTriangleIcon className="w-4 h-4" />
-                        Nilai Ganda Terdeteksi ({verificationResult.duplicates.length})
-                      </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                        Beberapa juri memberikan nilai identik. Periksa apakah ini disengaja.
-                      </p>
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {verificationResult.duplicates.map((issue, i) => (
-                          <div
-                            key={`dup-${i}`}
-                            className="flex items-start gap-3 p-3 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/50 rounded-lg"
-                          >
-                            <div className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{issue.participantName}</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{issue.message}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </div>
