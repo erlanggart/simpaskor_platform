@@ -47,9 +47,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 						<div className="simpaskor-underline mx-auto lg:mx-0" />
 
 						<p className="text-xs md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-5 md:mb-8 max-w-lg mx-auto lg:mx-0">
-							Mengelola kompetisi, penilaian, dan pelatihan Paskibra modern
-							dengan teknologi digital terkini untuk membentuk generasi muda
-							yang disiplin, tangguh, dan berkarakter.
+							Solusi All-in-One: Transformasi Digital untuk Rekap Nilai, Tiketing, Voting, Marketplace, hingga Direktori Juri, Pelatih, dan Peserta dalam Satu Genggaman.
 						</p>
 						<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
 							<Link
