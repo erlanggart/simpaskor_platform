@@ -8,6 +8,7 @@ import { registrationLimiter } from "../middleware/rateLimiter";
 import { verifyRecaptcha } from "../middleware/recaptcha";
 import { GoogleAuthUtils } from "../utils/googleAuth";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth";
+import { sendPasswordResetEmail } from "../utils/email";
 
 const router = Router();
 
@@ -323,18 +324,16 @@ router.post(
 				},
 			});
 
-			// In production, send email here
-			// For now, we'll return the token in response (ONLY FOR DEVELOPMENT)
-			console.log("Reset token for", user.email, ":", resetToken);
-			console.log(
-				"Reset link: http://localhost:5173/reset-password?token=" + resetToken
-			);
+			// Send password reset email
+			try {
+				await sendPasswordResetEmail(user.email, user.name, resetToken);
+			} catch (emailError) {
+				console.error("Failed to send password reset email:", emailError);
+				// Don't expose email errors to client, but log for debugging
+			}
 
 			res.json({
 				message: "If the email exists, a reset link has been sent",
-				// Remove this in production:
-				devToken: resetToken,
-				devLink: `http://localhost:5173/reset-password?token=${resetToken}`,
 			});
 		} catch (error) {
 			if (error instanceof z.ZodError) {

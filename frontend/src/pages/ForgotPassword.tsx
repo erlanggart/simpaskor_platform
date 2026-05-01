@@ -28,44 +28,21 @@ const ForgotPassword = () => {
 		try {
 			setIsLoading(true);
 
-			const response = await api.post("/auth/forgot-password", data);
+			await api.post("/auth/forgot-password", data);
 
 			setIsSuccess(true);
 
-			// Show success with development link (if available)
-			if (response.data.devLink) {
-				await Swal.fire({
-					icon: "success",
-					title: "Link Reset Terkirim!",
-					html: `
-						<p class="mb-4">Link reset password telah dikirim ke email Anda.</p>
-						<div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-							<p class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Development Mode:</p>
-							<a href="${response.data.devLink}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline break-all">
-								${response.data.devLink}
-							</a>
-						</div>
-					`,
-					confirmButtonText: "OK",
-					customClass: {
-						confirmButton:
-							"bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-medium px-6 py-2.5 rounded-xl transition-all duration-200",
-					},
-					buttonsStyling: false,
-				});
-			} else {
-				await Swal.fire({
-					icon: "success",
-					title: "Link Reset Terkirim!",
-					text: "Jika email terdaftar, link reset password telah dikirim ke email Anda.",
-					confirmButtonText: "OK",
-					customClass: {
-						confirmButton:
-							"bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-medium px-6 py-2.5 rounded-xl transition-all duration-200",
-					},
-					buttonsStyling: false,
-				});
-			}
+			await Swal.fire({
+				icon: "success",
+				title: "Link Reset Terkirim!",
+				text: "Jika email terdaftar, link reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam.",
+				confirmButtonText: "OK",
+				customClass: {
+					confirmButton:
+						"bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-medium px-6 py-2.5 rounded-xl transition-all duration-200",
+				},
+				buttonsStyling: false,
+			});
 		} catch (err: any) {
 			await Swal.fire({
 				icon: "error",
