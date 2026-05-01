@@ -425,6 +425,102 @@ html:not(.dark) .landing-title-gradient-pricing {
 	min-height: calc(100vh - 3.5rem);
 }
 
+/* ===== Pricing Card Animations ===== */
+@keyframes pricing-card-enter {
+	from {
+		opacity: 0;
+		transform: translateY(18px) scale(0.97);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes pricing-shimmer {
+	0% { transform: translateX(-120%) skewX(-15deg); }
+	100% { transform: translateX(220%) skewX(-15deg); }
+}
+
+@keyframes pricing-feature-enter {
+	from {
+		opacity: 0;
+		transform: translateX(-6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.pricing-card {
+	animation: pricing-card-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+	transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+	            box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+	            border-color 0.3s ease;
+}
+
+.pricing-card:hover {
+	transform: translateY(-5px) scale(1.015);
+	box-shadow: 0 12px 32px -4px var(--glow, rgba(0,0,0,0.15)),
+	            0 4px 12px -2px var(--glow, rgba(0,0,0,0.1));
+}
+
+/* Shimmer sweep */
+.pricing-card-shimmer {
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		rgba(255, 255, 255, 0.18) 50%,
+		transparent 100%
+	);
+	transform: translateX(-120%) skewX(-15deg);
+	transition: none;
+	border-radius: inherit;
+}
+
+.pricing-card:hover .pricing-card-shimmer {
+	animation: pricing-shimmer 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Icon spin on hover */
+.pricing-card-icon {
+	transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pricing-card:hover .pricing-card-icon {
+	transform: rotate(12deg) scale(1.15);
+}
+
+/* Button arrow slide */
+.pricing-btn-arrow {
+	transition: transform 0.25s ease;
+}
+
+.pricing-card:hover .pricing-btn-arrow {
+	transform: translateX(3px);
+}
+
+/* Button subtle glow on card hover */
+.pricing-card:hover .pricing-card-btn {
+	box-shadow: 0 4px 16px -2px var(--glow, rgba(0,0,0,0.2));
+}
+
+/* Feature items stagger entrance */
+.pricing-feature {
+	animation: pricing-feature-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Top accent line pulse on hover */
+.pricing-card-accent {
+	transition: opacity 0.3s ease;
+	opacity: 0.6;
+}
+
+.pricing-card:hover .pricing-card-accent {
+	opacity: 1;
+}
+
 /* ===== Section Icon Glow ===== */
 .section-icon-glow {
 	position: relative;

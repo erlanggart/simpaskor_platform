@@ -12,6 +12,7 @@ import {
 	LuThumbsUp,
 	LuStore,
 	LuTicket,
+	LuPackage,
 } from "react-icons/lu";
 import { useLandingData } from "../hooks/useLandingData";
 import HeroSection from "../components/landing/HeroSection";
@@ -22,6 +23,7 @@ import KlasemenSection from "../components/landing/KlasemenSection";
 import PinnedPersonCarousel from "../components/landing/PinnedPersonCarousel";
 import JuriDetailModal from "../components/landing/JuriDetailModal";
 import MarketplaceSection from "../components/landing/MarketplaceSection";
+import PricingSection from "../components/landing/PricingSection";
 import "../components/landing/LandingPage.css";
 
 // Right-side section navigation labels
@@ -34,6 +36,7 @@ const sectionNavLabels = [
 	{ id: "pelatih", label: "Pelatih", icon: LuUsers },
 	{ id: "klasemen", label: "Klasemen", icon: LuTrophy },
 	{ id: "marketplace", label: "Marketplace", icon: LuStore },
+	{ id: "paket", label: "Paket", icon: LuPackage },
 ];
 
 const LandingPage: React.FC = () => {
@@ -285,6 +288,11 @@ const LandingPage: React.FC = () => {
 				{/* ===== SECTION 8: MARKETPLACE ===== */}
 				<section ref={setSectionRef(7)} className="landing-section-inner">
 					<MarketplaceSection />
+				</section>
+
+				{/* ===== SECTION 9: PAKET ===== */}
+				<section ref={setSectionRef(8)} className="landing-section-inner">
+					<PricingSection />
 				</section>
 
 			</div>

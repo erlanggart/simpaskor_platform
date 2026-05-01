@@ -2,7 +2,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import {
 	LuCheck,
-	LuX,
 	LuArrowRight,
 	LuMedal,
 	LuCrown,
@@ -127,119 +126,137 @@ const packages = [
 	},
 ];
 
+const priceColorClass: Record<PackageTier, string> = {
+	IKLAN: "text-emerald-600 dark:text-emerald-400",
+	TICKETING: "text-blue-600 dark:text-blue-400",
+	VOTING: "text-purple-600 dark:text-purple-400",
+	TICKETING_VOTING: "text-indigo-600 dark:text-indigo-400",
+	BRONZE: "text-amber-600 dark:text-amber-400",
+	SILVER: "text-gray-600 dark:text-gray-300",
+	GOLD: "text-yellow-600 dark:text-yellow-400",
+};
+
+// Glow color for box-shadow on hover
+const glowColor: Record<PackageTier, string> = {
+	IKLAN: "rgba(16,185,129,0.25)",
+	TICKETING: "rgba(59,130,246,0.25)",
+	VOTING: "rgba(168,85,247,0.25)",
+	TICKETING_VOTING: "rgba(99,102,241,0.25)",
+	BRONZE: "rgba(245,158,11,0.3)",
+	SILVER: "rgba(156,163,175,0.3)",
+	GOLD: "rgba(234,179,8,0.35)",
+};
+
 const PricingSection: React.FC = () => {
+	const freePackages = packages.filter((p) => p.price === "GRATIS");
+	const paidPackages = packages.filter((p) => p.price !== "GRATIS");
+
+	const renderCard = (pkg: typeof packages[0], index: number) => {
+		const Icon = pkg.icon;
+		const tierKey = pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "ticketing" | "voting" | "ticketing_voting" | "bronze" | "silver" | "gold">;
+		const includedFeatures = packageFeatures.filter((f) => f[tierKey]);
+
+		return (
+			<div
+				key={pkg.tier}
+				className={`pricing-card group relative rounded-xl border overflow-hidden flex flex-col
+					${pkg.borderColor}
+					bg-white/80 dark:bg-gray-900/50 backdrop-blur-sm
+				`}
+				style={{
+					animationDelay: `${index * 80}ms`,
+					"--glow" : glowColor[pkg.tier],
+				} as React.CSSProperties}
+			>
+				{/* Shimmer sweep on hover */}
+				<div className="pricing-card-shimmer absolute inset-0 pointer-events-none z-10" />
+
+				{/* Top accent line */}
+				<div className={`pricing-card-accent h-[2px] w-full bg-gradient-to-r ${pkg.bgGlow.replace("from-", "from-").replace("/10", "/80").replace("/5", "/40")}`} />
+
+				{/* Header */}
+				<div className="px-4 pt-3 pb-2 relative z-20">
+					{/* Row 1: icon + name */}
+					<div className="flex items-center gap-2 mb-1">
+						<div className={`pricing-card-icon w-8 h-8 rounded-lg bg-gradient-to-br ${pkg.bgGlow} flex items-center justify-center border border-gray-200/50 dark:border-white/[0.06] flex-shrink-0`}>
+							<Icon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+						</div>
+						<h3 className="text-sm font-bold text-gray-800 dark:text-white leading-tight">
+							{pkg.name}
+						</h3>
+					</div>
+					{/* Row 2: price + badge */}
+					<div className="flex items-center justify-between gap-2">
+						<p className={`text-base font-black leading-tight ${priceColorClass[pkg.tier]}`}>
+							{pkg.price}
+						</p>
+						<span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex-shrink-0 ${pkg.badgeClass}`}>
+							{pkg.tier.replace("_", " + ")}
+						</span>
+					</div>
+				</div>
+
+				{/* Features */}
+				<div className="px-4 pb-2 space-y-1 flex-1 relative z-20">
+					{includedFeatures.length === 0 ? (
+						<p className="text-xs text-gray-400 dark:text-gray-500 italic">Akses demo saja</p>
+					) : (
+						includedFeatures.map((feature, fi) => (
+							<div
+								key={feature.name}
+								className="pricing-feature flex items-center gap-1.5"
+								style={{ animationDelay: `${index * 80 + fi * 40}ms` }}
+							>
+								<LuCheck className="w-3 h-3 text-green-500 flex-shrink-0" />
+								<span className="text-xs text-gray-700 dark:text-gray-300">{feature.name}</span>
+							</div>
+						))
+					)}
+					{pkg.note && (
+						<p className="text-[10px] text-gray-400 dark:text-gray-500 italic pt-1 border-t border-gray-100 dark:border-white/5">
+							* {pkg.note}
+						</p>
+					)}
+				</div>
+
+				{/* CTA */}
+				<div className="px-4 pb-3 pt-2 relative z-20">
+					<Link
+						to="/register"
+						className={`pricing-card-btn w-full py-2 rounded-lg text-xs font-semibold shadow-sm transition-all duration-300 flex items-center justify-center gap-1.5 ${pkg.btnClass}`}
+					>
+						<span>Daftar Sekarang</span>
+						<LuArrowRight className="w-3 h-3 pricing-btn-arrow" />
+					</Link>
+				</div>
+			</div>
+		);
+	};
+
 	return (
-		<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16 py-8">
+		<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16 py-4">
 			{/* Header */}
-			<div className="text-center mb-10">
-				<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-4">
+			<div className="text-center mb-4">
+				<p className="text-[10px] tracking-[0.3em] text-gray-400 font-medium mb-1">
 					DAFTARKAN EVENT ANDA
 				</p>
-				<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-none mb-3 landing-title-gradient-pricing">
-					Pilih <span className="landing-title-gradient-pricing">Paket Anda</span>
+				<h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-none mb-2 landing-title-gradient-pricing">
+					Pilih Paket Anda
 				</h1>
-				<div className="w-12 h-[1px] bg-gradient-to-r from-orange-500/50 to-transparent mx-auto mb-4" />
-				<p className="text-sm md:text-base text-gray-500 dark:text-gray-500 leading-relaxed max-w-xl mx-auto">
-					Kami menyediakan berbagai paket yang dapat disesuaikan dengan kebutuhan event Anda
+				<div className="w-10 h-[1px] bg-gradient-to-r from-orange-500/50 to-transparent mx-auto mb-2" />
+				<p className="text-xs text-gray-500 dark:text-gray-500 max-w-lg mx-auto">
+					Berbagai paket yang dapat disesuaikan dengan kebutuhan event Anda
 				</p>
 			</div>
 
-			{/* Package Cards */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8 mb-10">
-				{packages.map((pkg) => {
-					const Icon = pkg.icon;
-					const isFeatured = pkg.featured;
+			{/* Free Packages Row */}
+			<div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+				{freePackages.map((pkg, i) => renderCard(pkg, i))}
+			</div>
 
-					return (
-						<div
-							key={pkg.tier}
-							className={`relative rounded-2xl border transition-all duration-300 overflow-hidden
-								${pkg.borderColor}
-								${isFeatured ? "md:-mt-4 md:mb-4" : ""}
-								bg-white/80 dark:bg-gray-900/50 backdrop-blur-sm
-								hover:shadow-lg dark:hover:shadow-2xl hover:shadow-gray-200/50 dark:hover:shadow-black/20
-							`}
-						>
-							{/* Badge */}
-							<div className="flex justify-center pt-5">
-								<span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${pkg.badgeClass}`}>
-									{pkg.tier}
-								</span>
-							</div>
-
-							{/* Icon */}
-							<div className="flex justify-center mt-4">
-								<div className={`w-14 h-14 rounded-full bg-gradient-to-br ${pkg.bgGlow} flex items-center justify-center border border-gray-200/50 dark:border-white/[0.06]`}>
-									<Icon className="w-7 h-7 text-gray-700 dark:text-gray-300" />
-								</div>
-							</div>
-
-							{/* Name & Price */}
-							<div className="text-center px-6 pt-4 pb-2">
-								<h3 className="text-lg font-bold text-gray-800 dark:text-white mb-1">
-									{pkg.name}
-								</h3>
-								<p className={`text-2xl md:text-3xl font-black ${
-								pkg.tier === "IKLAN"
-									? "text-emerald-600 dark:text-emerald-400"
-									: pkg.tier === "TICKETING"
-										? "text-blue-600 dark:text-blue-400"
-										: pkg.tier === "VOTING"
-											? "text-purple-600 dark:text-purple-400"
-											: pkg.tier === "TICKETING_VOTING"
-												? "text-indigo-600 dark:text-indigo-400"
-												: pkg.tier === "BRONZE"
-													? "text-amber-600 dark:text-amber-400"
-													: pkg.tier === "SILVER"
-														? "text-gray-600 dark:text-gray-300"
-														: "text-yellow-600 dark:text-yellow-400"
-								}`}>
-									{pkg.price}
-								</p>
-							</div>
-
-							{/* Features */}
-							<div className="px-6 py-4 space-y-2.5">
-								{packageFeatures.map((feature) => {
-									const tierKey = pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "ticketing" | "voting" | "ticketing_voting" | "bronze" | "silver" | "gold">;
-									const included = feature[tierKey];
-									return (
-										<div key={feature.name} className="flex items-center gap-2.5">
-											{included ? (
-												<LuCheck className="w-4 h-4 text-green-500 flex-shrink-0" />
-											) : (
-												<LuX className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" />
-											)}
-											<span className={`text-sm ${
-												included
-													? "text-gray-700 dark:text-gray-300"
-													: "text-gray-400 dark:text-gray-600 line-through"
-											}`}>
-												{feature.name}
-											</span>
-										</div>
-									);
-								})}
-								{pkg.note && (
-									<p className="text-[10px] text-gray-400 dark:text-gray-500 italic pt-1 border-t border-gray-100 dark:border-white/5">
-										* {pkg.note}
-									</p>
-								)}
-							</div>
-
-							{/* CTA */}
-							<div className="px-6 pb-6 pt-2">
-								<Link
-									to="/register"
-									className={`w-full py-3 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${pkg.btnClass}`}
-								>
-									<span>Daftar Sekarang</span>
-									<LuArrowRight className="w-4 h-4" />
-								</Link>
-							</div>
-						</div>
-					);
-				})}
+			{/* Paid Packages Row */}
+			<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+				{paidPackages.map((pkg, i) => renderCard(pkg, freePackages.length + i))}
 			</div>
 
 			<p className="text-center text-xs text-gray-400 dark:text-gray-600">
