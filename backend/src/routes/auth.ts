@@ -63,10 +63,11 @@ router.post(
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = registerSchema.parse(req.body);
+			const normalizedEmail = validatedData.email.trim().toLowerCase();
 
 			// Check if user already exists
 			const existingUser = await prisma.user.findUnique({
-				where: { email: validatedData.email },
+				where: { email: normalizedEmail },
 			});
 
 			if (existingUser) {
@@ -82,7 +83,7 @@ router.post(
 			// Create user with profile
 			const user = await prisma.user.create({
 				data: {
-					email: validatedData.email,
+					email: normalizedEmail,
 					passwordHash,
 					name: validatedData.name,
 					role: UserRole.PESERTA,
@@ -291,10 +292,11 @@ router.post(
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = forgotPasswordSchema.parse(req.body);
+			const normalizedEmail = validatedData.email.trim().toLowerCase();
 
 			// Find user by email
 			const user = await prisma.user.findUnique({
-				where: { email: validatedData.email },
+				where: { email: normalizedEmail },
 			});
 
 			// Always return success to prevent email enumeration
