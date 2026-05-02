@@ -64,4 +64,36 @@ body {
 	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
+.team-name-marquee {
+	-webkit-mask-image: linear-gradient(
+		90deg,
+		transparent,
+		#000 8%,
+		#000 92%,
+		transparent
+	);
+	mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.team-name-marquee-track {
+	animation: team-name-marquee 10s linear infinite;
+	will-change: transform;
+}
+
+@keyframes team-name-marquee {
+	0%,
+	28% {
+		transform: translateX(0);
+	}
+	100% {
+		transform: translateX(calc(-50% - 0.75rem));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.team-name-marquee-track {
+		animation: none;
+	}
+}
+
 /* Remove default button and heading styling - let Tailwind handle this */

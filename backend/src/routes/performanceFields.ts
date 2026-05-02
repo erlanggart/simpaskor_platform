@@ -863,8 +863,29 @@ router.get(
 				field: { eventId: event.id },
 			};
 
-			// If participant ID provided, filter by it
+			// If participant ID provided, filter by it. Peserta must own that group.
 			if (participantId) {
+				if (user?.role === "PESERTA") {
+					const participation = await prisma.eventParticipation.findFirst({
+						where: {
+							eventId: event.id,
+							userId: user.userId,
+							status: { in: ["CONFIRMED", "ATTENDED"] },
+						},
+						include: {
+							groups: {
+								where: { status: "ACTIVE" },
+								select: { id: true },
+							},
+						},
+					});
+
+					const ownedGroupIds = participation?.groups.map((group) => group.id) || [];
+					if (!ownedGroupIds.includes(participantId as string)) {
+						return res.status(403).json({ error: "Access denied" });
+					}
+				}
+
 				whereClause.participantId = participantId as string;
 			} else if (user?.role === "PESERTA") {
 				// If user is PESERTA, only show their own sessions
@@ -873,9 +894,12 @@ router.get(
 					where: {
 						eventId: event.id,
 						userId: user.userId,
+						status: { in: ["CONFIRMED", "ATTENDED"] },
 					},
 					include: {
-						groups: true,
+						groups: {
+							where: { status: "ACTIVE" },
+						},
 					},
 				});
 

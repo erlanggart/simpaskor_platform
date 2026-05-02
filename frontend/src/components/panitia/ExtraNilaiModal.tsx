@@ -33,6 +33,7 @@ interface JuaraCategory {
 interface Participant {
 	id: string;
 	teamName: string;
+	groupLabel?: string | null;
 }
 
 interface RecapParticipant {
@@ -138,6 +139,9 @@ const ExtraNilaiModal: React.FC<ExtraNilaiModalProps> = ({
 						</h3>
 						<p className="text-sm text-gray-500 dark:text-gray-400">
 							{participant.participant.teamName}
+							{participant.participant.groupLabel &&
+								participant.participant.groupLabel !== participant.participant.teamName &&
+								` - ${participant.participant.groupLabel}`}
 						</p>
 					</div>
 					<button

@@ -47,6 +47,14 @@ const AssessmentHistoryDashboard: React.FC<AssessmentHistoryDashboardProps> = ({
 		});
 	};
 
+	const getAssessmentDetailPath = (
+		participation: AssessmentEventParticipation,
+		groupId?: string
+	) => {
+		const eventKey = participation.event.slug || participation.event.id;
+		return `/peserta/assessment-history/${eventKey}${groupId ? `/${groupId}` : ""}`;
+	};
+
 	const summaryCards = [
 		{
 			label: "Event Diikuti",
@@ -351,9 +359,8 @@ const AssessmentHistoryDashboard: React.FC<AssessmentHistoryDashboardProps> = ({
 									performance.bestEvent?.event.id === participation.event.id;
 
 								return (
-									<Link
+									<div
 										key={participation.id}
-										to={`/peserta/assessment-history/${participation.event.slug || participation.event.id}`}
 										className="block rounded-2xl border border-gray-200/60 dark:border-gray-700/40 bg-white/70 dark:bg-gray-900/20 overflow-hidden hover:shadow-md transition-shadow"
 									>
 										<div className="flex flex-col sm:flex-row">
@@ -379,12 +386,14 @@ const AssessmentHistoryDashboard: React.FC<AssessmentHistoryDashboardProps> = ({
 														</h3>
 														<div className="flex flex-wrap gap-2 mt-2">
 															{participation.groups.map((group) => (
-																<span
+																<Link
 																	key={group.id}
-																	className="text-xs px-2 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-full"
+																	to={getAssessmentDetailPath(participation, group.id)}
+																	className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-full hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
 																>
 																	{group.groupName}
-																</span>
+																	<ChevronRightIcon className="h-3 w-3" />
+																</Link>
 															))}
 														</div>
 													</div>
@@ -422,10 +431,19 @@ const AssessmentHistoryDashboard: React.FC<AssessmentHistoryDashboardProps> = ({
 													<span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-semibold">
 														Total: {participation.summary.totalScore.toFixed(1)}
 													</span>
+													{participation.groups.length === 0 && (
+														<Link
+															to={getAssessmentDetailPath(participation)}
+															className="inline-flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700"
+														>
+															Detail Penilaian
+															<ChevronRightIcon className="h-3 w-3" />
+														</Link>
+													)}
 												</div>
 											</div>
 										</div>
-									</Link>
+									</div>
 								);
 							})}
 						</div>

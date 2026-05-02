@@ -221,6 +221,22 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 									);
 									return sum + materialSum;
 								}, 0);
+								const categoryJuryIds = new Set<string>();
+								category.materials.forEach((materialScore) => {
+									materialScore.scores.forEach((score) => {
+										if (
+											(score.score !== null && score.score !== undefined) ||
+											score.isSkipped ||
+											score.scoredAt ||
+											score.scoreCategoryName
+										) {
+											categoryJuryIds.add(score.juryId);
+										}
+									});
+								});
+								const categoryJuries = scoreData.juries.filter((jury) =>
+									categoryJuryIds.has(jury.id)
+								);
 
 								return (
 									<div key={category.categoryName} className="overflow-x-auto">
@@ -233,7 +249,7 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 													>
 														Materi
 													</th>
-													{scoreData.juries.map((jury) => (
+													{categoryJuries.map((jury) => (
 														<th
 															key={jury.id}
 															scope="col"
@@ -258,7 +274,7 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 															<span className="font-medium">{materialScore.material.number}.</span>{" "}
 															{materialScore.material.name}
 														</td>
-														{scoreData.juries.map((jury) => {
+														{categoryJuries.map((jury) => {
 															const juryScore = materialScore.scores.find(
 																(score) => score.juryId === jury.id
 															);
@@ -308,17 +324,30 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 											</tbody>
 											<tfoot className="bg-red-50 dark:bg-red-900/30">
 												<tr>
-													<td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
-														Total {category.categoryName}
-													</td>
-													<td
-														colSpan={scoreData.juries.length}
-														className="px-4 py-3 text-center"
-													>
-														<span className="text-xl font-bold text-red-600 dark:text-red-400">
-															{categoryTotal.toFixed(1)}
-														</span>
-													</td>
+													{categoryJuries.length > 0 ? (
+														<>
+															<td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
+																Total {category.categoryName}
+															</td>
+															<td
+																colSpan={categoryJuries.length}
+																className="px-4 py-3 text-center"
+															>
+																<span className="text-xl font-bold text-red-600 dark:text-red-400">
+																	{categoryTotal.toFixed(1)}
+																</span>
+															</td>
+														</>
+													) : (
+														<td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
+															<div className="flex items-center justify-between gap-3">
+																<span>Total {category.categoryName}</span>
+																<span className="text-xl font-bold text-red-600 dark:text-red-400">
+																	{categoryTotal.toFixed(1)}
+																</span>
+															</div>
+														</td>
+													)}
 												</tr>
 											</tfoot>
 										</table>

@@ -360,6 +360,32 @@ const PanitiaEventRecap: React.FC = () => {
     return juaraCategories.find(j => j.id === selectedJuaraPreset) || null;
   };
 
+  const getParticipantInstitutionName = (participant: Participant): string => {
+    const institutionName = participant.registrant.institution?.trim();
+    const primaryName = participant.teamName?.trim();
+
+    return institutionName || primaryName || participant.registrant.name || "Peserta";
+  };
+
+  const getParticipantTeamName = (participant: Participant): string => {
+    const institutionName = participant.registrant.institution?.trim();
+    const primaryName = participant.teamName?.trim();
+    const teamName = participant.groupLabel?.trim() || primaryName;
+
+    return teamName && teamName !== institutionName ? teamName : "";
+  };
+
+  const getParticipantDisplayName = (participant: Participant): string => {
+    const institutionName = getParticipantInstitutionName(participant);
+    const teamName = getParticipantTeamName(participant);
+
+    if (institutionName && teamName && institutionName !== teamName) {
+      return `${institutionName} - ${teamName}`;
+    }
+
+    return institutionName || teamName || "Peserta";
+  };
+
   // Group participants by school category
   const getSchoolCategoryGroups = (): SchoolCategoryGroup[] => {
     if (!recapData) return [];
@@ -403,7 +429,9 @@ const PanitiaEventRecap: React.FC = () => {
           const orderA = a.participant.orderNumber ?? 9999;
           const orderB = b.participant.orderNumber ?? 9999;
           if (orderA !== orderB) return orderA - orderB;
-          return a.participant.teamName.localeCompare(b.participant.teamName);
+          return getParticipantDisplayName(a.participant).localeCompare(
+            getParticipantDisplayName(b.participant),
+          );
         });
       } else {
         // Default: sort by orderNumber
@@ -550,7 +578,7 @@ const PanitiaEventRecap: React.FC = () => {
     });
 
     for (const item of recapData.recap) {
-      const pName = item.participant.teamName;
+      const pName = getParticipantDisplayName(item.participant);
       const pId = item.participant.id;
 
       for (const catScore of item.categoryScores) {
@@ -878,9 +906,7 @@ const PanitiaEventRecap: React.FC = () => {
     // Build data rows
     const rows = activeGroup.participants.map((item, index) => {
       const extraSummary = getExtraNilaiSummary(item);
-      const nameDisplay = item.participant.groupLabel
-        ? `${item.participant.teamName} - ${item.participant.groupLabel}`
-        : item.participant.teamName;
+      const nameDisplay = getParticipantDisplayName(item.participant);
       const row: (string | number)[] = [
         index + 1,
         nameDisplay,
@@ -1044,9 +1070,7 @@ const PanitiaEventRecap: React.FC = () => {
     // Build data rows
     const rows = activeGroup.participants.map((item, index) => {
       const extraSummary = getExtraNilaiSummary(item);
-      const nameDisplay = item.participant.groupLabel
-        ? `${item.participant.teamName} - ${item.participant.groupLabel}`
-        : item.participant.teamName;
+      const nameDisplay = getParticipantDisplayName(item.participant);
       const row: (string | number)[] = [
         index + 1,
         nameDisplay,
@@ -1358,6 +1382,8 @@ const PanitiaEventRecap: React.FC = () => {
                               const rankPos = selectedJuara ? getRankPosition(activeGroup.participants, index) : 0;
                               const isFirst = index === 0;
                               const isLast = index === activeGroup.participants.length - 1;
+                              const participantInstitutionName = getParticipantInstitutionName(item.participant);
+                              const participantTeamName = getParticipantTeamName(item.participant);
                               return (
                                 <tr
                                   key={item.participant.id}
@@ -1398,12 +1424,14 @@ const PanitiaEventRecap: React.FC = () => {
                                     </span>
                                   </td>
                                   <td className="px-3 py-3 text-gray-900 dark:text-white text-sm font-medium hover:text-red-600 dark:hover:text-red-400 transition-colors">
-                                    <div>{item.participant.teamName}</div>
-                                    {item.participant.groupLabel && (
-                                      <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
-                                        {item.participant.groupLabel}
-                                      </div>
-                                    )}
+                                    <div className="leading-snug">
+                                      <div>{participantInstitutionName}</div>
+                                      {participantTeamName && (
+                                        <div className="mt-0.5 text-xs text-gray-500 dark:text-red-400 font-normal">
+                                          {participantTeamName}
+                                        </div>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-3 py-3 text-center text-gray-700 dark:text-gray-300 text-sm">
                                     {item.participant.orderNumber || "-"}

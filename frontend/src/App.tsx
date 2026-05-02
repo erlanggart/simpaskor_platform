@@ -248,6 +248,7 @@ function App() {
 							<Route path="events/:eventSlug/performance-history" element={<PerformanceHistory />} />
 							<Route path="assessment-history" element={<PesertaAssessmentHistory />} />
 							<Route path="assessment-history/:eventSlug" element={<PesertaAssessmentHistory />} />
+							<Route path="assessment-history/:eventSlug/:groupId" element={<PesertaAssessmentHistory />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>

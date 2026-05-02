@@ -968,6 +968,14 @@ router.get(
 					status: {
 						in: ["REGISTERED", "CONFIRMED", "ATTENDED"],
 					},
+					user: {
+						role: "PESERTA",
+					},
+					groups: {
+						some: {
+							status: "ACTIVE",
+						},
+					},
 				},
 				include: {
 					user: {
@@ -1012,12 +1020,11 @@ router.get(
 			const participantGroups: ParticipantGroup[] = participants.flatMap((p) => {
 				const schoolOrInstitution = p.schoolName || p.user.profile?.institution || null;
 				if (p.groups && p.groups.length > 0) {
-					const hasMultipleGroups = p.groups.length > 1;
 					return p.groups.map((group): ParticipantGroup => ({
 						id: group.id,
 						participationId: p.id,
 						teamName: schoolOrInstitution || group.groupName,
-						groupLabel: hasMultipleGroups ? group.groupName : null,
+						groupLabel: group.groupName !== schoolOrInstitution ? group.groupName : null,
 						orderNumber: group.orderNumber,
 						schoolCategory: group.schoolCategory,
 						registrant: {
@@ -1027,19 +1034,7 @@ router.get(
 						},
 					}));
 				}
-				return [{
-					id: p.id,
-					participationId: p.id,
-					teamName: schoolOrInstitution || p.user.name,
-					groupLabel: null,
-					orderNumber: null,
-					schoolCategory: null,
-					registrant: {
-						id: p.user.id,
-						name: p.user.name,
-						institution: schoolOrInstitution,
-					},
-				}] as ParticipantGroup[];
+				return [] as ParticipantGroup[];
 			});
 
 			// Sort by orderNumber (null values last)
@@ -1418,9 +1413,56 @@ router.get(
 				computedMaxScorePerCategory.set(eac.id, categoryMax);
 			}
 
+			// Get valid participant groups only. Recap/verification should not include
+			// panitia accounts, cancelled registrations, or orphaned group data.
+			const participants = await prisma.participationGroup.findMany({
+				where: {
+					status: "ACTIVE",
+					participation: {
+						eventId: event.id,
+						status: { in: ["REGISTERED", "CONFIRMED", "ATTENDED"] },
+						user: {
+							role: "PESERTA",
+						},
+					},
+				},
+				select: {
+					id: true,
+					groupName: true,
+					participation: {
+						select: {
+							schoolName: true,
+							user: {
+								select: {
+									profile: {
+										select: {
+											institution: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			});
+			const validParticipantIds = participants.map((p) => p.id);
+			const participantNameMap = new Map(
+				participants.map((p) => {
+					const institution = p.participation.schoolName || p.participation.user.profile?.institution || null;
+					const displayName =
+						institution && institution !== p.groupName
+							? `${institution} - ${p.groupName}`
+							: institution || p.groupName;
+					return [p.id, displayName];
+				})
+			);
+
 			// Get ALL material evaluations with full detail
 			const materialEvaluations = await prisma.materialEvaluation.findMany({
-				where: { eventId: event.id },
+				where: {
+					eventId: event.id,
+					participantId: { in: validParticipantIds },
+				},
 				select: {
 					id: true,
 					participantId: true,
@@ -1430,19 +1472,6 @@ router.get(
 					isSkipped: true,
 				},
 			});
-
-			// Get participants
-			const participants = await prisma.participationGroup.findMany({
-				where: {
-					participation: { eventId: event.id },
-					status: { in: ["REGISTERED", "CONFIRMED", "ATTENDED", "ACTIVE"] },
-				},
-				select: {
-					id: true,
-					groupName: true,
-				},
-			});
-			const participantNameMap = new Map(participants.map((p) => [p.id, p.groupName]));
 
 			// Get juries with assignments
 			const juryAssignments = await prisma.juryEventAssignment.findMany({
@@ -1549,6 +1578,7 @@ router.get(
 
 			// Check each participant x category x jury
 			for (const participant of participants) {
+				const participantName = participantNameMap.get(participant.id) || participant.groupName;
 				for (const eac of event.assessmentCategories) {
 					const catId = eac.assessmentCategoryId;
 					const catName = eac.assessmentCategory.name;
@@ -1574,7 +1604,7 @@ router.get(
 								type: "missing_score",
 								severity: "warning",
 								participantId: participant.id,
-								participantName: participant.groupName,
+								participantName,
 								category: catName,
 								juryId: ja.jury.id,
 								juryName: ja.jury.name,
@@ -1592,7 +1622,7 @@ router.get(
 								type: "jury_score_gap",
 								severity: "warning",
 								participantId: participant.id,
-								participantName: participant.groupName,
+								participantName,
 								category: catName,
 								juryId: ja.jury.id,
 								juryName: ja.jury.name,
@@ -1611,7 +1641,7 @@ router.get(
 								type: "jury_score_gap",
 								severity: "warning",
 								participantId: participant.id,
-								participantName: participant.groupName,
+								participantName,
 								category: catName,
 								eventCategoryId: eac.id,
 								message: `Kesenjangan jumlah nilai antar juri di kategori "${catName}": ${scoredCounts.map((item) => `${item.juryName} (${item.count})`).join(", ")}. Ini bukan nilai ganda; periksa apakah ada materi yang belum dinilai, dilewati, atau bernilai 0.`,
@@ -1624,7 +1654,10 @@ router.get(
 
 			// Check for direct evaluations that exceed the computed maxScore
 			const directEvaluations = await prisma.evaluation.findMany({
-				where: { eventId: event.id },
+				where: {
+					eventId: event.id,
+					participantId: { in: validParticipantIds },
+				},
 				select: {
 					participantId: true,
 					juryId: true,
@@ -1929,7 +1962,7 @@ router.get(
 					participation: {
 						include: {
 							user: {
-								select: { id: true, name: true, profile: { select: { institution: true } } },
+								select: { id: true, name: true, role: true, profile: { select: { institution: true } } },
 							},
 							groups: {
 								where: { status: "ACTIVE" },
@@ -1942,6 +1975,14 @@ router.get(
 			});
 
 			if (!participant) {
+				return res.status(404).json({ error: "Peserta tidak ditemukan" });
+			}
+
+			if (
+				participant.status !== "ACTIVE" ||
+				!["REGISTERED", "CONFIRMED", "ATTENDED"].includes(participant.participation.status) ||
+				participant.participation.user.role !== "PESERTA"
+			) {
 				return res.status(404).json({ error: "Peserta tidak ditemukan" });
 			}
 
@@ -2084,13 +2125,12 @@ router.get(
 			});
 
 			const schoolOrInstitution = participant.participation.schoolName || participant.participation.user.profile?.institution || null;
-			const hasMultipleGroups = (participant.participation.groups?.length || 0) > 1;
 
 			res.json({
 				participant: {
 					id: participant.id,
 					teamName: schoolOrInstitution || participant.groupName,
-					groupLabel: hasMultipleGroups ? participant.groupName : null,
+					groupLabel: participant.groupName !== schoolOrInstitution ? participant.groupName : null,
 					orderNumber: participant.orderNumber,
 					schoolCategory: participant.schoolCategory
 						? { id: participant.schoolCategory.id, name: participant.schoolCategory.name }
@@ -3021,6 +3061,8 @@ router.get(
 		try {
 			const user = req.user;
 			const { eventSlug } = req.params;
+			const groupId =
+				typeof req.query.groupId === "string" ? req.query.groupId : undefined;
 
 			if (!user || user.role !== "PESERTA") {
 				return res.status(403).json({ error: "Access denied" });
@@ -3070,11 +3112,23 @@ router.get(
 				return res.status(403).json({ error: "Anda tidak terdaftar sebagai peserta di event ini" });
 			}
 
+			const selectedGroups = groupId
+				? participation.groups.filter((group) => group.id === groupId)
+				: participation.groups;
+
+			if (groupId && selectedGroups.length === 0) {
+				return res.status(404).json({ error: "Tim tidak ditemukan untuk event ini" });
+			}
+
+			if (selectedGroups.length === 0) {
+				return res.status(404).json({ error: "Tim peserta tidak ditemukan untuk event ini" });
+			}
+
 			// Get participant group IDs
-			const groupIds = participation.groups.map((g) => g.id);
+			const groupIds = selectedGroups.map((g) => g.id);
 
 			// Get materials for this event filtered by school category
-			const schoolCategoryIds = participation.groups.map((g) => g.schoolCategoryId).filter(Boolean) as string[];
+			const schoolCategoryIds = selectedGroups.map((g) => g.schoolCategoryId).filter(Boolean) as string[];
 			const materials = await prisma.eventMaterial.findMany({
 				where: {
 					eventId: event.id,
@@ -3204,7 +3258,7 @@ router.get(
 				},
 				participation: {
 					id: participation.id,
-					groups: participation.groups,
+					groups: selectedGroups,
 				},
 				juries,
 				scoresByCategory: Object.values(scoresByCategory),

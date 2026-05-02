@@ -63,6 +63,7 @@ interface ParticipantDetail {
 	participant: {
 		id: string;
 		teamName: string;
+		groupLabel?: string | null;
 		orderNumber: number | null;
 		schoolCategory: { id: string; name: string } | null;
 		registrant: { id: string; name: string };
@@ -349,6 +350,9 @@ const ParticipantDetailModal: React.FC<ParticipantDetailModalProps> = ({
 						{participantDetail && (
 							<p className="text-red-100 dark:text-gray-400">
 								{participantDetail.participant.teamName}
+								{participantDetail.participant.groupLabel &&
+									participantDetail.participant.groupLabel !== participantDetail.participant.teamName &&
+									` - ${participantDetail.participant.groupLabel}`}
 								{participantDetail.participant.orderNumber && 
 									` - Nomor Urut: ${participantDetail.participant.orderNumber}`
 								}

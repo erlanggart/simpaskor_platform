@@ -669,6 +669,14 @@ router.get(
 					status: {
 						in: ["REGISTERED", "CONFIRMED", "ATTENDED"],
 					},
+					user: {
+						role: "PESERTA",
+					},
+					groups: {
+						some: {
+							status: "ACTIVE",
+						},
+					},
 				},
 				include: {
 					user: {
@@ -745,23 +753,7 @@ router.get(
 						};
 					});
 				}
-				// If no groups, return the participant themselves
-				return [{
-					id: p.id, // Use participation ID
-					participationId: p.id,
-					teamName: p.teamName || p.schoolName || p.user.name,
-					status: p.status,
-					schoolCategory: p.schoolCategory as { id: string; name: string } | null,
-					members: [p.user.name],
-					teamMembers: 1,
-					orderNumber: null as number | null,
-					registrant: {
-						id: p.user.id,
-						name: p.user.name,
-						email: p.user.email,
-						institution: p.schoolName || p.user.profile?.institution || null,
-					},
-				}];
+				return [];
 			});
 
 			res.json(result);

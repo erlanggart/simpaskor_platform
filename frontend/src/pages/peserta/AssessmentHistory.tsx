@@ -11,7 +11,7 @@ import {
 } from "../../components/peserta/assessment/types";
 
 const AssessmentHistory: React.FC = () => {
-	const { eventSlug } = useParams<{ eventSlug: string }>();
+	const { eventSlug, groupId } = useParams<{ eventSlug: string; groupId?: string }>();
 	const [dashboardData, setDashboardData] = useState<AssessmentDashboardData | null>(null);
 	const [scoreData, setScoreData] = useState<AssessmentScoreData | null>(null);
 	const [performanceSessions, setPerformanceSessions] = useState<AssessmentPerformanceSession[]>([]);
@@ -32,7 +32,7 @@ const AssessmentHistory: React.FC = () => {
 		}
 	}, []);
 
-	const fetchScores = useCallback(async (slug: string) => {
+	const fetchScores = useCallback(async (slug: string, selectedGroupId?: string) => {
 		try {
 			setLoadingScores(true);
 			setScoreData(null);
@@ -40,8 +40,12 @@ const AssessmentHistory: React.FC = () => {
 			setPerformanceLoadError(false);
 
 			const [scoreResult, performanceResult] = await Promise.allSettled([
-				api.get(`/evaluations/my-scores/${slug}`),
-				api.get(`/performance/events/${slug}/sessions`),
+				api.get(`/evaluations/my-scores/${slug}`, {
+					params: selectedGroupId ? { groupId: selectedGroupId } : undefined,
+				}),
+				api.get(`/performance/events/${slug}/sessions`, {
+					params: selectedGroupId ? { participantId: selectedGroupId } : undefined,
+				}),
 			]);
 
 			if (scoreResult.status !== "fulfilled") {
@@ -79,14 +83,14 @@ const AssessmentHistory: React.FC = () => {
 
 	useEffect(() => {
 		if (eventSlug) {
-			fetchScores(eventSlug);
+			fetchScores(eventSlug, groupId);
 		} else {
 			setScoreData(null);
 			setPerformanceSessions([]);
 			setPerformanceLoadError(false);
 			setActiveTab("");
 		}
-	}, [eventSlug, fetchScores]);
+	}, [eventSlug, groupId, fetchScores]);
 
 	const formatDate = (dateString: string) => {
 		return new Date(dateString).toLocaleDateString("id-ID", {

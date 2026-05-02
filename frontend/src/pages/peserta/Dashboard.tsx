@@ -76,12 +76,73 @@ const formatCurrency = (amount?: number | null) => {
 const getEventPath = (event: Pick<Event, "id" | "slug">) =>
 	`/events/${event.slug || event.id}`;
 
+const getAssessmentPath = (
+	registration: EventRegistration,
+	groupId?: string
+) => {
+	const event = registration.event;
+	if (!event) return "/peserta/assessment-history";
+
+	const eventKey = event.slug || event.id;
+	return `/peserta/assessment-history/${eventKey}${groupId ? `/${groupId}` : ""}`;
+};
+
 const getEventLocation = (
 	event?: Pick<Event, "venue" | "city" | "location"> | null
 ) => event?.venue || event?.city || event?.location || "Lokasi belum tersedia";
 
 const isActiveRegistration = (status?: string) =>
 	status !== "CANCELLED" && status !== "REJECTED";
+
+const isAssessmentRegistration = (status?: string) =>
+	status === "CONFIRMED" || status === "ATTENDED";
+
+const getActiveRegistrationGroups = (registration: EventRegistration) =>
+	(registration.groups || []).filter((group) => group.status === "ACTIVE");
+
+const shouldAnimateTeamName = (teamName: string) => teamName.length > 18;
+
+const getStartOfDay = (date: Date) => {
+	const result = new Date(date);
+	result.setHours(0, 0, 0, 0);
+	return result.getTime();
+};
+
+const getDateTime = (dateString?: string | null) => {
+	if (!dateString) return null;
+	const time = new Date(dateString).getTime();
+	return Number.isNaN(time) ? null : time;
+};
+
+const getSortableDateTime = (dateString?: string | null) =>
+	getDateTime(dateString) ?? 0;
+
+const compareByClosestEventStart = (
+	a: EventRegistration,
+	b: EventRegistration,
+	now: Date
+) => {
+	const today = getStartOfDay(now);
+	const aStartTime = getDateTime(a.event?.startDate);
+	const bStartTime = getDateTime(b.event?.startDate);
+
+	if (aStartTime === null && bStartTime === null) {
+		return getSortableDateTime(b.createdAt) - getSortableDateTime(a.createdAt);
+	}
+	if (aStartTime === null) return 1;
+	if (bStartTime === null) return -1;
+
+	const aDiff = getStartOfDay(new Date(aStartTime)) - today;
+	const bDiff = getStartOfDay(new Date(bStartTime)) - today;
+	const distanceDiff = Math.abs(aDiff) - Math.abs(bDiff);
+	if (distanceDiff !== 0) return distanceDiff;
+
+	const aIsUpcoming = aDiff >= 0;
+	const bIsUpcoming = bDiff >= 0;
+	if (aIsUpcoming !== bIsUpcoming) return aIsUpcoming ? -1 : 1;
+
+	return bStartTime - aStartTime;
+};
 
 const getRegistrationStatusMeta = (status?: string): BadgeMeta => {
 	switch (status) {
@@ -377,6 +438,19 @@ const PesertaDashboard: React.FC = () => {
 		[registrations]
 	);
 
+	const assessmentRegistrations = useMemo(
+		() =>
+			registrations
+				.filter(
+					(registration) =>
+						registration.event &&
+						isAssessmentRegistration(registration.status) &&
+						getActiveRegistrationGroups(registration).length > 0
+				)
+				.sort((a, b) => compareByClosestEventStart(a, b, currentTime)),
+		[currentTime, registrations]
+	);
+
 	const latestTickets = useMemo(() => tickets.slice(0, 7), [tickets]);
 
 	const participantVotingEvents = useMemo(() => {
@@ -510,6 +584,135 @@ const PesertaDashboard: React.FC = () => {
 					<div className="mt-5 flex items-center justify-between gap-3">
 						<div>
 							<h2 className="text-base font-bold text-gray-950 dark:text-white">
+								Event yang Diikuti
+							</h2>
+							<p className="text-xs text-gray-500 dark:text-gray-400">
+								Pilih tim untuk melihat detail penilaian
+							</p>
+						</div>
+						<Link
+							to="/peserta/assessment-history"
+							className="inline-flex flex-shrink-0 items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700 dark:text-red-400"
+						>
+							Riwayat
+							<LuChevronRight className="h-4 w-4" />
+						</Link>
+					</div>
+
+					{assessmentRegistrations.length > 0 ? (
+						<div className="-mx-4 mt-3 overflow-x-auto px-4 pb-2">
+							<div className="flex items-stretch gap-3">
+								{assessmentRegistrations.map((registration) => {
+									const event = registration.event!;
+									const activeGroups = getActiveRegistrationGroups(registration);
+									const posterUrl = getImageUrl(event.thumbnail);
+
+									return (
+										<article
+											key={registration.id}
+											className="w-60 flex-none overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.03]"
+										>
+											<div className="relative aspect-[16/9] bg-red-50 dark:bg-red-500/10">
+												{posterUrl ? (
+													<img
+														src={posterUrl}
+														alt={event.title}
+														className="h-full w-full object-cover"
+													/>
+												) : (
+													<div className="flex h-full items-center justify-center text-red-500 dark:text-red-300">
+														<LuTrophy className="h-10 w-10" />
+													</div>
+												)}
+												<div className="absolute left-3 top-3">
+													<StatusBadge
+														meta={getRegistrationStatusMeta(registration.status)}
+													/>
+												</div>
+											</div>
+
+											<div className="p-4">
+												<h3 className="line-clamp-2 min-h-[3rem] text-base font-bold text-gray-950 dark:text-white">
+													{event.title}
+												</h3>
+
+												<div className="mt-3 space-y-2 text-xs text-gray-500 dark:text-gray-400">
+													<div className="flex min-w-0 items-center gap-1.5">
+														<LuCalendar className="h-3.5 w-3.5 flex-shrink-0" />
+														<span className="truncate">
+															{formatDate(event.startDate)}
+															{event.endDate
+																? ` - ${formatDate(event.endDate)}`
+																: ""}
+														</span>
+													</div>
+													<div className="flex min-w-0 items-center gap-1.5">
+														<LuMapPin className="h-3.5 w-3.5 flex-shrink-0" />
+														<span className="truncate">{getEventLocation(event)}</span>
+													</div>
+												</div>
+
+												<div className="mt-4 border-t border-gray-100 pt-3 dark:border-white/10">
+													<p className="mb-2 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+														Pilih Tim
+													</p>
+													<div className="space-y-2">
+														{activeGroups.map((group) => {
+															const teamName = group.groupName || "Tim Peserta";
+															const animateName = shouldAnimateTeamName(teamName);
+
+															return (
+																<Link
+																	key={group.id}
+																	to={getAssessmentPath(registration, group.id)}
+																	className="group flex min-h-[4.25rem] items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50/80 px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-100 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 dark:border-red-500/20 dark:bg-red-500/10 dark:hover:border-red-400/40 dark:hover:bg-red-500/20"
+																>
+																	<div className="flex min-w-0 items-center gap-3">
+																		<div className="min-w-0">
+																			{animateName ? (
+																				<div className="team-name-marquee overflow-hidden whitespace-nowrap text-sm font-bold text-gray-950 dark:text-white">
+																					<span className="team-name-marquee-track inline-flex min-w-max gap-6">
+																						<span>{teamName}</span>
+																						<span aria-hidden="true">{teamName}</span>
+																					</span>
+																				</div>
+																			) : (
+																				<p className="whitespace-nowrap text-sm font-bold text-gray-950 dark:text-white">
+																					{teamName}
+																				</p>
+																			)}
+																			<p className="mt-0.5 truncate text-xs font-medium text-red-700 dark:text-red-300">
+																				Lihat detail penilaian
+																				{group.schoolCategory?.name
+																					? ` - ${group.schoolCategory.name}`
+																					: ""}
+																			</p>
+																		</div>
+																	</div>
+																	<LuChevronRight className="h-5 w-5 flex-shrink-0 text-red-500 transition group-hover:translate-x-0.5 dark:text-red-300" />
+																</Link>
+															);
+														})}
+													</div>
+												</div>
+											</div>
+										</article>
+									);
+								})}
+							</div>
+						</div>
+					) : (
+						<div className="mt-3">
+							<EmptyState
+								icon={<LuTrophy className="h-5 w-5" />}
+								title="Belum ada event terkonfirmasi untuk dilihat nilainya"
+							/>
+						</div>
+					)}
+
+					<div className="mt-5 flex items-center justify-between gap-3">
+						<div>
+							<h2 className="text-base font-bold text-gray-950 dark:text-white">
 								Event Unggulan Simpaskor
 							</h2>
 							<p className="text-xs text-gray-500 dark:text-gray-400">
@@ -532,7 +735,7 @@ const PesertaDashboard: React.FC = () => {
 									<Link
 										key={event.id}
 										to={getEventPath(event)}
-										className="w-40 flex-none overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:border-red-200 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-red-500/30 sm:w-40"
+										className="w-60 flex-none overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:border-red-200 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-red-500/30"
 									>
 										<div className="relative aspect-[2/3] bg-red-50 dark:bg-red-500/10">
 											{event.thumbnail ? (
