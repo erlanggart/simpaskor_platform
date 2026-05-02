@@ -45,6 +45,7 @@ export interface AssessmentMaterialScore {
 		skipReason: string | null;
 		scoredAt: string | null;
 	}[];
+	totalScore: number;
 	averageScore: number | null;
 }
 

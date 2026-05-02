@@ -23,6 +23,19 @@ interface AssessmentScoreDetailProps {
 	onTabChange: (tab: string) => void;
 }
 
+type AssessmentScoreCategory = AssessmentScoreData["scoresByCategory"][number];
+type AssessmentMaterialScore = AssessmentScoreCategory["materials"][number];
+
+const getMaterialActualScore = (materialScore: AssessmentMaterialScore) =>
+	materialScore.totalScore ??
+	materialScore.scores.reduce((sum, score) => sum + (score.score ?? 0), 0);
+
+const getCategoryActualScore = (category: AssessmentScoreCategory) =>
+	category.materials.reduce(
+		(sum, materialScore) => sum + getMaterialActualScore(materialScore),
+		0
+	);
+
 const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 	scoreData,
 	performanceSessions,
@@ -67,28 +80,32 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 	const completedPerformanceCount = performanceSessions.filter(
 		(session) => session.status === "COMPLETED"
 	).length;
+	const actualTotalScore = scoreData.scoresByCategory.reduce(
+		(sum, category) => sum + getCategoryActualScore(category),
+		0
+	);
 
 	return (
 		<div className="min-h-screen">
-			<div className="max-w-5xl mx-auto px-4 py-6">
+			<div className="max-w-5xl mx-auto px-3 py-4 sm:px-4 sm:py-6">
 				<Link
 					to="/peserta/assessment-history"
-					className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6"
+					className="mb-4 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white sm:mb-6 sm:text-base"
 				>
-					<ArrowLeftIcon className="h-5 w-5" />
+					<ArrowLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
 					Kembali ke Dashboard Assessment
 				</Link>
 
-				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-6 mb-6">
-					<h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+				<div className="mb-4 rounded-xl bg-white/80 p-4 shadow-md backdrop-blur-sm dark:bg-gray-800/50 sm:mb-6 sm:p-6">
+					<h1 className="mb-2 text-lg font-bold leading-snug text-gray-900 dark:text-white sm:text-2xl">
 						{scoreData.event.title}
 					</h1>
 					{scoreData.participation.groups.length > 0 && (
-						<div className="flex flex-wrap gap-2 mt-3">
+						<div className="mt-3 flex flex-wrap gap-2">
 							{scoreData.participation.groups.map((group) => (
 								<span
 									key={group.id}
-									className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+									className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 sm:px-3 sm:text-sm"
 								>
 									{group.groupName} ({group.schoolCategory?.name})
 								</span>
@@ -97,42 +114,45 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 					)}
 				</div>
 
-				<div className="bg-gradient-to-r from-blue-500 to-red-600 rounded-xl shadow-lg p-6 mb-6 text-white">
-					<div className="flex items-center gap-3 mb-4">
-						<div className="p-3 bg-white/20 rounded-xl">
-							<TrophyIcon className="h-8 w-8" />
+				<div className="mb-4 rounded-xl bg-gradient-to-r from-blue-500 to-red-600 p-4 text-white shadow-lg sm:mb-6 sm:p-6">
+					<div className="mb-3 flex items-center gap-3 sm:mb-4">
+						<div className="rounded-lg bg-white/20 p-2 sm:rounded-xl sm:p-3">
+							<TrophyIcon className="h-5 w-5 sm:h-8 sm:w-8" />
 						</div>
 						<div>
-							<h2 className="text-lg font-semibold">Ringkasan Nilai Event</h2>
-							<p className="text-blue-100 text-sm">
+							<h2 className="text-base font-semibold sm:text-lg">Ringkasan Nilai Event</h2>
+							<p className="text-xs text-blue-100 sm:text-sm">
 								Dinilai oleh {scoreData.juries.length} juri
+							</p>
+							<p className="mt-0.5 text-[11px] text-blue-100/90 sm:text-xs">
+								Total dari jumlah aktual seluruh nilai materi
 							</p>
 						</div>
 					</div>
-					<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-						<div className="bg-white/10 rounded-lg p-4">
-							<div className="text-3xl font-bold">
-								{scoreData.summary.totalScore.toFixed(1)}
+					<div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
+							<div className="text-xl font-bold leading-tight sm:text-3xl">
+								{actualTotalScore.toFixed(1)}
 							</div>
-							<div className="text-blue-100 text-sm">Total Nilai</div>
+							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Total Nilai</div>
 						</div>
-						<div className="bg-white/10 rounded-lg p-4">
-							<div className="text-3xl font-bold">
-								{scoreData.summary.averageScore?.toFixed(2) || "-"}
+						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
+							<div className="text-xl font-bold leading-tight sm:text-3xl">
+								{scoreData.juries.length}
 							</div>
-							<div className="text-blue-100 text-sm">Rata-rata</div>
+							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Juri Menilai</div>
 						</div>
-						<div className="bg-white/10 rounded-lg p-4">
-							<div className="text-3xl font-bold">
+						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
+							<div className="text-xl font-bold leading-tight sm:text-3xl">
 								{scoreData.summary.evaluatedMaterials}
 							</div>
-							<div className="text-blue-100 text-sm">Materi Dinilai</div>
+							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Materi Dinilai</div>
 						</div>
-						<div className="bg-white/10 rounded-lg p-4">
-							<div className="text-3xl font-bold">
+						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
+							<div className="text-xl font-bold leading-tight sm:text-3xl">
 								{scoreData.summary.totalMaterials}
 							</div>
-							<div className="text-blue-100 text-sm">Total Materi</div>
+							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Total Materi</div>
 						</div>
 					</div>
 				</div>
@@ -140,16 +160,16 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 				
 
 				{scoreData.juries.length > 0 && (
-					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-6 mb-6">
-						<h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-							<UserGroupIcon className="h-5 w-5 text-gray-500" />
+					<div className="mb-4 rounded-xl bg-white/80 p-4 shadow-md backdrop-blur-sm dark:bg-gray-800/50 sm:mb-6 sm:p-6">
+						<h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white sm:text-base">
+							<UserGroupIcon className="h-4 w-4 text-gray-500 sm:h-5 sm:w-5" />
 							Dewan Juri
 						</h3>
 						<div className="flex flex-wrap gap-2">
 							{scoreData.juries.map((jury) => (
 								<span
 									key={jury.id}
-									className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-sm"
+									className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-300 sm:px-3 sm:text-sm"
 								>
 									{jury.name}
 								</span>
@@ -173,22 +193,13 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 						<div className="border-b border-gray-200/60 dark:border-gray-700/40 overflow-x-auto">
 							<nav className="flex -mb-px" aria-label="Tabs">
 								{scoreData.scoresByCategory.map((category) => {
-									const tabTotal = category.materials.reduce((sum, materialScore) => {
-										const validScores = materialScore.scores.filter(
-											(score) => score.score !== null && score.score !== undefined
-										);
-										const materialSum = validScores.reduce(
-											(accumulator, score) => accumulator + (score.score || 0),
-											0
-										);
-										return sum + materialSum;
-									}, 0);
+									const tabTotal = getCategoryActualScore(category);
 
 									return (
 										<button
 											key={category.categoryName}
 											onClick={() => onTabChange(category.categoryName)}
-											className={`whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-colors flex flex-col items-center ${
+											className={`flex flex-col items-center whitespace-nowrap border-b-2 px-4 py-3 text-xs font-medium transition-colors sm:px-6 sm:py-4 sm:text-sm ${
 												activeTab === category.categoryName
 													? "border-red-500 text-red-600 dark:text-red-400"
 													: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -211,16 +222,7 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 						{scoreData.scoresByCategory
 							.filter((category) => category.categoryName === activeTab)
 							.map((category) => {
-								const categoryTotal = category.materials.reduce((sum, materialScore) => {
-									const validScores = materialScore.scores.filter(
-										(score) => score.score !== null && score.score !== undefined
-									);
-									const materialSum = validScores.reduce(
-										(accumulator, score) => accumulator + (score.score || 0),
-										0
-									);
-									return sum + materialSum;
-								}, 0);
+								const categoryTotal = getCategoryActualScore(category);
 								const categoryJuryIds = new Set<string>();
 								category.materials.forEach((materialScore) => {
 									materialScore.scores.forEach((score) => {
@@ -245,7 +247,7 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 												<tr>
 													<th
 														scope="col"
-														className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+														className="px-3 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400 sm:px-4"
 													>
 														Materi
 													</th>
@@ -253,7 +255,7 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 														<th
 															key={jury.id}
 															scope="col"
-															className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+															className="px-3 py-3 text-center text-xs font-medium uppercase text-gray-500 dark:text-gray-400 sm:px-4"
 														>
 															{jury.name}
 														</th>
@@ -270,7 +272,7 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 																: "bg-gray-50 dark:bg-gray-700"
 														}
 													>
-														<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+														<td className="px-3 py-3 text-xs text-gray-900 dark:text-white sm:px-4 sm:text-sm">
 															<span className="font-medium">{materialScore.material.number}.</span>{" "}
 															{materialScore.material.name}
 														</td>
@@ -282,17 +284,17 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 															return (
 																<td
 																	key={jury.id}
-																	className="px-4 py-3 text-center text-sm"
+																	className="px-3 py-3 text-center text-xs sm:px-4 sm:text-sm"
 																>
 																	{juryScore?.isSkipped ? (
 																		<div>
-																			<span className="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+																			<span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200 sm:px-2.5 sm:text-xs">
 																			{juryScore.skipReason === "TIDAK_SESUAI"
 																				? "Tidak Sesuai"
 																				: "Tidak Dijalankan"}
 																		</span>
 																			{juryScore.scoredAt && (
-																				<div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+																				<div className="mt-1 text-[11px] text-gray-400 dark:text-gray-500 sm:text-xs">
 																					{formatDateTime(juryScore.scoredAt)}
 																				</div>
 																			)}
@@ -303,12 +305,12 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 																				{juryScore.score}
 																			</span>
 																			{juryScore.scoreCategoryName && (
-																				<div className="text-xs text-gray-500 dark:text-gray-400">
+																				<div className="text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">
 																					{juryScore.scoreCategoryName}
 																				</div>
 																			)}
 																			{juryScore.scoredAt && (
-																				<div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+																				<div className="mt-1 text-[11px] text-gray-400 dark:text-gray-500 sm:text-xs">
 																					{formatDateTime(juryScore.scoredAt)}
 																				</div>
 																			)}
@@ -326,23 +328,23 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 												<tr>
 													{categoryJuries.length > 0 ? (
 														<>
-															<td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
+															<td className="px-3 py-3 text-xs font-semibold text-gray-900 dark:text-white sm:px-4 sm:text-sm">
 																Total {category.categoryName}
 															</td>
 															<td
 																colSpan={categoryJuries.length}
-																className="px-4 py-3 text-center"
+																className="px-3 py-3 text-center sm:px-4"
 															>
-																<span className="text-xl font-bold text-red-600 dark:text-red-400">
+																<span className="text-lg font-bold text-red-600 dark:text-red-400 sm:text-xl">
 																	{categoryTotal.toFixed(1)}
 																</span>
 															</td>
 														</>
 													) : (
-														<td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
+														<td className="px-3 py-3 text-xs font-semibold text-gray-900 dark:text-white sm:px-4 sm:text-sm">
 															<div className="flex items-center justify-between gap-3">
 																<span>Total {category.categoryName}</span>
-																<span className="text-xl font-bold text-red-600 dark:text-red-400">
+																<span className="text-lg font-bold text-red-600 dark:text-red-400 sm:text-xl">
 																	{categoryTotal.toFixed(1)}
 																</span>
 															</div>
@@ -357,18 +359,18 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 					</div>
 				)}
 
-                <div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-md p-6 mt-6">
-					<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+				<div className="mt-4 rounded-xl bg-white/80 p-4 shadow-md backdrop-blur-sm dark:bg-gray-800/50 sm:mt-6 sm:p-6">
+					<div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 						<div>
-							<h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-								<ClockIcon className="h-5 w-5 text-gray-500" />
+							<h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white sm:text-base">
+								<ClockIcon className="h-4 w-4 text-gray-500 sm:h-5 sm:w-5" />
 								Data Performa Lapangan
 							</h3>
-							<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+							<p className="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
 								Menampilkan waktu tampil dan checklist materi dari menu panitia.
 							</p>
 						</div>
-						<div className="text-sm text-gray-500 dark:text-gray-400">
+						<div className="text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
 							{completedPerformanceCount}/{performanceSessions.length} sesi selesai
 						</div>
 					</div>
@@ -404,12 +406,12 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 								return (
 									<div
 										key={session.id}
-										className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-gray-50/80 dark:bg-gray-900/30 p-4"
+										className="rounded-xl border border-gray-200/70 bg-gray-50/80 p-3 dark:border-gray-700/60 dark:bg-gray-900/30 sm:p-4"
 									>
 										<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 											<div>
 												<div className="flex flex-wrap items-center gap-2 mb-2">
-													<span className="inline-flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+													<span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white sm:text-base">
 														<MapPinIcon className="h-4 w-4 text-red-500" />
 														{session.field.name}
 													</span>
@@ -430,29 +432,29 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 												)}
 											</div>
 
-											<div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[420px]">
-												<div className="rounded-lg bg-white dark:bg-gray-800 px-3 py-2">
+											<div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:min-w-[420px]">
+												<div className="rounded-lg bg-white px-2.5 py-2 dark:bg-gray-800 sm:px-3">
 													<div className="text-xs text-gray-500 dark:text-gray-400">Mulai</div>
-													<div className="text-sm font-medium text-gray-900 dark:text-white">
+													<div className="text-xs font-medium text-gray-900 dark:text-white sm:text-sm">
 														{formatDateTime(session.startTime)}
 													</div>
 												</div>
-												<div className="rounded-lg bg-white dark:bg-gray-800 px-3 py-2">
+												<div className="rounded-lg bg-white px-2.5 py-2 dark:bg-gray-800 sm:px-3">
 													<div className="text-xs text-gray-500 dark:text-gray-400">Selesai</div>
-													<div className="text-sm font-medium text-gray-900 dark:text-white">
+													<div className="text-xs font-medium text-gray-900 dark:text-white sm:text-sm">
 														{formatDateTime(session.endTime)}
 													</div>
 												</div>
-												<div className="rounded-lg bg-white dark:bg-gray-800 px-3 py-2">
+												<div className="rounded-lg bg-white px-2.5 py-2 dark:bg-gray-800 sm:px-3">
 													<div className="text-xs text-gray-500 dark:text-gray-400">Durasi</div>
-													<div className="text-sm font-semibold text-gray-900 dark:text-white">
+													<div className="text-xs font-semibold text-gray-900 dark:text-white sm:text-sm">
 														{formatDuration(session.duration)}
 													</div>
 												</div>
-												<div className="rounded-lg bg-white dark:bg-gray-800 px-3 py-2">
+												<div className="rounded-lg bg-white px-2.5 py-2 dark:bg-gray-800 sm:px-3">
 													<div className="text-xs text-gray-500 dark:text-gray-400">Materi</div>
-													<div className="text-sm font-semibold text-gray-900 dark:text-white">
-														{checkedCount} dijalankan · {skippedCount} dilewatkan
+													<div className="text-xs font-semibold text-gray-900 dark:text-white sm:text-sm">
+														{checkedCount} dijalankan - {skippedCount} dilewatkan
 													</div>
 												</div>
 											</div>
@@ -463,9 +465,9 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 												{Object.entries(groupedChecks).map(([categoryId, group]) => (
 													<div
 														key={categoryId}
-														className="rounded-lg border border-gray-200/70 dark:border-gray-700/60 bg-white/80 dark:bg-gray-800/40 p-3"
+														className="rounded-lg border border-gray-200/70 bg-white/80 p-3 dark:border-gray-700/60 dark:bg-gray-800/40"
 													>
-														<div className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+														<div className="mb-3 text-xs font-semibold uppercase text-blue-700 dark:text-blue-300">
 															{group.name}
 														</div>
 														<div className="space-y-2">

@@ -3193,6 +3193,7 @@ router.get(
 					skipReason: string | null;
 					scoredAt: Date | null;
 				}[];
+				totalScore: number;
 				averageScore: number | null;
 			}
 
@@ -3212,8 +3213,9 @@ router.get(
 				});
 
 				const validScores = scores.filter((s) => s.score !== null).map((s) => s.score as number);
+				const totalScore = validScores.reduce((a, b) => a + b, 0);
 				const averageScore = validScores.length > 0
-					? validScores.reduce((a, b) => a + b, 0) / validScores.length
+					? totalScore / validScores.length
 					: null;
 
 				return {
@@ -3225,6 +3227,7 @@ router.get(
 						categoryName: categoryMap.get(material.eventAssessmentCategoryId)?.name || "Lainnya",
 					},
 					scores,
+					totalScore,
 					averageScore,
 				};
 			});
@@ -3243,10 +3246,7 @@ router.get(
 			}, {} as Record<string, { categoryName: string; materials: MaterialScore[] }>);
 
 			// Calculate totals
-			const allValidScores = materialScores
-				.filter((ms) => ms.averageScore !== null)
-				.map((ms) => ms.averageScore as number);
-			const totalScore = allValidScores.reduce((a, b) => a + b, 0);
+			const totalScore = materialScores.reduce((sum, ms) => sum + ms.totalScore, 0);
 			const totalMaterials = materials.length;
 			const evaluatedMaterials = materialScores.filter((ms) => ms.averageScore !== null).length;
 
