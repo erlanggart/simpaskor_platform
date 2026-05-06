@@ -11,6 +11,7 @@ import {
 import { LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus, LuMedal, LuCrown, LuTrophy } from "react-icons/lu";
 import { Step2Props, Step2Data, PackageTier } from "../../types/eventWizard";
 import { AssessmentCategory } from "../../types/eventWizard";
+import { getRevenueShareLabel } from "../../utils/packagePricing";
 
 interface PackageChoice {
 	tier: PackageTier;
@@ -39,7 +40,7 @@ const packageChoices: PackageChoice[] = [
 		color: "blue",
 		borderColor: "border-blue-400/50 dark:border-blue-500/30",
 		bgGlow: "from-blue-500/10 to-blue-600/5",
-		description: "Fitur E-Ticketing",
+		description: `E-Ticketing, bagi hasil ${getRevenueShareLabel("TICKETING")}`,
 	},
 	{
 		tier: "VOTING",
@@ -48,7 +49,7 @@ const packageChoices: PackageChoice[] = [
 		color: "purple",
 		borderColor: "border-purple-400/50 dark:border-purple-500/30",
 		bgGlow: "from-purple-500/10 to-purple-600/5",
-		description: "Fitur E-Voting",
+		description: `E-Voting, bagi hasil ${getRevenueShareLabel("VOTING")}`,
 	},
 	{
 		tier: "TICKETING_VOTING",
@@ -57,7 +58,7 @@ const packageChoices: PackageChoice[] = [
 		color: "indigo",
 		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
 		bgGlow: "from-indigo-500/10 to-indigo-600/5",
-		description: "E-Ticketing & E-Voting",
+		description: `Ticketing & Voting, bagi hasil ${getRevenueShareLabel("TICKETING_VOTING")}`,
 	},
 	{
 		tier: "BRONZE",

@@ -15,6 +15,7 @@ import {
 } from "react-icons/lu";
 import { api } from "../../utils/api";
 import { showDeleteConfirm } from "../../utils/sweetalert";
+import { getPackagePriceLabel } from "../../utils/packagePricing";
 import Swal from "sweetalert2";
 
 interface EventSubmission {
@@ -48,12 +49,12 @@ const statusConfig = {
 };
 
 const tierConfig = {
-	TICKETING: { label: "Ticketing", price: "Gratis", color: "blue" },
-	VOTING: { label: "Voting", price: "Gratis", color: "purple" },
-	TICKETING_VOTING: { label: "Tiket + Voting", price: "Gratis", color: "indigo" },
-	BRONZE: { label: "Bronze", price: "Rp 500.000", color: "amber" },
-	SILVER: { label: "Silver", price: "Rp 1.000.000", color: "gray" },
-	GOLD: { label: "Gold", price: "Rp 1.500.000", color: "yellow" },
+	TICKETING: { label: "Ticketing", price: getPackagePriceLabel("TICKETING"), color: "blue" },
+	VOTING: { label: "Voting", price: getPackagePriceLabel("VOTING"), color: "purple" },
+	TICKETING_VOTING: { label: "Tiket + Voting", price: getPackagePriceLabel("TICKETING_VOTING"), color: "indigo" },
+	BRONZE: { label: "Bronze", price: getPackagePriceLabel("BRONZE"), color: "amber" },
+	SILVER: { label: "Silver", price: getPackagePriceLabel("SILVER"), color: "gray" },
+	GOLD: { label: "Gold", price: getPackagePriceLabel("GOLD"), color: "yellow" },
 };
 
 const EventSubmissionManagement: React.FC = () => {
@@ -205,6 +206,9 @@ const EventSubmissionManagement: React.FC = () => {
 	const getTierBadge = (tier: EventSubmission["packageTier"]) => {
 		const cfg = tierConfig[tier];
 		const colorMap: Record<string, string> = {
+			blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+			purple: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400",
+			indigo: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400",
 			amber: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
 			gray: "bg-gray-200 dark:bg-gray-600/30 text-gray-700 dark:text-gray-300",
 			yellow: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400",

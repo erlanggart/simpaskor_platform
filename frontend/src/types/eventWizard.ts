@@ -62,6 +62,7 @@ export interface EventPaymentData {
 	status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
 	snapToken: string | null;
 	midtransOrderId: string | null;
+	paymentType?: string | null;
 	paidAt: string | null;
 }
 

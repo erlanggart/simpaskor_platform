@@ -183,18 +183,23 @@ const AdminManageEvent: React.FC = () => {
 	};
 
 	const handleStatusChange = async (newStatus: string) => {
-		if (!event || newStatus === event.status) return;
+		if (!event) return;
+
+		const isConfirmingDp = event.paymentStatus === "DP_REQUESTED" && newStatus === "DRAFT";
+		if (!isConfirmingDp && newStatus === event.status) return;
 
 		const statusInfo = EVENT_STATUSES.find(s => s.value === newStatus);
 		
 		const result = await Swal.fire({
-			title: "Ubah Status Event?",
-			html: `<p>Status event akan diubah menjadi <strong>${statusInfo?.label}</strong></p><p class="text-sm text-gray-500 mt-2">${statusInfo?.description}</p>`,
+			title: isConfirmingDp ? "Konfirmasi DP Event?" : "Ubah Status Event?",
+			html: isConfirmingDp
+				? `<p>DP akan dikonfirmasi dan event tetap berada di status <strong>Draft</strong>.</p><p class="text-sm text-gray-500 mt-2">Setelah ini admin dapat mengubah event menjadi Published.</p>`
+				: `<p>Status event akan diubah menjadi <strong>${statusInfo?.label}</strong></p><p class="text-sm text-gray-500 mt-2">${statusInfo?.description}</p>`,
 			icon: "question",
 			showCancelButton: true,
 			confirmButtonColor: "#4F46E5",
 			cancelButtonColor: "#6B7280",
-			confirmButtonText: "Ya, Ubah",
+			confirmButtonText: isConfirmingDp ? "Ya, Konfirmasi DP" : "Ya, Ubah",
 			cancelButtonText: "Batal",
 		});
 
@@ -203,8 +208,13 @@ const AdminManageEvent: React.FC = () => {
 		try {
 			setUpdatingStatus(true);
 			const response = await api.patch(`/events/${event.id}/status`, { status: newStatus });
+			const updatedEvent = response.data.data;
 			
-			setEvent(prev => prev ? { ...prev, status: newStatus } : null);
+			setEvent(prev => prev ? {
+				...prev,
+				status: updatedEvent?.status || newStatus,
+				paymentStatus: updatedEvent?.paymentStatus ?? prev.paymentStatus,
+			} : null);
 			
 			Swal.fire({
 				title: "Berhasil!",
@@ -363,20 +373,24 @@ const AdminManageEvent: React.FC = () => {
 							)}
 							<div className="flex flex-wrap items-center gap-3">
 								<span className="text-sm text-gray-600 dark:text-gray-400">Ubah Status:</span>
-								{EVENT_STATUSES.filter(s => ["DRAFT", "PUBLISHED", "CANCELLED"].includes(s.value)).map((status) => (
+								{EVENT_STATUSES.filter(s => ["DRAFT", "PUBLISHED", "CANCELLED"].includes(s.value)).map((status) => {
+									const isConfirmDpButton = event.paymentStatus === "DP_REQUESTED" && status.value === "DRAFT";
+
+									return (
 									<button
 										key={status.value}
 										onClick={() => handleStatusChange(status.value)}
-										disabled={updatingStatus || event.status === status.value}
+										disabled={updatingStatus || (event.status === status.value && !isConfirmDpButton)}
 										className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-											event.status === status.value
+											event.status === status.value && !isConfirmDpButton
 												? `${status.color} text-white cursor-default`
 												: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
 										}`}
 									>
-										{status.label}
+										{isConfirmDpButton ? "Konfirmasi DP" : status.label}
 									</button>
-								))}
+									);
+								})}
 							</div>
 						</div>
 					</div>

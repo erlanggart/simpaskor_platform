@@ -33,6 +33,13 @@ interface Summary {
 	totalRevenue: number;
 	ticketRevenue: number;
 	votingRevenue: number;
+	grossRevenue: number;
+	ticketGrossRevenue: number;
+	votingGrossRevenue: number;
+	platformShare: number;
+	panitiaShare: number;
+	platformShareRate: number;
+	panitiaShareRate: number;
 	totalDisbursed: number;
 	totalPending: number;
 	remainingBalance: number;
@@ -40,6 +47,8 @@ interface Summary {
 
 const formatCurrency = (amount: number) =>
 	new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
+
+const formatPercent = (rate: number) => `${Math.round(rate * 100)}%`;
 
 const EventDisbursement: React.FC = () => {
 	const { eventSlug } = useParams();
@@ -215,10 +224,23 @@ const EventDisbursement: React.FC = () => {
 
 			{/* Revenue Summary */}
 			{summary && (
-				<div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+				<div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
 					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
-						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Total Pendapatan</p>
-						<p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(summary.totalRevenue)}</p>
+						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Pendapatan Kotor</p>
+						<p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(summary.grossRevenue)}</p>
+						<div className="mt-1 text-[10px] text-gray-400 space-y-0.5">
+							<p>Tiket: {formatCurrency(summary.ticketGrossRevenue)}</p>
+							<p>Voting: {formatCurrency(summary.votingGrossRevenue)}</p>
+						</div>
+					</div>
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
+						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Simpaskor {formatPercent(summary.platformShareRate)}</p>
+						<p className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(summary.platformShare)}</p>
+						<p className="mt-1 text-[10px] text-gray-400">Dipisahkan dari transaksi tiket dan voting</p>
+					</div>
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
+						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Hak Panitia {formatPercent(summary.panitiaShareRate)}</p>
+						<p className="text-xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(summary.panitiaShare)}</p>
 						<div className="mt-1 text-[10px] text-gray-400 space-y-0.5">
 							<p>Tiket: {formatCurrency(summary.ticketRevenue)}</p>
 							<p>Voting: {formatCurrency(summary.votingRevenue)}</p>
@@ -229,12 +251,9 @@ const EventDisbursement: React.FC = () => {
 						<p className="text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(summary.totalDisbursed)}</p>
 					</div>
 					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
-						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Dalam Proses</p>
-						<p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{formatCurrency(summary.totalPending)}</p>
-					</div>
-					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
 						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Saldo Tersedia</p>
 						<p className="text-xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(summary.remainingBalance)}</p>
+						<p className="mt-1 text-[10px] text-gray-400">Dalam proses: {formatCurrency(summary.totalPending)}</p>
 					</div>
 				</div>
 			)}

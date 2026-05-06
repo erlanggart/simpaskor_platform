@@ -187,6 +187,18 @@ const ManageEvent: React.FC = () => {
 				api.get(`/events/${slug}`),
 				api.get(`/events/${slug}/participants-summary`).catch(() => ({ data: [] }))
 			]);
+
+			if (eventRes.data.paymentStatus === "DP_REQUESTED") {
+				localStorage.removeItem("panitia_active_event");
+				Swal.fire({
+					icon: "info",
+					title: "Menunggu Konfirmasi DP",
+					text: "Event ini belum bisa dikelola sampai super admin mengonfirmasi DP.",
+				});
+				navigate("/panitia/dashboard", { replace: true });
+				return;
+			}
+
 			setEvent(eventRes.data);
 			setParticipantsSummary(participantsRes.data || []);
 		} catch (error) {

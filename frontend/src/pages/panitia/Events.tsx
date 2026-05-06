@@ -36,6 +36,7 @@ interface Event {
 	maxParticipants: number | null;
 	currentParticipants: number;
 	status: string;
+	paymentStatus: string | null;
 	featured: boolean;
 	thumbnail: string | null;
 	packageTier: string | null;
@@ -71,6 +72,15 @@ const PanitiaEvents: React.FC = () => {
 	};
 
 	const handleEnterEvent = (event: Event) => {
+		if (event.paymentStatus === "DP_REQUESTED") {
+			Swal.fire({
+				icon: "info",
+				title: "Menunggu Konfirmasi DP",
+				text: "Event ini belum bisa dikelola sampai super admin mengonfirmasi DP.",
+			});
+			return;
+		}
+
 		if (!event.slug) {
 			Swal.fire({
 				icon: "error",
@@ -87,6 +97,7 @@ const PanitiaEvents: React.FC = () => {
 				title: event.title,
 				id: event.id,
 				packageTier: event.packageTier,
+				paymentStatus: event.paymentStatus,
 			})
 		);
 
@@ -117,6 +128,16 @@ const PanitiaEvents: React.FC = () => {
 		return (
 			<span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${config.className}`}>
 				{config.label}
+			</span>
+		);
+	};
+
+	const getPaymentBadge = (paymentStatus: string | null) => {
+		if (paymentStatus !== "DP_REQUESTED") return null;
+
+		return (
+			<span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+				Menunggu DP
 			</span>
 		);
 	};
@@ -224,6 +245,7 @@ const PanitiaEvents: React.FC = () => {
 												{event.title}
 											</h3>
 											{getStatusBadge(event.status)}
+											{getPaymentBadge(event.paymentStatus)}
 										</div>
 										<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-500">
 											<span className="flex items-center gap-1">
@@ -245,7 +267,7 @@ const PanitiaEvents: React.FC = () => {
 
 									{/* Actions */}
 									<div className="flex items-center gap-2 flex-shrink-0">
-										{canEdit && (
+										{canEdit && event.paymentStatus !== "DP_REQUESTED" && (
 											<Link
 												to={`/panitia/events/create/${event.id}`}
 												className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-600 dark:text-gray-400 text-xs font-medium hover:bg-gray-200 dark:hover:bg-white/[0.12] transition-colors"
@@ -256,7 +278,11 @@ const PanitiaEvents: React.FC = () => {
 										)}
 										<button
 											onClick={() => handleEnterEvent(event)}
-											className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors shadow-sm hover:shadow-red-500/20"
+											className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm ${
+												event.paymentStatus === "DP_REQUESTED"
+													? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+													: "bg-red-600 text-white hover:bg-red-700 hover:shadow-red-500/20"
+											}`}
 										>
 											<ArrowRightOnRectangleIcon className="w-3.5 h-3.5" />
 											<span className="hidden sm:inline">Kelola</span>

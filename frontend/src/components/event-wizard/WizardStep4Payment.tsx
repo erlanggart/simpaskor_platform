@@ -6,12 +6,14 @@ import {
 	ArrowLeftIcon,
 	SparklesIcon,
 	PhoneIcon,
+	ClockIcon,
 } from "@heroicons/react/24/outline";
 import { LuMedal, LuCrown, LuTrophy, LuCheck, LuX, LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus } from "react-icons/lu";
 import { Step4Props, PackageTier, EventPaymentData } from "../../types/eventWizard";
 import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
+import { getPackagePriceLabel, getRevenueShareLabel, getRevenueShareShortLabel, hasNoUpfrontPayment, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 
 interface PackageOption {
 	tier: PackageTier;
@@ -56,7 +58,7 @@ const packages: PackageOption[] = [
 		tier: "IKLAN",
 		name: "Paket Iklan",
 		price: 0,
-		priceLabel: "GRATIS",
+		priceLabel: PACKAGE_PRICE_LABELS.IKLAN,
 		icon: LuMegaphone,
 		color: "emerald",
 		borderColor: "border-emerald-400/50 dark:border-emerald-500/30",
@@ -68,43 +70,43 @@ const packages: PackageOption[] = [
 		tier: "TICKETING",
 		name: "Paket Ticketing",
 		price: 0,
-		priceLabel: "GRATIS",
+		priceLabel: getRevenueShareShortLabel("TICKETING"),
 		icon: LuTicket,
 		color: "blue",
 		borderColor: "border-blue-400/50 dark:border-blue-500/30",
 		bgGlow: "from-blue-500/10 to-blue-600/5",
 		btnClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white",
-		note: "Fitur E-Ticketing untuk event Anda",
+		note: `Fitur E-Ticketing dengan bagi hasil ${getRevenueShareLabel("TICKETING")}`,
 	},
 	{
 		tier: "VOTING",
 		name: "Paket Voting",
 		price: 0,
-		priceLabel: "GRATIS",
+		priceLabel: getRevenueShareShortLabel("VOTING"),
 		icon: LuThumbsUp,
 		color: "purple",
 		borderColor: "border-purple-400/50 dark:border-purple-500/30",
 		bgGlow: "from-purple-500/10 to-purple-600/5",
 		btnClass: "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white",
-		note: "Fitur E-Voting untuk event Anda",
+		note: `Fitur E-Voting dengan bagi hasil ${getRevenueShareLabel("VOTING")}`,
 	},
 	{
 		tier: "TICKETING_VOTING",
 		name: "Tiket + Voting",
 		price: 0,
-		priceLabel: "GRATIS",
+		priceLabel: getRevenueShareShortLabel("TICKETING_VOTING"),
 		icon: LuTicketPlus,
 		color: "indigo",
 		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
 		bgGlow: "from-indigo-500/10 to-indigo-600/5",
 		btnClass: "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white",
-		note: "Fitur E-Ticketing dan E-Voting",
+		note: `E-Ticketing dan E-Voting dengan bagi hasil ${getRevenueShareLabel("TICKETING_VOTING")}`,
 	},
 	{
 		tier: "BRONZE",
 		name: "Paket Bronze",
 		price: 500000,
-		priceLabel: "Rp 500.000",
+		priceLabel: PACKAGE_PRICE_LABELS.BRONZE,
 		icon: LuMedal,
 		color: "amber",
 		borderColor: "border-amber-400/50 dark:border-amber-500/30",
@@ -117,7 +119,7 @@ const packages: PackageOption[] = [
 		tier: "SILVER",
 		name: "Paket Silver",
 		price: 1000000,
-		priceLabel: "Rp 1.000.000",
+		priceLabel: PACKAGE_PRICE_LABELS.SILVER,
 		icon: LuCrown,
 		color: "gray",
 		borderColor: "border-gray-300 dark:border-gray-400/30",
@@ -129,7 +131,7 @@ const packages: PackageOption[] = [
 		tier: "GOLD",
 		name: "Paket Gold",
 		price: 1500000,
-		priceLabel: "Rp 1.500.000",
+		priceLabel: PACKAGE_PRICE_LABELS.GOLD,
 		icon: LuTrophy,
 		color: "yellow",
 		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
@@ -138,8 +140,6 @@ const packages: PackageOption[] = [
 		note: null,
 	},
 ];
-
-const FREE_TIERS: PackageTier[] = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING"];
 
 const WizardStep4Payment: React.FC<Step4Props> = ({
 	eventId,
@@ -162,9 +162,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 
 	// Check payment status on mount
 	useEffect(() => {
-		if (existingPayment?.status === "PAID") {
-			setPaymentStatus(existingPayment);
-		}
+		setPaymentStatus(existingPayment || null);
 	}, [existingPayment]);
 
 	// Sync pre-selected package from Step 2
@@ -175,14 +173,17 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 	}, [preSelectedTier]);
 
 	const isPaid = paymentStatus?.status === "PAID";
+	const isDpPending =
+		paymentStatus?.paymentType === "DP_REQUEST" &&
+		paymentStatus?.status === "PENDING";
 
 	const handleSelectPackage = (tier: PackageTier) => {
-		if (isPaid) return;
+		if (isPaid || isDpPending) return;
 		setSelectedPackage(tier);
 	};
 
 	const handlePayment = async () => {
-		if (!selectedPackage || !eventId) return;
+		if (!selectedPackage || !eventId || isDpPending) return;
 
 		setIsProcessing(true);
 		try {
@@ -242,7 +243,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 	};
 
 	const handleFreePackage = async () => {
-		if (!eventId || !selectedPackage) return;
+		if (!eventId || !selectedPackage || isDpPending) return;
 
 		setIsProcessing(true);
 		try {
@@ -266,13 +267,25 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 	};
 
 	const handleDP = async () => {
-		if (!selectedPackage || !eventId) return;
+		if (!selectedPackage || !eventId || isDpPending) return;
 
 		setIsProcessing(true);
 		try {
 			// Save DP request to backend
-			await api.post(`/event-payments/${eventId}/dp-request`, {
+			const response = await api.post(`/event-payments/${eventId}/dp-request`, {
 				packageTier: selectedPackage,
+			});
+
+			setPaymentStatus({
+				id: response.data.paymentId,
+				eventId,
+				packageTier: selectedPackage,
+				amount: response.data.amount || 0,
+				status: "PENDING",
+				snapToken: null,
+				midtransOrderId: null,
+				paymentType: "DP_REQUEST",
+				paidAt: null,
 			});
 
 			const pkg = packages.find((p) => p.tier === selectedPackage);
@@ -310,11 +323,13 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			{/* Header */}
 			<div className="text-center mb-8">
 				<h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-					{isPaid ? "Pembayaran Berhasil" : "Konfirmasi & Pembayaran"}
+					{isPaid ? "Pembayaran Berhasil" : isDpPending ? "Menunggu Konfirmasi DP" : "Konfirmasi & Pembayaran"}
 				</h2>
 				<p className="text-gray-600 dark:text-gray-400 mt-2">
 					{isPaid
 						? "Event Anda siap untuk dipublish!"
+						: isDpPending
+						? "Event Anda terkunci sementara sampai admin mengonfirmasi DP."
 						: preSelectedTier
 						? "Konfirmasi paket yang sudah dipilih dan lanjutkan"
 						: "Pilih paket Simpaskor untuk event Anda"}
@@ -337,8 +352,23 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 				</div>
 			)}
 
+			{isDpPending && (
+				<div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
+					<ClockIcon className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+					<h3 className="text-xl font-bold text-amber-700 dark:text-amber-300 mb-2">
+						DP Menunggu Konfirmasi Admin
+					</h3>
+					<p className="text-amber-700 dark:text-amber-300 mb-1">
+						Paket: <strong>{packages.find(p => p.tier === paymentStatus?.packageTier)?.name}</strong>
+					</p>
+					<p className="text-amber-600 dark:text-amber-400 text-sm">
+						Panitia belum dapat memakai fitur event sampai super admin mengonfirmasi DP dan mengubah status event.
+					</p>
+				</div>
+			)}
+
 			{/* Package Selection */}
-			{!isPaid && (
+			{!isPaid && !isDpPending && (
 				<>
 					{/* Pre-selected package summary */}
 					{preSelectedTier && (() => {
@@ -426,7 +456,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 					)}
 
 				{/* Payment Mode Selection - only for paid packages */}
-				{selectedPackage && !FREE_TIERS.includes(selectedPackage) && (
+				{selectedPackage && !hasNoUpfrontPayment(selectedPackage) && (
 						<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
 							<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
 								Pilih Metode Pembayaran
@@ -553,7 +583,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 
 			{/* Action Buttons */}
 			<div className="flex items-center justify-between pt-4">
-				{!isPaid && (
+				{!isPaid && !isDpPending && (
 					<button
 						type="button"
 						onClick={onBack}
@@ -564,15 +594,19 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 					</button>
 				)}
 
-				{isPaid ? (
+				{isPaid || isDpPending ? (
 					<button
 						type="button"
 						onClick={handleFinish}
-						className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-xl shadow-lg transition-all"
+						className={`w-full sm:w-auto px-8 py-3 text-white font-semibold rounded-xl shadow-lg transition-all ${
+							isPaid
+								? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+								: "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+						}`}
 					>
 						Ke Dashboard →
 					</button>
-				) : selectedPackage && FREE_TIERS.includes(selectedPackage) ? (
+				) : selectedPackage && hasNoUpfrontPayment(selectedPackage) ? (
 					<button
 						type="button"
 						onClick={handleFreePackage}
@@ -624,7 +658,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 						) : (
 							<>
 								<CreditCardIcon className="w-5 h-5" />
-								Bayar {selectedPackage ? packages.find(p => p.tier === selectedPackage)?.priceLabel : ""}
+								Bayar {getPackagePriceLabel(selectedPackage)}
 							</>
 						)}
 					</button>

@@ -17,6 +17,7 @@ import {
 	LuCreditCard,
 } from "react-icons/lu";
 import { api } from "../../utils/api";
+import { getPackagePriceLabel } from "../../utils/packagePricing";
 import Swal from "sweetalert2";
 
 interface PackageEvent {
@@ -61,13 +62,13 @@ interface Pagination {
 }
 
 const tierConfig: Record<string, { label: string; price: string; color: string }> = {
-	IKLAN: { label: "Iklan", price: "Gratis", color: "emerald" },
-	TICKETING: { label: "Ticketing", price: "Gratis", color: "blue" },
-	VOTING: { label: "Voting", price: "Gratis", color: "purple" },
-	TICKETING_VOTING: { label: "Tiket + Voting", price: "Gratis", color: "indigo" },
-	BRONZE: { label: "Bronze", price: "Rp 500.000", color: "amber" },
-	SILVER: { label: "Silver", price: "Rp 1.000.000", color: "gray" },
-	GOLD: { label: "Gold", price: "Rp 1.500.000", color: "yellow" },
+	IKLAN: { label: "Iklan", price: getPackagePriceLabel("IKLAN"), color: "emerald" },
+	TICKETING: { label: "Ticketing", price: getPackagePriceLabel("TICKETING"), color: "blue" },
+	VOTING: { label: "Voting", price: getPackagePriceLabel("VOTING"), color: "purple" },
+	TICKETING_VOTING: { label: "Tiket + Voting", price: getPackagePriceLabel("TICKETING_VOTING"), color: "indigo" },
+	BRONZE: { label: "Bronze", price: getPackagePriceLabel("BRONZE"), color: "amber" },
+	SILVER: { label: "Silver", price: getPackagePriceLabel("SILVER"), color: "gray" },
+	GOLD: { label: "Gold", price: getPackagePriceLabel("GOLD"), color: "yellow" },
 };
 
 const paymentStatusConfig: Record<string, { label: string; color: string }> = {

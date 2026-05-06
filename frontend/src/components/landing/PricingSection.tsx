@@ -11,6 +11,7 @@ import {
 	LuThumbsUp,
 	LuTicketPlus,
 } from "react-icons/lu";
+import { getRevenueShareLabel, getRevenueShareShortLabel, hasNoUpfrontPayment, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 
 type PackageTier = "IKLAN" | "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "SILVER" | "GOLD";
 
@@ -42,7 +43,7 @@ const packages = [
 	{
 		tier: "IKLAN" as PackageTier,
 		name: "Paket Iklan",
-		price: "GRATIS",
+		price: PACKAGE_PRICE_LABELS.IKLAN,
 		icon: LuMegaphone,
 		color: "emerald",
 		borderColor: "border-emerald-400/50 dark:border-emerald-500/30",
@@ -54,43 +55,43 @@ const packages = [
 	{
 		tier: "TICKETING" as PackageTier,
 		name: "Paket Ticketing",
-		price: "GRATIS",
+		price: getRevenueShareShortLabel("TICKETING"),
 		icon: LuTicket,
 		color: "blue",
 		borderColor: "border-blue-400/50 dark:border-blue-500/30",
 		bgGlow: "from-blue-500/10 to-blue-600/5",
 		badgeClass: "bg-blue-500 text-white",
 		btnClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white",
-		note: "Fitur E-Ticketing untuk event Anda",
+		note: `Fitur E-Ticketing dengan bagi hasil ${getRevenueShareLabel("TICKETING")}`,
 	},
 	{
 		tier: "VOTING" as PackageTier,
 		name: "Paket Voting",
-		price: "GRATIS",
+		price: getRevenueShareShortLabel("VOTING"),
 		icon: LuThumbsUp,
 		color: "purple",
 		borderColor: "border-purple-400/50 dark:border-purple-500/30",
 		bgGlow: "from-purple-500/10 to-purple-600/5",
 		badgeClass: "bg-purple-500 text-white",
 		btnClass: "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white",
-		note: "Fitur E-Voting untuk event Anda",
+		note: `Fitur E-Voting dengan bagi hasil ${getRevenueShareLabel("VOTING")}`,
 	},
 	{
 		tier: "TICKETING_VOTING" as PackageTier,
 		name: "Tiket + Voting",
-		price: "GRATIS",
+		price: getRevenueShareShortLabel("TICKETING_VOTING"),
 		icon: LuTicketPlus,
 		color: "indigo",
 		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
 		bgGlow: "from-indigo-500/10 to-indigo-600/5",
 		badgeClass: "bg-indigo-500 text-white",
 		btnClass: "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white",
-		note: "Fitur E-Ticketing dan E-Voting",
+		note: `E-Ticketing dan E-Voting dengan bagi hasil ${getRevenueShareLabel("TICKETING_VOTING")}`,
 	},
 	{
 		tier: "BRONZE" as PackageTier,
 		name: "Paket Bronze",
-		price: "Rp 500.000",
+		price: PACKAGE_PRICE_LABELS.BRONZE,
 		icon: LuMedal,
 		color: "amber",
 		borderColor: "border-amber-400/50 dark:border-amber-500/30",
@@ -103,7 +104,7 @@ const packages = [
 	{
 		tier: "SILVER" as PackageTier,
 		name: "Paket Silver",
-		price: "Rp 1.000.000",
+		price: PACKAGE_PRICE_LABELS.SILVER,
 		icon: LuCrown,
 		color: "gray",
 		borderColor: "border-gray-300 dark:border-gray-400/30",
@@ -115,7 +116,7 @@ const packages = [
 	{
 		tier: "GOLD" as PackageTier,
 		name: "Paket Gold",
-		price: "Rp 1.500.000",
+		price: PACKAGE_PRICE_LABELS.GOLD,
 		icon: LuTrophy,
 		color: "yellow",
 		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
@@ -148,8 +149,8 @@ const glowColor: Record<PackageTier, string> = {
 };
 
 const PricingSection: React.FC = () => {
-	const freePackages = packages.filter((p) => p.price === "GRATIS");
-	const paidPackages = packages.filter((p) => p.price !== "GRATIS");
+	const freePackages = packages.filter((p) => hasNoUpfrontPayment(p.tier));
+	const paidPackages = packages.filter((p) => !hasNoUpfrontPayment(p.tier));
 
 	const renderCard = (pkg: typeof packages[0], index: number) => {
 		const Icon = pkg.icon;

@@ -31,8 +31,14 @@ const PACKAGE_NAMES: Record<string, string> = {
 	GOLD: "Paket Gold",
 };
 
-// Free tiers that don't require payment
-const FREE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING"];
+// Tiers that don't require upfront package payment. Ticketing/Voting use revenue share.
+const NO_UPFRONT_PAYMENT_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING"];
+const VALID_PACKAGE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"];
+
+function getPackageAmount(packageTier: string | null | undefined) {
+	if (!packageTier) return 0;
+	return PACKAGE_PRICES[packageTier] ?? 0;
+}
 
 /**
  * POST /api/event-payments/create
@@ -48,7 +54,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 		}
 
 		// Validate package tier
-		if (!["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
+		if (!VALID_PACKAGE_TIERS.includes(packageTier)) {
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
@@ -65,6 +71,12 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 			return res.status(404).json({ error: "Event tidak ditemukan" });
 		}
 
+		if (event.paymentStatus === "DP_REQUESTED") {
+			return res.status(403).json({
+				error: "Event sedang menunggu konfirmasi DP dari admin",
+			});
+		}
+
 		// Check if already paid
 		if (event.eventPayment?.status === "PAID") {
 			return res.status(400).json({ error: "Pembayaran event sudah selesai" });
@@ -75,8 +87,8 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
-		// Handle free packages - no payment needed
-		if (FREE_TIERS.includes(packageTier)) {
+		// Handle no-upfront packages - no Midtrans package payment needed
+		if (NO_UPFRONT_PAYMENT_TIERS.includes(packageTier)) {
 			let payment;
 			if (event.eventPayment) {
 				payment = await prisma.eventPayment.update({
@@ -87,7 +99,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 						status: "PAID",
 						midtransOrderId: null,
 						snapToken: null,
-						paymentType: "FREE",
+						paymentType: packageTier === "IKLAN" ? "FREE" : "REVENUE_SHARE",
 						paidAt: new Date(),
 					},
 				});
@@ -99,7 +111,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 						packageTier: packageTier as any,
 						amount: 0,
 						status: "PAID",
-						paymentType: "FREE",
+						paymentType: packageTier === "IKLAN" ? "FREE" : "REVENUE_SHARE",
 						paidAt: new Date(),
 					},
 				});
@@ -228,6 +240,7 @@ router.get("/:eventId/status", authenticate, async (req: AuthenticatedRequest, r
 			paidAt: payment.paidAt,
 			snapToken: payment.snapToken,
 			midtransOrderId: payment.midtransOrderId,
+			paymentType: payment.paymentType,
 		});
 	} catch (error) {
 		console.error("Error checking event payment status:", error);
@@ -280,7 +293,11 @@ router.post("/:eventId/dp-request", authenticate, async (req: AuthenticatedReque
 		const { eventId } = req.params;
 		const { packageTier } = req.body;
 
-		if (!packageTier || !["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
+		if (!eventId) {
+			return res.status(400).json({ error: "Event ID wajib diisi" });
+		}
+
+		if (!packageTier || !VALID_PACKAGE_TIERS.includes(packageTier)) {
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
@@ -293,18 +310,49 @@ router.post("/:eventId/dp-request", authenticate, async (req: AuthenticatedReque
 			return res.status(404).json({ error: "Event tidak ditemukan" });
 		}
 
-		// Mark event as DP requested and complete the wizard
+		const amount = getPackageAmount(packageTier);
+
+		const payment = await prisma.eventPayment.upsert({
+			where: { eventId },
+			update: {
+				userId,
+				packageTier: packageTier as any,
+				amount,
+				status: "PENDING",
+				midtransOrderId: null,
+				snapToken: null,
+				paymentType: "DP_REQUEST",
+				paidAt: null,
+			},
+			create: {
+				eventId,
+				userId,
+				packageTier: packageTier as any,
+				amount,
+				status: "PENDING",
+				paymentType: "DP_REQUEST",
+			},
+		});
+
 		await prisma.event.update({
 			where: { id: eventId },
 			data: {
 				packageTier: packageTier as any,
 				paymentStatus: "DP_REQUESTED",
-				wizardStep: 0,
-				wizardCompleted: true,
+				status: "DRAFT",
+				wizardStep: 4,
+				wizardCompleted: false,
 			},
 		});
 
-		res.json({ message: "Permintaan DP berhasil dikirim. Hubungi admin untuk proses selanjutnya.", eventId });
+		res.json({
+			message: "Permintaan DP berhasil dikirim. Event menunggu konfirmasi admin.",
+			eventId,
+			paymentId: payment.id,
+			packageTier,
+			amount,
+			status: "DP_REQUESTED",
+		});
 	} catch (error) {
 		console.error("Error requesting DP:", error);
 		res.status(500).json({ error: "Gagal memproses permintaan DP" });
@@ -438,6 +486,10 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 		const { eventId } = req.params;
 		const { packageTier: newTier, paymentStatus: newPaymentStatus } = req.body;
 
+		if (!eventId) {
+			return res.status(400).json({ error: "Event ID wajib diisi" });
+		}
+
 		const event = await prisma.event.findUnique({
 			where: { id: eventId },
 			include: { eventPayment: true },
@@ -449,12 +501,18 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 
 		const updateData: any = {};
 
-		if (newTier && ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"].includes(newTier)) {
+		if (newTier && VALID_PACKAGE_TIERS.includes(newTier)) {
 			updateData.packageTier = newTier;
 		}
 
 		if (newPaymentStatus && ["PENDING", "PAID", "DP_REQUESTED"].includes(newPaymentStatus)) {
 			updateData.paymentStatus = newPaymentStatus;
+		}
+
+		if (newPaymentStatus === "PAID") {
+			updateData.wizardStep = 0;
+			updateData.wizardCompleted = true;
+			updateData.status = "DRAFT";
 		}
 
 		const updated = await prisma.event.update({
@@ -468,16 +526,32 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 			},
 		});
 
-		// If marking as PAID, also update payment record if exists
-		if (newPaymentStatus === "PAID" && event.eventPayment && event.eventPayment.status !== "PAID") {
-			await prisma.eventPayment.update({
-				where: { id: event.eventPayment.id },
-				data: {
-					status: "PAID",
-					paidAt: new Date(),
-					...(newTier ? { packageTier: newTier } : {}),
-				},
-			});
+		if (newPaymentStatus === "PAID") {
+			const packageTier = newTier || event.packageTier;
+			if (event.eventPayment) {
+				await prisma.eventPayment.update({
+					where: { id: event.eventPayment.id },
+					data: {
+						status: "PAID",
+						paidAt: new Date(),
+						packageTier: packageTier as any,
+						amount: getPackageAmount(packageTier),
+						paymentType: event.paymentStatus === "DP_REQUESTED" ? "DP_CONFIRMED" : event.eventPayment.paymentType,
+					},
+				});
+			} else if (packageTier) {
+				await prisma.eventPayment.create({
+					data: {
+						eventId,
+						userId: event.createdById,
+						packageTier: packageTier as any,
+						amount: getPackageAmount(packageTier),
+						status: "PAID",
+						paymentType: event.paymentStatus === "DP_REQUESTED" ? "DP_CONFIRMED" : "ADMIN",
+						paidAt: new Date(),
+					},
+				});
+			}
 		}
 
 		res.json(updated);

@@ -9,6 +9,32 @@ import { prisma } from "../lib/prisma";
 
 const router = Router();
 
+const PLATFORM_SHARE_RATE = 0.15;
+const PANITIA_SHARE_RATE = 0.85;
+const BUNDLE_PLATFORM_SHARE_RATE = 0.25;
+const BUNDLE_PANITIA_SHARE_RATE = 0.75;
+
+function roundCurrency(amount: number) {
+	return Math.round(amount);
+}
+
+function getRevenueShareRates(packageTier?: string | null) {
+	if (packageTier === "TICKETING_VOTING") {
+		return {
+			platformShareRate: BUNDLE_PLATFORM_SHARE_RATE,
+			panitiaShareRate: BUNDLE_PANITIA_SHARE_RATE,
+		};
+	}
+	return { platformShareRate: PLATFORM_SHARE_RATE, panitiaShareRate: PANITIA_SHARE_RATE };
+}
+
+function calculateRevenueShare(grossRevenue: number, packageTier?: string | null) {
+	const { platformShareRate, panitiaShareRate } = getRevenueShareRates(packageTier);
+	const platformShare = roundCurrency(grossRevenue * platformShareRate);
+	const panitiaShare = roundCurrency(grossRevenue - platformShare);
+	return { platformShare, panitiaShare, platformShareRate, panitiaShareRate };
+}
+
 // ==========================================
 // PANITIA ROUTES - Request Disbursement
 // ==========================================
@@ -24,7 +50,7 @@ router.get(
 
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
-				select: { id: true, title: true, startDate: true, createdById: true },
+				select: { id: true, title: true, startDate: true, createdById: true, packageTier: true },
 			});
 
 			if (!event) {
@@ -48,7 +74,10 @@ router.get(
 				}),
 			]);
 
-			const totalRevenue = (ticketRevenue._sum.totalAmount ?? 0) + (votingRevenue._sum.totalAmount ?? 0);
+			const ticketGrossRevenue = ticketRevenue._sum.totalAmount ?? 0;
+			const votingGrossRevenue = votingRevenue._sum.totalAmount ?? 0;
+			const grossRevenue = ticketGrossRevenue + votingGrossRevenue;
+			const { platformShare, panitiaShare, platformShareRate, panitiaShareRate } = calculateRevenueShare(grossRevenue, event.packageTier);
 
 			// Get all disbursements for this event
 			const disbursements = await prisma.disbursement.findMany({
@@ -67,14 +96,21 @@ router.get(
 			const totalPending = disbursements
 				.filter((d) => d.status === "PENDING" || d.status === "APPROVED")
 				.reduce((sum, d) => sum + d.amount, 0);
-			const remainingBalance = totalRevenue - totalDisbursed - totalPending;
+			const remainingBalance = panitiaShare - totalDisbursed - totalPending;
 
 			res.json({
 				event: { id: event.id, title: event.title, startDate: event.startDate },
 				summary: {
-					totalRevenue,
-					ticketRevenue: ticketRevenue._sum.totalAmount ?? 0,
-					votingRevenue: votingRevenue._sum.totalAmount ?? 0,
+					totalRevenue: panitiaShare,
+					grossRevenue,
+					ticketRevenue: roundCurrency(ticketGrossRevenue * panitiaShareRate),
+					votingRevenue: roundCurrency(votingGrossRevenue * panitiaShareRate),
+					ticketGrossRevenue,
+					votingGrossRevenue,
+					platformShare,
+					panitiaShare,
+					platformShareRate,
+					panitiaShareRate,
 					totalDisbursed,
 					totalPending,
 					remainingBalance,
@@ -108,7 +144,7 @@ router.post(
 
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
-				select: { id: true, title: true, startDate: true, createdById: true },
+				select: { id: true, title: true, startDate: true, createdById: true, packageTier: true },
 			});
 
 			if (!event) {
@@ -133,8 +169,8 @@ router.post(
 			// Calculate available balance and create disbursement in a single transaction
 			// to prevent race condition where multiple requests pass the balance check
 			const disbursement = await prisma.$transaction(async (tx) => {
-				// Lock existing disbursements for this event to prevent concurrent requests
-				await tx.$queryRaw`SELECT id FROM "Disbursement" WHERE "eventId" = ${eventId} FOR UPDATE`;
+				// Lock existing disbursements for this event to prevent concurrent requests.
+				await tx.$queryRaw`SELECT id FROM "disbursements" WHERE "event_id" = ${eventId} FOR UPDATE`;
 
 				const [ticketRevenue, votingRevenue] = await Promise.all([
 					tx.ticketPurchase.aggregate({
@@ -147,14 +183,15 @@ router.post(
 					}),
 				]);
 
-				const totalRevenue = (ticketRevenue._sum.totalAmount ?? 0) + (votingRevenue._sum.totalAmount ?? 0);
+				const grossRevenue = (ticketRevenue._sum.totalAmount ?? 0) + (votingRevenue._sum.totalAmount ?? 0);
+				const { panitiaShare } = calculateRevenueShare(grossRevenue, event.packageTier);
 
 				const existingDisbursements = await tx.disbursement.findMany({
 					where: { eventId, status: { in: ["PENDING", "APPROVED", "TRANSFERRED"] } },
 				});
 
 				const totalCommitted = existingDisbursements.reduce((sum, d) => sum + d.amount, 0);
-				const availableBalance = totalRevenue - totalCommitted;
+				const availableBalance = panitiaShare - totalCommitted;
 
 				if (parsedAmount > availableBalance) {
 					throw new Error(`Saldo tidak mencukupi. Saldo tersedia: Rp ${availableBalance.toLocaleString("id-ID")}`);

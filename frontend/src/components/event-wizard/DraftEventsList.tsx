@@ -5,6 +5,7 @@ import {
 	TrashIcon,
 	ClockIcon,
 	DocumentTextIcon,
+	LockClosedIcon,
 } from "@heroicons/react/24/outline";
 
 interface DraftEvent {
@@ -12,6 +13,11 @@ interface DraftEvent {
 	title: string | null;
 	wizardStep: number;
 	wizardCompleted: boolean;
+	paymentStatus?: string | null;
+	eventPayment?: {
+		status?: string | null;
+		paymentType?: string | null;
+	} | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -77,7 +83,14 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 	};
 
 	const getProgressPercent = (step: number): number => {
-		return Math.round((step / 3) * 100);
+		return Math.min(100, Math.round((step / 4) * 100));
+	};
+
+	const isDpPending = (draft: DraftEvent): boolean => {
+		return draft.paymentStatus === "DP_REQUESTED" || (
+			draft.eventPayment?.paymentType === "DP_REQUEST" &&
+			draft.eventPayment?.status === "PENDING"
+		);
 	};
 
 	const formatDate = (dateString: string): string => {
@@ -118,69 +131,93 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 					</h3>
 				</div>
 				<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-					Lanjutkan pembuatan event yang belum selesai
+					Lanjutkan pembuatan event atau pantau DP yang menunggu konfirmasi
 				</p>
 			</div>
 
 			<div className="divide-y divide-gray-200 dark:divide-gray-700">
-				{drafts.map((draft) => (
-					<div
-						key={draft.id}
-						className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-					>
-						<div className="flex items-start justify-between">
-							<div className="flex-1">
-								<h4 className="font-medium text-gray-900 dark:text-white">
-									{draft.title || "Event Tanpa Judul"}
-								</h4>
-								<div className="flex items-center gap-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
-									<ClockIcon className="w-4 h-4" />
-									<span>Diubah: {formatDate(draft.updatedAt)}</span>
+				{drafts.map((draft) => {
+					const dpPending = isDpPending(draft);
+
+					return (
+						<div
+							key={draft.id}
+							className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+						>
+							<div className="flex items-start justify-between">
+								<div className="flex-1">
+									<div className="flex flex-wrap items-center gap-2">
+										<h4 className="font-medium text-gray-900 dark:text-white">
+											{draft.title || "Event Tanpa Judul"}
+										</h4>
+										{dpPending && (
+											<span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+												<LockClosedIcon className="w-3 h-3" />
+												Menunggu Konfirmasi DP
+											</span>
+										)}
+									</div>
+									<div className="flex items-center gap-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
+										<ClockIcon className="w-4 h-4" />
+										<span>Diubah: {formatDate(draft.updatedAt)}</span>
+									</div>
+
+									{/* Progress Bar */}
+									<div className="mt-3">
+										<div className="flex items-center justify-between text-xs mb-1">
+											<span className="text-gray-600 dark:text-gray-400">
+												Step {draft.wizardStep} dari 4
+											</span>
+											<span className="text-gray-600 dark:text-gray-400">
+												{getProgressPercent(draft.wizardStep)}%
+											</span>
+										</div>
+										<div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+											<div
+												className={`${dpPending ? "bg-amber-500 dark:bg-amber-400" : "bg-red-600 dark:bg-red-400"} h-2 rounded-full transition-all`}
+												style={{ width: `${getProgressPercent(draft.wizardStep)}%` }}
+											></div>
+										</div>
+									</div>
 								</div>
 
-								{/* Progress Bar */}
-								<div className="mt-3">
-									<div className="flex items-center justify-between text-xs mb-1">
-										<span className="text-gray-600 dark:text-gray-400">
-											Step {draft.wizardStep} dari 3
-										</span>
-										<span className="text-gray-600 dark:text-gray-400">
-											{getProgressPercent(draft.wizardStep)}%
-										</span>
-									</div>
-									<div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-										<div
-											className="bg-red-600 dark:bg-red-400 h-2 rounded-full transition-all"
-											style={{ width: `${getProgressPercent(draft.wizardStep)}%` }}
-										></div>
-									</div>
+								<div className="flex items-center gap-2 ml-4">
+									{dpPending ? (
+										<button
+											type="button"
+											disabled
+											className="flex items-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg cursor-not-allowed text-sm"
+											title="Menunggu admin mengonfirmasi DP"
+										>
+											<LockClosedIcon className="w-4 h-4" />
+											Menunggu Admin
+										</button>
+									) : (
+										<Link
+											to={`/panitia/events/create/${draft.id}`}
+											className="flex items-center gap-2 px-3 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors text-sm"
+										>
+											<PencilSquareIcon className="w-4 h-4" />
+											Lanjutkan
+										</Link>
+									)}
+									<button
+										onClick={() => handleDelete(draft.id)}
+										disabled={deletingId === draft.id}
+										className={`p-2 rounded-lg transition-colors ${
+											deletingId === draft.id
+												? "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+												: "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
+										}`}
+										title="Hapus draft"
+									>
+										<TrashIcon className="w-4 h-4" />
+									</button>
 								</div>
-							</div>
-
-							<div className="flex items-center gap-2 ml-4">
-								<Link
-									to={`/panitia/events/create/${draft.id}`}
-									className="flex items-center gap-2 px-3 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors text-sm"
-								>
-									<PencilSquareIcon className="w-4 h-4" />
-									Lanjutkan
-								</Link>
-								<button
-									onClick={() => handleDelete(draft.id)}
-									disabled={deletingId === draft.id}
-									className={`p-2 rounded-lg transition-colors ${
-										deletingId === draft.id
-											? "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-											: "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
-									}`}
-									title="Hapus draft"
-								>
-									<TrashIcon className="w-4 h-4" />
-								</button>
 							</div>
 						</div>
-					</div>
-				))}
+					);
+				})}
 			</div>
 		</div>
 	);

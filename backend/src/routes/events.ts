@@ -6,6 +6,21 @@ import { computeEventStatus } from "../utils/eventStatus";
 
 const router = express.Router();
 
+const EVENT_PACKAGE_PRICES: Record<string, number> = {
+	IKLAN: 0,
+	TICKETING: 0,
+	VOTING: 0,
+	TICKETING_VOTING: 0,
+	BRONZE: 500000,
+	SILVER: 1000000,
+	GOLD: 1500000,
+};
+
+function getEventPackageAmount(packageTier: string | null | undefined) {
+	if (!packageTier) return 0;
+	return EVENT_PACKAGE_PRICES[packageTier] ?? 0;
+}
+
 // GET /api/events - Get all published events with search and filters
 router.get("/", async (req: Request, res: Response) => {
 	try {
@@ -353,6 +368,10 @@ router.get(
 				where: {
 					createdById: user.userId,
 					wizardCompleted: true, // Only completed events
+					OR: [
+						{ paymentStatus: null },
+						{ paymentStatus: { not: "DP_REQUESTED" } },
+					],
 				},
 				include: {
 					createdBy: {
@@ -736,6 +755,7 @@ router.patch(
 				where: { id },
 				select: { 
 					createdById: true,
+					paymentStatus: true,
 					coupon: {
 						select: {
 							id: true,
@@ -748,6 +768,12 @@ router.patch(
 			if (!existingEvent) {
 				return res.status(404).json({
 					message: "Event not found",
+				});
+			}
+
+			if (existingEvent.paymentStatus === "DP_REQUESTED" && user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Event sedang menunggu konfirmasi DP dari admin.",
 				});
 			}
 
@@ -1013,6 +1039,10 @@ router.patch(
 			const { id } = req.params;
 			const { status } = req.body;
 
+			if (!id) {
+				return res.status(400).json({ message: "Event ID is required" });
+			}
+
 			// Validate status - only allow manual status changes to DRAFT, PUBLISHED, or CANCELLED
 			// Other statuses (ONGOING, COMPLETED) are computed automatically based on dates
 			const validStatuses = ["DRAFT", "PUBLISHED", "CANCELLED"];
@@ -1025,7 +1055,13 @@ router.patch(
 			// Verify event exists and belongs to user
 			const existingEvent = await prisma.event.findUnique({
 				where: { id },
-				select: { createdById: true, status: true, paymentStatus: true },
+				select: {
+					createdById: true,
+					status: true,
+					paymentStatus: true,
+					packageTier: true,
+					eventPayment: { select: { id: true, status: true } },
+				},
 			});
 
 			if (!existingEvent) {
@@ -1034,10 +1070,10 @@ router.patch(
 				});
 			}
 
-			// DP events can only be published by admin
-			if (status === "PUBLISHED" && existingEvent.paymentStatus === "DP_REQUESTED" && user.role !== "SUPERADMIN") {
+			// DP events stay locked until SuperAdmin confirms them.
+			if (existingEvent.paymentStatus === "DP_REQUESTED" && user.role !== "SUPERADMIN") {
 				return res.status(403).json({
-					message: "Event dengan pembayaran DP hanya bisa dipublish oleh admin setelah DP dikonfirmasi.",
+					message: "Event dengan pembayaran DP hanya bisa diubah oleh admin setelah DP dikonfirmasi.",
 				});
 			}
 
@@ -1047,16 +1083,48 @@ router.patch(
 				});
 			}
 
-			// Update status
-			const updatedEvent = await prisma.event.update({
-				where: { id },
-				data: { status },
-				select: {
-					id: true,
-					title: true,
-					slug: true,
-					status: true,
-				},
+			const updatedEvent = await prisma.$transaction(async (tx) => {
+				const updateData: any = { status };
+
+				if (existingEvent.paymentStatus === "DP_REQUESTED" && user.role === "SUPERADMIN") {
+					updateData.paymentStatus = "PAID";
+					updateData.wizardStep = 0;
+					updateData.wizardCompleted = true;
+
+					if (existingEvent.packageTier) {
+						await tx.eventPayment.upsert({
+							where: { eventId: id },
+							update: {
+								status: "PAID",
+								paidAt: new Date(),
+								packageTier: existingEvent.packageTier as any,
+								amount: getEventPackageAmount(existingEvent.packageTier),
+								paymentType: "DP_CONFIRMED",
+							},
+							create: {
+								eventId: id,
+								userId: existingEvent.createdById,
+								packageTier: existingEvent.packageTier as any,
+								amount: getEventPackageAmount(existingEvent.packageTier),
+								status: "PAID",
+								paymentType: "DP_CONFIRMED",
+								paidAt: new Date(),
+							},
+						});
+					}
+				}
+
+				return tx.event.update({
+					where: { id },
+					data: updateData,
+					select: {
+						id: true,
+						title: true,
+						slug: true,
+						status: true,
+						paymentStatus: true,
+					},
+				});
 			});
 
 			res.json({
@@ -1254,6 +1322,7 @@ router.get(
 							code: true,
 						},
 					},
+					eventPayment: true,
 				},
 				orderBy: {
 					updatedAt: "desc",
@@ -1419,6 +1488,12 @@ router.patch(
 
 			if (!existingDraft) {
 				return res.status(404).json({ message: "Draft not found" });
+			}
+
+			if (existingDraft.paymentStatus === "DP_REQUESTED" && user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Event sedang menunggu konfirmasi DP dari admin.",
+				});
 			}
 
 			// Validate package tier
@@ -1614,6 +1689,12 @@ router.patch(
 				return res.status(404).json({ message: "Draft not found" });
 			}
 
+			if (existingDraft.paymentStatus === "DP_REQUESTED" && user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Event sedang menunggu konfirmasi DP dari admin.",
+				});
+			}
+
 			// Update draft with step 3 data - move to step 4 (payment)
 			const updatedEvent = await prisma.event.update({
 				where: { id },
@@ -1689,6 +1770,12 @@ router.patch(
 
 			if (!existingDraft) {
 				return res.status(404).json({ message: "Draft not found" });
+			}
+
+			if (existingDraft.paymentStatus === "DP_REQUESTED" && user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Event sedang menunggu konfirmasi DP dari admin.",
+				});
 			}
 
 			// Update step 1 data
