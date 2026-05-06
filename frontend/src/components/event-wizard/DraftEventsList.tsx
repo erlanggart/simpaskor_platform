@@ -6,11 +6,19 @@ import {
 	ClockIcon,
 	DocumentTextIcon,
 	LockClosedIcon,
+	PhoneIcon,
 } from "@heroicons/react/24/outline";
+import { buildDPWhatsAppUrl } from "../../utils/dpWhatsApp";
 
 interface DraftEvent {
 	id: string;
 	title: string | null;
+	startDate: string;
+	endDate: string;
+	province: string | null;
+	city: string | null;
+	venue: string | null;
+	packageTier: string | null;
 	wizardStep: number;
 	wizardCompleted: boolean;
 	paymentStatus?: string | null;
@@ -90,6 +98,21 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 		return draft.paymentStatus === "DP_REQUESTED" || (
 			draft.eventPayment?.paymentType === "DP_REQUEST" &&
 			draft.eventPayment?.status === "PENDING"
+		);
+	};
+
+	const handleWhatsApp = (draft: DraftEvent) => {
+		window.open(
+			buildDPWhatsAppUrl({
+				title: draft.title,
+				packageTier: draft.packageTier,
+				startDate: draft.startDate,
+				endDate: draft.endDate,
+				province: draft.province,
+				city: draft.city,
+				venue: draft.venue,
+			}),
+			"_blank"
 		);
 	};
 
@@ -185,12 +208,12 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 									{dpPending ? (
 										<button
 											type="button"
-											disabled
-											className="flex items-center gap-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg cursor-not-allowed text-sm"
-											title="Menunggu admin mengonfirmasi DP"
+											onClick={() => handleWhatsApp(draft)}
+											className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+											title="Hubungi admin lewat WhatsApp"
 										>
-											<LockClosedIcon className="w-4 h-4" />
-											Menunggu Admin
+											<PhoneIcon className="w-4 h-4" />
+											WhatsApp Admin
 										</button>
 									) : (
 										<Link

@@ -12,6 +12,16 @@ export const BUNDLE_REVENUE_SHARE_SHORT_LABEL = `${BUNDLE_PLATFORM_SHARE_PERCENT
 const REVENUE_SHARE_TIERS: PackageTier[] = ["TICKETING", "VOTING", "TICKETING_VOTING"];
 const NO_UPFRONT_PAYMENT_TIERS: PackageTier[] = ["IKLAN", ...REVENUE_SHARE_TIERS];
 
+export const PACKAGE_NAMES: Record<PackageTier, string> = {
+	IKLAN: "Paket Iklan",
+	TICKETING: "Paket Ticketing",
+	VOTING: "Paket Voting",
+	TICKETING_VOTING: "Paket Ticketing + Voting",
+	BRONZE: "Paket Bronze",
+	SILVER: "Paket Silver",
+	GOLD: "Paket Gold",
+};
+
 export const PACKAGE_PRICE_LABELS: Record<PackageTier, string> = {
 	IKLAN: "GRATIS",
 	TICKETING: REVENUE_SHARE_LABEL,
@@ -41,4 +51,9 @@ export function hasNoUpfrontPayment(tier: PackageTier | string | null | undefine
 export function getPackagePriceLabel(tier: PackageTier | string | null | undefined): string {
 	if (!tier) return "-";
 	return PACKAGE_PRICE_LABELS[tier as PackageTier] || "-";
+}
+
+export function getPackageName(tier: PackageTier | string | null | undefined): string {
+	if (!tier) return "Paket Simpaskor";
+	return PACKAGE_NAMES[tier as PackageTier] || "Paket Simpaskor";
 }

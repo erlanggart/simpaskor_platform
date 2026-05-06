@@ -146,4 +146,9 @@ export interface Step4Props extends WizardStepProps {
 	existingPayment?: EventPaymentData | null;
 	isEditMode?: boolean;
 	packageTier?: PackageTier | null;
+	eventStartDate?: string | null;
+	eventEndDate?: string | null;
+	eventProvince?: string | null;
+	eventCity?: string | null;
+	eventVenue?: string | null;
 }

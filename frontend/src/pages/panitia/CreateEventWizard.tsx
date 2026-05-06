@@ -554,6 +554,11 @@ const CreateEventWizard: React.FC = () => {
 						onNext={handleNextStep}
 						onBack={handlePrevStep}
 						packageTier={step2Data.packageTier}
+						eventStartDate={step1Data.startDate}
+						eventEndDate={step1Data.endDate}
+						eventProvince={step1Data.province}
+						eventCity={step1Data.city}
+						eventVenue={step1Data.venue}
 					/>
 				)}
 			</main>

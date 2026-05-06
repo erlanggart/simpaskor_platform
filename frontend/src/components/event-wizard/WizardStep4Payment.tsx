@@ -14,6 +14,7 @@ import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
 import { getPackagePriceLabel, getRevenueShareLabel, getRevenueShareShortLabel, hasNoUpfrontPayment, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
+import { buildDPWhatsAppUrl } from "../../utils/dpWhatsApp";
 
 interface PackageOption {
 	tier: PackageTier;
@@ -148,6 +149,11 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 	onNext,
 	onBack,
 	packageTier: preSelectedTier,
+	eventStartDate,
+	eventEndDate,
+	eventProvince,
+	eventCity,
+	eventVenue,
 }) => {
 	const [selectedPackage, setSelectedPackage] = useState<PackageTier | null>(
 		existingPayment?.packageTier || preSelectedTier || null
@@ -242,6 +248,23 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 		onNext();
 	};
 
+	const openDPWhatsApp = (packageTier: PackageTier) => {
+		const pkg = packages.find((p) => p.tier === packageTier);
+		const waUrl = buildDPWhatsAppUrl({
+			title: eventTitle,
+			packageTier,
+			packageName: pkg?.name,
+			packagePriceLabel: pkg?.priceLabel,
+			startDate: eventStartDate,
+			endDate: eventEndDate,
+			province: eventProvince,
+			city: eventCity,
+			venue: eventVenue,
+		});
+
+		window.open(waUrl, "_blank");
+	};
+
 	const handleFreePackage = async () => {
 		if (!eventId || !selectedPackage || isDpPending) return;
 
@@ -299,7 +322,18 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 				"",
 				"Mohon informasi lebih lanjut untuk proses DP dan pembuatan event. Terima kasih! 🙏",
 			].join("\n");
-			const waUrl = `https://wa.me/6285111209133?text=${encodeURIComponent(waMessage)}`;
+			void waMessage;
+			const waUrl = buildDPWhatsAppUrl({
+				title: eventTitle,
+				packageTier: selectedPackage,
+				packageName: pkg?.name,
+				packagePriceLabel: pkg?.priceLabel,
+				startDate: eventStartDate,
+				endDate: eventEndDate,
+				province: eventProvince,
+				city: eventCity,
+				venue: eventVenue,
+			});
 
 			// Open WhatsApp in new tab
 			window.open(waUrl, "_blank");
@@ -364,6 +398,16 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 					<p className="text-amber-600 dark:text-amber-400 text-sm">
 						Panitia belum dapat memakai fitur event sampai super admin mengonfirmasi DP dan mengubah status event.
 					</p>
+					{paymentStatus?.packageTier && (
+						<button
+							type="button"
+							onClick={() => openDPWhatsApp(paymentStatus.packageTier)}
+							className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
+						>
+							<PhoneIcon className="w-4 h-4" />
+							WhatsApp Admin
+						</button>
+					)}
 				</div>
 			)}
 
