@@ -258,8 +258,13 @@ async function handleVotingPayment(
 		return;
 	}
 
-	// Idempotency guard: skip if already in terminal state
-	if (purchase.status === "PAID" || purchase.status === "CANCELLED" || purchase.status === "EXPIRED") {
+	// Idempotency guard: allow a late success notification to recover old purchases
+	// that were previously marked expired/cancelled before Midtrans confirmed them.
+	if (purchase.status === "PAID") {
+		console.log(`[Midtrans] Voting ${midtransOrderId} already ${purchase.status}, skipping`);
+		return;
+	}
+	if ((purchase.status === "CANCELLED" || purchase.status === "EXPIRED") && result !== "success") {
 		console.log(`[Midtrans] Voting ${midtransOrderId} already ${purchase.status}, skipping`);
 		return;
 	}
