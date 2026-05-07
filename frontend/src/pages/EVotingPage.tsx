@@ -117,7 +117,7 @@ const EVotingPage: React.FC = () => {
 	const checkVoteCode = async (code = purchaseCode): Promise<VoteCodeInfo | null> => {
 		const normalizedCode = normalizePurchaseCode(code);
 		if (!normalizedCode) {
-			Swal.fire("Kode Kosong", "Masukkan kode vote terlebih dahulu", "warning");
+			Swal.fire("Kode Kosong", "Masukkan kode vote atau ID pesanan terlebih dahulu", "warning");
 			return null;
 		}
 
@@ -230,9 +230,10 @@ const EVotingPage: React.FC = () => {
 				voterName: user?.name || undefined,
 				voterEmail: user?.email || undefined,
 			});
+			const activeCode = res.data.purchaseCode || normalizedCode;
 
 			const nextCodeInfo: VoteCodeInfo = {
-				purchaseCode: normalizedCode,
+				purchaseCode: activeCode,
 				eventId: selectedEvent?.id || "",
 				status: "PAID",
 				voteCount: res.data.voteCount,
@@ -240,7 +241,7 @@ const EVotingPage: React.FC = () => {
 				remainingVotes: res.data.remainingVotes,
 				message: res.data.remainingVotes > 0 ? "Kode vote aktif" : "Semua vote pada kode ini sudah digunakan",
 			};
-			setPurchaseCode(normalizedCode);
+			setPurchaseCode(activeCode);
 			setVoteCodeInfo(nextCodeInfo);
 			setShowCodeEntry(false);
 			setPaidVoteTarget(null);
@@ -838,7 +839,7 @@ const EVotingPage: React.FC = () => {
 										setPurchaseCode(normalizePurchaseCode(e.target.value));
 										setVoteCodeInfo(null);
 									}}
-									placeholder="VOT-XXXXXX-XXXXXXXX"
+									placeholder="Kode vote / ID pesanan"
 									className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white font-mono text-center"
 								/>
 								{voteCodeInfo && (

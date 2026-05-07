@@ -10,8 +10,6 @@ import crypto from "crypto";
 import {
 	coreApi,
 	createSnapTransaction,
-	generateMidtransOrderId,
-	PaymentPrefix,
 	resolvePaymentStatus,
 } from "../lib/midtrans";
 import { sendVotingPurchaseEmail } from "../lib/email";
@@ -81,6 +79,10 @@ const normalizePurchaseCode = (value: unknown): string => {
 	if (typeof value !== "string") return "";
 	return value.trim().toUpperCase().replace(/[\s\u200B-\u200D\uFEFF]+/g, "");
 };
+
+const buildVotingPurchaseCodeLookupWhere = (code: string) => ({
+	OR: [{ purchaseCode: code }, { midtransOrderId: code }],
+});
 
 const REFRESHABLE_VOTING_PURCHASE_STATUSES = ["PENDING", "CANCELLED", "EXPIRED"];
 
@@ -447,8 +449,8 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 		}
 
 		// Validate purchase
-		let purchase = await prisma.votingPurchase.findUnique({
-			where: { purchaseCode: normalizedPurchaseCode },
+		let purchase = await prisma.votingPurchase.findFirst({
+			where: buildVotingPurchaseCodeLookupWhere(normalizedPurchaseCode),
 		});
 
 		if (!purchase) {
@@ -528,6 +530,7 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 		res.status(201).json({
 			message: "Vote berhasil!",
 			vote: result.vote,
+			purchaseCode: purchase.purchaseCode,
 			remainingVotes: result.purchase ? Math.max(0, result.purchase.voteCount - result.purchase.usedVotes) : 0,
 			voteCount: result.purchase?.voteCount ?? purchase.voteCount,
 			usedVotes: result.purchase?.usedVotes ?? purchase.usedVotes + 1,
@@ -595,7 +598,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 		let midtransOrderId: string | null = null;
 		if (totalAmount > 0) {
 			try {
-				midtransOrderId = generateMidtransOrderId(PaymentPrefix.VOTING, purchase.id);
+				midtransOrderId = purchaseCode;
 				const snapResult = await createSnapTransaction({
 					orderId: midtransOrderId,
 					grossAmount: totalAmount,
@@ -643,8 +646,8 @@ router.post("/code-status", optionalAuthenticate, async (req: AuthenticatedReque
 			return res.status(400).json({ error: "Kode pembelian wajib diisi" });
 		}
 
-		let purchase = await prisma.votingPurchase.findUnique({
-			where: { purchaseCode: normalizedPurchaseCode },
+		let purchase = await prisma.votingPurchase.findFirst({
+			where: buildVotingPurchaseCodeLookupWhere(normalizedPurchaseCode),
 			include: { event: { select: { id: true, title: true } } },
 		});
 
@@ -695,8 +698,8 @@ router.get("/check/:purchaseCode", authenticate, async (req: AuthenticatedReques
 			return res.status(400).json({ error: "Kode pembelian wajib diisi" });
 		}
 
-		let purchase = await prisma.votingPurchase.findUnique({
-			where: { purchaseCode: normalizedPurchaseCode },
+		let purchase = await prisma.votingPurchase.findFirst({
+			where: buildVotingPurchaseCodeLookupWhere(normalizedPurchaseCode),
 			include: {
 				event: {
 					select: { title: true, startDate: true, endDate: true, venue: true, city: true },
@@ -753,8 +756,8 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 			return res.status(400).json({ error: "Format email tidak valid" });
 		}
 
-		let purchase = await prisma.votingPurchase.findUnique({
-			where: { purchaseCode: normalizedPurchaseCode },
+		let purchase = await prisma.votingPurchase.findFirst({
+			where: buildVotingPurchaseCodeLookupWhere(normalizedPurchaseCode),
 			include: { event: { select: { title: true } } },
 		});
 
@@ -819,8 +822,8 @@ router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: 
 			return res.status(400).json({ error: "Format email tidak valid" });
 		}
 
-		let purchase = await prisma.votingPurchase.findUnique({
-			where: { purchaseCode: normalizedPurchaseCode },
+		let purchase = await prisma.votingPurchase.findFirst({
+			where: buildVotingPurchaseCodeLookupWhere(normalizedPurchaseCode),
 			include: {
 				event: {
 					select: { title: true },
@@ -1567,6 +1570,7 @@ router.get(
 					{ buyerName: { contains: search as string, mode: "insensitive" } },
 					{ buyerEmail: { contains: search as string, mode: "insensitive" } },
 					{ purchaseCode: { contains: search as string, mode: "insensitive" } },
+					{ midtransOrderId: { contains: search as string, mode: "insensitive" } },
 				];
 			}
 
