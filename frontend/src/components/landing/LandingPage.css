@@ -464,6 +464,10 @@ html:not(.dark) .landing-title-gradient-pricing {
 	overflow: hidden;
 }
 
+.pricing-section-carousel {
+	max-height: calc(100vh - 3.5rem);
+}
+
 .pricing-shell {
 	position: relative;
 	overflow: hidden;
@@ -524,6 +528,12 @@ html:not(.dark) .landing-title-gradient-pricing {
 	line-height: 1.45;
 }
 
+.pricing-header-actions {
+	display: grid;
+	gap: 0.9rem;
+	justify-items: end;
+}
+
 .dark .pricing-header-copy {
 	color: #94a3b8;
 }
@@ -543,6 +553,107 @@ html:not(.dark) .landing-title-gradient-pricing {
 
 .pricing-board-paid {
 	margin-top: 7px;
+}
+
+.pricing-carousel {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	gap: 1rem;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scroll-behavior: smooth;
+	scroll-snap-type: x mandatory;
+	-webkit-overflow-scrolling: touch;
+	padding: 0.25rem 0.25rem 0.7rem;
+}
+
+.pricing-carousel::-webkit-scrollbar {
+	height: 0;
+}
+
+.pricing-carousel {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.pricing-carousel-card {
+	flex: 0 0 calc((100% - 2rem) / 3);
+	min-width: 0;
+	scroll-snap-align: start;
+}
+
+.pricing-carousel-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.55rem;
+}
+
+.pricing-carousel-btn,
+.pricing-all-link,
+.packages-back-link,
+.packages-page-footer a {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	border: 1px solid rgba(249, 115, 22, 0.18);
+	background: rgba(255, 255, 255, 0.72);
+	color: #9a3412;
+	font-size: 0.74rem;
+	font-weight: 850;
+	line-height: 1;
+	transition:
+		transform 0.2s ease,
+		border-color 0.2s ease,
+		background 0.2s ease;
+}
+
+.pricing-carousel-btn {
+	height: 2.35rem;
+	width: 2.35rem;
+}
+
+.pricing-all-link,
+.packages-back-link,
+.packages-page-footer a {
+	gap: 0.45rem;
+	padding: 0.76rem 1rem;
+}
+
+.dark .pricing-carousel-btn,
+.dark .pricing-all-link,
+.dark .packages-back-link,
+.dark .packages-page-footer a {
+	border-color: rgba(251, 146, 60, 0.18);
+	background: rgba(255, 255, 255, 0.055);
+	color: #fdba74;
+}
+
+.pricing-carousel-btn:hover,
+.pricing-all-link:hover,
+.packages-back-link:hover,
+.packages-page-footer a:hover {
+	transform: translateY(-1px);
+	border-color: rgba(249, 115, 22, 0.32);
+	background: rgba(249, 115, 22, 0.09);
+}
+
+.pricing-carousel-footer {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0 0.25rem;
+	color: #94a3b8;
+	font-size: 0.72rem;
+}
+
+.dark .pricing-carousel-footer {
+	color: #64748b;
 }
 
 .pricing-board-label {
@@ -601,6 +712,10 @@ html:not(.dark) .landing-title-gradient-pricing {
 	            border-color 0.3s ease;
 	box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
 	backdrop-filter: blur(18px);
+}
+
+.pricing-section-carousel .pricing-card {
+	min-height: 330px;
 }
 
 .pricing-card::before {
@@ -868,6 +983,99 @@ html:not(.dark) .landing-title-gradient-pricing {
 		filter 0.25s ease;
 }
 
+.pricing-section-carousel .pricing-card-btn {
+	margin-top: auto !important;
+}
+
+.packages-page {
+	color: #0f172a;
+}
+
+.dark .packages-page {
+	color: #f8fafc;
+}
+
+.packages-page-header {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: start;
+	gap: 2rem;
+	margin-bottom: 1.5rem;
+}
+
+.packages-title-block {
+	text-align: center;
+}
+
+.packages-title-block p:last-child {
+	max-width: 720px;
+	margin: 1rem auto 0;
+	color: #64748b;
+	font-size: 0.95rem;
+	line-height: 1.7;
+}
+
+.dark .packages-title-block p:last-child {
+	color: #94a3b8;
+}
+
+.packages-header-stats {
+	display: grid;
+	gap: 0.65rem;
+	min-width: 10rem;
+}
+
+.packages-header-stats div {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	border-radius: 999px;
+	border: 1px solid rgba(148, 163, 184, 0.18);
+	background: rgba(255, 255, 255, 0.68);
+	padding: 0.72rem 0.9rem;
+	color: #64748b;
+	font-size: 0.78rem;
+	font-weight: 800;
+}
+
+.packages-header-stats svg {
+	color: #f97316;
+}
+
+.dark .packages-header-stats div {
+	border-color: rgba(255, 255, 255, 0.08);
+	background: rgba(255, 255, 255, 0.045);
+	color: #cbd5e1;
+}
+
+.packages-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 1rem;
+}
+
+.packages-grid-card {
+	min-height: 100%;
+}
+
+.packages-grid-card .pricing-card-btn {
+	margin-top: auto !important;
+}
+
+.packages-page-footer {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	margin-top: 1.6rem;
+	color: #64748b;
+	font-size: 0.9rem;
+}
+
+.dark .packages-page-footer {
+	color: #94a3b8;
+}
+
 .pricing-card:hover .pricing-card-btn {
 	box-shadow: 0 14px 26px -12px var(--glow, rgba(0,0,0,0.2));
 	filter: saturate(1.08);
@@ -940,6 +1148,14 @@ html:not(.dark) .landing-title-gradient-pricing {
 	.pricing-card-btn {
 		margin-top: 0.42rem !important;
 	}
+
+	.pricing-section-carousel .pricing-card {
+		min-height: 310px;
+	}
+
+	.pricing-section-carousel .pricing-card-btn {
+		margin-top: auto !important;
+	}
 }
 
 .dark .pricing-footer-note {
@@ -958,6 +1174,33 @@ html:not(.dark) .landing-title-gradient-pricing {
 	}
 }
 
+@media (max-width: 1023px) {
+	.pricing-carousel-card {
+		flex-basis: calc((100% - 1rem) / 2);
+	}
+
+	.packages-page-header {
+		grid-template-columns: 1fr;
+		gap: 1rem;
+	}
+
+	.packages-title-block {
+		text-align: left;
+	}
+
+	.packages-title-block p:last-child {
+		margin-left: 0;
+	}
+
+	.packages-header-stats {
+		grid-template-columns: repeat(2, minmax(0, max-content));
+	}
+
+	.packages-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
 @media (max-width: 767px) {
 	.pricing-header {
 		display: block;
@@ -968,6 +1211,18 @@ html:not(.dark) .landing-title-gradient-pricing {
 	.pricing-header-copy {
 		margin: 0.9rem auto 0;
 		font-size: 0.78rem;
+	}
+
+	.pricing-header-actions {
+		justify-items: center;
+	}
+
+	.pricing-carousel-card {
+		flex-basis: 86%;
+	}
+
+	.pricing-section-carousel .pricing-card {
+		min-height: 340px;
 	}
 
 	.pricing-header-line {
@@ -991,6 +1246,25 @@ html:not(.dark) .landing-title-gradient-pricing {
 
 	.pricing-card-paid .pricing-feature-list {
 		grid-template-columns: 1fr;
+	}
+
+	.pricing-carousel-footer {
+		display: block;
+		text-align: center;
+	}
+
+	.pricing-carousel-footer span {
+		display: block;
+	}
+
+	.packages-grid,
+	.packages-header-stats {
+		grid-template-columns: 1fr;
+	}
+
+	.packages-page-footer {
+		display: grid;
+		text-align: center;
 	}
 }
 

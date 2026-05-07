@@ -25,6 +25,7 @@ const AllPelatih = lazy(() => import("./pages/AllPelatih"));
 const KlasemenPage = lazy(() => import("./pages/KlasemenPage"));
 const EventsPage = lazy(() => import("./pages/EventsPage"));
 const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
+const PackagesPage = lazy(() => import("./pages/PackagesPage"));
 
 // Auth Pages
 const Login = lazy(() => import("./pages/Login"));
@@ -108,6 +109,7 @@ function App() {
 						<Route path="juries" element={<AllJuries />} />
 						<Route path="pelatih" element={<AllPelatih />} />
 						<Route path="klasemen" element={<KlasemenPage />} />
+						<Route path="packages" element={<PackagesPage />} />
 						<Route path="unauthorized" element={<Unauthorized />} />
 						<Route path="payment/success" element={<PaymentSuccessPage />} />
 					</Route>
