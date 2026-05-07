@@ -36,6 +36,7 @@ const EVotingPage: React.FC = () => {
 	const [showCodeEntry, setShowCodeEntry] = useState(false);
 	const [purchaseCode, setPurchaseCode] = useState("");
 	const [paidVoteTarget, setPaidVoteTarget] = useState<{ categoryId: string; nomineeId: string } | null>(null);
+	const normalizePurchaseCode = (value: string) => value.toUpperCase().replace(/[\s\u200B-\u200D\uFEFF]+/g, "");
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -150,7 +151,7 @@ const EVotingPage: React.FC = () => {
 			await api.post("/voting/vote-paid", {
 				categoryId: paidVoteTarget.categoryId,
 				nomineeId: paidVoteTarget.nomineeId,
-				purchaseCode: purchaseCode.trim(),
+				purchaseCode: normalizePurchaseCode(purchaseCode),
 				voterName: user?.name || undefined,
 				voterEmail: user?.email || undefined,
 			});
@@ -639,7 +640,7 @@ const EVotingPage: React.FC = () => {
 								<input
 									type="text"
 									value={purchaseCode}
-									onChange={(e) => setPurchaseCode(e.target.value.toUpperCase())}
+									onChange={(e) => setPurchaseCode(normalizePurchaseCode(e.target.value))}
 									placeholder="VOT-XXXXXX-XXXXXXXX"
 									className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white font-mono text-center"
 								/>

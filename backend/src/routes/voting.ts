@@ -68,6 +68,11 @@ const generatePurchaseCode = (): string => {
 	return `VOT-${random.slice(0, 8)}-${random.slice(8)}`;
 };
 
+const normalizePurchaseCode = (value: unknown): string => {
+	if (typeof value !== "string") return "";
+	return value.trim().toUpperCase().replace(/[\s\u200B-\u200D\uFEFF]+/g, "");
+};
+
 // Verify PANITIA owns the event (SUPERADMIN bypasses)
 const verifyEventOwnership = async (
 	req: AuthenticatedRequest,
@@ -342,8 +347,9 @@ router.post("/vote", optionalAuthenticate, async (req: AuthenticatedRequest, res
 router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const { categoryId, nomineeId, purchaseCode, voterName, voterEmail } = req.body;
+		const normalizedPurchaseCode = normalizePurchaseCode(purchaseCode);
 
-		if (!categoryId || !nomineeId || !purchaseCode) {
+		if (!categoryId || !nomineeId || !normalizedPurchaseCode) {
 			return res.status(400).json({ error: "Kategori, nominee, dan kode pembelian wajib diisi" });
 		}
 
@@ -367,7 +373,7 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 
 		// Validate purchase
 		const purchase = await prisma.votingPurchase.findUnique({
-			where: { purchaseCode },
+			where: { purchaseCode: normalizedPurchaseCode },
 		});
 
 		if (!purchase || purchase.status !== "PAID") {
@@ -390,15 +396,16 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 
 		const result = await prisma.$transaction(async (tx) => {
 			// Atomically increment usedVotes only if credits remain (prevents double-spend)
-			const reserved = await tx.$executeRaw`
-				UPDATE "VotingPurchase"
-				SET "usedVotes" = "usedVotes" + 1
-				WHERE "id" = ${purchase.id}
-					AND "status" = 'PAID'
-					AND "usedVotes" < "voteCount"
-			`;
+			const reserved = await tx.votingPurchase.updateMany({
+				where: {
+					id: purchase.id,
+					status: "PAID",
+					usedVotes: { lt: purchase.voteCount },
+				},
+				data: { usedVotes: { increment: 1 } },
+			});
 
-			if (reserved === 0) {
+			if (reserved.count === 0) {
 				throw new Error("Semua vote pada kode pembelian ini sudah digunakan");
 			}
 
