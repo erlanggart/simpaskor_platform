@@ -18,7 +18,7 @@ export const AuthLayout: React.FC = () => {
 			<header className="relative z-20 h-14 flex items-center justify-between px-4 sm:px-8">
 				{/* Logo */}
 				<Link to="/" className="flex items-center gap-3 group">
-					<div className="w-8 h-8 rounded-lg bg-gray-100/80 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden">
+					<div className="w-9 h-9 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/10 flex items-center justify-center overflow-hidden">
 						<img
 							src="/simpaskor.webp"
 							alt="Logo"

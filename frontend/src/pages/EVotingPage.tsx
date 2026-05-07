@@ -4,7 +4,28 @@ import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
 import { VotingEvent } from "../types/voting";
-import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuThumbsUp, LuCircleCheck, LuCrown, LuMedal } from "react-icons/lu";
+import {
+	LuArrowLeft,
+	LuArrowRight,
+	LuCalendar,
+	LuChevronLeft,
+	LuChevronRight,
+	LuCircleCheck,
+	LuClock,
+	LuCrown,
+	LuMail,
+	LuMapPin,
+	LuMedal,
+	LuPhone,
+	LuSearch,
+	LuSparkles,
+	LuThumbsUp,
+	LuTicket,
+	LuTrophy,
+	LuUser,
+	LuUsers,
+	LuX,
+} from "react-icons/lu";
 import Swal from "sweetalert2";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
 
@@ -479,13 +500,13 @@ const EVotingPage: React.FC = () => {
 		const status = getVotingStatus(event);
 		switch (status.color) {
 			case "green":
-				return { label: "Buka", className: "bg-green-500/80 text-white" };
+				return { label: "Buka", className: "bg-emerald-500/90 text-white" };
 			case "amber":
-				return { label: "Segera", className: "bg-orange-500/80 text-white" };
+				return { label: "Segera", className: "bg-amber-500/90 text-white" };
 			case "red":
-				return { label: "Selesai", className: "bg-gray-500/80 text-white" };
+				return { label: "Selesai", className: "bg-slate-700/[0.85] text-white" };
 			default:
-				return { label: "Vote", className: "bg-red-500/80 text-white" };
+				return { label: "Vote", className: "bg-red-500/90 text-white" };
 		}
 	};
 
@@ -523,120 +544,186 @@ const EVotingPage: React.FC = () => {
 		{ id: "ended" as const, label: "Selesai" },
 	];
 
+	const getEventNomineeCount = (event: VotingEvent) =>
+		event.votingConfig?.categories.reduce((total, category) => total + (category.nominees?.length || 0), 0) || 0;
+
+	const getEventVoteCount = (event: VotingEvent) =>
+		event.votingConfig?.categories.reduce(
+			(total, category) => total + (category.nominees?.reduce((sum, nominee) => sum + nominee.voteCount, 0) || 0),
+			0
+		) || 0;
+
+	const formatCompactNumber = (value: number) =>
+		new Intl.NumberFormat("id-ID", {
+			notation: value >= 10000 ? "compact" : "standard",
+			maximumFractionDigits: 1,
+		}).format(value);
+
+	const getEventLocationLabel = (event: VotingEvent) => event.city || event.venue || event.location || "Online";
+
+	const featuredEvent = filteredEvents.find((event) => isVotingOpen(event)) || filteredEvents[0] || events[0] || null;
+
 	const currentCategory = selectedEvent?.votingConfig?.categories.find((c) => c.id === selectedCategoryId);
 	const sortedNominees = [...(currentCategory?.nominees || [])].sort((a, b) => b.voteCount - a.voteCount);
 	const podiumNominees = sortedNominees.slice(0, 3);
 	const remainingNominees = sortedNominees.slice(3);
 	const podiumOrder = podiumNominees;
+	const categoryVoteCount = sortedNominees.reduce((total, nominee) => total + nominee.voteCount, 0);
 
 	// Event detail / voting view
 	if (selectedEvent) {
 		const votingOrderSummary = getVotingOrderSummary();
+		const selectedEventBadge = getVotingStatusBadge(selectedEvent);
+		const selectedEventImage = selectedEvent.thumbnail ? getImageUrl(selectedEvent.thumbnail) : "";
+		const selectedEventNomineeCount = getEventNomineeCount(selectedEvent);
+		const selectedEventVoteCount = getEventVoteCount(selectedEvent);
 
 		return (
-			<div className="min-h-screen transition-colors">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+			<div className="evoting-page-shell min-h-screen transition-colors">
+				<div className="evoting-flow-lines" />
+				<main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
 					{/* Back button */}
 					<button
 						onClick={() => { setSelectedEvent(null); setSelectedCategoryId(null); setVotedNominees(new Set()); clearActiveVoteCode(); }}
-						className="mb-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+						className="group mb-5 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur-xl transition-all hover:-translate-x-0.5 hover:border-red-200 hover:text-red-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:text-red-300"
 					>
-						&larr; Kembali ke daftar event
+						<LuArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+						Daftar event
 					</button>
 
 					{/* Event header */}
-					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] overflow-hidden mb-6">
-						{selectedEvent.thumbnail && (
+					<section className="evoting-detail-hero relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-slate-950 shadow-2xl shadow-slate-200/70 mb-6 dark:border-white/[0.08] dark:shadow-black/30">
+						{selectedEventImage ? (
 							<img
-								src={`${config.api.backendUrl}${selectedEvent.thumbnail}`}
+								src={selectedEventImage}
 								alt={selectedEvent.title}
-								className="w-full h-48 sm:h-64 object-cover"
+								className="absolute inset-0 h-full w-full object-cover opacity-70"
 							/>
+						) : (
+							<div className="absolute inset-0 bg-[linear-gradient(135deg,#111827_0%,#7f1d1d_52%,#0f766e_100%)]" />
 						)}
-						<div className="p-6">
-							<h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{selectedEvent.title}</h1>
-							<div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
-								<span className="flex items-center gap-1.5">
-									<LuCalendar className="w-4 h-4" />
-									{formatDate(selectedEvent.startDate)}
-								</span>
-								{(selectedEvent.venue || selectedEvent.city) && (
-									<span className="flex items-center gap-1.5">
-										<LuMapPin className="w-4 h-4" />
-										{selectedEvent.venue || selectedEvent.city}
+						<div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/[0.78] to-slate-950/[0.35]" />
+						<div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
+						<div className="relative grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-8">
+							<div className="flex min-h-[330px] flex-col justify-end">
+								<div className="mb-4 flex flex-wrap items-center gap-2">
+									<span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black shadow-lg ${selectedEventBadge.className}`}>
+										<LuThumbsUp className="h-3.5 w-3.5" />
+										{selectedEventBadge.label}
 									</span>
-								)}
-							</div>
-							{selectedEvent.votingConfig?.isPaid && (
-								<div className="mt-4 flex flex-wrap items-center gap-3">
-									<span className="text-sm text-gray-500 dark:text-gray-400">
-										Voting berbayar: {formatCurrency(selectedEvent.votingConfig.pricePerVote)}/vote
+									<span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.15] bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur-xl">
+										<LuTicket className="h-3.5 w-3.5" />
+										{getVotingPriceLabel(selectedEvent)}
 									</span>
-									{isVotingOpen(selectedEvent) && (
-										<>
-											<button
-												onClick={() => setShowPurchaseModal(true)}
-												className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
-											>
-												Beli Vote
-											</button>
-											<button
-												onClick={() => setShowCodeEntry(true)}
-												className="px-4 py-1.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 rounded-lg text-sm font-medium hover:bg-red-50 dark:hover:bg-red-500/10"
-											>
-												{voteCodeInfo ? "Ganti Kode" : "Masukkan Kode"}
-											</button>
-										</>
-									)}
 								</div>
-							)}
-							{selectedEvent.votingConfig?.isPaid && voteCodeInfo && (
-								<div className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
-									voteCodeInfo.status === "PAID" && voteCodeInfo.remainingVotes > 0
-										? "border-green-200 bg-green-50 text-green-800 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-300"
-										: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
-								}`}>
-									<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-										<div>
-											<p className="font-semibold">Kode vote aktif: <span className="font-mono">{voteCodeInfo.purchaseCode}</span></p>
-											<p className="text-xs opacity-80">Sisa {voteCodeInfo.remainingVotes} dari {voteCodeInfo.voteCount} vote</p>
-										</div>
+								<h1 className="max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">
+									{selectedEvent.title}
+								</h1>
+								{selectedEvent.description && (
+									<p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/90 line-clamp-2 drop-shadow">
+										{selectedEvent.description}
+									</p>
+								)}
+								<div className="mt-5 flex flex-wrap gap-3 text-sm font-bold text-white">
+									<span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.18] px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-xl">
+										<LuCalendar className="w-4 h-4" />
+										{formatDate(selectedEvent.startDate)}
+									</span>
+									<span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.18] px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-xl">
+										<LuMapPin className="w-4 h-4" />
+										{getEventLocationLabel(selectedEvent)}
+									</span>
+								</div>
+
+								{selectedEvent.votingConfig?.isPaid && isVotingOpen(selectedEvent) && (
+									<div className="mt-6 flex flex-wrap gap-3">
 										<button
-											onClick={clearActiveVoteCode}
-											className="self-start sm:self-center text-xs font-medium underline underline-offset-2"
+											onClick={() => setShowPurchaseModal(true)}
+											className="evoting-primary-action inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-950/25 transition-all hover:-translate-y-0.5 hover:bg-red-700"
 										>
-											Hapus kode
+											<LuTicket className="w-4 h-4" />
+											Beli Vote
+										</button>
+										<button
+											onClick={() => setShowCodeEntry(true)}
+											className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.12] px-5 py-3 text-sm font-black text-white backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.18]"
+										>
+											<LuThumbsUp className="w-4 h-4" />
+											{voteCodeInfo ? "Ganti Kode" : "Masukkan Kode"}
 										</button>
 									</div>
-								</div>
-							)}
+								)}
+							</div>
 
-							{/* Voting status banner */}
-							{!isVotingOpen(selectedEvent) && (
-								<div className={`mt-4 px-4 py-3 rounded-xl text-sm font-medium ${
-									getVotingStatus(selectedEvent).color === "amber"
-										? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20"
-										: "bg-gray-50 dark:bg-gray-500/10 text-gray-700 dark:text-gray-400 border border-gray-200 dark:border-gray-500/20"
-								}`}>
-									{getVotingStatus(selectedEvent).color === "amber"
-										? `Voting belum dimulai${selectedEvent.votingConfig?.startDate ? `. Dibuka pada ${new Date(selectedEvent.votingConfig.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}`
-										: "Voting sudah ditutup"}
+							<aside className="evoting-glass-panel self-end rounded-3xl border border-white/[0.15] bg-white/[0.12] p-4 text-white shadow-2xl backdrop-blur-2xl">
+								<div className="grid grid-cols-2 gap-3">
+									<div className="rounded-2xl bg-white/[0.12] p-4">
+										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Kategori</p>
+										<p className="mt-2 text-2xl font-black">{selectedEvent.votingConfig?.categories.length || 0}</p>
+									</div>
+									<div className="rounded-2xl bg-white/[0.12] p-4">
+										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Nominee</p>
+										<p className="mt-2 text-2xl font-black">{selectedEventNomineeCount}</p>
+									</div>
+									<div className="rounded-2xl bg-white/[0.12] p-4">
+										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Vote</p>
+										<p className="mt-2 text-2xl font-black">{formatCompactNumber(selectedEventVoteCount)}</p>
+									</div>
+									<div className="rounded-2xl bg-white/[0.12] p-4">
+										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Mode</p>
+										<p className="mt-2 text-lg font-black">{selectedEvent.votingConfig?.isPaid ? "Berbayar" : "Gratis"}</p>
+									</div>
 								</div>
-							)}
+								{selectedEvent.votingConfig?.isPaid && voteCodeInfo && (
+									<div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+										voteCodeInfo.status === "PAID" && voteCodeInfo.remainingVotes > 0
+											? "border-emerald-300/40 bg-emerald-400/[0.15] text-emerald-50"
+											: "border-amber-300/40 bg-amber-400/[0.15] text-amber-50"
+									}`}>
+										<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+											<div>
+												<p className="font-bold">Kode aktif: <span className="font-mono">{voteCodeInfo.purchaseCode}</span></p>
+												<p className="text-xs opacity-80">Sisa {voteCodeInfo.remainingVotes} dari {voteCodeInfo.voteCount} vote</p>
+											</div>
+											<button
+												onClick={clearActiveVoteCode}
+												className="self-start text-xs font-bold underline underline-offset-2 sm:self-center"
+											>
+												Hapus
+											</button>
+										</div>
+									</div>
+								)}
+							</aside>
 						</div>
-					</div>
+					</section>
 
+					{/* Voting status banner */}
+					{!isVotingOpen(selectedEvent) && (
+						<div className={`mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm backdrop-blur-xl ${
+							getVotingStatus(selectedEvent).color === "amber"
+								? "bg-amber-50/90 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20"
+								: "bg-slate-50/90 text-slate-700 border-slate-200 dark:bg-white/[0.04] dark:text-slate-300 dark:border-white/[0.08]"
+						}`}>
+							<LuClock className="h-4 w-4 flex-shrink-0" />
+							<span>
+								{getVotingStatus(selectedEvent).color === "amber"
+									? `Voting belum dimulai${selectedEvent.votingConfig?.startDate ? `. Dibuka pada ${new Date(selectedEvent.votingConfig.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}`
+									: "Voting sudah ditutup"}
+							</span>
+						</div>
+					)}
 					{/* Category tabs */}
 					{selectedEvent.votingConfig?.categories && selectedEvent.votingConfig.categories.length > 1 && (
-						<div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+						<div className="evoting-tab-strip mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-white/70 bg-white/75 p-2 shadow-sm backdrop-blur-xl dark:border-white/[0.08] dark:bg-white/[0.035]">
 							{selectedEvent.votingConfig.categories.map((cat) => (
 								<button
 									key={cat.id}
 									onClick={() => setSelectedCategoryId(cat.id)}
-									className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+									className={`rounded-xl px-4 py-2 text-sm font-black whitespace-nowrap transition-all ${
 										selectedCategoryId === cat.id
-										? "bg-red-600 text-white shadow-lg shadow-red-600/25"
-										: "bg-white/60 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-white/[0.1] border border-gray-200/50 dark:border-white/[0.06]"
+										? "bg-slate-950 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-950"
+										: "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[0.08]"
 									}`}
 								>
 									{cat.title}
@@ -647,11 +734,24 @@ const EVotingPage: React.FC = () => {
 
 					{/* Category title */}
 					{currentCategory && (
-						<div className="mb-4">
-							<h2 className="text-xl font-semibold text-gray-900 dark:text-white">{currentCategory.title}</h2>
+						<div className="mb-7 flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between dark:border-white/[0.08] dark:bg-white/[0.035]">
+							<div>
+							<p className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-red-500 dark:text-red-300">Kategori Voting</p>
+							<h2 className="text-2xl font-black text-slate-950 dark:text-white">{currentCategory.title}</h2>
 							{currentCategory.description && (
-								<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{currentCategory.description}</p>
+								<p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">{currentCategory.description}</p>
 							)}
+							</div>
+							<div className="grid grid-cols-2 gap-2 sm:min-w-[220px]">
+								<div className="rounded-2xl bg-slate-100 px-4 py-3 dark:bg-white/[0.06]">
+									<p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Nominee</p>
+									<p className="text-xl font-black text-slate-950 dark:text-white">{sortedNominees.length}</p>
+								</div>
+								<div className="rounded-2xl bg-red-50 px-4 py-3 dark:bg-red-500/10">
+									<p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-400">Vote</p>
+									<p className="text-xl font-black text-red-600 dark:text-red-300">{formatCompactNumber(categoryVoteCount)}</p>
+								</div>
+							</div>
 						</div>
 					)}
 
@@ -1026,84 +1126,144 @@ const EVotingPage: React.FC = () => {
 							</div>
 						</div>
 					)}
-				</div>
+				</main>
 			</div>
 		);
 	}
 
 	// Event list view
 	return (
-		<div className="min-h-screen transition-colors">
-			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Header */}
-				<div className="mb-6">
-					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">
-						VOTE FAVORIT KAMU
+		<div className="evoting-page-shell min-h-screen transition-colors">
+			<div className="evoting-flow-lines" />
+			<main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 md:py-10">
+				<section className="evoting-hero-card relative mb-8 overflow-hidden rounded-[2rem] border border-white/70 bg-white/[0.82] p-4 shadow-2xl shadow-slate-200/70 backdrop-blur-2xl sm:p-6 lg:p-8 dark:border-white/[0.08] dark:bg-white/[0.035] dark:shadow-black/25">
+					<div className="evoting-hero-grid" />
+					<div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-stretch">
+						<div className="flex min-h-[310px] flex-col justify-between">
+							<div>
+								<div className="mb-4 inline-flex items-center gap-2 rounded-full border border-red-200/70 bg-red-50 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-red-600 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-300">
+									<LuSparkles className="h-3.5 w-3.5" />
+									Voting Publik
+								</div>
+								<h1 className="max-w-3xl text-4xl font-black leading-none tracking-normal text-slate-950 sm:text-5xl lg:text-6xl dark:text-white">
+									E-Voting
+								</h1>
+								<p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">
+									Pilih event, lihat kandidat unggulan, dan dukung nominee favorit secara langsung.
+								</p>
+							</div>
+
+							<div className="mt-7 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+								<div className="evoting-mini-stat">
+									<LuTrophy className="h-4 w-4 text-amber-500" />
+									<span>{events.length}</span>
+									<p>Event</p>
+								</div>
+								<div className="evoting-mini-stat">
+									<LuUsers className="h-4 w-4 text-teal-500" />
+									<span>{events.reduce((total, event) => total + getEventNomineeCount(event), 0)}</span>
+									<p>Nominee</p>
+								</div>
+								<div className="evoting-mini-stat">
+									<LuThumbsUp className="h-4 w-4 text-red-500" />
+									<span>{formatCompactNumber(events.reduce((total, event) => total + getEventVoteCount(event), 0))}</span>
+									<p>Vote</p>
+								</div>
+							</div>
+						</div>
+
+						<div className="rounded-3xl border border-slate-200/70 bg-white/[0.88] p-3 shadow-xl shadow-slate-200/80 backdrop-blur-xl dark:border-white/[0.08] dark:bg-slate-950/[0.45] dark:shadow-black/20">
+							<div className="relative mb-3">
+								<LuSearch className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+								<input
+									type="text"
+									value={search}
+									onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+									placeholder="Cari event atau kota..."
+									className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-10 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-500/10 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-white dark:focus:border-red-400/40 dark:focus:bg-white/[0.07]"
+								/>
+								{search && (
+									<button
+										onClick={() => { setSearch(""); setPage(1); }}
+										className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.08] dark:hover:text-slate-200"
+									>
+										<LuX className="w-4 h-4" />
+									</button>
+								)}
+							</div>
+
+							<div className="grid grid-cols-2 gap-2">
+								{statusOptions.map((opt) => (
+									<button
+										key={opt.id}
+										onClick={() => setStatusFilter(opt.id)}
+										className={`rounded-2xl px-3 py-3 text-sm font-black transition-all ${
+											statusFilter === opt.id
+												? "bg-slate-950 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-950"
+												: "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:bg-white/[0.1]"
+										}`}
+									>
+										{opt.label}
+									</button>
+								))}
+							</div>
+
+							{featuredEvent && (
+								<button
+									onClick={() => openVotingEvent(featuredEvent.id)}
+									className="group mt-3 w-full overflow-hidden rounded-3xl bg-slate-950 text-left text-white shadow-xl transition-all hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"
+								>
+									<div className="flex gap-3 p-3">
+										<div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-800">
+											{featuredEvent.thumbnail ? (
+												<img src={getImageUrl(featuredEvent.thumbnail)} alt={featuredEvent.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+											) : (
+												<div className="flex h-full w-full items-center justify-center">
+													<LuTrophy className="h-7 w-7 opacity-45" />
+												</div>
+											)}
+										</div>
+										<div className="min-w-0 flex-1 py-1">
+											<p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 dark:text-red-500">Sorotan</p>
+											<h3 className="mt-1 line-clamp-2 text-sm font-black leading-tight">{featuredEvent.title}</h3>
+											<div className="mt-2 flex items-center gap-2 text-xs opacity-70">
+												<LuMapPin className="h-3.5 w-3.5" />
+												<span className="truncate">{getEventLocationLabel(featuredEvent)}</span>
+											</div>
+										</div>
+										<LuArrowRight className="mt-2 h-5 w-5 flex-shrink-0 transition-transform group-hover:translate-x-1" />
+									</div>
+								</button>
+							)}
+						</div>
+					</div>
+				</section>
+
+				<div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+					<div>
+						<p className="text-[11px] font-black uppercase tracking-[0.24em] text-red-500 dark:text-red-300">Daftar Event</p>
+						<h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">
+							{filteredEvents.length > 0 ? `${filteredEvents.length} event tersedia` : "Event tidak ditemukan"}
+						</h2>
+					</div>
+					<p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+						{statusOptions.find((option) => option.id === statusFilter)?.label || "Semua"}
 					</p>
-					<h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-1">E-Voting</h1>
-					<p className="text-sm text-gray-500 dark:text-gray-400">Vote untuk tim atau peserta favorit kamu</p>
 				</div>
-
-				{/* Search + Filters */}
-				<div className="mb-6 space-y-4">
-					{/* Search bar */}
-					<div className="relative">
-						<LuSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-						<input
-							type="text"
-							value={search}
-							onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-							placeholder="Cari event voting berdasarkan nama atau lokasi..."
-							className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 transition-colors"
-						/>
-						{search && (
-							<button
-								onClick={() => { setSearch(""); setPage(1); }}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-							>
-								<LuX className="w-4 h-4" />
-							</button>
-						)}
-					</div>
-
-					{/* Status filter pills */}
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Status:</span>
-						{statusOptions.map((opt) => (
-							<button
-								key={opt.id}
-								onClick={() => setStatusFilter(opt.id)}
-								className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-									statusFilter === opt.id
-										? "bg-red-500 text-white"
-										: "bg-gray-200/60 dark:bg-white/[0.08] text-gray-600 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/[0.14]"
-								}`}
-							>
-								{opt.label}
-							</button>
-						))}
-					</div>
-				</div>
-
-				{/* Result info */}
-				<p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-					{filteredEvents.length > 0
-						? `Menampilkan ${filteredEvents.length} event`
-						: "Tidak ada event yang ditemukan"}
-				</p>
 
 				{/* Events Grid */}
 				{loading ? (
-					<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-						{Array.from({ length: 25 }).map((_, i) => (
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+						{Array.from({ length: 8 }).map((_, i) => (
 							<div
 								key={i}
-								className="rounded-xl bg-gray-200/50 dark:bg-white/[0.03] border border-gray-200/30 dark:border-white/[0.04] animate-pulse"
+								className="overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/70 shadow-sm backdrop-blur-xl animate-pulse dark:border-white/[0.06] dark:bg-white/[0.035]"
 							>
-								<div className="aspect-[2/3]" />
-								<div className="p-2 space-y-1.5">
-									<div className="h-2.5 bg-gray-300/50 dark:bg-white/[0.06] rounded w-3/4" />
-									<div className="h-2 bg-gray-300/50 dark:bg-white/[0.06] rounded w-1/2" />
+								<div className="aspect-[16/11] bg-slate-200/70 dark:bg-white/[0.06]" />
+								<div className="p-4 space-y-3">
+									<div className="h-4 bg-slate-200/80 dark:bg-white/[0.06] rounded w-3/4" />
+									<div className="h-3 bg-slate-200/80 dark:bg-white/[0.06] rounded w-1/2" />
+									<div className="h-10 bg-slate-200/80 dark:bg-white/[0.06] rounded-xl w-full" />
 								</div>
 							</div>
 						))}
@@ -1125,63 +1285,72 @@ const EVotingPage: React.FC = () => {
 					</div>
 				) : (
 					<>
-						<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 							{filteredEvents.map((event) => {
 								const badge = getVotingStatusBadge(event);
 								const votePriceLabel = getVotingPriceLabel(event);
+								const eventNominees = getEventNomineeCount(event);
+								const eventVotes = getEventVoteCount(event);
 								return (
-									<div
+									<button
 										key={event.id}
 										onClick={() => openVotingEvent(event.id)}
-										className="group relative overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md shadow-gray-200/80 transition-all duration-300 hover:scale-[1.02] hover:border-red-400/30 hover:shadow-lg hover:shadow-gray-300/80 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-red-500/20 cursor-pointer"
+										className="evoting-event-card group relative overflow-hidden rounded-[1.5rem] border border-white/75 bg-white text-left shadow-lg shadow-slate-200/75 transition-all duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-2xl hover:shadow-slate-300/70 dark:border-white/[0.08] dark:bg-white/[0.035] dark:shadow-black/20 dark:hover:border-red-400/25"
 									>
-										{/* Poster - 2:3 ratio */}
-										<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-red-900/10 to-orange-900/10 overflow-hidden">
+										<div className="relative aspect-[16/11] w-full overflow-hidden bg-[linear-gradient(135deg,#fef2f2_0%,#ecfeff_100%)] dark:bg-[linear-gradient(135deg,rgba(127,29,29,0.22),rgba(15,118,110,0.18))]">
 											{event.thumbnail ? (
 												<img
 													src={getImageUrl(event.thumbnail)}
 													alt={event.title}
-													className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+													className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
 													loading="lazy"
 												/>
 											) : (
 												<div className="w-full h-full flex items-center justify-center">
-													<LuThumbsUp className="w-6 h-6 text-gray-400/40 dark:text-gray-600" />
+													<LuTrophy className="w-10 h-10 text-slate-400/[0.45] dark:text-slate-500" />
 												</div>
 											)}
-											<div className="absolute top-1.5 left-1.5">
-												<span className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${badge.className}`}>
+											<div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/[0.78] to-transparent" />
+											<div className="absolute left-3 top-3">
+												<span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black shadow-lg backdrop-blur-xl ${badge.className}`}>
 													{badge.label}
+												</span>
+											</div>
+											<div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 text-white">
+												<span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-white/[0.16] px-2.5 py-1 text-[11px] font-bold backdrop-blur-xl">
+													<LuMapPin className="h-3.5 w-3.5 flex-shrink-0" />
+													<span className="truncate">{getEventLocationLabel(event)}</span>
+												</span>
+												<span className="rounded-full bg-white/[0.16] px-2.5 py-1 text-[11px] font-bold backdrop-blur-xl">
+													{formatShortDate(event.startDate)}
 												</span>
 											</div>
 										</div>
 
-										{/* Info */}
-										<div className="flex min-h-[120px] flex-col p-2.5">
-											<h4 className="text-[10px] lg:text-xs font-semibold text-gray-800 dark:text-white leading-tight line-clamp-2 mb-1.5">
+										<div className="flex min-h-[190px] flex-col p-4">
+											<h4 className="text-lg font-black leading-tight text-slate-950 line-clamp-2 dark:text-white">
 												{event.title}
 											</h4>
-											<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
-												<LuCalendar className="w-3 h-3 flex-shrink-0" />
-												<span className="text-[8px] lg:text-[9px]">
-													{formatShortDate(event.startDate)}
+											<div className="mt-3 grid grid-cols-2 gap-2">
+												<div className="rounded-2xl bg-slate-100 px-3 py-2 dark:bg-white/[0.06]">
+													<p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Nominee</p>
+													<p className="mt-0.5 text-sm font-black text-slate-800 dark:text-slate-100">{eventNominees}</p>
+												</div>
+												<div className="rounded-2xl bg-red-50 px-3 py-2 dark:bg-red-500/10">
+													<p className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-400">Vote</p>
+													<p className="mt-0.5 text-sm font-black text-red-600 dark:text-red-300">{formatCompactNumber(eventVotes)}</p>
+												</div>
+											</div>
+											<div className="mt-auto flex items-center justify-between gap-3 pt-4">
+												<p className="text-sm font-black text-red-600 dark:text-red-300">
+													{votePriceLabel}
+												</p>
+												<span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-white transition-transform group-hover:translate-x-1 dark:bg-white dark:text-slate-950">
+													<LuArrowRight className="h-4 w-4" />
 												</span>
 											</div>
-											{(event.venue || event.city || event.location) && (
-												<div className="flex items-center gap-1 text-gray-400 dark:text-gray-500 mt-0.5">
-													<LuMapPin className="w-3 h-3 flex-shrink-0" />
-													<span className="text-[8px] lg:text-[9px] line-clamp-1">
-														{event.city || event.venue || event.location}
-													</span>
-												</div>
-											)}
-												<div className="mt-auto pt-3">
-													<p className="text-[11px] lg:text-sm font-bold text-red-600 dark:text-red-400">
-														{votePriceLabel}
-													</p>
-												</div>
 										</div>
-									</div>
+									</button>
 								);
 							})}
 						</div>
@@ -1235,7 +1404,7 @@ const EVotingPage: React.FC = () => {
 						)}
 					</>
 				)}
-			</div>
+			</main>
 		</div>
 	);
 };

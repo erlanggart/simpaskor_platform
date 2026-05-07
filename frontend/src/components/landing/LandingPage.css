@@ -1439,6 +1439,172 @@ html:not(.dark) .section-icon-glow-blue::before {
 	animation-delay: 2s;
 }
 
+/* ===== E-Voting Experience ===== */
+.evoting-page-shell {
+	position: relative;
+	overflow: hidden;
+	background:
+		linear-gradient(135deg, rgba(254, 242, 242, 0.92), rgba(255, 255, 255, 0.96) 42%, rgba(236, 253, 245, 0.82)),
+		linear-gradient(90deg, rgba(220, 38, 38, 0.08), rgba(15, 118, 110, 0.08));
+}
+
+.dark .evoting-page-shell {
+	background:
+		linear-gradient(135deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.98) 48%, rgba(17, 24, 39, 0.96)),
+		linear-gradient(90deg, rgba(220, 38, 38, 0.11), rgba(20, 184, 166, 0.09));
+}
+
+.evoting-flow-lines {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image:
+		linear-gradient(rgba(220, 38, 38, 0.08) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(20, 184, 166, 0.08) 1px, transparent 1px);
+	background-size: 72px 72px;
+	mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 82%);
+	animation: evotingGridDrift 18s linear infinite;
+}
+
+.evoting-hero-card,
+.evoting-detail-hero {
+	animation: evotingPanelIn 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.evoting-hero-grid {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image:
+		linear-gradient(120deg, transparent 0%, transparent 28%, rgba(220, 38, 38, 0.08) 28%, rgba(220, 38, 38, 0.08) 29%, transparent 29%, transparent 100%),
+		linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+	background-size: 120px 120px, 36px 36px;
+	opacity: 0.75;
+}
+
+.evoting-mini-stat {
+	display: flex;
+	min-height: 84px;
+	flex-direction: column;
+	justify-content: center;
+	gap: 0.25rem;
+	border-radius: 1.25rem;
+	border: 1px solid rgba(226, 232, 240, 0.78);
+	background: rgba(255, 255, 255, 0.74);
+	padding: 0.9rem;
+	box-shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
+	backdrop-filter: blur(18px);
+}
+
+.dark .evoting-mini-stat {
+	border-color: rgba(255, 255, 255, 0.08);
+	background: rgba(255, 255, 255, 0.045);
+	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.evoting-mini-stat span {
+	font-size: clamp(1.1rem, 3vw, 1.55rem);
+	font-weight: 900;
+	line-height: 1;
+	color: rgb(15, 23, 42);
+}
+
+.dark .evoting-mini-stat span {
+	color: rgb(255, 255, 255);
+}
+
+.evoting-mini-stat p {
+	margin: 0;
+	font-size: 0.63rem;
+	font-weight: 800;
+	color: rgb(100, 116, 139);
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+}
+
+.dark .evoting-mini-stat p {
+	color: rgb(148, 163, 184);
+}
+
+.evoting-event-card {
+	animation: evotingCardIn 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+	transform-origin: center bottom;
+}
+
+.evoting-event-card:nth-child(2n) {
+	animation-delay: 70ms;
+}
+
+.evoting-event-card:nth-child(3n) {
+	animation-delay: 120ms;
+}
+
+.evoting-event-card::after,
+.evoting-primary-action::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: linear-gradient(110deg, transparent 0%, transparent 38%, rgba(255, 255, 255, 0.48) 48%, transparent 58%, transparent 100%);
+	transform: translateX(-125%);
+	transition: transform 650ms ease;
+}
+
+.evoting-event-card:hover::after,
+.evoting-primary-action:hover::after {
+	transform: translateX(125%);
+}
+
+.evoting-primary-action {
+	position: relative;
+	overflow: hidden;
+}
+
+.evoting-glass-panel {
+	animation: evotingGlassFloat 5.5s ease-in-out infinite;
+}
+
+@keyframes evotingGridDrift {
+	0% {
+		background-position: 0 0;
+	}
+	100% {
+		background-position: 72px 72px;
+	}
+}
+
+@keyframes evotingPanelIn {
+	0% {
+		opacity: 0;
+		transform: translateY(22px) scale(0.985);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes evotingCardIn {
+	0% {
+		opacity: 0;
+		transform: translateY(18px) scale(0.97);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes evotingGlassFloat {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
 /* ===== Voting Podium ===== */
 .voting-podium-card {
 	position: relative;
@@ -1589,6 +1755,13 @@ html:not(.dark) .section-icon-glow-blue::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.evoting-flow-lines,
+	.evoting-hero-card,
+	.evoting-detail-hero,
+	.evoting-event-card,
+	.evoting-event-card::after,
+	.evoting-primary-action::after,
+	.evoting-glass-panel,
 	.voting-podium-card,
 	.voting-podium-card::before,
 	.voting-podium-winner,

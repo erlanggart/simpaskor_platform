@@ -76,7 +76,7 @@ export const PreAssignLayout: React.FC = () => {
 				{/* Logo at top */}
 				<div className="mt-4 mb-6">
 					<Link to="/">
-						<div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
+						<div className="w-9 h-9 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
 							<img
 								src="/simpaskor.webp"
 								alt="Logo"

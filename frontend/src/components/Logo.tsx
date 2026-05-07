@@ -57,13 +57,7 @@ export const Logo: React.FC<LogoProps> = ({
 		<div className={`flex items-center gap-3 ${className}`}>
 			{/* Logo Image */}
 			<div
-				className={`p-1 rounded-lg ${
-					variant === "auto"
-						? "bg-black dark:bg-white/10 dark:backdrop-blur-sm"
-						: variant === "white" || variant === "dark"
-						? "bg-white/10 backdrop-blur-sm"
-						: "bg-black"
-				}`}
+				className="p-1 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/10"
 			>
 				<img
 					src="/simpaskor.webp"

@@ -323,7 +323,7 @@ export const DashboardLayout: React.FC = () => {
 			{/* ===== Mobile Top Bar ===== */}
 			<header className="fixed top-0 left-0 right-0 z-40 md:hidden h-14 px-3 flex items-center justify-between">
 				<Link to="/" className="flex min-w-0 items-center gap-2" aria-label="Simpaskor">
-					<div className="w-10 h-10 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/60 dark:border-white/[0.08] flex items-center justify-center backdrop-blur-xl overflow-hidden">
+					<div className="w-10 h-10 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/10 flex items-center justify-center overflow-hidden">
 						<img
 							src="/simpaskor.webp"
 							alt="Simpaskor"
@@ -406,7 +406,7 @@ export const DashboardLayout: React.FC = () => {
 				{/* Logo at top */}
 				<div className="mt-4 mb-4">
 					<Link to="/">
-						<div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
+						<div className="w-10 h-10 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
 							<img
 								src="/simpaskor.webp"
 								alt="Logo"

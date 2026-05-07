@@ -21,7 +21,7 @@ const LandingSectionNav: React.FC<LandingSectionNavProps> = ({
 		<nav className="fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 flex flex-col items-center justify-center gap-2">
 			{/* Logo at top */}
 			<div className="absolute top-5 left-1/2 -translate-x-1/2">
-				<div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 flex items-center justify-center overflow-hidden">
+				<div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
 					<img
 						src="/simpaskor.webp"
 						alt="Logo"

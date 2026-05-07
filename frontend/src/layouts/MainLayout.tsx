@@ -51,11 +51,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 								<LuMenu className="w-5 h-5" />
 							</button>
 						) : (
-							<img
-								src="/simpaskor.webp"
-								alt="Simpaskor"
-								className="w-7 h-7 object-contain"
-							/>
+							<div className="w-9 h-9 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/10 flex items-center justify-center">
+								<img
+									src="/simpaskor.webp"
+									alt="Simpaskor"
+									className="w-7 h-7 object-contain"
+								/>
+							</div>
 						)}
 						{/* <span className="text-sm font-bold text-gray-800 dark:text-white tracking-wide hidden sm:block">
 							SIMPASKOR
@@ -90,7 +92,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 					{/* Logo at top */}
 					<div className="absolute top-4 left-1/2 -translate-x-1/2">
 						<Link to="/">
-							<div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-gray-100 dark:bg-white/5 backdrop-blur-sm border border-gray-200/50 dark:border-white/10 flex items-center justify-center overflow-hidden transition-colors">
+							<div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
 								<img
 									src="/simpaskor.webp"
 									alt="Logo"
@@ -179,11 +181,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 					<div className="fixed left-3 right-3 top-3 z-[60] md:hidden rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-200/60 dark:border-white/[0.08] shadow-2xl shadow-black/10 overflow-hidden">
 						<div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/50 dark:border-white/[0.06]">
 							<div className="flex items-center gap-3 min-w-0">
-								<img
-									src="/simpaskor.webp"
-									alt="Simpaskor"
-									className="w-8 h-8 object-contain"
-								/>
+								<div className="w-10 h-10 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/10 flex items-center justify-center">
+									<img
+										src="/simpaskor.webp"
+										alt="Simpaskor"
+										className="w-8 h-8 object-contain"
+									/>
+								</div>
 								<span className="text-sm font-bold text-gray-900 dark:text-white">Simpaskor</span>
 							</div>
 							<button
