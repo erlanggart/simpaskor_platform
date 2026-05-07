@@ -476,7 +476,7 @@ html:not(.dark) .landing-title-gradient-pricing {
 		radial-gradient(circle at 50% 100%, rgba(99, 102, 241, 0.12), transparent 34%);
 	box-shadow: 0 24px 80px rgba(15, 23, 42, 0.11);
 	backdrop-filter: blur(22px);
-	padding: 16px 18px 14px;
+	padding: 12px 16px 10px;
 }
 
 .pricing-shell::before {
@@ -514,14 +514,14 @@ html:not(.dark) .landing-title-gradient-pricing {
 	align-items: flex-end;
 	justify-content: space-between;
 	gap: 2rem;
-	margin-bottom: 10px;
+	margin-bottom: 8px;
 }
 
 .pricing-header-copy {
 	max-width: 400px;
 	color: #64748b;
-	font-size: 0.76rem;
-	line-height: 1.55;
+	font-size: 0.7rem;
+	line-height: 1.45;
 }
 
 .dark .pricing-header-copy {
@@ -538,11 +538,11 @@ html:not(.dark) .landing-title-gradient-pricing {
 .pricing-board {
 	position: relative;
 	z-index: 1;
-	margin-top: 8px;
+	margin-top: 6px;
 }
 
 .pricing-board-paid {
-	margin-top: 10px;
+	margin-top: 7px;
 }
 
 .pricing-board-label {
@@ -550,7 +550,7 @@ html:not(.dark) .landing-title-gradient-pricing {
 	align-items: center;
 	justify-content: space-between;
 	gap: 1rem;
-	margin-bottom: 6px;
+	margin-bottom: 5px;
 }
 
 .pricing-board-label span {
@@ -588,7 +588,7 @@ html:not(.dark) .landing-title-gradient-pricing {
 .pricing-card {
 	position: relative;
 	display: flex;
-	min-height: 222px;
+	min-height: 0;
 	overflow: hidden;
 	border-radius: 18px;
 	border: 1px solid rgba(255, 255, 255, 0.72);
@@ -628,7 +628,7 @@ html:not(.dark) .landing-title-gradient-pricing {
 }
 
 .pricing-card-paid {
-	min-height: 226px;
+	min-height: 0;
 }
 
 .pricing-card-featured {
@@ -699,11 +699,11 @@ html:not(.dark) .landing-title-gradient-pricing {
 }
 
 .pricing-card-body {
-	padding: 0.86rem;
+	padding: 0.7rem 0.76rem;
 }
 
 .pricing-card-head {
-	margin-bottom: 0.7rem;
+	margin-bottom: 0.52rem;
 }
 
 .pricing-kicker {
@@ -716,7 +716,7 @@ html:not(.dark) .landing-title-gradient-pricing {
 
 .pricing-card-title {
 	margin-top: 0.2rem;
-	font-size: 0.94rem;
+	font-size: 0.86rem;
 	font-weight: 950;
 	letter-spacing: 0;
 	line-height: 1.08;
@@ -727,13 +727,13 @@ html:not(.dark) .landing-title-gradient-pricing {
 	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
-	max-width: 8rem;
+	max-width: 7rem;
 	border-radius: 999px;
 	border: 1px solid color-mix(in srgb, var(--pricing-accent) 20%, white);
 	background: var(--pricing-accent-soft);
-	padding: 0.26rem 0.48rem;
+	padding: 0.22rem 0.42rem;
 	color: var(--pricing-accent);
-	font-size: 0.54rem;
+	font-size: 0.5rem;
 	font-weight: 900;
 	letter-spacing: 0.12em;
 	line-height: 1.1;
@@ -742,29 +742,29 @@ html:not(.dark) .landing-title-gradient-pricing {
 }
 
 .pricing-price {
-	font-size: clamp(1.18rem, 1.75vw, 1.58rem);
+	font-size: clamp(1.08rem, 1.55vw, 1.42rem);
 	font-weight: 950;
 	line-height: 1;
 	letter-spacing: 0;
 }
 
 .pricing-copy-block {
-	margin-bottom: 0.72rem;
+	margin-bottom: 0.54rem;
 }
 
 .pricing-summary {
 	display: -webkit-box;
-	min-height: 2.3em;
-	margin-top: 0.48rem;
+	min-height: 2.05em;
+	margin-top: 0.38rem;
 	overflow: hidden;
-	font-size: 0.7rem;
-	line-height: 1.45;
+	font-size: 0.62rem;
+	line-height: 1.34;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 }
 
 .pricing-meta-grid {
-	margin-bottom: 0.78rem;
+	margin-bottom: 0.52rem;
 }
 
 .pricing-meta-pill {
@@ -775,9 +775,9 @@ html:not(.dark) .landing-title-gradient-pricing {
 	border-radius: 999px;
 	border: 1px solid rgba(148, 163, 184, 0.18);
 	background: rgba(248, 250, 252, 0.72);
-	padding: 0.38rem 0.48rem;
+	padding: 0.3rem 0.4rem;
 	color: #64748b;
-	font-size: 0.62rem;
+	font-size: 0.56rem;
 	font-weight: 750;
 	line-height: 1;
 }
@@ -794,7 +794,8 @@ html:not(.dark) .landing-title-gradient-pricing {
 
 .pricing-feature-list {
 	display: grid;
-	gap: 0.32rem;
+	flex: 0 0 auto;
+	gap: 0.24rem;
 	align-content: start;
 }
 
@@ -808,7 +809,7 @@ html:not(.dark) .landing-title-gradient-pricing {
 	align-items: center;
 	gap: 0.4rem;
 	color: #475569;
-	font-size: 0.68rem;
+	font-size: 0.6rem;
 	line-height: 1.2;
 	animation: pricing-feature-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -823,14 +824,14 @@ html:not(.dark) .landing-title-gradient-pricing {
 
 .pricing-note {
 	display: -webkit-box;
-	margin-top: 0.62rem;
+	margin-top: 0.46rem;
 	border-top: 1px solid rgba(148, 163, 184, 0.14);
-	padding-top: 0.52rem;
+	padding-top: 0.38rem;
 	overflow: hidden;
 	color: #94a3b8;
-	font-size: 0.6rem;
+	font-size: 0.54rem;
 	font-style: italic;
-	line-height: 1.35;
+	line-height: 1.28;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 }
@@ -854,10 +855,10 @@ html:not(.dark) .landing-title-gradient-pricing {
 	align-items: center;
 	justify-content: center;
 	gap: 0.5rem;
-	margin-top: 0.72rem !important;
-	border-radius: 12px;
-	padding: 0.58rem 0.8rem;
-	font-size: 0.7rem;
+	margin-top: 0.5rem !important;
+	border-radius: 10px;
+	padding: 0.46rem 0.66rem;
+	font-size: 0.62rem;
 	font-weight: 850;
 	line-height: 1;
 	box-shadow: 0 12px 24px -16px var(--glow, rgba(0,0,0,0.2));
@@ -875,47 +876,69 @@ html:not(.dark) .landing-title-gradient-pricing {
 .pricing-footer-note {
 	position: relative;
 	z-index: 1;
-	margin-top: 8px;
+	margin-top: 5px;
 	text-align: center;
 	color: #94a3b8;
-	font-size: 0.68rem;
+	font-size: 0.6rem;
 	line-height: 1.35;
 }
 
 @media (min-width: 1280px) and (max-height: 940px) {
 	.pricing-shell {
-		padding: 14px 18px 12px;
+		padding: 10px 14px 8px;
 	}
 
-	.pricing-card {
-		min-height: 206px;
+	.pricing-card-body {
+		padding: 0.62rem 0.66rem;
 	}
 
-	.pricing-card-paid {
-		min-height: 214px;
+	.pricing-card-icon {
+		height: 2rem;
+		width: 2rem;
 	}
 
 	.pricing-header {
-		margin-bottom: 8px;
+		margin-bottom: 6px;
+	}
+
+	.pricing-kicker {
+		font-size: 0.48rem;
+	}
+
+	.pricing-card-title {
+		font-size: 0.78rem;
+	}
+
+	.pricing-price {
+		font-size: clamp(1rem, 1.35vw, 1.26rem);
 	}
 
 	.pricing-summary {
-		min-height: 2.05em;
-		font-size: 0.66rem;
-		line-height: 1.36;
+		min-height: 1.92em;
+		font-size: 0.56rem;
+		line-height: 1.28;
 	}
 
 	.pricing-meta-grid {
-		margin-bottom: 0.62rem;
+		margin-bottom: 0.46rem;
+	}
+
+	.pricing-meta-pill {
+		padding: 0.26rem 0.34rem;
+		font-size: 0.52rem;
+	}
+
+	.pricing-feature {
+		font-size: 0.56rem;
 	}
 
 	.pricing-note {
-		margin-top: 0.52rem;
-		padding-top: 0.46rem;
+		margin-top: 0.4rem;
+		padding-top: 0.34rem;
 	}
 
 	.pricing-card-btn {
-		margin-top: 0.68rem !important;
+		margin-top: 0.42rem !important;
 	}
 }
 

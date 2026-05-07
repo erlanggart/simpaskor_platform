@@ -205,7 +205,7 @@ const PricingSection: React.FC = () => {
 						</div>
 					</div>
 
-					<div className="pricing-feature-list flex-1">
+					<div className="pricing-feature-list">
 						{includedFeatures.length === 0 ? (
 							<div className="pricing-feature" style={{ animationDelay: `${index * 80}ms` }}>
 								<LuCheck className="h-3.5 w-3.5 flex-shrink-0" />
