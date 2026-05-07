@@ -34,7 +34,7 @@ const WizardStep3MediaFee: React.FC<Step3Props> = ({
 	packageTier,
 }) => {
 	const TICKETING_TIERS: PackageTier[] = ["TICKETING", "TICKETING_VOTING"];
-	const SCORING_TIERS: PackageTier[] = ["BRONZE", "SILVER", "GOLD"];
+	const SCORING_TIERS: PackageTier[] = ["BRONZE", "GOLD"];
 	const isTicketing = packageTier && TICKETING_TIERS.includes(packageTier);
 	const isScoring = packageTier && SCORING_TIERS.includes(packageTier);
 	const showFee = isTicketing || isScoring;

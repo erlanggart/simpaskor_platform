@@ -67,7 +67,6 @@ const tierConfig: Record<string, { label: string; price: string; color: string }
 	VOTING: { label: "Voting", price: getPackagePriceLabel("VOTING"), color: "purple" },
 	TICKETING_VOTING: { label: "Tiket + Voting", price: getPackagePriceLabel("TICKETING_VOTING"), color: "indigo" },
 	BRONZE: { label: "Bronze", price: getPackagePriceLabel("BRONZE"), color: "amber" },
-	SILVER: { label: "Silver", price: getPackagePriceLabel("SILVER"), color: "gray" },
 	GOLD: { label: "Gold", price: getPackagePriceLabel("GOLD"), color: "yellow" },
 };
 

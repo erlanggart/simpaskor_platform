@@ -42,7 +42,7 @@ router.post("/", submissionLimiter, async (req: Request, res: Response) => {
 			});
 		}
 
-		if (!["TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"].includes(packageTier)) {
+		if (!["TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"].includes(packageTier)) {
 			return res.status(400).json({
 				error: "Validation error",
 				message: "Paket tidak valid.",

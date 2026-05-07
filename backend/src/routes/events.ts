@@ -12,7 +12,6 @@ const EVENT_PACKAGE_PRICES: Record<string, number> = {
 	VOTING: 0,
 	TICKETING_VOTING: 0,
 	BRONZE: 500000,
-	SILVER: 1000000,
 	GOLD: 1500000,
 };
 
@@ -1497,7 +1496,7 @@ router.patch(
 			}
 
 			// Validate package tier
-			const validTiers = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"];
+			const validTiers = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 			if (!packageTier || !validTiers.includes(packageTier)) {
 				return res.status(400).json({
 					message: "Valid package tier is required",
@@ -1505,7 +1504,7 @@ router.patch(
 			}
 
 			// Only require categories for scoring packages
-			const scoringTiers = ["BRONZE", "SILVER", "GOLD"];
+			const scoringTiers = ["BRONZE", "GOLD"];
 			const needsCategories = scoringTiers.includes(packageTier);
 
 			if (needsCategories) {

@@ -8,7 +8,7 @@ import {
 	PhoneIcon,
 	ClockIcon,
 } from "@heroicons/react/24/outline";
-import { LuMedal, LuCrown, LuTrophy, LuCheck, LuX, LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus } from "react-icons/lu";
+import { LuMedal, LuTrophy, LuCheck, LuX, LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus } from "react-icons/lu";
 import { Step4Props, PackageTier, EventPaymentData } from "../../types/eventWizard";
 import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
@@ -37,21 +37,20 @@ interface PackageFeature {
 	voting: boolean;
 	ticketing_voting: boolean;
 	bronze: boolean;
-	silver: boolean;
 	gold: boolean;
 }
 
 const packageFeatures: PackageFeature[] = [
-	{ name: "E-Ticketing", iklan: false, ticketing: true, voting: false, ticketing_voting: true, bronze: true, silver: true, gold: true },
-	{ name: "E-Voting", iklan: false, ticketing: false, voting: true, ticketing_voting: true, bronze: true, silver: true, gold: true },
-	{ name: "Akses Sistem Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Pendaftaran Peserta", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Technical Meeting Aplikasi", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Laporan Digital", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Tim Pendamping", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
-	{ name: "Device Tablet", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
-	{ name: "Tim Rekap", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
-	{ name: "Penyusunan Materi Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
+	{ name: "E-Ticketing", iklan: false, ticketing: true, voting: false, ticketing_voting: true, bronze: true, gold: true },
+	{ name: "E-Voting", iklan: false, ticketing: false, voting: true, ticketing_voting: true, bronze: true, gold: true },
+	{ name: "Akses Sistem Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Pendaftaran Peserta", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Technical Meeting Aplikasi", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Laporan Digital", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Tim Pendamping", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
+	{ name: "Device Tablet", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
+	{ name: "Tim Rekap", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
+	{ name: "Penyusunan Materi Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
 ];
 
 const packages: PackageOption[] = [
@@ -115,18 +114,6 @@ const packages: PackageOption[] = [
 		btnClass: "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
 		note: "Semua fitur — Tim Pendamping (Online)",
 		featured: true,
-	},
-	{
-		tier: "SILVER",
-		name: "Paket Silver",
-		price: 1000000,
-		priceLabel: PACKAGE_PRICE_LABELS.SILVER,
-		icon: LuCrown,
-		color: "gray",
-		borderColor: "border-gray-300 dark:border-gray-400/30",
-		bgGlow: "from-gray-300/20 to-gray-400/10",
-		btnClass: "bg-gradient-to-r from-gray-700 to-gray-900 hover:from-gray-800 hover:to-black text-white",
-		note: "Tim Pendamping (Offline) + Device Tablet (max 3 unit)",
 	},
 	{
 		tier: "GOLD",
@@ -457,7 +444,6 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 												pkg.tier === "VOTING" ? "ring-purple-400" :
 												pkg.tier === "TICKETING_VOTING" ? "ring-indigo-400" :
 												pkg.tier === "BRONZE" ? "ring-amber-400" :
-												pkg.tier === "SILVER" ? "ring-gray-400" :
 												"ring-yellow-400"
 											}`
 											: "border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/30 hover:bg-white dark:hover:bg-gray-800/60 hover:shadow-md"
@@ -592,9 +578,6 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 										<th className="text-center px-3 py-3 text-xs font-medium text-amber-600 dark:text-amber-400">
 											Bronze
 										</th>
-										<th className="text-center px-3 py-3 text-xs font-medium text-gray-600 dark:text-gray-300">
-											Silver
-										</th>
 										<th className="text-center px-3 py-3 text-xs font-medium text-yellow-600 dark:text-yellow-400">
 											Gold
 										</th>
@@ -606,7 +589,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 											<td className="px-6 py-3 text-sm text-gray-700 dark:text-gray-300">
 												{feature.name}
 											</td>
-											{(["iklan", "ticketing", "voting", "ticketing_voting", "bronze", "silver", "gold"] as const).map((tier) => (
+											{(["iklan", "ticketing", "voting", "ticketing_voting", "bronze", "gold"] as const).map((tier) => (
 												<td key={tier} className="text-center px-3 py-3">
 													{feature[tier] ? (
 														<LuCheck className="w-5 h-5 text-green-500 mx-auto" />

@@ -17,7 +17,6 @@ const PACKAGE_PRICES: Record<string, number> = {
 	VOTING: 0,
 	TICKETING_VOTING: 0,
 	BRONZE: 500000,
-	SILVER: 1000000,
 	GOLD: 1500000,
 };
 
@@ -27,13 +26,12 @@ const PACKAGE_NAMES: Record<string, string> = {
 	VOTING: "Paket Voting",
 	TICKETING_VOTING: "Paket Ticketing + Voting",
 	BRONZE: "Paket Bronze",
-	SILVER: "Paket Silver",
 	GOLD: "Paket Gold",
 };
 
 // Tiers that don't require upfront package payment. Ticketing/Voting use revenue share.
 const NO_UPFRONT_PAYMENT_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING"];
-const VALID_PACKAGE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "SILVER", "GOLD"];
+const VALID_PACKAGE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 
 function getPackageAmount(packageTier: string | null | undefined) {
 	if (!packageTier) return 0;

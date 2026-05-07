@@ -18,8 +18,8 @@ export const PACKAGE_NAMES: Record<PackageTier, string> = {
 	VOTING: "Paket Voting",
 	TICKETING_VOTING: "Paket Ticketing + Voting",
 	BRONZE: "Paket Bronze",
-	SILVER: "Paket Silver",
 	GOLD: "Paket Gold",
+	SILVER: "Paket Tidak Aktif",
 };
 
 export const PACKAGE_PRICE_LABELS: Record<PackageTier, string> = {
@@ -28,8 +28,8 @@ export const PACKAGE_PRICE_LABELS: Record<PackageTier, string> = {
 	VOTING: REVENUE_SHARE_LABEL,
 	TICKETING_VOTING: BUNDLE_REVENUE_SHARE_LABEL,
 	BRONZE: "Rp 500.000",
-	SILVER: "Rp 1.000.000",
 	GOLD: "Rp 1.500.000",
+	SILVER: "-",
 };
 
 export function getRevenueShareLabel(tier: PackageTier | string | null | undefined): string {

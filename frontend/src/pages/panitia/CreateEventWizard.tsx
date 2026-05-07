@@ -287,7 +287,7 @@ const CreateEventWizard: React.FC = () => {
 			}
 
 			// Only require categories for scoring packages
-			const SCORING_TIERS = ['BRONZE', 'SILVER', 'GOLD'];
+			const SCORING_TIERS = ['BRONZE', 'GOLD'];
 			const needsCategories = step2Data.packageTier && SCORING_TIERS.includes(step2Data.packageTier);
 
 			if (needsCategories) {

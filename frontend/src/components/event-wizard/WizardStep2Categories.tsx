@@ -8,7 +8,7 @@ import {
 	CheckIcon,
 	CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import { LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus, LuMedal, LuCrown, LuTrophy } from "react-icons/lu";
+import { LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus, LuMedal, LuTrophy } from "react-icons/lu";
 import { Step2Props, Step2Data, PackageTier } from "../../types/eventWizard";
 import { AssessmentCategory } from "../../types/eventWizard";
 import { getRevenueShareLabel } from "../../utils/packagePricing";
@@ -70,26 +70,17 @@ const packageChoices: PackageChoice[] = [
 		description: "Penilaian lengkap + Ticketing + Voting",
 	},
 	{
-		tier: "SILVER",
-		name: "Silver",
-		icon: LuCrown,
-		color: "gray",
-		borderColor: "border-gray-300 dark:border-gray-400/30",
-		bgGlow: "from-gray-300/20 to-gray-400/10",
-		description: "Bronze + Tim Pendamping & Tablet",
-	},
-	{
 		tier: "GOLD",
 		name: "Gold",
 		icon: LuTrophy,
 		color: "yellow",
 		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
 		bgGlow: "from-yellow-500/10 to-yellow-600/5",
-		description: "Silver + Tim Rekap & Materi",
+		description: "Bronze + Tim Rekap & Materi",
 	},
 ];
 
-const SCORING_TIERS: PackageTier[] = ["BRONZE", "SILVER", "GOLD"];
+const SCORING_TIERS: PackageTier[] = ["BRONZE", "GOLD"];
 
 const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (category: AssessmentCategory) => void }> = ({
 	data,
@@ -305,7 +296,6 @@ const WizardStep2Categories: React.FC<Step2Props & { onCategoryCreated?: (catego
 											pkg.tier === "VOTING" ? "ring-purple-400" :
 											pkg.tier === "TICKETING_VOTING" ? "ring-indigo-400" :
 											pkg.tier === "BRONZE" ? "ring-amber-400" :
-											pkg.tier === "SILVER" ? "ring-gray-400" :
 											"ring-yellow-400"
 										}`
 										: "border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/30 hover:bg-white dark:hover:bg-gray-800/60 hover:shadow-sm"

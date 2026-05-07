@@ -26,7 +26,7 @@ interface EventSubmission {
 	namaEvent: string;
 	lokasiEvent: string;
 	namaInstansi: string;
-	packageTier: "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "SILVER" | "GOLD";
+	packageTier: string;
 	status: "PENDING" | "CONTACTED" | "CONFIRMED" | "REJECTED";
 	notes: string | null;
 	createdUserId: string | null;
@@ -48,12 +48,11 @@ const statusConfig = {
 	REJECTED: { label: "Ditolak", color: "red", icon: LuCircleX },
 };
 
-const tierConfig = {
+const tierConfig: Record<string, { label: string; price: string; color: string }> = {
 	TICKETING: { label: "Ticketing", price: getPackagePriceLabel("TICKETING"), color: "blue" },
 	VOTING: { label: "Voting", price: getPackagePriceLabel("VOTING"), color: "purple" },
 	TICKETING_VOTING: { label: "Tiket + Voting", price: getPackagePriceLabel("TICKETING_VOTING"), color: "indigo" },
 	BRONZE: { label: "Bronze", price: getPackagePriceLabel("BRONZE"), color: "amber" },
-	SILVER: { label: "Silver", price: getPackagePriceLabel("SILVER"), color: "gray" },
 	GOLD: { label: "Gold", price: getPackagePriceLabel("GOLD"), color: "yellow" },
 };
 
@@ -204,7 +203,7 @@ const EventSubmissionManagement: React.FC = () => {
 	};
 
 	const getTierBadge = (tier: EventSubmission["packageTier"]) => {
-		const cfg = tierConfig[tier];
+		const cfg = tierConfig[tier] || { label: tier, price: "-", color: "gray" };
 		const colorMap: Record<string, string> = {
 			blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
 			purple: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400",
@@ -312,7 +311,6 @@ const EventSubmissionManagement: React.FC = () => {
 							<option value="VOTING">Voting</option>
 							<option value="TICKETING_VOTING">Tiket + Voting</option>
 							<option value="BRONZE">Bronze</option>
-							<option value="SILVER">Silver</option>
 							<option value="GOLD">Gold</option>
 						</select>
 					</div>
@@ -477,7 +475,7 @@ const EventSubmissionManagement: React.FC = () => {
 								<div>
 									<p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Paket</p>
 									{getTierBadge(selectedSubmission.packageTier)}
-									<p className="text-xs text-gray-500 mt-1">{tierConfig[selectedSubmission.packageTier].price}</p>
+									<p className="text-xs text-gray-500 mt-1">{(tierConfig[selectedSubmission.packageTier] || { price: "-" }).price}</p>
 								</div>
 								<div>
 									<p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Status</p>

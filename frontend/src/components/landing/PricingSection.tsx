@@ -4,7 +4,6 @@ import {
 	LuCheck,
 	LuArrowRight,
 	LuMedal,
-	LuCrown,
 	LuTrophy,
 	LuMegaphone,
 	LuTicket,
@@ -13,7 +12,7 @@ import {
 } from "react-icons/lu";
 import { getRevenueShareLabel, getRevenueShareShortLabel, hasNoUpfrontPayment, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 
-type PackageTier = "IKLAN" | "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "SILVER" | "GOLD";
+type PackageTier = "IKLAN" | "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "GOLD";
 
 interface PackageFeature {
 	name: string;
@@ -22,21 +21,20 @@ interface PackageFeature {
 	voting: boolean;
 	ticketing_voting: boolean;
 	bronze: boolean;
-	silver: boolean;
 	gold: boolean;
 }
 
 const packageFeatures: PackageFeature[] = [
-	{ name: "E-Ticketing", iklan: false, ticketing: true, voting: false, ticketing_voting: true, bronze: true, silver: true, gold: true },
-	{ name: "E-Voting", iklan: false, ticketing: false, voting: true, ticketing_voting: true, bronze: true, silver: true, gold: true },
-	{ name: "Akses Sistem Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Pendaftaran Peserta", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Technical Meeting Aplikasi", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Laporan Digital", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, silver: true, gold: true },
-	{ name: "Tim Pendamping", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
-	{ name: "Device Tablet", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: true, gold: true },
-	{ name: "Tim Rekap", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
-	{ name: "Penyusunan Materi Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, silver: false, gold: true },
+	{ name: "E-Ticketing", iklan: false, ticketing: true, voting: false, ticketing_voting: true, bronze: true, gold: true },
+	{ name: "E-Voting", iklan: false, ticketing: false, voting: true, ticketing_voting: true, bronze: true, gold: true },
+	{ name: "Akses Sistem Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Pendaftaran Peserta", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Technical Meeting Aplikasi", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Laporan Digital", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: true, gold: true },
+	{ name: "Tim Pendamping", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
+	{ name: "Device Tablet", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
+	{ name: "Tim Rekap", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
+	{ name: "Penyusunan Materi Penilaian", iklan: false, ticketing: false, voting: false, ticketing_voting: false, bronze: false, gold: true },
 ];
 
 const packages = [
@@ -102,18 +100,6 @@ const packages = [
 		note: "Semua fitur — Tim Pendamping (Online)",
 	},
 	{
-		tier: "SILVER" as PackageTier,
-		name: "Paket Silver",
-		price: PACKAGE_PRICE_LABELS.SILVER,
-		icon: LuCrown,
-		color: "gray",
-		borderColor: "border-gray-300 dark:border-gray-400/30",
-		bgGlow: "from-gray-300/20 to-gray-400/10",
-		badgeClass: "bg-gradient-to-r from-gray-400 to-gray-500 text-white",
-		btnClass: "bg-gradient-to-r from-gray-700 to-gray-900 hover:from-gray-800 hover:to-black text-white",
-		note: "Tim Pendamping (Offline) + Device Tablet (max 3 unit)",
-	},
-	{
 		tier: "GOLD" as PackageTier,
 		name: "Paket Gold",
 		price: PACKAGE_PRICE_LABELS.GOLD,
@@ -133,7 +119,6 @@ const priceColorClass: Record<PackageTier, string> = {
 	VOTING: "text-purple-600 dark:text-purple-400",
 	TICKETING_VOTING: "text-indigo-600 dark:text-indigo-400",
 	BRONZE: "text-amber-600 dark:text-amber-400",
-	SILVER: "text-gray-600 dark:text-gray-300",
 	GOLD: "text-yellow-600 dark:text-yellow-400",
 };
 
@@ -144,7 +129,6 @@ const glowColor: Record<PackageTier, string> = {
 	VOTING: "rgba(168,85,247,0.25)",
 	TICKETING_VOTING: "rgba(99,102,241,0.25)",
 	BRONZE: "rgba(245,158,11,0.3)",
-	SILVER: "rgba(156,163,175,0.3)",
 	GOLD: "rgba(234,179,8,0.35)",
 };
 
@@ -154,7 +138,7 @@ const PricingSection: React.FC = () => {
 
 	const renderCard = (pkg: typeof packages[0], index: number) => {
 		const Icon = pkg.icon;
-		const tierKey = pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "ticketing" | "voting" | "ticketing_voting" | "bronze" | "silver" | "gold">;
+		const tierKey = pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "ticketing" | "voting" | "ticketing_voting" | "bronze" | "gold">;
 		const includedFeatures = packageFeatures.filter((f) => f[tierKey]);
 
 		return (
