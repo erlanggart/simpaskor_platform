@@ -20,6 +20,7 @@ const ETicketingPage: React.FC = () => {
 	const [availabilityFilter, setAvailabilityFilter] = useState<"all" | "available" | "limited" | "soldout">("all");
 	const [selectedEvent, setSelectedEvent] = useState<TicketedEvent | null>(null);
 	const [selectedEventTeams, setSelectedEventTeams] = useState<TicketTeam[]>([]);
+	const [teamSearch, setTeamSearch] = useState("");
 	const [teamsLoading, setTeamsLoading] = useState(false);
 	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 	const [purchasing, setPurchasing] = useState(false);
@@ -137,6 +138,19 @@ const ETicketingPage: React.FC = () => {
 		return `${config.api.backendUrl}${imageUrl}`;
 	};
 
+	const getTicketTeamLabel = (team: TicketTeam): string => {
+		return team.schoolName ? `${team.teamName} - ${team.schoolName}` : team.teamName;
+	};
+
+	const getSelectedTicketTeam = (ticketTeamId: string): TicketTeam | undefined => {
+		return selectedEventTeams.find((team) => team.id === ticketTeamId);
+	};
+
+	const scrollTicketTeamCarousel = (idx: number, direction: "left" | "right") => {
+		const carousel = document.getElementById(`ticket-team-carousel-${idx}`);
+		carousel?.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
+	};
+
 	const formatShortDate = (date: string) => {
 		return new Date(date).toLocaleDateString("id-ID", {
 			day: "numeric",
@@ -161,6 +175,18 @@ const ETicketingPage: React.FC = () => {
 		});
 	}, [events, availabilityFilter]);
 
+	const filteredSelectedEventTeams = useMemo(() => {
+		const query = teamSearch.trim().toLowerCase();
+		if (!query) return selectedEventTeams;
+
+		return selectedEventTeams.filter((team) => {
+			return (
+				team.teamName.toLowerCase().includes(query) ||
+				(team.schoolName || "").toLowerCase().includes(query)
+			);
+		});
+	}, [selectedEventTeams, teamSearch]);
+
 	const availabilityOptions = [
 		{ id: "all" as const, label: "Semua" },
 		{ id: "available" as const, label: "Tersedia" },
@@ -171,6 +197,7 @@ const ETicketingPage: React.FC = () => {
 	const openPurchaseModal = async (event: TicketedEvent) => {
 		setSelectedEvent(event);
 		setSelectedEventTeams([]);
+		setTeamSearch("");
 		setTeamsLoading(true);
 		setAttendees([{ name: user?.name || "", email: user?.email || "", phone: "", ticketTeamId: "" }]);
 		setSendEmail("");
@@ -682,6 +709,33 @@ const ETicketingPage: React.FC = () => {
 											Panitia belum menambahkan pilihan pasukan untuk event ini.
 										</div>
 									)}
+									{!teamsLoading && selectedEventTeams.length > 0 && (
+										<div className="mb-3">
+											<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+												<LuSearch className="w-3.5 h-3.5 inline mr-1" />
+												Cari Pasukan
+											</label>
+											<div className="relative">
+												<LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+												<input
+													type="search"
+													value={teamSearch}
+													onChange={(e) => setTeamSearch(e.target.value)}
+													className="w-full pl-9 pr-9 py-2 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+													placeholder="Cari nama pasukan atau sekolah"
+												/>
+												{teamSearch && (
+													<button
+														type="button"
+														onClick={() => setTeamSearch("")}
+														className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+													>
+														<LuX className="w-3.5 h-3.5" />
+													</button>
+												)}
+											</div>
+										</div>
+									)}
 									<div className="space-y-3">
 										{attendees.map((att, idx) => (
 											<div key={idx} className="bg-white/40 dark:bg-white/[0.02] border border-gray-200/40 dark:border-white/[0.05] rounded-xl p-3">
@@ -740,25 +794,107 @@ const ETicketingPage: React.FC = () => {
 												/>
 												</div>
 												<div className="mt-2">
-													<select
-														value={att.ticketTeamId}
-														onChange={(e) => {
-															setAttendees((prev) =>
-																prev.map((item, i) =>
-																	i === idx ? { ...item, ticketTeamId: e.target.value } : item
-																)
-															);
-														}}
-														disabled={teamsLoading || selectedEventTeams.length === 0}
-														className="w-full px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-60"
-													>
-														<option value="">Pilih pasukan yang ditonton *</option>
-														{selectedEventTeams.map((team) => (
-															<option key={team.id} value={team.id}>
-																{team.teamName}{team.schoolName ? ` - ${team.schoolName}` : ""}
-															</option>
-														))}
-													</select>
+													<div className="flex items-center justify-between gap-2 mb-2">
+														<div>
+															<p className="text-[11px] font-medium text-gray-600 dark:text-gray-300">
+																Pilih pasukan yang ditonton *
+															</p>
+															{getSelectedTicketTeam(att.ticketTeamId) && (
+																<p className="text-[10px] text-red-600 dark:text-red-400 truncate max-w-[220px]">
+																	Dipilih: {getTicketTeamLabel(getSelectedTicketTeam(att.ticketTeamId)!)}
+																</p>
+															)}
+														</div>
+														{filteredSelectedEventTeams.length > 2 && (
+															<div className="flex items-center gap-1">
+																<button
+																	type="button"
+																	onClick={() => scrollTicketTeamCarousel(idx, "left")}
+																	className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-white/[0.08] text-gray-500 hover:text-red-600 hover:border-red-200 dark:hover:border-red-500/40 transition-colors"
+																>
+																	<LuChevronLeft className="w-4 h-4" />
+																</button>
+																<button
+																	type="button"
+																	onClick={() => scrollTicketTeamCarousel(idx, "right")}
+																	className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-white/[0.08] text-gray-500 hover:text-red-600 hover:border-red-200 dark:hover:border-red-500/40 transition-colors"
+																>
+																	<LuChevronRight className="w-4 h-4" />
+																</button>
+															</div>
+														)}
+													</div>
+													{filteredSelectedEventTeams.length === 0 ? (
+														<div className="text-xs text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg p-3">
+															Pasukan tidak ditemukan.
+														</div>
+													) : (
+														<div
+															id={`ticket-team-carousel-${idx}`}
+															className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scroll-smooth"
+														>
+															{filteredSelectedEventTeams.map((team) => {
+																const isSelected = att.ticketTeamId === team.id;
+																const logoUrl = getImageUrl(team.logoUrl);
+
+																return (
+																	<button
+																		key={team.id}
+																		type="button"
+																		onClick={() => {
+																			setAttendees((prev) =>
+																				prev.map((item, i) =>
+																					i === idx ? { ...item, ticketTeamId: team.id } : item
+																				)
+																			);
+																		}}
+																		className={`min-w-[170px] max-w-[170px] snap-start text-left rounded-xl border overflow-hidden bg-white dark:bg-white/[0.03] transition-all ${
+																			isSelected
+																				? "border-red-500 ring-2 ring-red-500/20 shadow-sm"
+																				: "border-gray-200/70 dark:border-white/[0.08] hover:border-red-300 dark:hover:border-red-500/50"
+																		}`}
+																	>
+																		<div className="h-24 bg-gray-100 dark:bg-white/[0.04]">
+																			{logoUrl ? (
+																				<img
+																					src={logoUrl}
+																					alt={team.teamName}
+																					className="w-full h-full object-cover"
+																					loading="lazy"
+																				/>
+																			) : (
+																				<div className="w-full h-full flex items-center justify-center bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 text-2xl font-bold">
+																					{team.teamName.charAt(0).toUpperCase()}
+																				</div>
+																			)}
+																		</div>
+																		<div className="p-2">
+																			<div className="flex items-start justify-between gap-2">
+																				<div className="min-w-0">
+																					<p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+																						{team.teamName}
+																					</p>
+																					<p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+																						{team.schoolName || "Tanpa sekolah"}
+																					</p>
+																				</div>
+																				<span
+																					className={`w-4 h-4 shrink-0 rounded-full border ${
+																						isSelected
+																							? "border-red-500 bg-red-500"
+																							: "border-gray-300 dark:border-gray-600"
+																					}`}
+																				/>
+																			</div>
+																			<p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+																				{team.viewerCount || 0} penonton
+																			</p>
+																		</div>
+																	</button>
+																);
+															})}
+														</div>
+													)}
 												</div>
 											</div>
 										))}
