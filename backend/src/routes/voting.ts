@@ -8,9 +8,11 @@ import {
 import { prisma } from "../lib/prisma";
 import crypto from "crypto";
 import {
+	coreApi,
 	createSnapTransaction,
 	generateMidtransOrderId,
 	PaymentPrefix,
+	resolvePaymentStatus,
 } from "../lib/midtrans";
 import { sendVotingPurchaseEmail } from "../lib/email";
 import { uploadNomineePhoto } from "../middleware/upload";
@@ -71,6 +73,45 @@ const generatePurchaseCode = (): string => {
 const normalizePurchaseCode = (value: unknown): string => {
 	if (typeof value !== "string") return "";
 	return value.trim().toUpperCase().replace(/[\s\u200B-\u200D\uFEFF]+/g, "");
+};
+
+const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
+	const purchase = await prisma.votingPurchase.findUnique({
+		where: { id: purchaseId },
+		include: { event: { select: { title: true } } },
+	});
+
+	if (!purchase || !purchase.midtransOrderId || purchase.status !== "PENDING") {
+		return purchase;
+	}
+
+	const txStatus = await coreApi.transaction.status(purchase.midtransOrderId);
+	const paymentResult = resolvePaymentStatus(txStatus.transaction_status, txStatus.fraud_status);
+
+	if (paymentResult === "success") {
+		return prisma.votingPurchase.update({
+			where: { id: purchase.id },
+			data: {
+				status: "PAID",
+				paymentType: txStatus.payment_type,
+				paidAt: new Date(),
+			},
+			include: { event: { select: { title: true } } },
+		});
+	}
+
+	if (paymentResult === "failed" || paymentResult === "expired") {
+		return prisma.votingPurchase.update({
+			where: { id: purchase.id },
+			data: {
+				status: paymentResult === "expired" ? "EXPIRED" : "CANCELLED",
+				paymentType: txStatus.payment_type,
+			},
+			include: { event: { select: { title: true } } },
+		});
+	}
+
+	return purchase;
 };
 
 // Verify PANITIA owns the event (SUPERADMIN bypasses)
@@ -372,12 +413,29 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 		}
 
 		// Validate purchase
-		const purchase = await prisma.votingPurchase.findUnique({
+		let purchase = await prisma.votingPurchase.findUnique({
 			where: { purchaseCode: normalizedPurchaseCode },
 		});
 
+		if (!purchase) {
+			return res.status(400).json({ error: "Kode pembelian tidak valid" });
+		}
+
+		if (purchase.status === "PENDING") {
+			try {
+				purchase = await refreshVotingPurchasePaymentStatus(purchase.id);
+			} catch (midtransError) {
+				console.error("Error refreshing voting payment status:", midtransError);
+			}
+		}
+
 		if (!purchase || purchase.status !== "PAID") {
-			return res.status(400).json({ error: "Kode pembelian tidak valid atau belum dibayar" });
+			return res.status(400).json({
+				error:
+					purchase?.status === "PENDING"
+						? "Pembayaran vote belum dikonfirmasi. Tunggu beberapa saat lalu coba lagi."
+						: "Kode pembelian tidak valid atau belum dibayar",
+			});
 		}
 
 		if (purchase.eventId !== category.config.eventId) {
@@ -567,12 +625,79 @@ router.get("/check/:purchaseCode", authenticate, async (req: AuthenticatedReques
 // SEND VOTING CODE TO EMAIL
 // ==========================================
 
+// POST /api/voting/confirm-payment - Sync voting purchase payment status and email the original buyer
+router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const { purchaseCode, email } = req.body;
+		const normalizedPurchaseCode = normalizePurchaseCode(purchaseCode);
+
+		if (!normalizedPurchaseCode || !email) {
+			return res.status(400).json({ error: "Kode pembelian dan email wajib diisi" });
+		}
+
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		const normalizedEmail = String(email).trim().toLowerCase();
+		if (!emailRegex.test(normalizedEmail)) {
+			return res.status(400).json({ error: "Format email tidak valid" });
+		}
+
+		let purchase = await prisma.votingPurchase.findUnique({
+			where: { purchaseCode: normalizedPurchaseCode },
+			include: { event: { select: { title: true } } },
+		});
+
+		if (!purchase) {
+			return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
+		}
+
+		if (purchase.buyerEmail.trim().toLowerCase() !== normalizedEmail) {
+			return res.status(403).json({ error: "Email tidak sesuai dengan pembelian vote" });
+		}
+
+		if (purchase.status === "PENDING") {
+			try {
+				purchase = await refreshVotingPurchasePaymentStatus(purchase.id);
+			} catch (midtransError) {
+				console.error("Error confirming voting payment status:", midtransError);
+			}
+		}
+
+		if (!purchase || purchase.status !== "PAID") {
+			return res.json({
+				status: purchase?.status || "UNKNOWN",
+				message: "Pembayaran vote belum dikonfirmasi",
+			});
+		}
+
+		await sendVotingPurchaseEmail({
+			to: purchase.buyerEmail,
+			buyerName: purchase.buyerName,
+			purchaseCode: purchase.purchaseCode,
+			eventTitle: purchase.event.title,
+			voteCount: purchase.voteCount,
+			totalAmount: purchase.totalAmount,
+		});
+
+		res.json({
+			status: purchase.status,
+			message: "Pembayaran vote terkonfirmasi",
+			purchaseCode: purchase.purchaseCode,
+			voteCount: purchase.voteCount,
+			usedVotes: purchase.usedVotes,
+		});
+	} catch (error: any) {
+		console.error("Error confirming voting payment:", error);
+		res.status(500).json({ error: "Gagal mengonfirmasi pembayaran vote" });
+	}
+});
+
 // POST /api/voting/send-email - Send voting purchase code to email (requires auth)
 router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const { purchaseCode, email } = req.body;
+		const normalizedPurchaseCode = normalizePurchaseCode(purchaseCode);
 
-		if (!purchaseCode || !email) {
+		if (!normalizedPurchaseCode || !email) {
 			return res.status(400).json({ error: "Kode pembelian dan email wajib diisi" });
 		}
 
@@ -581,8 +706,8 @@ router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: 
 			return res.status(400).json({ error: "Format email tidak valid" });
 		}
 
-		const purchase = await prisma.votingPurchase.findUnique({
-			where: { purchaseCode },
+		let purchase = await prisma.votingPurchase.findUnique({
+			where: { purchaseCode: normalizedPurchaseCode },
 			include: {
 				event: {
 					select: { title: true },
@@ -592,6 +717,23 @@ router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: 
 
 		if (!purchase) {
 			return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
+		}
+
+		if (purchase.status === "PENDING") {
+			try {
+				purchase = await refreshVotingPurchasePaymentStatus(purchase.id);
+			} catch (midtransError) {
+				console.error("Error refreshing voting payment status before email:", midtransError);
+			}
+		}
+
+		if (!purchase || purchase.status !== "PAID") {
+			return res.status(400).json({
+				error:
+					purchase?.status === "PENDING"
+						? "Pembayaran vote belum dikonfirmasi. Kode akan dikirim setelah pembayaran terkonfirmasi."
+						: "Email hanya bisa dikirim untuk pembelian vote yang sudah dibayar",
+			});
 		}
 
 		await sendVotingPurchaseEmail({

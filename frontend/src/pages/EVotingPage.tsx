@@ -199,23 +199,38 @@ const EVotingPage: React.FC = () => {
 				setShowPurchaseModal(false);
 				// Open Midtrans Snap payment popup
 				pay(snapToken, {
-					onSuccess: () => {
-						Swal.fire({
-							title: "Pembayaran Berhasil!",
-							html: `<div class="text-left space-y-2">
-								<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
-								<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
-								<p><strong>Total:</strong> ${formatCurrency(totalAmount)}</p>
-								<p class="text-sm text-gray-500 mt-3">Kode vote juga dikirim ke email Anda.</p>
-							</div>`,
-							icon: "success",
-							confirmButtonColor: "#dc2626",
-						});
-						// Send voting code email immediately via API
-						api.post("/voting/send-email", {
-							purchaseCode,
-							email: buyerEmail.trim(),
-						}).catch((err) => console.error("Send voting email failed:", err));
+					onSuccess: async () => {
+						try {
+							const confirmRes = await api.post("/voting/confirm-payment", {
+								purchaseCode,
+								email: buyerEmail.trim(),
+							});
+							if (confirmRes.data.status !== "PAID") {
+								throw new Error(confirmRes.data.message || "Pembayaran vote belum dikonfirmasi");
+							}
+							Swal.fire({
+								title: "Pembayaran Berhasil!",
+								html: `<div class="text-left space-y-2">
+									<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
+									<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
+									<p><strong>Total:</strong> ${formatCurrency(totalAmount)}</p>
+									<p class="text-sm text-gray-500 mt-3">Kode vote juga dikirim ke email Anda.</p>
+								</div>`,
+								icon: "success",
+								confirmButtonColor: "#dc2626",
+							});
+						} catch (err: any) {
+							Swal.fire({
+								title: "Menunggu Konfirmasi Pembayaran",
+								html: `<div class="text-left space-y-2">
+									<p>Pembayaran sudah diterima Midtrans, tetapi server masih menunggu konfirmasi.</p>
+									<p class="text-sm text-gray-500">Kode vote akan aktif dan dikirim ke email setelah pembayaran terkonfirmasi. Coba lagi beberapa saat lagi.</p>
+								</div>`,
+								icon: "info",
+								confirmButtonColor: "#dc2626",
+							});
+							console.error("Voting payment confirmation pending:", err);
+						}
 					},
 					onPending: () => {
 						Swal.fire({
