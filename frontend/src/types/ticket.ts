@@ -12,6 +12,17 @@ export interface EventTicketConfig {
 	updatedAt?: string;
 }
 
+export interface TicketTeam {
+	id: string;
+	eventId: string;
+	teamName: string;
+	schoolName: string | null;
+	logoUrl: string | null;
+	viewerCount: number;
+	createdAt?: string;
+	updatedAt?: string;
+}
+
 export interface TicketedEvent {
 	id: string;
 	title: string;
@@ -54,6 +65,22 @@ export interface TicketPurchase {
 		city?: string | null;
 		thumbnail?: string | null;
 	};
+	attendees?: TicketAttendee[];
 }
 
 export type TicketStatus = "PENDING" | "PAID" | "USED" | "CANCELLED" | "EXPIRED";
+
+export interface TicketAttendee {
+	id: string;
+	purchaseId: string;
+	ticketTeamId: string | null;
+	attendeeName: string;
+	attendeeEmail: string;
+	attendeePhone: string | null;
+	ticketCode: string;
+	status: TicketStatus;
+	usedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+	ticketTeam?: TicketTeam | null;
+}

@@ -158,7 +158,7 @@ async function handleTicketPayment(
 					ticketConfig: { select: { description: true } },
 				},
 			},
-			attendees: true,
+			attendees: { include: { ticketTeam: true } },
 		},
 	});
 	if (!ticket) {
@@ -209,6 +209,7 @@ async function handleTicketPayment(
 					email: a.attendeeEmail,
 					phone: a.attendeePhone,
 					ticketCode: a.ticketCode,
+					supportTeam: a.ticketTeam?.teamName || null,
 				})),
 			});
 			console.log(`[Email] Ticket email sent to ${ticket.buyerEmail} for ${ticket.ticketCode} with ${ticket.attendees.length} attendee(s)`);
@@ -217,13 +218,18 @@ async function handleTicketPayment(
 		}
 	} else if (result === "failed" || result === "expired") {
 		// Payment failed/expired: cancel purchase and RELEASE reserved tickets
+		const nextStatus = result === "expired" ? "EXPIRED" : "CANCELLED";
 		await prisma.$transaction(async (tx) => {
 			await tx.ticketPurchase.update({
 				where: { id: ticket.id },
 				data: {
-					status: result === "expired" ? "EXPIRED" : "CANCELLED",
+					status: nextStatus,
 					paymentType,
 				},
+			});
+			await tx.ticketAttendee.updateMany({
+				where: { purchaseId: ticket.id },
+				data: { status: nextStatus },
 			});
 			// Release the reserved soldCount back to quota
 			await tx.eventTicketConfig.update({

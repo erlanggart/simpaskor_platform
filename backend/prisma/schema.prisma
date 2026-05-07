@@ -212,6 +212,7 @@ model Event {
   likes                EventLike[]
   ticketConfig         EventTicketConfig?
   ticketPurchases      TicketPurchase[]
+  ticketTeams          TicketTeam[]
   votingConfig         EventVotingConfig?
   votingPurchases      VotingPurchase[]
   eventPayment         EventPayment?
@@ -706,9 +707,27 @@ model TicketPurchase {
   @@map("ticket_purchases")
 }
 
+model TicketTeam {
+  id          String   @id @default(uuid())
+  eventId     String   @map("event_id")
+  teamName    String   @map("team_name")
+  schoolName  String?  @map("school_name")
+  logoUrl     String?  @map("logo_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attendees TicketAttendee[]
+
+  @@index([eventId])
+  @@map("ticket_teams")
+}
+
 model TicketAttendee {
   id             String       @id @default(uuid())
   purchaseId     String       @map("purchase_id")
+  ticketTeamId   String?      @map("ticket_team_id")
   attendeeName   String       @map("attendee_name")
   attendeeEmail  String       @map("attendee_email")
   attendeePhone  String?      @map("attendee_phone")
@@ -719,9 +738,11 @@ model TicketAttendee {
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
   // Relations
-  purchase TicketPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchase   TicketPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  ticketTeam TicketTeam?    @relation(fields: [ticketTeamId], references: [id], onDelete: SetNull)
 
   @@index([purchaseId])
+  @@index([ticketTeamId])
   @@index([ticketCode])
   @@map("ticket_attendees")
 }

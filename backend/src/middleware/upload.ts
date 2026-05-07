@@ -217,3 +217,24 @@ export const uploadNomineePhoto = multer({
 		fileSize: 3 * 1024 * 1024, // 3MB max file size
 	},
 });
+
+// Configure storage for ticketing team logos
+const ticketTeamLogoStorage = multer.diskStorage({
+	destination: (req: any, file: any, cb: any) => {
+		const dir = "uploads/ticket-teams/";
+		ensureDir(dir);
+		cb(null, dir);
+	},
+	filename: (req: any, file: any, cb: any) => {
+		const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+		cb(null, "ticket-team-" + uniqueSuffix + path.extname(file.originalname));
+	},
+});
+
+export const uploadTicketTeamLogo = multer({
+	storage: ticketTeamLogoStorage,
+	fileFilter: imageFilter,
+	limits: {
+		fileSize: 3 * 1024 * 1024,
+	},
+});

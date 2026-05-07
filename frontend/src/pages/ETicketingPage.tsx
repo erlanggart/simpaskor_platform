@@ -3,7 +3,7 @@ import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
-import { TicketedEvent } from "../types/ticket";
+import { TicketedEvent, TicketTeam } from "../types/ticket";
 import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload, LuSend, LuPlus, LuTrash2 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
@@ -19,6 +19,8 @@ const ETicketingPage: React.FC = () => {
 	const [totalPages, setTotalPages] = useState(1);
 	const [availabilityFilter, setAvailabilityFilter] = useState<"all" | "available" | "limited" | "soldout">("all");
 	const [selectedEvent, setSelectedEvent] = useState<TicketedEvent | null>(null);
+	const [selectedEventTeams, setSelectedEventTeams] = useState<TicketTeam[]>([]);
+	const [teamsLoading, setTeamsLoading] = useState(false);
 	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 	const [purchasing, setPurchasing] = useState(false);
 	const [ticketResult, setTicketResult] = useState<{
@@ -29,7 +31,7 @@ const ETicketingPage: React.FC = () => {
 		totalAmount: number;
 		message: string;
 		ticketDescription?: string | null;
-		attendees?: { attendeeName: string; attendeeEmail: string; attendeePhone?: string | null; ticketCode: string }[];
+		attendees?: { attendeeName: string; attendeeEmail: string; attendeePhone?: string | null; ticketCode: string; ticketTeam?: TicketTeam | null }[];
 	} | null>(null);
 	const [activeAttendeeIdx, setActiveAttendeeIdx] = useState(0);
 
@@ -38,8 +40,8 @@ const ETicketingPage: React.FC = () => {
 	const [buyerEmail, setBuyerEmail] = useState(user?.email || "");
 	const [buyerPhone, setBuyerPhone] = useState("");
 	const MAX_TICKETS = 5;
-	const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string }[]>([
-		{ name: user?.name || "", email: user?.email || "", phone: "" },
+	const [attendees, setAttendees] = useState<{ name: string; email: string; phone: string; ticketTeamId: string }[]>([
+		{ name: user?.name || "", email: user?.email || "", phone: "", ticketTeamId: "" },
 	]);
 
 	// Send ticket to email
@@ -166,12 +168,25 @@ const ETicketingPage: React.FC = () => {
 		{ id: "soldout" as const, label: "Habis" },
 	];
 
-	const openPurchaseModal = (event: TicketedEvent) => {
+	const openPurchaseModal = async (event: TicketedEvent) => {
 		setSelectedEvent(event);
-		setAttendees([{ name: user?.name || "", email: user?.email || "", phone: "" }]);
+		setSelectedEventTeams([]);
+		setTeamsLoading(true);
+		setAttendees([{ name: user?.name || "", email: user?.email || "", phone: "", ticketTeamId: "" }]);
 		setSendEmail("");
 		setAutoEmailSent(false);
 		setShowPurchaseModal(true);
+		try {
+			const res = await api.get(`/tickets/events/${event.id}/teams`);
+			const teams: TicketTeam[] = res.data || [];
+			setSelectedEventTeams(teams);
+			const defaultTeamId = teams.length === 1 ? teams[0]?.id || "" : "";
+			setAttendees([{ name: user?.name || "", email: user?.email || "", phone: "", ticketTeamId: defaultTeamId }]);
+		} catch {
+			setSelectedEventTeams([]);
+		} finally {
+			setTeamsLoading(false);
+		}
 	};
 
 	const handleSendEmail = async () => {
@@ -221,6 +236,10 @@ const ETicketingPage: React.FC = () => {
 				Swal.fire("Error", `Email peserta tiket #${i + 1} tidak valid`, "error");
 				return;
 			}
+			if (!attendee.ticketTeamId) {
+				Swal.fire("Error", `Pasukan yang ditonton untuk tiket #${i + 1} wajib dipilih`, "error");
+				return;
+			}
 		}
 
 		const quantity = attendees.length;
@@ -254,6 +273,7 @@ const ETicketingPage: React.FC = () => {
 					name: a.name.trim(),
 					email: a.email.trim(),
 					phone: a.phone.trim() || undefined,
+					ticketTeamId: a.ticketTeamId,
 				})),
 			});
 
@@ -643,7 +663,7 @@ const ETicketingPage: React.FC = () => {
 										</h3>
 										{attendees.length < MAX_TICKETS && attendees.length < ((selectedEvent.ticketConfig?.quota || 0) - (selectedEvent.ticketConfig?.soldCount || 0)) && (
 											<button
-												onClick={() => setAttendees(prev => [...prev, { name: "", email: "", phone: "" }])}
+												onClick={() => setAttendees(prev => [...prev, { name: "", email: "", phone: "", ticketTeamId: selectedEventTeams.length === 1 ? selectedEventTeams[0]?.id || "" : "" }])}
 												className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
 											>
 												<LuPlus className="w-3.5 h-3.5" />
@@ -652,8 +672,16 @@ const ETicketingPage: React.FC = () => {
 										)}
 									</div>
 									<p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">
-										Setiap tiket memiliki QR code unik. Isi data peserta untuk masing-masing tiket.
+										Setiap tiket memiliki QR code unik. Isi data peserta dan pilih pasukan yang ingin ditonton.
 									</p>
+									{teamsLoading && (
+										<div className="text-xs text-gray-500 dark:text-gray-400 mb-3">Memuat daftar pasukan...</div>
+									)}
+									{!teamsLoading && selectedEventTeams.length === 0 && (
+										<div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 mb-3">
+											Panitia belum menambahkan pilihan pasukan untuk event ini.
+										</div>
+									)}
 									<div className="space-y-3">
 										{attendees.map((att, idx) => (
 											<div key={idx} className="bg-white/40 dark:bg-white/[0.02] border border-gray-200/40 dark:border-white/[0.05] rounded-xl p-3">
@@ -711,6 +739,27 @@ const ETicketingPage: React.FC = () => {
 													placeholder="No. HP"
 												/>
 												</div>
+												<div className="mt-2">
+													<select
+														value={att.ticketTeamId}
+														onChange={(e) => {
+															setAttendees((prev) =>
+																prev.map((item, i) =>
+																	i === idx ? { ...item, ticketTeamId: e.target.value } : item
+																)
+															);
+														}}
+														disabled={teamsLoading || selectedEventTeams.length === 0}
+														className="w-full px-3 py-1.5 bg-white/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-60"
+													>
+														<option value="">Pilih pasukan yang ditonton *</option>
+														{selectedEventTeams.map((team) => (
+															<option key={team.id} value={team.id}>
+																{team.teamName}{team.schoolName ? ` - ${team.schoolName}` : ""}
+															</option>
+														))}
+													</select>
+												</div>
 											</div>
 										))}
 									</div>
@@ -740,7 +789,7 @@ const ETicketingPage: React.FC = () => {
 									</button>
 									<button
 										onClick={handlePurchase}
-										disabled={purchasing}
+										disabled={purchasing || teamsLoading || selectedEventTeams.length === 0}
 										className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
 									>
 										{purchasing ? "Memproses..." : "Beli Tiket"}
@@ -805,6 +854,11 @@ const ETicketingPage: React.FC = () => {
 													{att.attendeeName}
 												</p>
 												<p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{att.attendeeEmail}</p>
+												{att.ticketTeam && (
+													<p className="text-xs font-medium text-red-600 dark:text-red-400 mb-3">
+														Menonton: {att.ticketTeam.teamName}
+													</p>
+												)}
 												<div className="bg-white p-4 rounded-xl inline-block shadow-inner mb-3">
 													<QRCodeSVG
 														value={att.ticketCode}

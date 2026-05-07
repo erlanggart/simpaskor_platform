@@ -14,6 +14,7 @@ import {
 	PaymentPrefix,
 } from "../lib/midtrans";
 import { sendTicketEmailFromServer } from "../lib/email";
+import { uploadTicketTeamLogo } from "../middleware/upload";
 
 const router = Router();
 
@@ -31,6 +32,35 @@ const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string
 const generateTicketCode = (): string => {
 	const random = crypto.randomBytes(10).toString("hex").toUpperCase();
 	return `TKT-${random.slice(0, 8)}-${random.slice(8)}`;
+};
+
+const getTicketTeamStandings = async (eventId: string) => {
+	const [teams, groupedViewers] = await Promise.all([
+		prisma.ticketTeam.findMany({
+			where: { eventId },
+			orderBy: { createdAt: "asc" },
+		}),
+		prisma.ticketAttendee.groupBy({
+			by: ["ticketTeamId"],
+			where: {
+				ticketTeamId: { not: null },
+				status: { in: ["PAID", "USED"] },
+				purchase: {
+					eventId,
+					status: { in: ["PAID", "USED"] },
+				},
+			},
+			_count: { _all: true },
+		}),
+	]);
+
+	const viewerMap = new Map(groupedViewers.map((row) => [row.ticketTeamId, row._count._all]));
+	return teams
+		.map((team) => ({
+			...team,
+			viewerCount: viewerMap.get(team.id) ?? 0,
+		}))
+		.sort((a, b) => b.viewerCount - a.viewerCount || a.teamName.localeCompare(b.teamName));
 };
 
 // Verify PANITIA owns the event (SUPERADMIN bypasses)
@@ -183,6 +213,28 @@ router.get("/events/:eventId", async (req: AuthenticatedRequest, res: Response) 
 	}
 });
 
+// GET /api/tickets/events/:eventId/teams - List ticketing teams for public purchase form
+router.get("/events/:eventId/teams", async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const eventId = await resolveEventId(req.params.eventId);
+		if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+		const event = await prisma.event.findUnique({
+			where: { id: eventId },
+			select: { ticketConfig: { select: { enabled: true } } },
+		});
+
+		if (!event?.ticketConfig?.enabled) {
+			return res.status(404).json({ error: "Tiket tidak tersedia untuk event ini" });
+		}
+
+		res.json(await getTicketTeamStandings(eventId));
+	} catch (error) {
+		console.error("Error fetching ticket teams:", error);
+		res.status(500).json({ error: "Gagal memuat daftar pasukan" });
+	}
+});
+
 // Max tickets per account per event
 const MAX_TICKETS_PER_ACCOUNT = 5;
 
@@ -204,11 +256,17 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		for (let i = 0; i < attendees.length; i++) {
 			const att = attendees[i];
+			if (!att) {
+				return res.status(400).json({ error: `Data peserta tiket #${i + 1} tidak valid` });
+			}
 			if (!att.name || !att.name.trim()) {
 				return res.status(400).json({ error: `Nama peserta tiket #${i + 1} wajib diisi` });
 			}
 			if (!att.email || !emailRegex.test(att.email.trim())) {
 				return res.status(400).json({ error: `Email peserta tiket #${i + 1} tidak valid` });
+			}
+			if (!att.ticketTeamId || !String(att.ticketTeamId).trim()) {
+				return res.status(400).json({ error: `Pasukan yang ditonton untuk tiket #${i + 1} wajib dipilih` });
 			}
 		}
 
@@ -216,6 +274,24 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 		// Validate buyer email format
 		if (!emailRegex.test(buyerEmail)) {
 			return res.status(400).json({ error: "Format email pembeli tidak valid" });
+		}
+
+		const ticketTeams = await prisma.ticketTeam.findMany({
+			where: { eventId },
+			select: { id: true },
+		});
+		if (ticketTeams.length === 0) {
+			return res.status(400).json({ error: "Panitia belum menambahkan pasukan untuk pilihan penonton" });
+		}
+
+		const validTeamIds = new Set(ticketTeams.map((team) => team.id));
+		for (let i = 0; i < attendees.length; i++) {
+			const attendee = attendees[i];
+			if (!attendee) continue;
+			const ticketTeamId = String(attendee.ticketTeamId).trim();
+			if (!validTeamIds.has(ticketTeamId)) {
+				return res.status(400).json({ error: `Pasukan yang dipilih untuk tiket #${i + 1} tidak valid` });
+			}
 		}
 
 		// Check existing purchases for this email + event (max 5 total)
@@ -311,11 +387,15 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 				const attendeeRecord = await tx.ticketAttendee.create({
 					data: {
 						purchaseId: purchase.id,
+						ticketTeamId: String(att.ticketTeamId).trim(),
 						attendeeName: att.name.trim(),
 						attendeeEmail: att.email.trim(),
 						attendeePhone: att.phone?.trim() || null,
 						ticketCode: attendeeCode,
 						status: isFree ? "PAID" : "PENDING",
+					},
+					include: {
+						ticketTeam: true,
 					},
 				});
 				attendeeRecords.push(attendeeRecord);
@@ -378,6 +458,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 						email: a.attendeeEmail,
 						phone: a.attendeePhone,
 						ticketCode: a.ticketCode,
+						supportTeam: a.ticketTeam?.teamName || null,
 					})),
 				});
 			} catch (emailError) {
@@ -485,7 +566,7 @@ router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: 
 						ticketConfig: { select: { description: true } },
 					},
 				},
-				attendees: true,
+				attendees: { include: { ticketTeam: true } },
 			},
 		});
 
@@ -509,6 +590,7 @@ router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: 
 				email: a.attendeeEmail,
 				phone: a.attendeePhone,
 				ticketCode: a.ticketCode,
+				supportTeam: a.ticketTeam?.teamName || null,
 			})),
 		});
 
@@ -648,6 +730,13 @@ router.post(
 				return res.status(404).json({ error: "Konfigurasi tiket belum dibuat. Simpan konfigurasi terlebih dahulu." });
 			}
 
+			if (!existing.enabled) {
+				const teamCount = await prisma.ticketTeam.count({ where: { eventId } });
+				if (teamCount === 0) {
+					return res.status(400).json({ error: "Tambahkan minimal satu pasukan/sekolah sebelum membuka penjualan tiket." });
+				}
+			}
+
 			const config = await prisma.eventTicketConfig.update({
 				where: { eventId },
 				data: {
@@ -679,6 +768,13 @@ router.put(
 
 			const { enabled, price, quota, description, salesStartDate, salesEndDate } = req.body;
 
+			if (enabled) {
+				const teamCount = await prisma.ticketTeam.count({ where: { eventId } });
+				if (teamCount === 0) {
+					return res.status(400).json({ error: "Tambahkan minimal satu pasukan/sekolah sebelum mengaktifkan ticketing." });
+				}
+			}
+
 			const config = await prisma.eventTicketConfig.upsert({
 				where: { eventId },
 				create: {
@@ -708,6 +804,106 @@ router.put(
 	}
 );
 
+// GET /api/tickets/admin/event/:eventId/teams - Manage manual ticketing teams
+router.get(
+	"/admin/event/:eventId/teams",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const eventId = await resolveEventId(req.params.eventId);
+			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
+			res.json(await getTicketTeamStandings(eventId));
+		} catch (error) {
+			console.error("Error fetching ticket teams:", error);
+			res.status(500).json({ error: "Gagal memuat daftar pasukan ticketing" });
+		}
+	}
+);
+
+// POST /api/tickets/admin/event/:eventId/teams - Add manual ticketing team
+router.post(
+	"/admin/event/:eventId/teams",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	uploadTicketTeamLogo.single("ticketTeamLogo"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const eventId = await resolveEventId(req.params.eventId);
+			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
+			const teamName = String(req.body.teamName || "").trim();
+			const schoolName = String(req.body.schoolName || "").trim();
+			if (!teamName) {
+				return res.status(400).json({ error: "Nama pasukan/sekolah wajib diisi" });
+			}
+
+			let logoUrl: string | null = null;
+			if (req.file) {
+				logoUrl = `/uploads/ticket-teams/${req.file.filename}`;
+			} else if (req.body.logoUrl) {
+				logoUrl = String(req.body.logoUrl).trim();
+			}
+
+			const team = await prisma.ticketTeam.create({
+				data: {
+					eventId,
+					teamName,
+					schoolName: schoolName || null,
+					logoUrl,
+				},
+			});
+
+			res.status(201).json({ ...team, viewerCount: 0 });
+		} catch (error) {
+			console.error("Error creating ticket team:", error);
+			res.status(500).json({ error: "Gagal menambahkan pasukan ticketing" });
+		}
+	}
+);
+
+// DELETE /api/tickets/admin/teams/:teamId - Delete manual ticketing team
+router.delete(
+	"/admin/teams/:teamId",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const team = await prisma.ticketTeam.findUnique({
+				where: { id: req.params.teamId },
+				select: { id: true, eventId: true },
+			});
+			if (!team) return res.status(404).json({ error: "Pasukan ticketing tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, team.eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
+			const viewerCount = await prisma.ticketAttendee.count({
+				where: { ticketTeamId: team.id },
+			});
+			if (viewerCount > 0) {
+				return res.status(400).json({ error: "Pasukan sudah dipilih oleh penonton dan tidak bisa dihapus." });
+			}
+
+			await prisma.ticketTeam.delete({ where: { id: team.id } });
+			res.json({ message: "Pasukan ticketing berhasil dihapus" });
+		} catch (error) {
+			console.error("Error deleting ticket team:", error);
+			res.status(500).json({ error: "Gagal menghapus pasukan ticketing" });
+		}
+	}
+);
+
 // GET /api/tickets/admin/event/:eventId/dashboard - Dashboard stats for ticket sales
 router.get(
 	"/admin/event/:eventId/dashboard",
@@ -725,7 +921,7 @@ router.get(
 			const config = await prisma.eventTicketConfig.findUnique({ where: { eventId } });
 
 			// Revenue by status
-			const [paidStats, usedStats, cancelledCount, expiredCount, pendingCount] = await Promise.all([
+			const [paidStats, usedStats, cancelledCount, expiredCount, pendingCount, checkedInCount] = await Promise.all([
 				prisma.ticketPurchase.aggregate({
 					where: { eventId, status: "PAID" },
 					_sum: { totalAmount: true, quantity: true },
@@ -739,7 +935,9 @@ router.get(
 				prisma.ticketPurchase.count({ where: { eventId, status: "CANCELLED" } }),
 				prisma.ticketPurchase.count({ where: { eventId, status: "EXPIRED" } }),
 				prisma.ticketPurchase.count({ where: { eventId, status: "PENDING" } }),
+				prisma.ticketAttendee.count({ where: { status: "USED", purchase: { eventId } } }),
 			]);
+			const teamStandings = await getTicketTeamStandings(eventId);
 
 			// Daily sales (last 30 days)
 			const thirtyDaysAgo = new Date();
@@ -789,7 +987,7 @@ router.get(
 			const totalRevenue = (paidStats._sum.totalAmount ?? 0) + (usedStats._sum.totalAmount ?? 0);
 			const totalTickets = (paidStats._sum.quantity ?? 0) + (usedStats._sum.quantity ?? 0);
 			const totalTransactions = paidStats._count + usedStats._count;
-			const checkedIn = usedStats._sum.quantity ?? 0;
+			const checkedIn = checkedInCount;
 
 			res.json({
 				summary: {
@@ -799,17 +997,18 @@ router.get(
 					checkedIn,
 					quota: config?.quota ?? 0,
 					price: config?.price ?? 0,
-					remaining: Math.max(0, (config?.quota ?? 0) - totalTickets),
+					remaining: Math.max(0, (config?.quota ?? 0) - (config?.soldCount ?? totalTickets)),
 				},
 				breakdown: {
 					paid: { count: paidStats._count, tickets: paidStats._sum.quantity ?? 0, revenue: paidStats._sum.totalAmount ?? 0 },
-					used: { count: usedStats._count, tickets: usedStats._sum.quantity ?? 0, revenue: usedStats._sum.totalAmount ?? 0 },
+					used: { count: usedStats._count, tickets: checkedInCount, revenue: usedStats._sum.totalAmount ?? 0 },
 					cancelled: cancelledCount,
 					expired: expiredCount,
 					pending: pendingCount,
 				},
 				dailySales,
 				recentTransactions,
+				teamStandings,
 			});
 		} catch (error) {
 			console.error("Error fetching ticket dashboard:", error);
@@ -857,7 +1056,7 @@ router.get(
 					orderBy: { createdAt: "desc" },
 					skip,
 					take: limitNum,
-					include: { attendees: true },
+					include: { attendees: { include: { ticketTeam: true } } },
 				}),
 				prisma.ticketPurchase.count({ where }),
 			]);
@@ -920,23 +1119,40 @@ router.patch(
 				return res.status(400).json({ error: "Hanya tiket yang sudah dibayar yang bisa dibatalkan." });
 			}
 
-			const updateData: any = { status };
-
-			if (status === "USED") {
-				updateData.usedAt = new Date();
+			if (status === "CANCELLED") {
+				const usedAttendeeCount = await prisma.ticketAttendee.count({
+					where: { purchaseId: purchase.id, status: "USED" },
+				});
+				if (usedAttendeeCount > 0) {
+					return res.status(400).json({ error: "Tiket tidak bisa dibatalkan karena sebagian tiket sudah digunakan." });
+				}
 			}
 
-			// If cancelling, restore quota
-			if (status === "CANCELLED") {
-				await prisma.eventTicketConfig.update({
+			const updated = await prisma.$transaction(async (tx) => {
+				if (status === "USED") {
+					const usedAt = new Date();
+					await tx.ticketAttendee.updateMany({
+						where: { purchaseId: purchase.id, status: "PAID" },
+						data: { status: "USED", usedAt },
+					});
+					return tx.ticketPurchase.update({
+						where: { id: purchase.id },
+						data: { status, usedAt },
+					});
+				}
+
+				await tx.ticketAttendee.updateMany({
+					where: { purchaseId: purchase.id, status: { in: ["PAID", "PENDING"] } },
+					data: { status: "CANCELLED" },
+				});
+				await tx.eventTicketConfig.update({
 					where: { eventId: purchase.eventId },
 					data: { soldCount: { decrement: purchase.quantity } },
 				});
-			}
-
-			const updated = await prisma.ticketPurchase.update({
-				where: { id: req.params.purchaseId },
-				data: updateData,
+				return tx.ticketPurchase.update({
+					where: { id: purchase.id },
+					data: { status: "CANCELLED" },
+				});
 			});
 
 			res.json(updated);
@@ -967,6 +1183,7 @@ router.post(
 							},
 						},
 					},
+					ticketTeam: true,
 				},
 			});
 
@@ -989,12 +1206,41 @@ router.post(
 							eventTitle: attendee.purchase.event.title,
 							quantity: 1,
 							status: attendee.status,
+							ticketTeam: attendee.ticketTeam,
 						},
 					});
 				}
 
-					if (attendee.purchase.status === "CANCELLED") {
-					return res.status(400).json({ valid: false, error: "Tiket telah dibatalkan" });
+				if (attendee.status === "CANCELLED" || attendee.purchase.status === "CANCELLED") {
+					return res.status(400).json({
+						valid: false,
+						error: "Tiket telah dibatalkan",
+						ticket: {
+							ticketCode: attendee.ticketCode,
+							buyerName: attendee.attendeeName,
+							buyerEmail: attendee.attendeeEmail,
+							eventTitle: attendee.purchase.event.title,
+							quantity: 1,
+							status: "CANCELLED",
+							ticketTeam: attendee.ticketTeam,
+						},
+					});
+				}
+
+				if (attendee.status === "EXPIRED" || attendee.purchase.status === "EXPIRED") {
+					return res.status(400).json({
+						valid: false,
+						error: "Tiket sudah kedaluwarsa",
+						ticket: {
+							ticketCode: attendee.ticketCode,
+							buyerName: attendee.attendeeName,
+							buyerEmail: attendee.attendeeEmail,
+							eventTitle: attendee.purchase.event.title,
+							quantity: 1,
+							status: "EXPIRED",
+							ticketTeam: attendee.ticketTeam,
+						},
+					});
 				}
 
 				if (attendee.status === "PENDING" || attendee.purchase.status === "PENDING") {
@@ -1011,10 +1257,25 @@ router.post(
 					return res.status(400).json({ valid: false, error: "Tiket ini sudah digunakan (seluruh paket tiket sudah di-scan)", ticket: { ticketCode: attendee.ticketCode, buyerName: attendee.attendeeName, status: "USED" } });
 				}
 
-				// Mark attendee ticket as USED
-				const updated = await prisma.ticketAttendee.update({
-					where: { id: attendee.id },
-					data: { status: "USED", usedAt: new Date() },
+				// Mark attendee ticket as USED and close the purchase once all attendee tickets are used.
+				const usedAt = new Date();
+				const updated = await prisma.$transaction(async (tx) => {
+					const updatedAttendee = await tx.ticketAttendee.update({
+						where: { id: attendee.id },
+						data: { status: "USED", usedAt },
+					});
+
+					const remainingPaidAttendees = await tx.ticketAttendee.count({
+						where: { purchaseId: attendee.purchaseId, status: "PAID" },
+					});
+					if (remainingPaidAttendees === 0 && attendee.purchase.status === "PAID") {
+						await tx.ticketPurchase.update({
+							where: { id: attendee.purchaseId },
+							data: { status: "USED", usedAt },
+						});
+					}
+
+					return updatedAttendee;
 				});
 
 				return res.json({
@@ -1031,6 +1292,7 @@ router.post(
 						quantity: 1,
 						status: updated.status,
 						usedAt: updated.usedAt,
+						ticketTeam: attendee.ticketTeam,
 					},
 				});
 			}
@@ -1166,7 +1428,7 @@ router.post(
 							ticketConfig: { select: { description: true } },
 						},
 					},
-					attendees: true,
+					attendees: { include: { ticketTeam: true } },
 				},
 			});
 
@@ -1200,6 +1462,7 @@ router.post(
 					email: a.attendeeEmail,
 					phone: a.attendeePhone,
 					ticketCode: a.ticketCode,
+					supportTeam: a.ticketTeam?.teamName || null,
 				})),
 			});
 

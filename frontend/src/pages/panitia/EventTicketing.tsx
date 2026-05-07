@@ -16,15 +16,20 @@ import {
 	ArrowPathIcon,
 	EnvelopeIcon,
 	ChartBarIcon,
+	UserGroupIcon,
+	PlusIcon,
+	TrashIcon,
+	PhotoIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
 import { api } from "../../utils/api";
-import { EventTicketConfig, TicketPurchase } from "../../types/ticket";
+import { config as appConfig } from "../../utils/config";
+import { EventTicketConfig, TicketPurchase, TicketTeam } from "../../types/ticket";
 
 const EventTicketing: React.FC = () => {
 	const { eventSlug } = useParams();
-	const [activeTab, setActiveTab] = useState<"dashboard" | "config" | "purchases" | "scan">("dashboard");
+	const [activeTab, setActiveTab] = useState<"dashboard" | "teams" | "config" | "purchases" | "scan">("dashboard");
 	const [loading, setLoading] = useState(true);
 	const [eventId, setEventId] = useState<string>("");
 
@@ -49,8 +54,18 @@ const EventTicketing: React.FC = () => {
 		breakdown: { paid: { count: number; tickets: number; revenue: number }; used: { count: number; tickets: number; revenue: number }; cancelled: number; expired: number; pending: number };
 		dailySales: { date: string; count: number; revenue: number; tickets?: number }[];
 		recentTransactions: { id: string; buyerName: string; buyerEmail: string; quantity: number; totalAmount: number; status: string; paidAt: string; ticketCode: string }[];
+		teamStandings: TicketTeam[];
 	} | null>(null);
 	const [dashboardLoading, setDashboardLoading] = useState(false);
+
+	// Manual ticket teams state
+	const [ticketTeams, setTicketTeams] = useState<TicketTeam[]>([]);
+	const [teamsLoading, setTeamsLoading] = useState(false);
+	const [addingTeam, setAddingTeam] = useState(false);
+	const [teamForm, setTeamForm] = useState({ teamName: "", schoolName: "" });
+	const [teamLogoFile, setTeamLogoFile] = useState<File | null>(null);
+	const [teamLogoPreview, setTeamLogoPreview] = useState<string | null>(null);
+	const teamLogoInputRef = useRef<HTMLInputElement>(null);
 
 	// Purchases state
 	const [purchases, setPurchases] = useState<TicketPurchase[]>([]);
@@ -76,6 +91,7 @@ const EventTicketing: React.FC = () => {
 			quantity?: number;
 			status: string;
 			usedAt?: string;
+			ticketTeam?: TicketTeam | null;
 		};
 		usedAt?: string;
 	} | null>(null);
@@ -160,6 +176,85 @@ const EventTicketing: React.FC = () => {
 			console.error("Error fetching dashboard");
 		} finally {
 			setDashboardLoading(false);
+		}
+	};
+
+	const fetchTicketTeams = async () => {
+		if (!eventId) return;
+		try {
+			setTeamsLoading(true);
+			const res = await api.get(`/tickets/admin/event/${eventId}/teams`);
+			setTicketTeams(res.data);
+		} catch {
+			console.error("Error fetching ticket teams");
+		} finally {
+			setTeamsLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		if ((activeTab === "teams" || activeTab === "dashboard" || activeTab === "config") && eventId) {
+			fetchTicketTeams();
+		}
+	}, [activeTab, eventId]);
+
+	const handleLogoChange = (file: File | null) => {
+		if (teamLogoPreview) URL.revokeObjectURL(teamLogoPreview);
+		setTeamLogoFile(file);
+		setTeamLogoPreview(file ? URL.createObjectURL(file) : null);
+	};
+
+	const resetTeamForm = () => {
+		setTeamForm({ teamName: "", schoolName: "" });
+		handleLogoChange(null);
+		if (teamLogoInputRef.current) teamLogoInputRef.current.value = "";
+	};
+
+	const handleAddTicketTeam = async () => {
+		if (!teamForm.teamName.trim()) {
+			Swal.fire("Error", "Nama pasukan/sekolah wajib diisi", "error");
+			return;
+		}
+
+		try {
+			setAddingTeam(true);
+			const formData = new FormData();
+			formData.append("teamName", teamForm.teamName.trim());
+			if (teamForm.schoolName.trim()) formData.append("schoolName", teamForm.schoolName.trim());
+			if (teamLogoFile) formData.append("ticketTeamLogo", teamLogoFile);
+
+			const res = await api.post(`/tickets/admin/event/${eventId}/teams`, formData, {
+				headers: { "Content-Type": "multipart/form-data" },
+			});
+			setTicketTeams((prev) => [...prev, res.data]);
+			resetTeamForm();
+			Swal.fire({ title: "Berhasil!", text: "Pasukan ticketing berhasil ditambahkan", icon: "success", timer: 1500, showConfirmButton: false });
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal menambahkan pasukan", "error");
+		} finally {
+			setAddingTeam(false);
+		}
+	};
+
+	const handleDeleteTicketTeam = async (team: TicketTeam) => {
+		const result = await Swal.fire({
+			title: "Hapus Pasukan?",
+			text: team.viewerCount > 0 ? "Pasukan yang sudah dipilih penonton tidak bisa dihapus." : `Hapus ${team.teamName}?`,
+			icon: "warning",
+			showCancelButton: true,
+			confirmButtonColor: "#dc2626",
+			confirmButtonText: "Hapus",
+			cancelButtonText: "Batal",
+		});
+
+		if (!result.isConfirmed) return;
+
+		try {
+			await api.delete(`/tickets/admin/teams/${team.id}`);
+			setTicketTeams((prev) => prev.filter((item) => item.id !== team.id));
+			Swal.fire({ title: "Dihapus!", icon: "success", timer: 1200, showConfirmButton: false });
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal menghapus pasukan", "error");
 		}
 	};
 
@@ -419,6 +514,11 @@ const EventTicketing: React.FC = () => {
 		}).format(amount);
 	};
 
+	const getMediaUrl = (url: string | null) => {
+		if (!url) return "";
+		return url.startsWith("http") ? url : `${appConfig.api.backendUrl}${url}`;
+	};
+
 	const formatDateForInput = (date: string | null) => {
 		if (!date) return "";
 		return new Date(date).toISOString().slice(0, 16);
@@ -510,6 +610,20 @@ const EventTicketing: React.FC = () => {
 				>
 					<ChartBarIcon className="w-5 h-5" />
 					<span className="hidden sm:inline">Dashboard</span>
+				</button>
+				<button
+					onClick={() => setActiveTab("teams")}
+					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+						activeTab === "teams"
+							? "bg-red-600 text-white shadow-sm"
+							: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
+					}`}
+				>
+					<UserGroupIcon className="w-5 h-5" />
+					<span className="hidden sm:inline">Pasukan</span>
+					<span className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-semibold px-1.5 py-0.5 rounded-full">
+						{ticketTeams.length}
+					</span>
 				</button>
 				<button
 					onClick={() => {
@@ -626,6 +740,57 @@ const EventTicketing: React.FC = () => {
 								</div>
 							</div>
 
+							{/* Team Standings */}
+							<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
+								<div className="flex items-center justify-between gap-3 mb-4">
+									<h3 className="text-sm font-semibold text-gray-900 dark:text-white">Podium Penonton Pasukan</h3>
+									<span className="text-xs text-gray-500 dark:text-gray-400">
+										{(dashboard.teamStandings || []).reduce((sum, team) => sum + team.viewerCount, 0)} penonton
+									</span>
+								</div>
+								{(dashboard.teamStandings || []).length === 0 ? (
+									<div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+										<UserGroupIcon className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+										Tambahkan pasukan agar penonton bisa memilih dukungan saat membeli tiket.
+									</div>
+								) : (
+									<div className="space-y-3">
+										{(dashboard.teamStandings || []).map((team, idx) => {
+											const maxViewers = Math.max(dashboard.teamStandings?.[0]?.viewerCount || 1, 1);
+											const pct = Math.max(4, (team.viewerCount / maxViewers) * 100);
+											return (
+												<div key={team.id} className="flex items-center gap-3">
+													<div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+														idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : idx === 2 ? "bg-amber-700" : "bg-red-500"
+													}`}>
+														{idx + 1}
+													</div>
+													{team.logoUrl ? (
+														<img src={getMediaUrl(team.logoUrl)} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
+													) : (
+														<div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+															<UserGroupIcon className="w-5 h-5 text-gray-400" />
+														</div>
+													)}
+													<div className="flex-1 min-w-0">
+														<div className="flex items-center justify-between gap-3 mb-1">
+															<div className="min-w-0">
+																<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{team.teamName}</p>
+																{team.schoolName && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{team.schoolName}</p>}
+															</div>
+															<span className="text-sm font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">{team.viewerCount} penonton</span>
+														</div>
+														<div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+															<div className={`h-full rounded-full ${idx === 0 ? "bg-yellow-500" : idx === 1 ? "bg-gray-400" : idx === 2 ? "bg-amber-700" : "bg-red-500"}`} style={{ width: `${pct}%` }} />
+														</div>
+													</div>
+												</div>
+											);
+										})}
+									</div>
+								)}
+							</div>
+
 							{/* Daily Sales Chart (simple bar) */}
 							{dashboard.dailySales.length > 0 && (
 								<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
@@ -708,6 +873,119 @@ const EventTicketing: React.FC = () => {
 							Tidak ada data dashboard
 						</div>
 					)}
+				</div>
+			)}
+
+			{/* Teams Tab */}
+			{activeTab === "teams" && (
+				<div className="space-y-6">
+					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-6">
+						<div className="flex items-center gap-3 mb-5">
+							<div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+								<UserGroupIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+							</div>
+							<div>
+								<h2 className="text-lg font-semibold text-gray-900 dark:text-white">Pasukan Ticketing</h2>
+								<p className="text-sm text-gray-500 dark:text-gray-400">Daftar pilihan pasukan untuk penonton saat membeli tiket.</p>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6">
+							<div className="space-y-4">
+								<input
+									type="file"
+									ref={teamLogoInputRef}
+									accept="image/jpeg,image/jpg,image/png,image/webp"
+									className="hidden"
+									onChange={(e) => handleLogoChange(e.target.files?.[0] || null)}
+								/>
+								<button
+									type="button"
+									onClick={() => teamLogoInputRef.current?.click()}
+									className="w-full aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 flex items-center justify-center overflow-hidden hover:border-red-400 transition-colors"
+								>
+									{teamLogoPreview ? (
+										<img src={teamLogoPreview} alt="preview" className="w-full h-full object-cover" />
+									) : (
+										<div className="text-center text-gray-400">
+											<PhotoIcon className="w-10 h-10 mx-auto mb-2" />
+											<p className="text-sm font-medium">Pilih foto/logo</p>
+											<p className="text-xs">JPG, PNG, WEBP</p>
+										</div>
+									)}
+								</button>
+								<div>
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Pasukan/Sekolah *</label>
+									<input
+										type="text"
+										value={teamForm.teamName}
+										onChange={(e) => setTeamForm((form) => ({ ...form, teamName: e.target.value }))}
+										className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+										placeholder="Contoh: SMAN 1 Garuda"
+									/>
+								</div>
+								<div>
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Keterangan <span className="text-gray-400">(opsional)</span></label>
+									<input
+										type="text"
+										value={teamForm.schoolName}
+										onChange={(e) => setTeamForm((form) => ({ ...form, schoolName: e.target.value }))}
+										className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+										placeholder="Nama pasukan, kota, atau kategori"
+									/>
+								</div>
+								<button
+									onClick={handleAddTicketTeam}
+									disabled={addingTeam || !teamForm.teamName.trim()}
+									className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+								>
+									<PlusIcon className="w-5 h-5" />
+									{addingTeam ? "Menyimpan..." : "Tambah Pasukan"}
+								</button>
+							</div>
+
+							<div>
+								{teamsLoading ? (
+									<div className="flex justify-center py-12">
+										<ArrowPathIcon className="w-8 h-8 text-gray-400 animate-spin" />
+									</div>
+								) : ticketTeams.length === 0 ? (
+									<div className="text-center py-12 bg-gray-50 dark:bg-gray-900/30 rounded-xl">
+										<UserGroupIcon className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+										<p className="text-gray-500 dark:text-gray-400">Belum ada pasukan ticketing</p>
+									</div>
+								) : (
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+										{ticketTeams.map((team, idx) => (
+											<div key={team.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/30 border border-gray-200/60 dark:border-gray-700/40">
+												<div className="w-8 text-center text-sm font-semibold text-gray-400">{idx + 1}</div>
+												{team.logoUrl ? (
+													<img src={getMediaUrl(team.logoUrl)} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-200 dark:border-gray-700" />
+												) : (
+													<div className="w-12 h-12 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+														<UserGroupIcon className="w-6 h-6 text-gray-400" />
+													</div>
+												)}
+												<div className="flex-1 min-w-0">
+													<p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{team.teamName}</p>
+													{team.schoolName && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{team.schoolName}</p>}
+													<p className="text-xs font-medium text-red-600 dark:text-red-400 mt-1">{team.viewerCount} penonton</p>
+												</div>
+												<button
+													onClick={() => handleDeleteTicketTeam(team)}
+													disabled={team.viewerCount > 0}
+													title={team.viewerCount > 0 ? "Sudah dipilih penonton" : "Hapus"}
+													className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+												>
+													<TrashIcon className="w-5 h-5" />
+												</button>
+											</div>
+										))}
+									</div>
+								)}
+							</div>
+						</div>
+					</div>
 				</div>
 			)}
 
@@ -899,6 +1177,9 @@ const EventTicketing: React.FC = () => {
 												Pembeli
 											</th>
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+												Pasukan
+											</th>
+											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
 												Jumlah
 											</th>
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
@@ -931,6 +1212,18 @@ const EventTicketing: React.FC = () => {
 														<p className="text-xs text-gray-500 dark:text-gray-400">
 															{purchase.buyerEmail}
 														</p>
+													</div>
+												</td>
+												<td className="px-4 py-3">
+													<div className="space-y-1">
+														{purchase.attendees?.slice(0, 3).map((att) => (
+															<p key={att.id} className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-[160px]">
+																{att.ticketTeam?.teamName || "-"}
+															</p>
+														))}
+														{(purchase.attendees?.length || 0) > 3 && (
+															<p className="text-xs text-gray-400">+{(purchase.attendees?.length || 0) - 3} lainnya</p>
+														)}
 													</div>
 												</td>
 												<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
@@ -1176,6 +1469,14 @@ const EventTicketing: React.FC = () => {
 												<span className="text-gray-500 dark:text-gray-400">Jumlah</span>
 												<span className="text-gray-900 dark:text-white">
 													{scanResult.ticket.quantity} tiket
+												</span>
+											</div>
+										)}
+										{scanResult.ticket.ticketTeam && (
+											<div className="flex justify-between gap-3">
+												<span className="text-gray-500 dark:text-gray-400">Pasukan</span>
+												<span className="font-medium text-gray-900 dark:text-white text-right max-w-[60%]">
+													{scanResult.ticket.ticketTeam.teamName}
 												</span>
 											</div>
 										)}

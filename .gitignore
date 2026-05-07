@@ -82,6 +82,7 @@ database-server-download/
 
 # Root SQL files (jika ada)
 *.sql
+!backend/prisma/migrations/20260507120000_add_ticket_teams/migration.sql
 *.dump
 
 # Backend temp files
