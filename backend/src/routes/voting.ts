@@ -22,6 +22,12 @@ const router = Router();
 const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
 const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 const VOTING_ADMIN_FEE_PER_VOTE = 500;
+const VOTING_MAX_ADMIN_FEE = 10000;
+
+const calculateVotingAdminFee = (totalAmount: number, voteCount: number): number => {
+	if (totalAmount <= 0) return 0;
+	return Math.min(VOTING_ADMIN_FEE_PER_VOTE * voteCount, VOTING_MAX_ADMIN_FEE);
+};
 
 const parseIndonesiaDateTime = (value: unknown): Date | null => {
 	if (!value) return null;
@@ -568,7 +574,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 
 		const purchaseCode = generatePurchaseCode();
 		const totalAmount = votingConfig.pricePerVote * voteCount;
-		const adminFee = totalAmount > 0 ? VOTING_ADMIN_FEE_PER_VOTE * voteCount : 0;
+		const adminFee = calculateVotingAdminFee(totalAmount, voteCount);
 
 		const purchase = await prisma.votingPurchase.create({
 			data: {

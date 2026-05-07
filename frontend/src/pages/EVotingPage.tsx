@@ -19,6 +19,12 @@ type VoteCodeInfo = {
 };
 
 const VOTING_ADMIN_FEE_PER_VOTE = 500;
+const VOTING_MAX_ADMIN_FEE = 10000;
+
+const calculateVotingAdminFee = (subtotal: number, voteCount: number) => {
+	if (subtotal <= 0) return 0;
+	return Math.min(VOTING_ADMIN_FEE_PER_VOTE * voteCount, VOTING_MAX_ADMIN_FEE);
+};
 
 const EVotingPage: React.FC = () => {
 	const { user } = useAuth();
@@ -163,7 +169,7 @@ const EVotingPage: React.FC = () => {
 
 	const getVotingOrderSummary = () => {
 		const subtotal = (selectedEvent?.votingConfig?.pricePerVote || 0) * voteCount;
-		const adminFee = subtotal > 0 ? VOTING_ADMIN_FEE_PER_VOTE * voteCount : 0;
+		const adminFee = calculateVotingAdminFee(subtotal, voteCount);
 		return {
 			subtotal,
 			adminFee,
@@ -294,7 +300,7 @@ const EVotingPage: React.FC = () => {
 			});
 
 			const { snapToken, purchaseCode, totalAmount } = res.data.purchase;
-			const adminFee = res.data.purchase.adminFee ?? (totalAmount > 0 ? VOTING_ADMIN_FEE_PER_VOTE * voteCount : 0);
+			const adminFee = res.data.purchase.adminFee ?? calculateVotingAdminFee(totalAmount, voteCount);
 			const paymentAmount = res.data.purchase.paymentAmount ?? totalAmount + adminFee;
 
 			if (snapToken && isSnapReady && totalAmount > 0) {
@@ -933,7 +939,7 @@ const EVotingPage: React.FC = () => {
 										</span>
 									</div>
 									<div className="flex justify-between mt-1">
-										<span className="text-gray-600 dark:text-gray-400">Biaya admin ({formatCurrency(VOTING_ADMIN_FEE_PER_VOTE)} x {voteCount})</span>
+										<span className="text-gray-600 dark:text-gray-400">Biaya admin</span>
 										<span className="font-medium text-gray-900 dark:text-white">
 											{formatCurrency(votingOrderSummary.adminFee)}
 										</span>

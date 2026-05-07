@@ -107,7 +107,15 @@ const paymentLimiter = rateLimit({
 	standardHeaders: true,
 	legacyHeaders: false,
 	// Only count POST/PUT/PATCH/DELETE (write operations), skip GET (browsing)
-	skip: (req) => req.method === 'GET',
+	skip: (req) => {
+		if (req.method === 'GET') return true;
+
+		const isAdminEmailResend =
+			(req.baseUrl === "/api/voting" || req.baseUrl === "/api/tickets") &&
+			req.path.startsWith("/admin/resend-email/");
+
+		return isAdminEmailResend;
+	},
 	message: { error: "Terlalu banyak permintaan transaksi. Silakan tunggu sebentar." },
 });
 
