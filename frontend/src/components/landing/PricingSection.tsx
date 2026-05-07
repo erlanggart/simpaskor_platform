@@ -158,17 +158,17 @@ const PricingSection: React.FC = () => {
 				<div className="pricing-card-shimmer absolute inset-0 pointer-events-none z-10" />
 				<div className="pricing-card-orbit" />
 
-				<div className="relative z-20 flex h-full flex-col p-4 sm:p-5">
-					<div className="mb-4 flex items-start justify-between gap-3">
-						<div className="flex min-w-0 items-center gap-3">
-							<div className="pricing-card-icon flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl">
-								<Icon className="h-5 w-5" />
+				<div className="pricing-card-body relative z-20 flex h-full flex-col">
+					<div className="pricing-card-head flex items-start justify-between gap-2.5">
+						<div className="flex min-w-0 items-center gap-2.5">
+							<div className="pricing-card-icon flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl">
+								<Icon className="h-4 w-4" />
 							</div>
 							<div className="min-w-0">
-								<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+								<p className="pricing-kicker text-gray-400 dark:text-gray-500">
 									{pkg.kicker}
 								</p>
-								<h3 className="mt-1 text-base font-black leading-tight text-gray-900 dark:text-white">
+								<h3 className="pricing-card-title text-gray-900 dark:text-white">
 									{pkg.name}
 								</h3>
 							</div>
@@ -178,7 +178,7 @@ const PricingSection: React.FC = () => {
 						</span>
 					</div>
 
-					<div className="mb-4">
+					<div className="pricing-copy-block">
 						<div className="flex flex-wrap items-end gap-x-2 gap-y-1">
 							<p className={`pricing-price ${priceColorClass[pkg.tier]}`}>
 								{pkg.price}
@@ -189,12 +189,12 @@ const PricingSection: React.FC = () => {
 								</span>
 							)}
 						</div>
-						<p className="mt-2 min-h-[38px] text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+						<p className="pricing-summary text-gray-500 dark:text-gray-400">
 							{pkg.summary}
 						</p>
 					</div>
 
-					<div className="mb-4 grid grid-cols-2 gap-2">
+					<div className="pricing-meta-grid grid grid-cols-2 gap-2">
 						<div className="pricing-meta-pill">
 							<LuBadgeCheck className="h-3.5 w-3.5" />
 							<span>{includedFeatures.length || "Demo"} fitur</span>
@@ -244,14 +244,14 @@ const PricingSection: React.FC = () => {
 	};
 
 	return (
-		<div className="pricing-section relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 py-6">
+		<div className="pricing-section relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 py-3">
 			<div className="pricing-shell">
 				<div className="pricing-header">
 					<div>
-						<p className="text-[10px] md:text-xs tracking-[0.32em] text-orange-500/80 dark:text-orange-300/70 font-black mb-3">
+						<p className="text-[9px] md:text-[10px] tracking-[0.32em] text-orange-500/80 dark:text-orange-300/70 font-black mb-2">
 							DAFTARKAN EVENT ANDA
 						</p>
-						<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-none landing-title-gradient-pricing">
+						<h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-none landing-title-gradient-pricing">
 							Pilih Paket Anda
 						</h1>
 					</div>
@@ -268,7 +268,7 @@ const PricingSection: React.FC = () => {
 						<span>Tanpa biaya awal</span>
 						<p>Paket ringan untuk publikasi, tiket, voting, dan kombinasi keduanya.</p>
 					</div>
-					<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4">
+					<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 lg:gap-3">
 						{freePackages.map((pkg, i) => renderCard(pkg, i))}
 					</div>
 				</div>
@@ -278,7 +278,7 @@ const PricingSection: React.FC = () => {
 						<span>Paket operasional</span>
 						<p>Untuk event yang butuh penilaian, rekap, pendampingan, dan perangkat lapangan.</p>
 					</div>
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 lg:gap-3">
 						{paidPackages.map((pkg, i) => renderCard(pkg, freePackages.length + i))}
 					</div>
 				</div>
