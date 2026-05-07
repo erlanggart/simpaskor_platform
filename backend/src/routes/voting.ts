@@ -21,6 +21,7 @@ const router = Router();
 
 const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
 const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+const VOTING_ADMIN_FEE_PER_VOTE = 500;
 
 const parseIndonesiaDateTime = (value: unknown): Date | null => {
 	if (!value) return null;
@@ -101,7 +102,7 @@ const getVotingPurchasePaymentMessage = (status: string | undefined | null): str
 const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 	const purchase = await prisma.votingPurchase.findUnique({
 		where: { id: purchaseId },
-		include: { event: { select: { title: true, startDate: true, endDate: true, venue: true, city: true } } },
+		include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
 	});
 
 	if (!canRefreshVotingPurchasePaymentStatus(purchase)) {
@@ -119,7 +120,7 @@ const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 				paymentType: txStatus.payment_type,
 				paidAt: new Date(),
 			},
-			include: { event: { select: { title: true, startDate: true, endDate: true, venue: true, city: true } } },
+			include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
 		});
 	}
 
@@ -134,7 +135,7 @@ const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 				status: paymentResult === "expired" ? "EXPIRED" : "CANCELLED",
 				paymentType: txStatus.payment_type,
 			},
-			include: { event: { select: { title: true, startDate: true, endDate: true, venue: true, city: true } } },
+			include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
 		});
 	}
 
@@ -510,10 +511,21 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 
 			// usedVotes already incremented atomically above
 
-			return vote;
+			const updatedPurchase = await tx.votingPurchase.findUnique({
+				where: { id: purchase.id },
+				select: { voteCount: true, usedVotes: true },
+			});
+
+			return { vote, purchase: updatedPurchase };
 		});
 
-		res.status(201).json({ message: "Vote berhasil!", vote: result });
+		res.status(201).json({
+			message: "Vote berhasil!",
+			vote: result.vote,
+			remainingVotes: result.purchase ? Math.max(0, result.purchase.voteCount - result.purchase.usedVotes) : 0,
+			voteCount: result.purchase?.voteCount ?? purchase.voteCount,
+			usedVotes: result.purchase?.usedVotes ?? purchase.usedVotes + 1,
+		});
 	} catch (error: any) {
 		if (error.message?.includes("Semua vote")) {
 			return res.status(400).json({ error: error.message });
@@ -556,6 +568,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 
 		const purchaseCode = generatePurchaseCode();
 		const totalAmount = votingConfig.pricePerVote * voteCount;
+		const adminFee = totalAmount > 0 ? VOTING_ADMIN_FEE_PER_VOTE * voteCount : 0;
 
 		const purchase = await prisma.votingPurchase.create({
 			data: {
@@ -583,7 +596,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					customerName: buyerName,
 					customerEmail: buyerEmail,
 					customerPhone: buyerPhone,
-					adminFee: 500,
+					adminFee,
 					itemDetails: [
 						{
 							id: resolvedEventId,
@@ -606,11 +619,65 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 
 		res.status(201).json({
 			message: totalAmount === 0 ? "Vote berhasil didapatkan!" : "Pesanan vote berhasil dibuat!",
-			purchase: { ...purchase, snapToken, midtransOrderId },
+			purchase: { ...purchase, snapToken, midtransOrderId, adminFee, paymentAmount: totalAmount + adminFee },
 		});
 	} catch (error) {
 		console.error("Error purchasing votes:", error);
 		res.status(500).json({ error: "Gagal memesan vote" });
+	}
+});
+
+// POST /api/voting/code-status - Public check for a purchased vote code
+router.post("/code-status", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const { purchaseCode, eventId } = req.body;
+		const normalizedPurchaseCode = normalizePurchaseCode(purchaseCode);
+
+		if (!normalizedPurchaseCode) {
+			return res.status(400).json({ error: "Kode pembelian wajib diisi" });
+		}
+
+		let purchase = await prisma.votingPurchase.findUnique({
+			where: { purchaseCode: normalizedPurchaseCode },
+			include: { event: { select: { id: true, title: true } } },
+		});
+
+		if (!purchase) {
+			return res.status(404).json({ error: "Kode pembelian tidak valid" });
+		}
+
+		if (canRefreshVotingPurchasePaymentStatus(purchase)) {
+			try {
+				const refreshedPurchase = await refreshVotingPurchasePaymentStatus(purchase.id);
+				if (refreshedPurchase) purchase = refreshedPurchase;
+			} catch (midtransError) {
+				console.error("Error refreshing voting payment status before code check:", midtransError);
+			}
+		}
+
+		const resolvedEventId = eventId ? await resolveEventId(String(eventId)) : null;
+		if (resolvedEventId && purchase.eventId !== resolvedEventId) {
+			return res.status(400).json({ error: "Kode pembelian tidak valid untuk event ini" });
+		}
+
+		const remainingVotes = Math.max(0, purchase.voteCount - purchase.usedVotes);
+		res.json({
+			purchaseCode: purchase.purchaseCode,
+			eventId: purchase.eventId,
+			eventTitle: purchase.event.title,
+			status: purchase.status,
+			voteCount: purchase.voteCount,
+			usedVotes: purchase.usedVotes,
+			remainingVotes,
+			message: purchase.status === "PAID"
+				? remainingVotes > 0
+					? "Kode vote aktif"
+					: "Semua vote pada kode pembelian ini sudah digunakan"
+				: getVotingPurchasePaymentMessage(purchase.status),
+		});
+	} catch (error) {
+		console.error("Error checking vote code:", error);
+		res.status(500).json({ error: "Gagal memeriksa kode vote" });
 	}
 });
 
