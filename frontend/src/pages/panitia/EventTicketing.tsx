@@ -20,6 +20,7 @@ import {
 	PlusIcon,
 	TrashIcon,
 	PhotoIcon,
+	PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
@@ -193,7 +194,7 @@ const EventTicketing: React.FC = () => {
 	};
 
 	useEffect(() => {
-		if ((activeTab === "teams" || activeTab === "dashboard" || activeTab === "config") && eventId) {
+		if ((activeTab === "teams" || activeTab === "dashboard" || activeTab === "config" || activeTab === "purchases") && eventId) {
 			fetchTicketTeams();
 		}
 	}, [activeTab, eventId]);
@@ -495,6 +496,124 @@ const EventTicketing: React.FC = () => {
 		}
 	};
 
+	const handleEditPurchaseTeams = async (purchase: TicketPurchase) => {
+		if (purchase.status === "CANCELLED" || purchase.status === "EXPIRED") {
+			Swal.fire("Tidak Bisa Diubah", "Tiket dibatalkan atau kedaluwarsa tidak bisa diubah pilihan pasukannya.", "info");
+			return;
+		}
+
+		let teams = ticketTeams;
+		if (teams.length === 0 && eventId) {
+			try {
+				const res = await api.get(`/tickets/admin/event/${eventId}/teams`);
+				teams = res.data || [];
+				setTicketTeams(teams);
+			} catch {
+				teams = [];
+			}
+		}
+
+		if (teams.length === 0) {
+			Swal.fire("Belum Ada Pasukan", "Tambahkan pasukan ticketing terlebih dahulu sebelum mengedit pilihan pembelian.", "warning");
+			return;
+		}
+
+		const existingAttendees = purchase.attendees || [];
+		const rows = existingAttendees.length > 0
+			? existingAttendees.map((att, idx) => ({
+				attendeeId: att.id,
+				label: att.attendeeName || `Tiket #${idx + 1}`,
+				subtitle: att.ticketCode || att.attendeeEmail || purchase.ticketCode,
+				ticketTeamId: att.ticketTeamId || "",
+			}))
+			: Array.from({ length: Math.max(1, purchase.quantity || 1) }, (_, idx) => ({
+				attendeeId: "",
+				label: purchase.quantity > 1 ? `${purchase.buyerName} #${idx + 1}` : purchase.buyerName,
+				subtitle: idx === 0 ? purchase.ticketCode : `Tiket legacy #${idx + 1}`,
+				ticketTeamId: "",
+			}));
+
+		const buildOptions = (selectedTeamId: string) => {
+			return [
+				`<option value="">Pilih pasukan</option>`,
+				...teams.map((team) => {
+					const label = team.schoolName ? `${team.teamName} - ${team.schoolName}` : team.teamName;
+					const selected = selectedTeamId === team.id ? " selected" : "";
+					return `<option value="${escapeHtml(team.id)}"${selected}>${escapeHtml(label)}</option>`;
+				}),
+			].join("");
+		};
+
+		const rowsHtml = rows.map((row, idx) => `
+			<div style="margin-bottom:12px;text-align:left;">
+				<label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:4px;">
+					Tiket #${idx + 1}
+				</label>
+				<div style="font-size:12px;color:#6b7280;margin-bottom:6px;">
+					${escapeHtml(row.label)} <span style="color:#9ca3af;">${escapeHtml(row.subtitle)}</span>
+				</div>
+				<select id="ticket-team-assignment-${idx}" class="swal2-select" style="display:block;width:100%;margin:0;height:42px;font-size:14px;">
+					${buildOptions(row.ticketTeamId)}
+				</select>
+			</div>
+		`).join("");
+
+		const result = await Swal.fire({
+			title: "Edit Pilihan Pasukan",
+			html: `
+				<div style="text-align:left;">
+					<p style="font-size:13px;color:#6b7280;margin:0 0 12px;">
+						Tentukan pasukan yang ditonton untuk pembelian ${escapeHtml(purchase.ticketCode)}.
+					</p>
+					${rowsHtml}
+				</div>
+			`,
+			showCancelButton: true,
+			confirmButtonText: "Simpan",
+			cancelButtonText: "Batal",
+			confirmButtonColor: "#dc2626",
+			focusConfirm: false,
+			preConfirm: () => {
+				const assignments = rows.map((row, idx) => {
+					const select = document.getElementById(`ticket-team-assignment-${idx}`) as HTMLSelectElement | null;
+					return {
+						attendeeId: row.attendeeId,
+						ticketTeamId: select?.value || "",
+					};
+				});
+
+				if (assignments.some((item) => !item.ticketTeamId)) {
+					Swal.showValidationMessage("Semua tiket wajib memilih pasukan");
+					return false;
+				}
+
+				return assignments;
+			},
+		});
+
+		if (!result.isConfirmed || !result.value) return;
+
+		try {
+			const res = await api.patch(`/tickets/admin/purchases/${purchase.id}/attendees`, {
+				assignments: result.value,
+			});
+
+			setPurchases((prev) => prev.map((item) => item.id === purchase.id ? res.data : item));
+			fetchPurchases();
+			fetchTicketTeams();
+
+			Swal.fire({
+				title: "Berhasil!",
+				text: "Pilihan pasukan tiket berhasil diperbarui",
+				icon: "success",
+				timer: 1500,
+				showConfirmButton: false,
+			});
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengubah pilihan pasukan tiket", "error");
+		}
+	};
+
 	const formatDate = (date: string | null) => {
 		if (!date) return "-";
 		return new Date(date).toLocaleDateString("id-ID", {
@@ -517,6 +636,15 @@ const EventTicketing: React.FC = () => {
 	const getMediaUrl = (url: string | null) => {
 		if (!url) return "";
 		return url.startsWith("http") ? url : `${appConfig.api.backendUrl}${url}`;
+	};
+
+	const escapeHtml = (value: string | number | null | undefined) => {
+		return String(value ?? "")
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&#039;");
 	};
 
 	const formatDateForInput = (date: string | null) => {
@@ -1216,11 +1344,22 @@ const EventTicketing: React.FC = () => {
 												</td>
 												<td className="px-4 py-3">
 													<div className="space-y-1">
-														{purchase.attendees?.slice(0, 3).map((att) => (
-															<p key={att.id} className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-[160px]">
-																{att.ticketTeam?.teamName || "-"}
+														{(purchase.attendees?.length || 0) === 0 ? (
+															<p className="text-xs text-amber-600 dark:text-amber-400 truncate max-w-[160px]">
+																Belum dipilih
 															</p>
-														))}
+														) : (
+															purchase.attendees?.slice(0, 3).map((att) => (
+																<p
+																	key={att.id}
+																	className={`text-xs truncate max-w-[160px] ${
+																		att.ticketTeam ? "text-gray-600 dark:text-gray-300" : "text-amber-600 dark:text-amber-400"
+																	}`}
+																>
+																	{att.ticketTeam?.teamName || "Belum dipilih"}
+																</p>
+															))
+														)}
 														{(purchase.attendees?.length || 0) > 3 && (
 															<p className="text-xs text-gray-400">+{(purchase.attendees?.length || 0) - 3} lainnya</p>
 														)}
@@ -1242,6 +1381,15 @@ const EventTicketing: React.FC = () => {
 												</td>
 												<td className="px-4 py-3">
 													<div className="flex items-center gap-1">
+														{purchase.status !== "CANCELLED" && purchase.status !== "EXPIRED" && (
+															<button
+																onClick={() => handleEditPurchaseTeams(purchase)}
+																title="Edit Pilihan Pasukan"
+																className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
+															>
+																<PencilSquareIcon className="w-5 h-5" />
+															</button>
+														)}
 														{(purchase.status === "PAID" || purchase.status === "USED") && (
 															<button
 																onClick={() => handleResendTicketEmail(purchase.id, purchase.buyerEmail)}

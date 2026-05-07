@@ -17,6 +17,7 @@ import { sendTicketEmailFromServer } from "../lib/email";
 import { uploadTicketTeamLogo } from "../middleware/upload";
 
 const router = Router();
+type TicketTeamAssignmentInput = { attendeeId: string; ticketTeamId: string };
 
 // Resolve event slug or ID to actual event ID
 const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string | null> => {
@@ -1159,6 +1160,106 @@ router.patch(
 		} catch (error) {
 			console.error("Error updating ticket status:", error);
 			res.status(500).json({ error: "Gagal mengubah status tiket" });
+		}
+	}
+);
+
+// PATCH /api/tickets/admin/purchases/:purchaseId/attendees - Assign or update watched team per ticket
+router.patch(
+	"/admin/purchases/:purchaseId/attendees",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const rawAssignments = Array.isArray(req.body.assignments) ? req.body.assignments : [];
+			const fallbackTicketTeamId = typeof req.body.ticketTeamId === "string" ? req.body.ticketTeamId.trim() : "";
+
+			const purchase = await prisma.ticketPurchase.findUnique({
+				where: { id: req.params.purchaseId },
+				include: { attendees: true },
+			});
+
+			if (!purchase) {
+				return res.status(404).json({ error: "Pembelian tiket tidak ditemukan" });
+			}
+
+			if (!(await verifyEventOwnership(req, purchase.eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
+			if (purchase.status === "CANCELLED" || purchase.status === "EXPIRED") {
+				return res.status(400).json({ error: "Pilihan pasukan tidak bisa diubah untuk tiket dibatalkan atau kedaluwarsa" });
+			}
+
+			const assignments: TicketTeamAssignmentInput[] = rawAssignments.length > 0
+				? rawAssignments.map((item: any) => ({
+					attendeeId: typeof item.attendeeId === "string" ? item.attendeeId.trim() : "",
+					ticketTeamId: typeof item.ticketTeamId === "string" ? item.ticketTeamId.trim() : "",
+				}))
+				: fallbackTicketTeamId
+					? Array.from({ length: purchase.attendees.length || purchase.quantity }, () => ({ attendeeId: "", ticketTeamId: fallbackTicketTeamId }))
+					: [];
+
+			if (assignments.length === 0 || assignments.some((item) => !item.ticketTeamId)) {
+				return res.status(400).json({ error: "Pilihan pasukan wajib diisi" });
+			}
+
+			const uniqueTeamIds = Array.from(new Set(assignments.map((item) => item.ticketTeamId)));
+			const validTeamCount = await prisma.ticketTeam.count({
+				where: { id: { in: uniqueTeamIds }, eventId: purchase.eventId },
+			});
+
+			if (validTeamCount !== uniqueTeamIds.length) {
+				return res.status(400).json({ error: "Pilihan pasukan tidak valid untuk event ini" });
+			}
+
+			if (purchase.attendees.length > 0) {
+				const attendeeIds = new Set(purchase.attendees.map((att) => att.id));
+				if (assignments.some((item) => !item.attendeeId || !attendeeIds.has(item.attendeeId))) {
+					return res.status(400).json({ error: "Data tiket peserta tidak valid" });
+				}
+
+				await prisma.$transaction(async (tx) => {
+					for (const assignment of assignments) {
+						await tx.ticketAttendee.update({
+							where: { id: assignment.attendeeId },
+							data: { ticketTeamId: assignment.ticketTeamId },
+						});
+					}
+				});
+			} else {
+				if (assignments.length !== purchase.quantity) {
+					return res.status(400).json({ error: `Tentukan pasukan untuk ${purchase.quantity} tiket` });
+				}
+
+				await prisma.$transaction(async (tx) => {
+					for (let i = 0; i < assignments.length; i++) {
+						const assignment = assignments[i]!;
+						await tx.ticketAttendee.create({
+							data: {
+								purchaseId: purchase.id,
+								ticketTeamId: assignment.ticketTeamId,
+								attendeeName: assignments.length === 1 ? purchase.buyerName : `${purchase.buyerName} #${i + 1}`,
+								attendeeEmail: purchase.buyerEmail,
+								attendeePhone: purchase.buyerPhone,
+								ticketCode: generateTicketCode(),
+								status: purchase.status,
+								usedAt: purchase.status === "USED" ? purchase.usedAt || new Date() : null,
+							},
+						});
+					}
+				});
+			}
+
+			const updated = await prisma.ticketPurchase.findUnique({
+				where: { id: purchase.id },
+				include: { attendees: { include: { ticketTeam: true } } },
+			});
+
+			res.json(updated);
+		} catch (error) {
+			console.error("Error updating ticket attendee teams:", error);
+			res.status(500).json({ error: "Gagal mengubah pilihan pasukan tiket" });
 		}
 	}
 );
