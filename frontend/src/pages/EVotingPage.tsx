@@ -436,6 +436,25 @@ const EVotingPage: React.FC = () => {
 		return `${config.api.backendUrl}${imageUrl}`;
 	};
 
+	const openNomineePhotoPreview = (nominee: { nomineeName: string; nomineeSubtitle?: string | null; nomineePhoto?: string | null }) => {
+		if (!nominee.nomineePhoto) return;
+
+		Swal.fire({
+			title: nominee.nomineeName,
+			text: nominee.nomineeSubtitle || undefined,
+			imageUrl: getImageUrl(nominee.nomineePhoto),
+			imageAlt: nominee.nomineeName,
+			showCloseButton: true,
+			confirmButtonText: "Tutup",
+			confirmButtonColor: "#dc2626",
+			width: "min(92vw, 720px)",
+			customClass: {
+				popup: "voting-photo-preview-popup",
+				image: "voting-photo-preview-image",
+			},
+		});
+	};
+
 	const getVotingStatus = (event: VotingEvent) => {
 		if (!event.votingConfig) return { text: "Tidak tersedia", color: "gray" };
 		const now = new Date();
@@ -639,8 +658,8 @@ const EVotingPage: React.FC = () => {
 					{/* Nominees podium */}
 					{sortedNominees.length > 0 ? (
 						<div className="space-y-8">
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 md:items-end">
-								{podiumOrder.map((nominee) => {
+							<div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-5 items-end">
+								{podiumOrder.map((nominee, podiumIdx) => {
 									const rank = sortedNominees.findIndex((item) => item.id === nominee.id) + 1;
 									const isVoted = votedNominees.has(nominee.id);
 									const maxVotes = sortedNominees[0]?.voteCount || 1;
@@ -648,10 +667,10 @@ const EVotingPage: React.FC = () => {
 									const isFirst = rank === 1;
 									const podiumClass =
 										rank === 1
-											? "md:order-2 md:-mt-8"
+											? "order-2 -mt-3 sm:-mt-5 md:-mt-8"
 											: rank === 2
-												? "md:order-1"
-												: "md:order-3";
+												? "order-1"
+												: "order-3";
 									const rankTheme =
 										rank === 1
 											? "from-yellow-400 via-amber-400 to-orange-500 text-yellow-950"
@@ -662,22 +681,32 @@ const EVotingPage: React.FC = () => {
 									return (
 										<div
 											key={nominee.id}
-											className={`voting-podium-card ${podiumClass} ${isFirst ? "voting-podium-winner" : ""} ${
+											className={`voting-podium-card ${podiumClass} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${isFirst ? "voting-podium-winner" : ""} ${
 												isVoted ? "ring-2 ring-green-400/70" : ""
 											}`}
+											style={{ animationDelay: `${podiumIdx * 90}ms` }}
+											onClick={() => openNomineePhotoPreview(nominee)}
+											onKeyDown={(event) => {
+												if ((event.key === "Enter" || event.key === " ") && nominee.nomineePhoto) {
+													event.preventDefault();
+													openNomineePhotoPreview(nominee);
+												}
+											}}
+											tabIndex={nominee.nomineePhoto ? 0 : undefined}
+											aria-label={nominee.nomineePhoto ? `Preview foto ${nominee.nomineeName}` : undefined}
 										>
 											<div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${rankTheme}`} />
-											<div className="relative p-4">
-												<div className="flex items-center justify-between mb-3">
-													<div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r ${rankTheme} text-xs font-black shadow-lg`}>
-														{rank === 1 ? <LuCrown className="w-4 h-4" /> : <LuMedal className="w-4 h-4" />}
-														Juara {rank}
+											<div className="relative p-2 sm:p-3 md:p-4">
+												<div className="flex items-center justify-between gap-1.5 mb-2 sm:mb-3">
+													<div className={`inline-flex min-w-0 items-center gap-1 px-2 sm:px-3 py-1 rounded-full bg-gradient-to-r ${rankTheme} text-[10px] sm:text-xs font-black shadow-lg`}>
+														{rank === 1 ? <LuCrown className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> : <LuMedal className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />}
+														<span className="hidden min-[420px]:inline">Juara </span>{rank}
 													</div>
-													<span className="text-xs font-bold text-red-600 dark:text-red-400">{nominee.voteCount} vote</span>
+													<span className="text-[10px] sm:text-xs font-bold text-red-600 dark:text-red-400 whitespace-nowrap">{nominee.voteCount} vote</span>
 												</div>
 
-												<div className={`relative mx-auto overflow-hidden rounded-2xl border-4 ${
-													rank === 1 ? "h-64 border-yellow-300 shadow-yellow-300/30" : "h-56 border-white/70 dark:border-white/10"
+												<div className={`voting-podium-photo relative mx-auto overflow-hidden rounded-xl sm:rounded-2xl border-2 sm:border-4 ${
+													rank === 1 ? "h-36 sm:h-48 md:h-64 border-yellow-300 shadow-yellow-300/30" : "h-32 sm:h-44 md:h-56 border-white/70 dark:border-white/10"
 												} shadow-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10`}>
 													{nominee.nomineePhoto ? (
 														<img
@@ -690,29 +719,30 @@ const EVotingPage: React.FC = () => {
 															<LuUser className="w-16 h-16 text-gray-400 dark:text-gray-500" />
 														</div>
 													)}
-													<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-4 pt-12">
-														<h3 className="text-white font-black text-lg leading-tight truncate">{nominee.nomineeName}</h3>
+													<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2 sm:px-3 md:px-4 pb-2 sm:pb-3 md:pb-4 pt-10 md:pt-12">
+														<h3 className="text-white font-black text-[11px] sm:text-sm md:text-lg leading-tight truncate">{nominee.nomineeName}</h3>
 														{nominee.nomineeSubtitle && (
-															<p className="text-white/75 text-xs truncate mt-0.5">{nominee.nomineeSubtitle}</p>
+															<p className="text-white/75 text-[10px] sm:text-xs truncate mt-0.5">{nominee.nomineeSubtitle}</p>
 														)}
 													</div>
 												</div>
 
-												<div className="mt-4">
-													<div className="h-2 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
+												<div className="mt-3 md:mt-4">
+													<div className="h-1.5 sm:h-2 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
 														<div
-															className={`h-full rounded-full bg-gradient-to-r ${rankTheme} transition-all duration-700`}
+															className={`voting-podium-progress h-full rounded-full bg-gradient-to-r ${rankTheme} transition-all duration-700`}
 															style={{ width: `${pct}%` }}
 														/>
 													</div>
 												</div>
 
-												<div className={`mt-4 rounded-t-xl bg-gradient-to-r ${rankTheme} ${isFirst ? "h-16" : "h-12"} flex items-center justify-center shadow-lg`}>
-													<span className="text-3xl font-black">#{rank}</span>
+												<div className={`mt-3 md:mt-4 rounded-t-lg sm:rounded-t-xl bg-gradient-to-r ${rankTheme} ${isFirst ? "h-11 sm:h-14 md:h-16" : "h-9 sm:h-11 md:h-12"} flex items-center justify-center shadow-lg`}>
+													<span className="text-xl sm:text-2xl md:text-3xl font-black">#{rank}</span>
 												</div>
 
 												<button
-													onClick={() => {
+													onClick={(event) => {
+														event.stopPropagation();
 														if (selectedEvent.votingConfig?.isPaid) {
 															handlePaidVote(currentCategory!.id, nominee.id);
 														} else {
@@ -720,25 +750,25 @@ const EVotingPage: React.FC = () => {
 														}
 													}}
 													disabled={voting || isVoted || !isVotingOpen(selectedEvent)}
-													className={`mt-4 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold transition-colors ${
+													className={`mt-3 md:mt-4 w-full py-2 sm:py-2.5 rounded-lg sm:rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-sm font-semibold transition-colors ${
 														isVoted
 															? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
 															: !isVotingOpen(selectedEvent)
 																? "bg-gray-100 text-gray-400 dark:bg-white/[0.04] dark:text-gray-600 cursor-not-allowed"
 																: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
 													}`}
-												>
-													{isVoted ? (
-														<>
-															<LuCircleCheck className="w-4 h-4" />
-															Sudah Vote
-														</>
-													) : !isVotingOpen(selectedEvent) ? (
-														getVotingStatus(selectedEvent).color === "amber" ? "Belum Dibuka" : "Sudah Ditutup"
-													) : (
-														<>
-															<LuThumbsUp className="w-4 h-4" />
-															Vote
+													>
+														{isVoted ? (
+															<>
+																<LuCircleCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+																Sudah Vote
+															</>
+														) : !isVotingOpen(selectedEvent) ? (
+															getVotingStatus(selectedEvent).color === "amber" ? "Belum Dibuka" : "Sudah Ditutup"
+														) : (
+															<>
+																<LuThumbsUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+																Vote
 														</>
 													)}
 												</button>
@@ -763,7 +793,16 @@ const EVotingPage: React.FC = () => {
 													key={nominee.id}
 													className={`bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border overflow-hidden transition-all ${
 														isVoted ? "border-red-500 ring-1 ring-red-500" : "border-gray-200/50 dark:border-white/[0.06]"
-													}`}
+													} ${nominee.nomineePhoto ? "cursor-zoom-in hover:shadow-lg hover:-translate-y-0.5" : ""}`}
+													onClick={() => openNomineePhotoPreview(nominee)}
+													onKeyDown={(event) => {
+														if ((event.key === "Enter" || event.key === " ") && nominee.nomineePhoto) {
+															event.preventDefault();
+															openNomineePhotoPreview(nominee);
+														}
+													}}
+													tabIndex={nominee.nomineePhoto ? 0 : undefined}
+													aria-label={nominee.nomineePhoto ? `Preview foto ${nominee.nomineeName}` : undefined}
 												>
 													<div className="flex gap-3 p-3">
 														<div className="relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10">
@@ -797,7 +836,8 @@ const EVotingPage: React.FC = () => {
 																</div>
 															</div>
 															<button
-																onClick={() => {
+																onClick={(event) => {
+																	event.stopPropagation();
 																	if (selectedEvent.votingConfig?.isPaid) {
 																		handlePaidVote(currentCategory!.id, nominee.id);
 																	} else {

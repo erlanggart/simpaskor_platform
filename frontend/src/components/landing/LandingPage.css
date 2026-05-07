@@ -1443,12 +1443,42 @@ html:not(.dark) .section-icon-glow-blue::before {
 .voting-podium-card {
 	position: relative;
 	overflow: hidden;
-	border-radius: 1.5rem;
+	border-radius: 1rem;
 	border: 1px solid rgba(229, 231, 235, 0.7);
 	background: rgba(255, 255, 255, 0.82);
 	box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
 	backdrop-filter: blur(18px);
-	animation: votingPodiumRise 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+	transform-origin: center bottom;
+	animation: votingPodiumRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+	transition:
+		transform 220ms ease,
+		box-shadow 220ms ease,
+		border-color 220ms ease;
+	will-change: transform;
+}
+
+@media (min-width: 640px) {
+	.voting-podium-card {
+		border-radius: 1.5rem;
+	}
+}
+
+.voting-podium-card::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background:
+		linear-gradient(115deg, transparent 0%, transparent 37%, rgba(255, 255, 255, 0.48) 48%, transparent 59%, transparent 100%);
+	transform: translateX(-130%);
+	animation: votingCardSheen 4.8s ease-in-out infinite;
+	animation-delay: inherit;
+}
+
+.voting-podium-card:hover {
+	transform: translateY(-5px) scale(1.015);
+	border-color: rgba(248, 113, 113, 0.35);
+	box-shadow: 0 24px 60px rgba(15, 23, 42, 0.13);
 }
 
 .dark .voting-podium-card {
@@ -1459,18 +1489,69 @@ html:not(.dark) .section-icon-glow-blue::before {
 
 .voting-podium-winner {
 	animation:
-		votingPodiumRise 0.65s cubic-bezier(0.22, 1, 0.36, 1) both,
+		votingPodiumRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both,
 		votingWinnerGlow 2.8s ease-in-out infinite;
+}
+
+.voting-podium-winner::after {
+	content: "";
+	position: absolute;
+	left: 14%;
+	right: 14%;
+	top: -18%;
+	height: 36%;
+	pointer-events: none;
+	background: radial-gradient(ellipse at center, rgba(250, 204, 21, 0.34), transparent 68%);
+	filter: blur(2px);
+	animation: votingWinnerHalo 2.8s ease-in-out infinite;
+}
+
+.voting-podium-photo img {
+	transform: scale(1.01);
+	transition: transform 420ms ease;
+}
+
+.voting-podium-card:hover .voting-podium-photo img {
+	transform: scale(1.07);
+}
+
+.voting-podium-progress {
+	position: relative;
+	overflow: hidden;
+}
+
+.voting-podium-progress::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+	transform: translateX(-120%);
+	animation: votingProgressShine 2.4s ease-in-out infinite;
 }
 
 @keyframes votingPodiumRise {
 	0% {
 		opacity: 0;
-		transform: translateY(28px) scale(0.96);
+		transform: translateY(34px) scale(0.9) rotateX(8deg);
+	}
+	65% {
+		opacity: 1;
+		transform: translateY(-6px) scale(1.015) rotateX(0);
 	}
 	100% {
 		opacity: 1;
 		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes votingCardSheen {
+	0%,
+	58% {
+		transform: translateX(-130%);
+	}
+	75%,
+	100% {
+		transform: translateX(130%);
 	}
 }
 
@@ -1482,6 +1563,54 @@ html:not(.dark) .section-icon-glow-blue::before {
 	50% {
 		box-shadow: 0 22px 60px rgba(245, 158, 11, 0.34);
 	}
+}
+
+@keyframes votingWinnerHalo {
+	0%,
+	100% {
+		opacity: 0.55;
+		transform: translateY(0) scaleX(0.9);
+	}
+	50% {
+		opacity: 1;
+		transform: translateY(8px) scaleX(1.08);
+	}
+}
+
+@keyframes votingProgressShine {
+	0%,
+	35% {
+		transform: translateX(-120%);
+	}
+	70%,
+	100% {
+		transform: translateX(120%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.voting-podium-card,
+	.voting-podium-card::before,
+	.voting-podium-winner,
+	.voting-podium-winner::after,
+	.voting-podium-photo img,
+	.voting-podium-progress::after {
+		animation: none;
+		transition: none;
+	}
+}
+
+.voting-photo-preview-popup {
+	border-radius: 1.25rem;
+}
+
+.voting-photo-preview-image {
+	width: auto;
+	max-width: 100%;
+	max-height: min(68vh, 620px);
+	object-fit: contain;
+	border-radius: 1rem;
+	box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
 }
 
 /* ===== Scroll indicator ===== */
