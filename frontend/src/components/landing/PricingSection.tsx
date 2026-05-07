@@ -33,7 +33,7 @@ const PricingSection: React.FC = () => {
 						<div className="pricing-header-copy">
 							<div className="pricing-header-line" />
 							<p>
-								Geser untuk melihat pilihan paket. Tampilan awal dibuat ringkas agar landing tetap bersih.
+								Geser untuk melihat pilihan paket.
 							</p>
 						</div>
 						<div className="pricing-carousel-actions">
