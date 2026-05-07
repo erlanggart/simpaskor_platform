@@ -6,6 +6,7 @@ import { usePayment } from "../hooks/usePayment";
 import { VotingEvent } from "../types/voting";
 import { LuCalendar, LuMapPin, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuThumbsUp, LuCircleCheck, LuCrown, LuMedal } from "react-icons/lu";
 import Swal from "sweetalert2";
+import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
 
 type VoteCodeInfo = {
 	purchaseCode: string;
@@ -287,6 +288,10 @@ const EVotingPage: React.FC = () => {
 	const handlePurchaseVotes = async () => {
 		if (!selectedEvent || !buyerName.trim() || !buyerEmail.trim()) {
 			Swal.fire("Error", "Nama dan email wajib diisi", "error");
+			return;
+		}
+		if (!isGmailEmail(buyerEmail)) {
+			Swal.fire("Error", `Email pembeli ${GMAIL_ONLY_EMAIL_MESSAGE}`, "error");
 			return;
 		}
 

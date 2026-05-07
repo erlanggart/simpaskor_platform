@@ -16,6 +16,7 @@ import api from "../../utils/api";
 import { useAuth } from "../../hooks/useAuth";
 import { usePayment } from "../../hooks/usePayment";
 import Swal from "sweetalert2";
+import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy";
 
 interface SchoolCategoryLimit {
 	id: string;
@@ -1035,6 +1036,11 @@ const EventRegister: React.FC = () => {
 		}
 
 		if (!validateForm()) return;
+
+		if (event.registrationFee && event.registrationFee > 0 && !isGmailEmail(user?.email || "")) {
+			Swal.fire("Error", `Email akun ${GMAIL_ONLY_EMAIL_MESSAGE} untuk pembayaran registrasi`, "error");
+			return;
+		}
 
 		setSubmitting(true);
 		setUploadProgress(null);

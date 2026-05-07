@@ -12,9 +12,11 @@ import { LuMedal, LuTrophy, LuCheck, LuX, LuMegaphone, LuTicket, LuThumbsUp, LuT
 import { Step4Props, PackageTier, EventPaymentData } from "../../types/eventWizard";
 import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
+import { useAuth } from "../../hooks/useAuth";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
 import { getPackagePriceLabel, getRevenueShareLabel, getRevenueShareShortLabel, hasNoUpfrontPayment, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 import { buildDPWhatsAppUrl } from "../../utils/dpWhatsApp";
+import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy";
 
 interface PackageOption {
 	tier: PackageTier;
@@ -151,6 +153,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 	);
 	const [paymentMode, setPaymentMode] = useState<"full" | "dp" | null>(null);
 	const { pay, isSnapReady } = usePayment();
+	const { user } = useAuth();
 	const navigate = useNavigate();
 
 	// Check payment status on mount
@@ -177,6 +180,11 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 
 	const handlePayment = async () => {
 		if (!selectedPackage || !eventId || isDpPending) return;
+		const selectedPrice = packages.find((pkg) => pkg.tier === selectedPackage)?.price || 0;
+		if (selectedPrice > 0 && !isGmailEmail(user?.email || "")) {
+			showError(`Email akun ${GMAIL_ONLY_EMAIL_MESSAGE} untuk pembayaran event`);
+			return;
+		}
 
 		setIsProcessing(true);
 		try {
@@ -278,6 +286,11 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 
 	const handleDP = async () => {
 		if (!selectedPackage || !eventId || isDpPending) return;
+		const selectedPrice = packages.find((pkg) => pkg.tier === selectedPackage)?.price || 0;
+		if (selectedPrice > 0 && !isGmailEmail(user?.email || "")) {
+			showError(`Email akun ${GMAIL_ONLY_EMAIL_MESSAGE} untuk pembayaran event`);
+			return;
+		}
 
 		setIsProcessing(true);
 		try {

@@ -7,6 +7,7 @@ import { TicketedEvent, TicketTeam } from "../types/ticket";
 import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload, LuSend, LuPlus, LuTrash2 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
 
 const ETicketingPage: React.FC = () => {
 	const { user } = useAuth();
@@ -221,9 +222,8 @@ const ETicketingPage: React.FC = () => {
 			Swal.fire("Error", "Masukkan email tujuan", "error");
 			return;
 		}
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(sendEmail.trim())) {
-			Swal.fire("Error", "Format email tidak valid", "error");
+		if (!isGmailEmail(sendEmail)) {
+			Swal.fire("Error", GMAIL_ONLY_EMAIL_MESSAGE, "error");
 			return;
 		}
 
@@ -248,6 +248,10 @@ const ETicketingPage: React.FC = () => {
 			Swal.fire("Error", "Nama dan email pembeli wajib diisi", "error");
 			return;
 		}
+		if (!isGmailEmail(buyerEmail)) {
+			Swal.fire("Error", `Email pembeli ${GMAIL_ONLY_EMAIL_MESSAGE}`, "error");
+			return;
+		}
 		// Validate all attendees
 		for (let i = 0; i < attendees.length; i++) {
 			const attendee = attendees[i];
@@ -259,8 +263,8 @@ const ETicketingPage: React.FC = () => {
 				Swal.fire("Error", `Nama peserta tiket #${i + 1} wajib diisi`, "error");
 				return;
 			}
-			if (!attendee.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(attendee.email)) {
-				Swal.fire("Error", `Email peserta tiket #${i + 1} tidak valid`, "error");
+			if (!isGmailEmail(attendee.email)) {
+				Swal.fire("Error", `Email peserta tiket #${i + 1} ${GMAIL_ONLY_EMAIL_MESSAGE}`, "error");
 				return;
 			}
 			if (!attendee.ticketTeamId) {

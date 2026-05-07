@@ -19,6 +19,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
+import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy";
 import { config as appConfig } from "../../utils/config";
 import {
 	EventVotingConfig,
@@ -293,8 +294,7 @@ const EventVoting: React.FC = () => {
 			confirmButtonColor: "#dc2626",
 			inputValidator: (value) => {
 				if (!value) return "Email wajib diisi";
-				const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-				if (!emailRegex.test(value)) return "Format email tidak valid";
+				if (!isGmailEmail(value)) return GMAIL_ONLY_EMAIL_MESSAGE;
 				return null;
 			},
 		});
