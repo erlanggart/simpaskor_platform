@@ -84,8 +84,8 @@ const limiter = rateLimit({
 	max: 1000, // 1000 requests per minute (SPA makes many concurrent API calls per page)
 	standardHeaders: true,
 	legacyHeaders: false,
-	// Skip rate limiting for GET requests (browsing) and in development
-	skip: (req) => process.env.NODE_ENV === 'development' || req.method === 'GET',
+	// Skip rate limiting for GET requests (browsing), voting flows, and in development
+	skip: (req) => process.env.NODE_ENV === 'development' || req.method === 'GET' || req.path.startsWith("/api/voting"),
 	handler: (req, res) => {
 		res.status(429).json({
 			error: "Too many requests",
@@ -111,7 +111,7 @@ const paymentLimiter = rateLimit({
 		if (req.method === 'GET') return true;
 
 		const isAdminEmailResend =
-			(req.baseUrl === "/api/voting" || req.baseUrl === "/api/tickets") &&
+			req.baseUrl === "/api/tickets" &&
 			req.path.startsWith("/admin/resend-email/");
 
 		return isAdminEmailResend;
@@ -187,7 +187,7 @@ app.use("/api/admin", adminStatsRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", paymentLimiter, orderRoutes);
 app.use("/api/tickets", paymentLimiter, ticketRoutes);
-app.use("/api/voting", paymentLimiter, votingRoutes);
+app.use("/api/voting", votingRoutes);
 app.use("/api/payments", webhookLimiter, paymentRoutes);
 app.use("/api/registration-payments", paymentLimiter, registrationPaymentRoutes);
 app.use("/api/guides", guideRoutes);

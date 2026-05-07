@@ -1371,6 +1371,172 @@ router.get(
 	}
 );
 
+// GET /api/voting/admin/event/:eventId/dashboard - Voting dashboard summary
+router.get(
+	"/admin/event/:eventId/dashboard",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const eventId = await resolveEventId(req.params.eventId);
+			if (!eventId) return res.status(404).json({ error: "Event tidak ditemukan" });
+
+			if (!(await verifyEventOwnership(req, eventId))) {
+				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+			}
+
+			const config = await prisma.eventVotingConfig.findUnique({
+				where: { eventId },
+				include: {
+					categories: {
+						orderBy: { order: "asc" },
+						include: {
+							nominees: {
+								orderBy: { voteCount: "desc" },
+							},
+							_count: {
+								select: { votes: true, nominees: true },
+							},
+						},
+					},
+				},
+			});
+
+			if (!config) {
+				return res.json({
+					enabled: false,
+					isPaid: false,
+					pricePerVote: 0,
+					totalVotes: 0,
+					categoryCount: 0,
+					nomineeCount: 0,
+					topNominees: [],
+					categoryBreakdown: [],
+					purchaseSummary: null,
+					dailyTrend: [],
+				});
+			}
+
+			const totalVotes = config.categories.reduce((sum, cat) => sum + cat._count.votes, 0);
+			const nomineeCount = config.categories.reduce((sum, cat) => sum + cat._count.nominees, 0);
+			const topNominees = config.categories
+				.flatMap((cat) =>
+					cat.nominees.map((nominee) => ({
+						id: nominee.id,
+						categoryId: cat.id,
+						categoryTitle: cat.title,
+						name: nominee.nomineeName,
+						subtitle: nominee.nomineeSubtitle,
+						photo: nominee.nomineePhoto,
+						votes: nominee.voteCount,
+					}))
+				)
+				.sort((a, b) => b.votes - a.votes)
+				.slice(0, 8);
+
+			const categoryBreakdown = config.categories.map((cat) => ({
+				id: cat.id,
+				title: cat.title,
+				votes: cat._count.votes,
+				nomineeCount: cat._count.nominees,
+				leadingNominee: cat.nominees[0]
+					? {
+							id: cat.nominees[0].id,
+							name: cat.nominees[0].nomineeName,
+							votes: cat.nominees[0].voteCount,
+						}
+					: null,
+			}));
+
+			const since = new Date();
+			since.setDate(since.getDate() - 6);
+			since.setHours(0, 0, 0, 0);
+
+			const recentVotes = await prisma.votingVote.findMany({
+				where: { category: { config: { eventId } }, createdAt: { gte: since } },
+				select: { createdAt: true },
+			});
+
+			const dailyTrend = Array.from({ length: 7 }, (_, index) => {
+				const date = new Date(since);
+				date.setDate(since.getDate() + index);
+				const key = date.toISOString().slice(0, 10);
+				return {
+					date: key,
+					label: date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" }),
+					votes: recentVotes.filter((vote) => vote.createdAt.toISOString().slice(0, 10) === key).length,
+				};
+			});
+
+			const purchases = config.isPaid
+				? await prisma.votingPurchase.findMany({
+						where: { eventId },
+						select: {
+							status: true,
+							totalAmount: true,
+							voteCount: true,
+							usedVotes: true,
+						},
+					})
+				: [];
+
+			const purchaseSummary = config.isPaid
+				? purchases.reduce(
+						(summary, purchase) => {
+							summary.total += 1;
+							if (purchase.status === "PAID") {
+								summary.paid += 1;
+								summary.revenue += purchase.totalAmount;
+								summary.voteCredits += purchase.voteCount;
+								summary.usedVotes += purchase.usedVotes;
+							} else if (purchase.status === "PENDING") {
+								summary.pending += 1;
+							} else if (purchase.status === "CANCELLED") {
+								summary.cancelled += 1;
+							} else if (purchase.status === "EXPIRED") {
+								summary.expired += 1;
+							}
+							return summary;
+						},
+						{
+							total: 0,
+							paid: 0,
+							pending: 0,
+							cancelled: 0,
+							expired: 0,
+							revenue: 0,
+							voteCredits: 0,
+							usedVotes: 0,
+							unusedVotes: 0,
+							conversionRate: 0,
+						}
+					)
+				: null;
+
+			if (purchaseSummary) {
+				purchaseSummary.unusedVotes = Math.max(0, purchaseSummary.voteCredits - purchaseSummary.usedVotes);
+				purchaseSummary.conversionRate = purchaseSummary.total > 0 ? Math.round((purchaseSummary.paid / purchaseSummary.total) * 100) : 0;
+			}
+
+			res.json({
+				enabled: config.enabled,
+				isPaid: config.isPaid,
+				pricePerVote: config.pricePerVote,
+				totalVotes,
+				categoryCount: config.categories.length,
+				nomineeCount,
+				topNominees,
+				categoryBreakdown,
+				purchaseSummary,
+				dailyTrend,
+			});
+		} catch (error) {
+			console.error("Error fetching voting dashboard:", error);
+			res.status(500).json({ error: "Gagal memuat dashboard voting" });
+		}
+	}
+);
+
 // GET /api/voting/admin/event/:eventId/purchases - List vote purchases
 router.get(
 	"/admin/event/:eventId/purchases",

@@ -851,6 +851,12 @@ const EVotingPage: React.FC = () => {
 										<p>Sisa {voteCodeInfo.remainingVotes} dari {voteCodeInfo.voteCount} vote</p>
 									</div>
 								)}
+								{voteCodeInfo?.status === "PAID" && voteCodeInfo.remainingVotes > 0 && !paidVoteTarget && (
+									<div className="rounded-lg px-3 py-2 text-xs bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+										<p className="font-semibold">Silakan pilih nominasi terlebih dahulu</p>
+										<p>Kode sudah aktif. Tutup modal ini lalu klik tombol Vote pada peserta yang ingin dipilih.</p>
+									</div>
+								)}
 								<div className="flex gap-3">
 									<button
 										onClick={() => setShowCodeEntry(false)}
@@ -865,13 +871,15 @@ const EVotingPage: React.FC = () => {
 									>
 										{checkingVoteCode ? "..." : "Cek"}
 									</button>
-									<button
-										onClick={submitPaidVote}
-										disabled={voting || checkingVoteCode || !purchaseCode.trim()}
-										className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-									>
-										{voting ? "..." : "Vote"}
-									</button>
+									{paidVoteTarget && (
+										<button
+											onClick={submitPaidVote}
+											disabled={voting || checkingVoteCode || !purchaseCode.trim()}
+											className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+										>
+											{voting ? "..." : "Vote"}
+										</button>
+									)}
 								</div>
 							</div>
 						</div>

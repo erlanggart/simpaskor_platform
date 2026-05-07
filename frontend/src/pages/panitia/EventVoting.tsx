@@ -12,6 +12,10 @@ import {
 	UserIcon,
 	LockClosedIcon,
 	EnvelopeIcon,
+	TrophyIcon,
+	CurrencyDollarIcon,
+	CheckCircleIcon,
+	ClockIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -28,6 +32,44 @@ import ImageCropper from "../../components/ImageCropper";
 const INDONESIA_TIME_ZONE = "Asia/Jakarta";
 const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
 const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+type VotingDashboard = {
+	enabled: boolean;
+	isPaid: boolean;
+	pricePerVote: number;
+	totalVotes: number;
+	categoryCount: number;
+	nomineeCount: number;
+	topNominees: Array<{
+		id: string;
+		categoryId: string;
+		categoryTitle: string;
+		name: string;
+		subtitle: string | null;
+		photo: string | null;
+		votes: number;
+	}>;
+	categoryBreakdown: Array<{
+		id: string;
+		title: string;
+		votes: number;
+		nomineeCount: number;
+		leadingNominee: { id: string; name: string; votes: number } | null;
+	}>;
+	purchaseSummary: {
+		total: number;
+		paid: number;
+		pending: number;
+		cancelled: number;
+		expired: number;
+		revenue: number;
+		voteCredits: number;
+		usedVotes: number;
+		unusedVotes: number;
+		conversionRate: number;
+	} | null;
+	dailyTrend: Array<{ date: string; label: string; votes: number }>;
+};
 
 const getDateTimePartsInIndonesia = (date: Date) => {
 	const parts = new Intl.DateTimeFormat("en-CA", {
@@ -80,7 +122,7 @@ const toIndonesiaDateTimeIso = (value: string | null | undefined) => {
 
 const EventVoting: React.FC = () => {
 	const { eventSlug } = useParams();
-	const [activeTab, setActiveTab] = useState<"config" | "categories" | "results" | "purchases">("config");
+	const [activeTab, setActiveTab] = useState<"dashboard" | "config" | "categories" | "results" | "purchases">("dashboard");
 	const [loading, setLoading] = useState(true);
 	const [eventId, setEventId] = useState<string>("");
 
@@ -126,6 +168,8 @@ const EventVoting: React.FC = () => {
 
 	// Results state
 	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean }>({ categories: [], totalVotes: 0, pricePerVote: 0, isPaid: false });
+	const [dashboard, setDashboard] = useState<VotingDashboard | null>(null);
+	const [dashboardLoading, setDashboardLoading] = useState(false);
 
 	// Purchases state
 	const [purchases, setPurchases] = useState<VotingPurchase[]>([]);
@@ -190,6 +234,13 @@ const EventVoting: React.FC = () => {
 		}
 	}, [activeTab, eventId, page, search, statusFilter]);
 
+	// Fetch dashboard
+	useEffect(() => {
+		if (activeTab === "dashboard" && eventId) {
+			fetchDashboard();
+		}
+	}, [activeTab, eventId]);
+
 	// Fetch results
 	useEffect(() => {
 		if (activeTab === "results" && eventId) {
@@ -212,6 +263,19 @@ const EventVoting: React.FC = () => {
 			console.error("Error fetching purchases");
 		} finally {
 			setPurchasesLoading(false);
+		}
+	};
+
+	const fetchDashboard = async () => {
+		if (!eventId) return;
+		try {
+			setDashboardLoading(true);
+			const res = await api.get(`/voting/admin/event/${eventId}/dashboard`);
+			setDashboard(res.data);
+		} catch {
+			console.error("Error fetching voting dashboard");
+		} finally {
+			setDashboardLoading(false);
 		}
 	};
 
@@ -481,6 +545,15 @@ const EventVoting: React.FC = () => {
 		}).format(amount);
 	};
 
+	const formatNumber = (amount: number) => {
+		return new Intl.NumberFormat("id-ID").format(amount);
+	};
+
+	const getNomineePhotoUrl = (photo: string | null) => {
+		if (!photo) return null;
+		return photo.startsWith("http") ? photo : appConfig.api.backendUrl + photo;
+	};
+
 	const getStatusBadge = (status: string) => {
 		const styles: Record<string, string> = {
 			PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -504,11 +577,20 @@ const EventVoting: React.FC = () => {
 	}
 
 	const tabs = [
+		{ key: "dashboard", label: "Dashboard", icon: ChartBarIcon },
 		{ key: "config", label: "Pengaturan", icon: Cog6ToothIcon },
 		{ key: "categories", label: "Kategori", icon: ListBulletIcon },
 		{ key: "results", label: "Hasil", icon: ChartBarIcon },
 		...(config.isPaid ? [{ key: "purchases", label: "Pembelian", icon: ClipboardDocumentListIcon }] : []),
 	];
+	const dashboardTrendMax = Math.max(1, ...(dashboard?.dailyTrend.map((item) => item.votes) || [0]));
+	const dashboardCategoryMax = Math.max(1, ...(dashboard?.categoryBreakdown.map((item) => item.votes) || [0]));
+	const dashboardTopMax = Math.max(1, ...(dashboard?.topNominees.map((item) => item.votes) || [0]));
+	const purchaseSummary = dashboard?.purchaseSummary;
+	const purchaseStatusTotal = Math.max(1, purchaseSummary?.total || 0);
+	const paidDegrees = purchaseSummary ? (purchaseSummary.paid / purchaseStatusTotal) * 360 : 0;
+	const pendingDegrees = purchaseSummary ? (purchaseSummary.pending / purchaseStatusTotal) * 360 : 0;
+	const cancelledDegrees = purchaseSummary ? (purchaseSummary.cancelled / purchaseStatusTotal) * 360 : 0;
 
 	return (
 		<>
@@ -551,6 +633,206 @@ const EventVoting: React.FC = () => {
 					);
 				})}
 			</div>
+
+			{/* Dashboard Tab */}
+			{activeTab === "dashboard" && (
+				<div className="space-y-5">
+					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+						<div>
+							<h2 className="text-lg font-semibold text-gray-900 dark:text-white">Dashboard Voting</h2>
+							<p className="text-sm text-gray-500 dark:text-gray-400">Pantau performa voting, kandidat, dan pembelian vote dalam satu layar.</p>
+						</div>
+						<button
+							onClick={fetchDashboard}
+							disabled={dashboardLoading}
+							className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+						>
+							<ArrowPathIcon className={`w-4 h-4 ${dashboardLoading ? "animate-spin" : ""}`} />
+							Refresh
+						</button>
+					</div>
+
+					{dashboardLoading && !dashboard ? (
+						<div className="flex justify-center py-12">
+							<div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+						</div>
+					) : !dashboard ? (
+						<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/80 dark:bg-gray-800/50 p-8 text-center text-gray-500 dark:text-gray-400">
+							Dashboard voting belum tersedia.
+						</div>
+					) : (
+						<>
+							<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+									<div className="flex items-center justify-between">
+										<p className="text-sm text-gray-500 dark:text-gray-400">Total Vote</p>
+										<ChartBarIcon className="w-5 h-5 text-blue-500" />
+									</div>
+									<p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{formatNumber(dashboard.totalVotes)}</p>
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{dashboard.categoryCount} kategori aktif</p>
+								</div>
+								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+									<div className="flex items-center justify-between">
+										<p className="text-sm text-gray-500 dark:text-gray-400">Nominee</p>
+										<UserGroupIcon className="w-5 h-5 text-indigo-500" />
+									</div>
+									<p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{formatNumber(dashboard.nomineeCount)}</p>
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Terdaftar di semua kategori</p>
+								</div>
+								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+									<div className="flex items-center justify-between">
+										<p className="text-sm text-gray-500 dark:text-gray-400">Vote Terpakai</p>
+										<CheckCircleIcon className="w-5 h-5 text-emerald-500" />
+									</div>
+									<p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{formatNumber(purchaseSummary?.usedVotes || dashboard.totalVotes)}</p>
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+										{purchaseSummary ? `${formatNumber(purchaseSummary.unusedVotes)} vote tersisa` : "Mode voting gratis"}
+									</p>
+								</div>
+								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+									<div className="flex items-center justify-between">
+										<p className="text-sm text-gray-500 dark:text-gray-400">Pendapatan Vote</p>
+										<CurrencyDollarIcon className="w-5 h-5 text-amber-500" />
+									</div>
+									<p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{formatCurrency(purchaseSummary?.revenue || 0)}</p>
+									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+										{dashboard.isPaid ? `${purchaseSummary?.conversionRate || 0}% transaksi paid` : "Tidak berbayar"}
+									</p>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+								<div className="xl:col-span-2 rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-5">
+									<div className="flex items-center justify-between gap-3 mb-5">
+										<div>
+											<h3 className="font-semibold text-gray-900 dark:text-white">Tren Vote 7 Hari</h3>
+											<p className="text-xs text-gray-500 dark:text-gray-400">Aktivitas vote harian terbaru</p>
+										</div>
+										<ClockIcon className="w-5 h-5 text-gray-400" />
+									</div>
+									<div className="h-56 flex items-end gap-2 sm:gap-3">
+										{dashboard.dailyTrend.map((item) => {
+											const height = Math.max(6, Math.round((item.votes / dashboardTrendMax) * 100));
+											return (
+												<div key={item.date} className="flex-1 min-w-0 flex flex-col items-center gap-2">
+													<div className="w-full h-44 flex items-end">
+														<div
+															className="w-full rounded-t-lg bg-blue-500 transition-all"
+															style={{ height: `${height}%` }}
+															title={`${item.votes} vote`}
+														/>
+													</div>
+													<p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{item.label}</p>
+												</div>
+											);
+										})}
+									</div>
+								</div>
+
+								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-5">
+									<h3 className="font-semibold text-gray-900 dark:text-white">Status Pembelian</h3>
+									<p className="text-xs text-gray-500 dark:text-gray-400 mb-5">Distribusi transaksi vote</p>
+									{purchaseSummary ? (
+										<>
+											<div
+												className="mx-auto h-40 w-40 rounded-full"
+												style={{
+													background: `conic-gradient(#22c55e 0deg ${paidDegrees}deg, #f59e0b ${paidDegrees}deg ${paidDegrees + pendingDegrees}deg, #ef4444 ${paidDegrees + pendingDegrees}deg ${paidDegrees + pendingDegrees + cancelledDegrees}deg, #94a3b8 ${paidDegrees + pendingDegrees + cancelledDegrees}deg 360deg)`,
+												}}
+											>
+												<div className="h-full w-full rounded-full p-5">
+													<div className="h-full w-full rounded-full bg-white dark:bg-gray-800 flex flex-col items-center justify-center">
+														<span className="text-2xl font-bold text-gray-900 dark:text-white">{purchaseSummary.total}</span>
+														<span className="text-xs text-gray-500 dark:text-gray-400">transaksi</span>
+													</div>
+												</div>
+											</div>
+											<div className="grid grid-cols-2 gap-2 mt-5 text-xs">
+												<div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-green-500" />Paid {purchaseSummary.paid}</div>
+												<div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" />Pending {purchaseSummary.pending}</div>
+												<div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-500" />Batal {purchaseSummary.cancelled}</div>
+												<div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-slate-400" />Expired {purchaseSummary.expired}</div>
+											</div>
+										</>
+									) : (
+										<div className="h-48 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">Voting gratis</div>
+									)}
+								</div>
+							</div>
+
+							<div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-5">
+									<h3 className="font-semibold text-gray-900 dark:text-white">Performa Kategori</h3>
+									<p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Perbandingan total vote per kategori</p>
+									<div className="space-y-4">
+										{dashboard.categoryBreakdown.map((cat) => {
+											const pct = Math.round((cat.votes / dashboardCategoryMax) * 100);
+											return (
+												<div key={cat.id}>
+													<div className="flex items-center justify-between gap-3 text-sm mb-1">
+														<span className="font-medium text-gray-800 dark:text-gray-100 truncate">{cat.title}</span>
+														<span className="text-gray-500 dark:text-gray-400">{formatNumber(cat.votes)} vote</span>
+													</div>
+													<div className="h-2.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+														<div className="h-full rounded-full bg-indigo-500" style={{ width: `${pct}%` }} />
+													</div>
+													<p className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+														{cat.leadingNominee ? `Unggul: ${cat.leadingNominee.name}` : `${cat.nomineeCount} nominee`}
+													</p>
+												</div>
+											);
+										})}
+										{dashboard.categoryBreakdown.length === 0 && (
+											<p className="text-sm text-gray-500 dark:text-gray-400">Belum ada kategori voting.</p>
+										)}
+									</div>
+								</div>
+
+								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-5">
+									<div className="flex items-center justify-between mb-4">
+										<div>
+											<h3 className="font-semibold text-gray-900 dark:text-white">Leaderboard Nominee</h3>
+											<p className="text-xs text-gray-500 dark:text-gray-400">Kandidat dengan vote tertinggi lintas kategori</p>
+										</div>
+										<TrophyIcon className="w-5 h-5 text-amber-500" />
+									</div>
+									<div className="space-y-3">
+										{dashboard.topNominees.map((nominee, index) => {
+											const pct = Math.round((nominee.votes / dashboardTopMax) * 100);
+											const photoUrl = getNomineePhotoUrl(nominee.photo);
+											return (
+												<div key={nominee.id} className="flex items-center gap-3">
+													<div className="w-7 text-center text-sm font-bold text-gray-400">#{index + 1}</div>
+													{photoUrl ? (
+														<img src={photoUrl} alt="" className="w-10 h-10 rounded-full object-cover bg-gray-100 dark:bg-gray-700" />
+													) : (
+														<div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+															<UserIcon className="w-5 h-5 text-gray-400" />
+														</div>
+													)}
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center justify-between gap-3">
+															<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{nominee.name}</p>
+															<p className="text-sm font-semibold text-blue-600 dark:text-blue-400">{formatNumber(nominee.votes)}</p>
+														</div>
+														<div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden mt-1">
+															<div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+														</div>
+														<p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">{nominee.categoryTitle}</p>
+													</div>
+												</div>
+											);
+										})}
+										{dashboard.topNominees.length === 0 && (
+											<p className="text-sm text-gray-500 dark:text-gray-400">Belum ada nominee dengan vote.</p>
+										)}
+									</div>
+								</div>
+							</div>
+						</>
+					)}
+				</div>
+			)}
 
 			{/* Config Tab */}
 			{activeTab === "config" && (
