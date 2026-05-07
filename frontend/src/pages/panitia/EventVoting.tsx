@@ -25,6 +25,59 @@ import {
 } from "../../types/voting";
 import ImageCropper from "../../components/ImageCropper";
 
+const INDONESIA_TIME_ZONE = "Asia/Jakarta";
+const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
+const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+const getDateTimePartsInIndonesia = (date: Date) => {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: INDONESIA_TIME_ZONE,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	}).formatToParts(date);
+
+	const getPart = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || "";
+	return {
+		year: getPart("year"),
+		month: getPart("month"),
+		day: getPart("day"),
+		hour: getPart("hour"),
+		minute: getPart("minute"),
+	};
+};
+
+const formatDateForInput = (date: string | null) => {
+	if (!date) return "";
+	if (DATETIME_LOCAL_PATTERN.test(date)) return date;
+
+	const parsed = new Date(date);
+	if (Number.isNaN(parsed.getTime())) return "";
+
+	const parts = getDateTimePartsInIndonesia(parsed);
+	return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+};
+
+const toIndonesiaDateTimeIso = (value: string | null | undefined) => {
+	if (!value) return null;
+
+	const localMatch = value.match(DATETIME_LOCAL_PATTERN);
+	if (localMatch) {
+		const year = Number(localMatch[1]);
+		const month = Number(localMatch[2]);
+		const day = Number(localMatch[3]);
+		const hour = Number(localMatch[4]);
+		const minute = Number(localMatch[5]);
+		return new Date(Date.UTC(year, month - 1, day, hour, minute) - INDONESIA_UTC_OFFSET_MINUTES * 60 * 1000).toISOString();
+	}
+
+	const parsed = new Date(value);
+	return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
 const EventVoting: React.FC = () => {
 	const { eventSlug } = useParams();
 	const [activeTab, setActiveTab] = useState<"config" | "categories" | "results" | "purchases">("config");
@@ -225,8 +278,10 @@ const EventVoting: React.FC = () => {
 				isPaid: config.isPaid,
 				pricePerVote: Number(config.pricePerVote),
 			};
-			if (config.startDate) payload.startDate = config.startDate;
-			if (config.endDate) payload.endDate = config.endDate;
+			const startDate = toIndonesiaDateTimeIso(config.startDate);
+			const endDate = toIndonesiaDateTimeIso(config.endDate);
+			if (startDate) payload.startDate = startDate;
+			if (endDate) payload.endDate = endDate;
 
 			const res = await api.put(`/voting/admin/event/${eventId}/config`, payload);
 			setConfig(res.data);
@@ -409,6 +464,7 @@ const EventVoting: React.FC = () => {
 	const formatDate = (date: string | null) => {
 		if (!date) return "-";
 		return new Date(date).toLocaleDateString("id-ID", {
+			timeZone: INDONESIA_TIME_ZONE,
 			day: "numeric",
 			month: "short",
 			year: "numeric",
@@ -423,11 +479,6 @@ const EventVoting: React.FC = () => {
 			currency: "IDR",
 			minimumFractionDigits: 0,
 		}).format(amount);
-	};
-
-	const formatDateForInput = (date: string | null) => {
-		if (!date) return "";
-		return new Date(date).toISOString().slice(0, 16);
 	};
 
 	const getStatusBadge = (status: string) => {

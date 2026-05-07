@@ -17,6 +17,41 @@ import { uploadNomineePhoto } from "../middleware/upload";
 
 const router = Router();
 
+const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
+const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+const parseIndonesiaDateTime = (value: unknown): Date | null => {
+	if (!value) return null;
+
+	if (value instanceof Date) {
+		if (Number.isNaN(value.getTime())) throw new Error("Tanggal voting tidak valid");
+		return value;
+	}
+
+	if (typeof value !== "string") {
+		throw new Error("Tanggal voting tidak valid");
+	}
+
+	const trimmed = value.trim();
+	const localMatch = trimmed.match(DATETIME_LOCAL_PATTERN);
+
+	if (localMatch) {
+		const year = Number(localMatch[1]);
+		const month = Number(localMatch[2]);
+		const day = Number(localMatch[3]);
+		const hour = Number(localMatch[4]);
+		const minute = Number(localMatch[5]);
+		return new Date(Date.UTC(year, month - 1, day, hour, minute) - INDONESIA_UTC_OFFSET_MINUTES * 60 * 1000);
+	}
+
+	const parsed = new Date(trimmed);
+	if (Number.isNaN(parsed.getTime())) {
+		throw new Error("Tanggal voting tidak valid");
+	}
+
+	return parsed;
+};
+
 // Resolve event slug or ID to actual event ID
 const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string | null> => {
 	if (!eventIdOrSlug) return null;
@@ -659,6 +694,8 @@ router.put(
 			}
 
 			const { enabled, isPaid, pricePerVote, startDate, endDate } = req.body;
+			const parsedStartDate = parseIndonesiaDateTime(startDate);
+			const parsedEndDate = parseIndonesiaDateTime(endDate);
 
 			const config = await prisma.eventVotingConfig.upsert({
 				where: { eventId },
@@ -667,20 +704,23 @@ router.put(
 					enabled: enabled ?? false,
 					isPaid: isPaid ?? false,
 					pricePerVote: pricePerVote ?? 0,
-					startDate: startDate ? new Date(startDate) : null,
-					endDate: endDate ? new Date(endDate) : null,
+					startDate: parsedStartDate,
+					endDate: parsedEndDate,
 				},
 				update: {
 					enabled: enabled ?? false,
 					isPaid: isPaid ?? false,
 					pricePerVote: pricePerVote ?? 0,
-					startDate: startDate ? new Date(startDate) : null,
-					endDate: endDate ? new Date(endDate) : null,
+					startDate: parsedStartDate,
+					endDate: parsedEndDate,
 				},
 			});
 
 			res.json(config);
-		} catch (error) {
+		} catch (error: any) {
+			if (error.message === "Tanggal voting tidak valid") {
+				return res.status(400).json({ error: error.message });
+			}
 			console.error("Error updating voting config:", error);
 			res.status(500).json({ error: "Gagal menyimpan konfigurasi voting" });
 		}
