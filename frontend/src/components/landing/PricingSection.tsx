@@ -9,6 +9,8 @@ import {
 	LuTicket,
 	LuThumbsUp,
 	LuTicketPlus,
+	LuBadgeCheck,
+	LuSparkles,
 } from "react-icons/lu";
 import { getRevenueShareLabel, getRevenueShareShortLabel, hasNoUpfrontPayment, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 
@@ -42,73 +44,74 @@ const packages = [
 		tier: "IKLAN" as PackageTier,
 		name: "Paket Iklan",
 		price: PACKAGE_PRICE_LABELS.IKLAN,
+		kicker: "Showcase",
+		summary: "Tampilkan event di landing page dan rasakan alur demo Simpaskor.",
 		icon: LuMegaphone,
-		color: "emerald",
-		borderColor: "border-emerald-400/50 dark:border-emerald-500/30",
-		bgGlow: "from-emerald-500/10 to-emerald-600/5",
-		badgeClass: "bg-emerald-500 text-white",
 		btnClass: "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white",
-		note: "Akses demo — event tampil di landing page, fitur hanya bisa dilihat",
+		accent: "#10b981",
+		accentSoft: "rgba(16,185,129,0.15)",
+		note: "Akses demo - event tampil di landing page, fitur hanya bisa dilihat",
 	},
 	{
 		tier: "TICKETING" as PackageTier,
 		name: "Paket Ticketing",
 		price: getRevenueShareShortLabel("TICKETING"),
+		kicker: "Revenue share",
+		summary: "Jual tiket online dengan dashboard penjualan dan validasi digital.",
 		icon: LuTicket,
-		color: "blue",
-		borderColor: "border-blue-400/50 dark:border-blue-500/30",
-		bgGlow: "from-blue-500/10 to-blue-600/5",
-		badgeClass: "bg-blue-500 text-white",
 		btnClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white",
+		accent: "#3b82f6",
+		accentSoft: "rgba(59,130,246,0.15)",
 		note: `Fitur E-Ticketing dengan bagi hasil ${getRevenueShareLabel("TICKETING")}`,
 	},
 	{
 		tier: "VOTING" as PackageTier,
 		name: "Paket Voting",
 		price: getRevenueShareShortLabel("VOTING"),
+		kicker: "Engagement",
+		summary: "Aktifkan dukungan penonton lewat voting digital yang mudah dipantau.",
 		icon: LuThumbsUp,
-		color: "purple",
-		borderColor: "border-purple-400/50 dark:border-purple-500/30",
-		bgGlow: "from-purple-500/10 to-purple-600/5",
-		badgeClass: "bg-purple-500 text-white",
 		btnClass: "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white",
+		accent: "#a855f7",
+		accentSoft: "rgba(168,85,247,0.15)",
 		note: `Fitur E-Voting dengan bagi hasil ${getRevenueShareLabel("VOTING")}`,
 	},
 	{
 		tier: "TICKETING_VOTING" as PackageTier,
 		name: "Tiket + Voting",
 		price: getRevenueShareShortLabel("TICKETING_VOTING"),
+		kicker: "Bundle",
+		summary: "Gabungkan ticketing dan voting dalam satu paket operasional.",
 		icon: LuTicketPlus,
-		color: "indigo",
-		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
-		bgGlow: "from-indigo-500/10 to-indigo-600/5",
-		badgeClass: "bg-indigo-500 text-white",
 		btnClass: "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white",
+		accent: "#6366f1",
+		accentSoft: "rgba(99,102,241,0.15)",
 		note: `E-Ticketing dan E-Voting dengan bagi hasil ${getRevenueShareLabel("TICKETING_VOTING")}`,
 	},
 	{
 		tier: "BRONZE" as PackageTier,
 		name: "Paket Bronze",
 		price: PACKAGE_PRICE_LABELS.BRONZE,
+		kicker: "Event siap jalan",
+		summary: "Fondasi lengkap untuk event dengan penilaian, peserta, dan laporan digital.",
 		icon: LuMedal,
-		color: "amber",
-		borderColor: "border-amber-400/50 dark:border-amber-500/30",
-		bgGlow: "from-amber-500/10 to-amber-600/5",
-		badgeClass: "bg-amber-500 text-white",
 		btnClass: "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white",
+		accent: "#f59e0b",
+		accentSoft: "rgba(245,158,11,0.16)",
 		featured: true,
-		note: "Semua fitur — Tim Pendamping (Online)",
+		note: "Semua fitur - Tim Pendamping (Online)",
 	},
 	{
 		tier: "GOLD" as PackageTier,
 		name: "Paket Gold",
 		price: PACKAGE_PRICE_LABELS.GOLD,
+		kicker: "Full service",
+		summary: "Tim pendamping, device tablet, rekap, dan materi penilaian untuk event serius.",
 		icon: LuTrophy,
-		color: "yellow",
-		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
-		bgGlow: "from-yellow-500/10 to-yellow-600/5",
-		badgeClass: "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white",
 		btnClass: "bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white",
+		accent: "#eab308",
+		accentSoft: "rgba(234,179,8,0.18)",
+		featured: true,
 		note: null,
 	},
 ];
@@ -122,7 +125,6 @@ const priceColorClass: Record<PackageTier, string> = {
 	GOLD: "text-yellow-600 dark:text-yellow-400",
 };
 
-// Glow color for box-shadow on hover
 const glowColor: Record<PackageTier, string> = {
 	IKLAN: "rgba(16,185,129,0.25)",
 	TICKETING: "rgba(59,130,246,0.25)",
@@ -140,78 +142,101 @@ const PricingSection: React.FC = () => {
 		const Icon = pkg.icon;
 		const tierKey = pkg.tier.toLowerCase() as keyof Pick<PackageFeature, "iklan" | "ticketing" | "voting" | "ticketing_voting" | "bronze" | "gold">;
 		const includedFeatures = packageFeatures.filter((f) => f[tierKey]);
+		const isPaid = !hasNoUpfrontPayment(pkg.tier);
 
 		return (
 			<div
 				key={pkg.tier}
-				className={`pricing-card group relative rounded-xl border overflow-hidden flex flex-col
-					${pkg.borderColor}
-					bg-white/80 dark:bg-gray-900/50 backdrop-blur-sm
-				`}
+				className={`pricing-card group ${pkg.featured ? "pricing-card-featured" : ""} ${isPaid ? "pricing-card-paid" : "pricing-card-compact"}`}
 				style={{
 					animationDelay: `${index * 80}ms`,
-					"--glow" : glowColor[pkg.tier],
+					"--glow": glowColor[pkg.tier],
+					"--pricing-accent": pkg.accent,
+					"--pricing-accent-soft": pkg.accentSoft,
 				} as React.CSSProperties}
 			>
-				{/* Shimmer sweep on hover */}
 				<div className="pricing-card-shimmer absolute inset-0 pointer-events-none z-10" />
+				<div className="pricing-card-orbit" />
 
-				{/* Top accent line */}
-				<div className={`pricing-card-accent h-[2px] w-full bg-gradient-to-r ${pkg.bgGlow.replace("from-", "from-").replace("/10", "/80").replace("/5", "/40")}`} />
-
-				{/* Header */}
-				<div className="px-4 pt-3 pb-2 relative z-20">
-					{/* Row 1: icon + name */}
-					<div className="flex items-center gap-2 mb-1">
-						<div className={`pricing-card-icon w-8 h-8 rounded-lg bg-gradient-to-br ${pkg.bgGlow} flex items-center justify-center border border-gray-200/50 dark:border-white/[0.06] flex-shrink-0`}>
-							<Icon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+				<div className="relative z-20 flex h-full flex-col p-4 sm:p-5">
+					<div className="mb-4 flex items-start justify-between gap-3">
+						<div className="flex min-w-0 items-center gap-3">
+							<div className="pricing-card-icon flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl">
+								<Icon className="h-5 w-5" />
+							</div>
+							<div className="min-w-0">
+								<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+									{pkg.kicker}
+								</p>
+								<h3 className="mt-1 text-base font-black leading-tight text-gray-900 dark:text-white">
+									{pkg.name}
+								</h3>
+							</div>
 						</div>
-						<h3 className="text-sm font-bold text-gray-800 dark:text-white leading-tight">
-							{pkg.name}
-						</h3>
-					</div>
-					{/* Row 2: price + badge */}
-					<div className="flex items-center justify-between gap-2">
-						<p className={`text-base font-black leading-tight ${priceColorClass[pkg.tier]}`}>
-							{pkg.price}
-						</p>
-						<span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex-shrink-0 ${pkg.badgeClass}`}>
+						<span className="pricing-tier-badge">
 							{pkg.tier.replace("_", " + ")}
 						</span>
 					</div>
-				</div>
 
-				{/* Features */}
-				<div className="px-4 pb-2 space-y-1 flex-1 relative z-20">
-					{includedFeatures.length === 0 ? (
-						<p className="text-xs text-gray-400 dark:text-gray-500 italic">Akses demo saja</p>
-					) : (
-						includedFeatures.map((feature, fi) => (
-							<div
-								key={feature.name}
-								className="pricing-feature flex items-center gap-1.5"
-								style={{ animationDelay: `${index * 80 + fi * 40}ms` }}
-							>
-								<LuCheck className="w-3 h-3 text-green-500 flex-shrink-0" />
-								<span className="text-xs text-gray-700 dark:text-gray-300">{feature.name}</span>
+					<div className="mb-4">
+						<div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+							<p className={`pricing-price ${priceColorClass[pkg.tier]}`}>
+								{pkg.price}
+							</p>
+							{hasNoUpfrontPayment(pkg.tier) && pkg.tier !== "IKLAN" && (
+								<span className="pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+									bagi hasil
+								</span>
+							)}
+						</div>
+						<p className="mt-2 min-h-[38px] text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+							{pkg.summary}
+						</p>
+					</div>
+
+					<div className="mb-4 grid grid-cols-2 gap-2">
+						<div className="pricing-meta-pill">
+							<LuBadgeCheck className="h-3.5 w-3.5" />
+							<span>{includedFeatures.length || "Demo"} fitur</span>
+						</div>
+						<div className="pricing-meta-pill">
+							<LuSparkles className="h-3.5 w-3.5" />
+							<span>{isPaid ? "Pro setup" : "Tanpa DP"}</span>
+						</div>
+					</div>
+
+					<div className="pricing-feature-list flex-1">
+						{includedFeatures.length === 0 ? (
+							<div className="pricing-feature" style={{ animationDelay: `${index * 80}ms` }}>
+								<LuCheck className="h-3.5 w-3.5 flex-shrink-0" />
+								<span>Akses demo saja</span>
 							</div>
-						))
-					)}
+						) : (
+							includedFeatures.map((feature, fi) => (
+								<div
+									key={feature.name}
+									className="pricing-feature"
+									style={{ animationDelay: `${index * 80 + fi * 35}ms` }}
+								>
+									<LuCheck className="h-3.5 w-3.5 flex-shrink-0" />
+									<span>{feature.name}</span>
+								</div>
+							))
+						)}
+					</div>
+
 					{pkg.note && (
-						<p className="text-[10px] text-gray-400 dark:text-gray-500 italic pt-1 border-t border-gray-100 dark:border-white/5">
-							* {pkg.note}
+						<p className="pricing-note">
+							{pkg.note}
 						</p>
 					)}
-				</div>
 
-				{/* CTA */}
-				<div className="px-4 pb-3 pt-2 relative z-20">
 					<Link
 						to="/register"
-						className={`pricing-card-btn w-full py-2 rounded-lg text-xs font-semibold shadow-sm transition-all duration-300 flex items-center justify-center gap-1.5 ${pkg.btnClass}`}
+						className={`pricing-card-btn mt-4 ${pkg.btnClass}`}
 					>
 						<span>Daftar Sekarang</span>
-						<LuArrowRight className="w-3 h-3 pricing-btn-arrow" />
+						<LuArrowRight className="h-4 w-4 pricing-btn-arrow" />
 					</Link>
 				</div>
 			</div>
@@ -219,34 +244,49 @@ const PricingSection: React.FC = () => {
 	};
 
 	return (
-		<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16 py-4">
-			{/* Header */}
-			<div className="text-center mb-4">
-				<p className="text-[10px] tracking-[0.3em] text-gray-400 font-medium mb-1">
-					DAFTARKAN EVENT ANDA
+		<div className="pricing-section relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 py-6">
+			<div className="pricing-shell">
+				<div className="pricing-header">
+					<div>
+						<p className="text-[10px] md:text-xs tracking-[0.32em] text-orange-500/80 dark:text-orange-300/70 font-black mb-3">
+							DAFTARKAN EVENT ANDA
+						</p>
+						<h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-none landing-title-gradient-pricing">
+							Pilih Paket Anda
+						</h1>
+					</div>
+					<div className="pricing-header-copy">
+						<div className="pricing-header-line" />
+						<p>
+							Pilih mode paling pas untuk event Anda: mulai dari demo, ticketing, voting, sampai operasional penuh dengan tim pendamping.
+						</p>
+					</div>
+				</div>
+
+				<div className="pricing-board">
+					<div className="pricing-board-label">
+						<span>Tanpa biaya awal</span>
+						<p>Paket ringan untuk publikasi, tiket, voting, dan kombinasi keduanya.</p>
+					</div>
+					<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4">
+						{freePackages.map((pkg, i) => renderCard(pkg, i))}
+					</div>
+				</div>
+
+				<div className="pricing-board pricing-board-paid">
+					<div className="pricing-board-label">
+						<span>Paket operasional</span>
+						<p>Untuk event yang butuh penilaian, rekap, pendampingan, dan perangkat lapangan.</p>
+					</div>
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+						{paidPackages.map((pkg, i) => renderCard(pkg, freePackages.length + i))}
+					</div>
+				</div>
+
+				<p className="pricing-footer-note">
+					Butuh skenario khusus? Tim Simpaskor bisa menyesuaikan paket dengan kebutuhan event Anda.
 				</p>
-				<h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-none mb-2 landing-title-gradient-pricing">
-					Pilih Paket Anda
-				</h1>
-				<div className="w-10 h-[1px] bg-gradient-to-r from-orange-500/50 to-transparent mx-auto mb-2" />
-				<p className="text-xs text-gray-500 dark:text-gray-500 max-w-lg mx-auto">
-					Berbagai paket yang dapat disesuaikan dengan kebutuhan event Anda
-				</p>
 			</div>
-
-			{/* Free Packages Row */}
-			<div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-				{freePackages.map((pkg, i) => renderCard(pkg, i))}
-			</div>
-
-			{/* Paid Packages Row */}
-			<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-				{paidPackages.map((pkg, i) => renderCard(pkg, freePackages.length + i))}
-			</div>
-
-			<p className="text-center text-xs text-gray-400 dark:text-gray-600">
-				Hubungi kami untuk paket custom sesuai kebutuhan event Anda
-			</p>
 		</div>
 	);
 };
