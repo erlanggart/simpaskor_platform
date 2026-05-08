@@ -9,6 +9,8 @@ import {
 	CheckCircleIcon,
 	XCircleIcon,
 	MapPinIcon,
+	MinusCircleIcon,
+	PlusCircleIcon,
 } from "@heroicons/react/24/outline";
 import {
 	AssessmentPerformanceSession,
@@ -34,7 +36,7 @@ const getCategoryActualScore = (category: AssessmentScoreCategory) =>
 	category.materials.reduce(
 		(sum, materialScore) => sum + getMaterialActualScore(materialScore),
 		0
-	);
+	) + (category.extraAdjustment || 0);
 
 const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 	scoreData,
@@ -77,13 +79,39 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 		}
 	};
 
+	const formatSignedScore = (value: number) => {
+		if (value > 0) return `+${value.toFixed(1)}`;
+		return value.toFixed(1);
+	};
+
+	const getExtraScopeLabel = (extra: AssessmentScoreData["extraNilai"][number]) => {
+		if (extra.scope === "GENERAL") return "Total Umum";
+		if (extra.scope === "CATEGORY") {
+			return extra.assessmentCategoryName || "Kategori";
+		}
+		return extra.juaraCategoryName
+			? `Juara: ${extra.juaraCategoryName}`
+			: "Kategori Juara";
+	};
+
 	const completedPerformanceCount = performanceSessions.filter(
 		(session) => session.status === "COMPLETED"
 	).length;
-	const actualTotalScore = scoreData.scoresByCategory.reduce(
+	const materialTotalScore = scoreData.scoresByCategory.reduce(
 		(sum, category) => sum + getCategoryActualScore(category),
 		0
 	);
+	const actualTotalScore = scoreData.summary.totalScore ?? materialTotalScore;
+	const extraNilai = scoreData.extraNilai || [];
+	const extraSummary = scoreData.extraSummary || {
+		baseTotalScore: materialTotalScore,
+		categoryExtraAdjustment: 0,
+		generalExtraAdjustment: 0,
+		juaraExtraAdjustment: 0,
+		totalAdjustment: 0,
+		punishment: 0,
+		poinplus: 0,
+	};
 
 	return (
 		<div className="min-h-screen">
@@ -125,7 +153,7 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 								Dinilai oleh {scoreData.juries.length} juri
 							</p>
 							<p className="mt-0.5 text-[11px] text-blue-100/90 sm:text-xs">
-								Total dari jumlah aktual seluruh nilai materi
+								Total final dari nilai materi dan extra nilai
 							</p>
 						</div>
 					</div>
@@ -157,7 +185,100 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 					</div>
 				</div>
 
-				
+				{extraNilai.length > 0 && (
+					<div className="mb-4 rounded-xl bg-white/80 p-4 shadow-md backdrop-blur-sm dark:bg-gray-800/50 sm:mb-6 sm:p-6">
+						<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+							<div>
+								<h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white sm:text-base">
+									<PlusCircleIcon className="h-4 w-4 text-green-500 sm:h-5 sm:w-5" />
+									Extra Nilai
+								</h3>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
+									Penyesuaian nilai yang diberikan panitia.
+								</p>
+							</div>
+							<div className="grid grid-cols-3 gap-2 text-center text-xs sm:min-w-[330px] sm:text-sm">
+								<div className="rounded-lg bg-gray-100 px-2 py-2 dark:bg-gray-700">
+									<div className="font-semibold text-gray-900 dark:text-white">
+										{extraSummary.baseTotalScore.toFixed(1)}
+									</div>
+									<div className="text-gray-500 dark:text-gray-400">Nilai Materi</div>
+								</div>
+								<div className="rounded-lg bg-gray-100 px-2 py-2 dark:bg-gray-700">
+									<div
+										className={`font-semibold ${
+											extraSummary.totalAdjustment >= 0
+												? "text-green-600 dark:text-green-400"
+												: "text-red-600 dark:text-red-400"
+										}`}
+									>
+										{formatSignedScore(extraSummary.totalAdjustment)}
+									</div>
+									<div className="text-gray-500 dark:text-gray-400">Extra</div>
+								</div>
+								<div className="rounded-lg bg-red-50 px-2 py-2 dark:bg-red-900/30">
+									<div className="font-semibold text-red-600 dark:text-red-400">
+										{actualTotalScore.toFixed(1)}
+									</div>
+									<div className="text-gray-500 dark:text-gray-400">Final</div>
+								</div>
+							</div>
+						</div>
+
+						<div className="grid gap-2 md:grid-cols-2">
+							{extraNilai.map((extra) => {
+								const isPunishment = extra.type === "PUNISHMENT";
+								return (
+									<div
+										key={extra.id}
+										className={`rounded-lg border px-3 py-2 ${
+											isPunishment
+												? "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-900/20"
+												: "border-green-200 bg-green-50 dark:border-green-500/30 dark:bg-green-900/20"
+										}`}
+									>
+										<div className="flex items-start justify-between gap-3">
+											<div className="min-w-0">
+												<div
+													className={`flex items-center gap-1.5 text-sm font-semibold ${
+														isPunishment
+															? "text-red-700 dark:text-red-300"
+															: "text-green-700 dark:text-green-300"
+													}`}
+												>
+													{isPunishment ? (
+														<MinusCircleIcon className="h-4 w-4 flex-shrink-0" />
+													) : (
+														<PlusCircleIcon className="h-4 w-4 flex-shrink-0" />
+													)}
+													<span>{isPunishment ? "Punishment" : "Poin Plus"}</span>
+												</div>
+												<div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+													{getExtraScopeLabel(extra)}
+													{extra.participantName ? ` - ${extra.participantName}` : ""}
+												</div>
+												{extra.reason && (
+													<div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+														{extra.reason}
+													</div>
+												)}
+											</div>
+											<div
+												className={`text-base font-bold ${
+													isPunishment
+														? "text-red-700 dark:text-red-300"
+														: "text-green-700 dark:text-green-300"
+												}`}
+											>
+												{formatSignedScore(extra.adjustment)}
+											</div>
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					</div>
+				)}
 
 				{scoreData.juries.length > 0 && (
 					<div className="mb-4 rounded-xl bg-white/80 p-4 shadow-md backdrop-blur-sm dark:bg-gray-800/50 sm:mb-6 sm:p-6">
@@ -223,6 +344,10 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 							.filter((category) => category.categoryName === activeTab)
 							.map((category) => {
 								const categoryTotal = getCategoryActualScore(category);
+								const categoryBaseTotal = category.materials.reduce(
+									(sum, materialScore) => sum + getMaterialActualScore(materialScore),
+									0
+								);
 								const categoryJuryIds = new Set<string>();
 								category.materials.forEach((materialScore) => {
 									materialScore.scores.forEach((score) => {
@@ -325,6 +450,49 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 												))}
 											</tbody>
 											<tfoot className="bg-red-50 dark:bg-red-900/30">
+												{(category.extraAdjustment || 0) !== 0 && (
+													<tr>
+														{categoryJuries.length > 0 ? (
+															<>
+																<td className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 sm:px-4 sm:text-sm">
+																	Extra {category.categoryName}
+																</td>
+																<td
+																	colSpan={categoryJuries.length}
+																	className="px-3 py-2 text-center text-sm font-semibold sm:px-4"
+																>
+																	<span className="text-gray-700 dark:text-gray-200">
+																		{categoryBaseTotal.toFixed(1)}
+																	</span>
+																	<span
+																		className={`ml-2 ${
+																			category.extraAdjustment > 0
+																				? "text-green-600 dark:text-green-400"
+																				: "text-red-600 dark:text-red-400"
+																		}`}
+																	>
+																		{formatSignedScore(category.extraAdjustment)}
+																	</span>
+																</td>
+															</>
+														) : (
+															<td className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 sm:px-4 sm:text-sm">
+																<div className="flex items-center justify-between gap-3">
+																	<span>Extra {category.categoryName}</span>
+																	<span
+																		className={
+																			category.extraAdjustment > 0
+																				? "text-green-600 dark:text-green-400"
+																				: "text-red-600 dark:text-red-400"
+																		}
+																	>
+																		{formatSignedScore(category.extraAdjustment)}
+																	</span>
+																</div>
+															</td>
+														)}
+													</tr>
+												)}
 												<tr>
 													{categoryJuries.length > 0 ? (
 														<>

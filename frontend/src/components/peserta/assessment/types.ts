@@ -50,8 +50,37 @@ export interface AssessmentMaterialScore {
 }
 
 export interface AssessmentScoreCategory {
+	categoryId: string;
+	eventAssessmentCategoryId: string;
 	categoryName: string;
 	materials: AssessmentMaterialScore[];
+	extraAdjustment: number;
+}
+
+export interface AssessmentExtraNilai {
+	id: string;
+	participantId: string;
+	participantName: string | null;
+	type: "PUNISHMENT" | "POINPLUS";
+	scope: "GENERAL" | "CATEGORY" | "JUARA";
+	assessmentCategoryId: string | null;
+	assessmentCategoryName: string | null;
+	juaraCategoryId: string | null;
+	juaraCategoryName: string | null;
+	value: number;
+	adjustment: number;
+	reason: string | null;
+	createdAt: string;
+}
+
+export interface AssessmentExtraSummary {
+	baseTotalScore: number;
+	categoryExtraAdjustment: number;
+	generalExtraAdjustment: number;
+	juaraExtraAdjustment: number;
+	totalAdjustment: number;
+	punishment: number;
+	poinplus: number;
 }
 
 export interface AssessmentScoreData {
@@ -70,6 +99,8 @@ export interface AssessmentScoreData {
 	};
 	juries: { id: string; name: string }[];
 	scoresByCategory: AssessmentScoreCategory[];
+	extraNilai: AssessmentExtraNilai[];
+	extraSummary: AssessmentExtraSummary;
 	summary: {
 		totalScore: number;
 		totalMaterials: number;

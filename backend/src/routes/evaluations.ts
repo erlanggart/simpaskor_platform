@@ -3152,6 +3152,12 @@ router.get(
 			const categoryMap = new Map(
 				eventCategories.map((c) => [c.id, c.assessmentCategory])
 			);
+			const assessmentCategoryNameMap = new Map(
+				event.assessmentCategories.map((c) => [
+					c.assessmentCategoryId,
+					c.assessmentCategory.name,
+				])
+			);
 
 			// Get all material evaluations for this participant
 			const materialEvaluations = await prisma.materialEvaluation.findMany({
@@ -3165,6 +3171,57 @@ router.get(
 					},
 				},
 			});
+
+			const extraNilaiRecords = await prisma.extraNilai.findMany({
+				where: {
+					eventId: event.id,
+					participantId: { in: groupIds },
+				},
+				select: {
+					id: true,
+					participantId: true,
+					type: true,
+					scope: true,
+					assessmentCategoryId: true,
+					juaraCategoryId: true,
+					value: true,
+					reason: true,
+					createdAt: true,
+				},
+				orderBy: { createdAt: "asc" },
+			});
+
+			const juaraCategoryIds = [
+				...new Set(
+					extraNilaiRecords
+						.map((en) => en.juaraCategoryId)
+						.filter((id): id is string => Boolean(id))
+				),
+			];
+			const juaraCategories =
+				juaraCategoryIds.length > 0
+					? await prisma.juaraCategory.findMany({
+						where: { id: { in: juaraCategoryIds }, eventId: event.id },
+						select: { id: true, name: true },
+					})
+					: [];
+			const juaraCategoryNameMap = new Map(
+				juaraCategories.map((category) => [category.id, category.name])
+			);
+			const groupNameMap = new Map(
+				selectedGroups.map((group) => [group.id, group.groupName])
+			);
+			const extraNilai = extraNilaiRecords.map((en) => ({
+				...en,
+				adjustment: en.type === "PUNISHMENT" ? -en.value : en.value,
+				participantName: groupNameMap.get(en.participantId) || null,
+				assessmentCategoryName: en.assessmentCategoryId
+					? assessmentCategoryNameMap.get(en.assessmentCategoryId) || null
+					: null,
+				juaraCategoryName: en.juaraCategoryId
+					? juaraCategoryNameMap.get(en.juaraCategoryId) || null
+					: null,
+			}));
 
 			// Get juries who evaluated this participant
 			const juriesMap = new Map<string, { id: string; name: string }>();
@@ -3235,18 +3292,62 @@ router.get(
 			// Group by category
 			const scoresByCategory = materialScores.reduce((acc, ms) => {
 				const catId = ms.material.categoryId;
+				const assessmentCategoryId = categoryMap.get(catId)?.id || catId;
 				if (!acc[catId]) {
 					acc[catId] = {
+						categoryId: assessmentCategoryId,
+						eventAssessmentCategoryId: catId,
 						categoryName: ms.material.categoryName,
 						materials: [],
+						extraAdjustment: 0,
 					};
 				}
 				acc[catId].materials.push(ms);
 				return acc;
-			}, {} as Record<string, { categoryName: string; materials: MaterialScore[] }>);
+			}, {} as Record<string, {
+				categoryId: string;
+				eventAssessmentCategoryId: string;
+				categoryName: string;
+				materials: MaterialScore[];
+				extraAdjustment: number;
+			}>);
+
+			const categoryExtraAdjustments = new Map<string, number>();
+			let generalExtraAdjustment = 0;
+			let juaraExtraAdjustment = 0;
+
+			extraNilai.forEach((en) => {
+				if (en.scope === "GENERAL") {
+					generalExtraAdjustment += en.adjustment;
+					return;
+				}
+
+				if (en.scope === "CATEGORY" && en.assessmentCategoryId) {
+					categoryExtraAdjustments.set(
+						en.assessmentCategoryId,
+						(categoryExtraAdjustments.get(en.assessmentCategoryId) || 0) + en.adjustment
+					);
+					return;
+				}
+
+				if (en.scope === "JUARA") {
+					juaraExtraAdjustment += en.adjustment;
+				}
+			});
+
+			Object.values(scoresByCategory).forEach((category) => {
+				category.extraAdjustment =
+					categoryExtraAdjustments.get(category.categoryId) || 0;
+			});
 
 			// Calculate totals
-			const totalScore = materialScores.reduce((sum, ms) => sum + ms.totalScore, 0);
+			const baseTotalScore = materialScores.reduce((sum, ms) => sum + ms.totalScore, 0);
+			const categoryExtraAdjustment = Array.from(categoryExtraAdjustments.values()).reduce(
+				(sum, adjustment) => sum + adjustment,
+				0
+			);
+			const totalAdjustment = categoryExtraAdjustment + generalExtraAdjustment;
+			const totalScore = baseTotalScore + totalAdjustment;
 			const totalMaterials = materials.length;
 			const evaluatedMaterials = materialScores.filter((ms) => ms.averageScore !== null).length;
 
@@ -3262,6 +3363,20 @@ router.get(
 				},
 				juries,
 				scoresByCategory: Object.values(scoresByCategory),
+				extraNilai,
+				extraSummary: {
+					baseTotalScore,
+					categoryExtraAdjustment,
+					generalExtraAdjustment,
+					juaraExtraAdjustment,
+					totalAdjustment,
+					punishment: extraNilai
+						.filter((en) => en.scope !== "JUARA" && en.type === "PUNISHMENT")
+						.reduce((sum, en) => sum + en.value, 0),
+					poinplus: extraNilai
+						.filter((en) => en.scope !== "JUARA" && en.type === "POINPLUS")
+						.reduce((sum, en) => sum + en.value, 0),
+				},
 				summary: {
 					totalScore,
 					totalMaterials,
