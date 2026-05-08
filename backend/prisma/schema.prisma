@@ -661,6 +661,7 @@ model EventTicketConfig {
   id             String   @id @default(uuid())
   eventId        String   @unique @map("event_id")
   enabled        Boolean  @default(false)
+  ticketTeamSelectionEnabled Boolean @default(true) @map("ticket_team_selection_enabled")
   price          Float    @default(0)
   quota          Int      @default(0)
   soldCount      Int      @default(0) @map("sold_count")

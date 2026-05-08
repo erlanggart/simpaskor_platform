@@ -2,6 +2,7 @@ export interface EventTicketConfig {
 	id: string;
 	eventId: string;
 	enabled: boolean;
+	ticketTeamSelectionEnabled: boolean;
 	price: number;
 	quota: number;
 	soldCount: number;

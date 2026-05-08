@@ -147,6 +147,10 @@ const ETicketingPage: React.FC = () => {
 		return selectedEventTeams.find((team) => team.id === ticketTeamId);
 	};
 
+	const isTicketTeamSelectionEnabled = (event: TicketedEvent | null): boolean => {
+		return event?.ticketConfig?.ticketTeamSelectionEnabled !== false;
+	};
+
 	const scrollTicketTeamCarousel = (idx: number, direction: "left" | "right") => {
 		const carousel = document.getElementById(`ticket-team-carousel-${idx}`);
 		carousel?.scrollBy({ left: direction === "left" ? -260 : 260, behavior: "smooth" });
@@ -196,14 +200,18 @@ const ETicketingPage: React.FC = () => {
 	];
 
 	const openPurchaseModal = async (event: TicketedEvent) => {
+		const teamSelectionEnabled = isTicketTeamSelectionEnabled(event);
 		setSelectedEvent(event);
 		setSelectedEventTeams([]);
 		setTeamSearch("");
-		setTeamsLoading(true);
+		setTeamsLoading(teamSelectionEnabled);
 		setAttendees([{ name: user?.name || "", email: user?.email || "", phone: "", ticketTeamId: "" }]);
 		setSendEmail("");
 		setAutoEmailSent(false);
 		setShowPurchaseModal(true);
+		if (!teamSelectionEnabled) {
+			return;
+		}
 		try {
 			const res = await api.get(`/tickets/events/${event.id}/teams`);
 			const teams: TicketTeam[] = res.data || [];
@@ -267,7 +275,7 @@ const ETicketingPage: React.FC = () => {
 				Swal.fire("Error", `Email peserta tiket #${i + 1} ${GMAIL_ONLY_EMAIL_MESSAGE}`, "error");
 				return;
 			}
-			if (!attendee.ticketTeamId) {
+			if (isTicketTeamSelectionEnabled(selectedEvent) && !attendee.ticketTeamId) {
 				Swal.fire("Error", `Pasukan yang ditonton untuk tiket #${i + 1} wajib dipilih`, "error");
 				return;
 			}
@@ -304,7 +312,7 @@ const ETicketingPage: React.FC = () => {
 					name: a.name.trim(),
 					email: a.email.trim(),
 					phone: a.phone.trim() || undefined,
-					ticketTeamId: a.ticketTeamId,
+					ticketTeamId: isTicketTeamSelectionEnabled(selectedEvent) ? a.ticketTeamId : undefined,
 				})),
 			});
 
@@ -694,7 +702,7 @@ const ETicketingPage: React.FC = () => {
 										</h3>
 										{attendees.length < MAX_TICKETS && attendees.length < ((selectedEvent.ticketConfig?.quota || 0) - (selectedEvent.ticketConfig?.soldCount || 0)) && (
 											<button
-												onClick={() => setAttendees(prev => [...prev, { name: "", email: "", phone: "", ticketTeamId: selectedEventTeams.length === 1 ? selectedEventTeams[0]?.id || "" : "" }])}
+												onClick={() => setAttendees(prev => [...prev, { name: "", email: "", phone: "", ticketTeamId: isTicketTeamSelectionEnabled(selectedEvent) && selectedEventTeams.length === 1 ? selectedEventTeams[0]?.id || "" : "" }])}
 												className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
 											>
 												<LuPlus className="w-3.5 h-3.5" />
@@ -703,17 +711,19 @@ const ETicketingPage: React.FC = () => {
 										)}
 									</div>
 									<p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">
-										Setiap tiket memiliki QR code unik. Isi data peserta dan pilih pasukan yang ingin ditonton.
+										{isTicketTeamSelectionEnabled(selectedEvent)
+											? "Setiap tiket memiliki QR code unik. Isi data peserta dan pilih pasukan yang ingin ditonton."
+											: "Setiap tiket memiliki QR code unik. Isi data peserta untuk melanjutkan pembelian."}
 									</p>
-									{teamsLoading && (
+									{isTicketTeamSelectionEnabled(selectedEvent) && teamsLoading && (
 										<div className="text-xs text-gray-500 dark:text-gray-400 mb-3">Memuat daftar pasukan...</div>
 									)}
-									{!teamsLoading && selectedEventTeams.length === 0 && (
+									{isTicketTeamSelectionEnabled(selectedEvent) && !teamsLoading && selectedEventTeams.length === 0 && (
 										<div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 mb-3">
 											Panitia belum menambahkan pilihan pasukan untuk event ini.
 										</div>
 									)}
-									{!teamsLoading && selectedEventTeams.length > 0 && (
+									{isTicketTeamSelectionEnabled(selectedEvent) && !teamsLoading && selectedEventTeams.length > 0 && (
 										<div className="mb-3">
 											<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
 												<LuSearch className="w-3.5 h-3.5 inline mr-1" />
@@ -797,6 +807,7 @@ const ETicketingPage: React.FC = () => {
 													placeholder="No. HP"
 												/>
 												</div>
+												{isTicketTeamSelectionEnabled(selectedEvent) && (
 												<div className="mt-2">
 													<div className="flex items-center justify-between gap-2 mb-2">
 														<div>
@@ -900,6 +911,7 @@ const ETicketingPage: React.FC = () => {
 														</div>
 													)}
 												</div>
+												)}
 											</div>
 										))}
 									</div>
@@ -929,7 +941,7 @@ const ETicketingPage: React.FC = () => {
 									</button>
 									<button
 										onClick={handlePurchase}
-										disabled={purchasing || teamsLoading || selectedEventTeams.length === 0}
+										disabled={purchasing || teamsLoading || (isTicketTeamSelectionEnabled(selectedEvent) && selectedEventTeams.length === 0)}
 										className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
 									>
 										{purchasing ? "Memproses..." : "Beli Tiket"}

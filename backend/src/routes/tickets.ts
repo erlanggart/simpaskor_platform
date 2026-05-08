@@ -132,6 +132,7 @@ router.get("/events", async (req: AuthenticatedRequest, res: Response) => {
 							description: true,
 							salesStartDate: true,
 							salesEndDate: true,
+							ticketTeamSelectionEnabled: true,
 						},
 					},
 				},
@@ -198,6 +199,7 @@ router.get("/events/:eventId", async (req: AuthenticatedRequest, res: Response) 
 						salesStartDate: true,
 						salesEndDate: true,
 						enabled: true,
+						ticketTeamSelectionEnabled: true,
 					},
 				},
 			},
@@ -222,11 +224,15 @@ router.get("/events/:eventId/teams", async (req: AuthenticatedRequest, res: Resp
 
 		const event = await prisma.event.findUnique({
 			where: { id: eventId },
-			select: { ticketConfig: { select: { enabled: true } } },
+			select: { ticketConfig: { select: { enabled: true, ticketTeamSelectionEnabled: true } } },
 		});
 
 		if (!event?.ticketConfig?.enabled) {
 			return res.status(404).json({ error: "Tiket tidak tersedia untuk event ini" });
+		}
+
+		if (!event.ticketConfig.ticketTeamSelectionEnabled) {
+			return res.json([]);
 		}
 
 		res.json(await getTicketTeamStandings(eventId));
@@ -266,9 +272,6 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			if (!att.email || !emailRegex.test(att.email.trim())) {
 				return res.status(400).json({ error: `Email peserta tiket #${i + 1} tidak valid` });
 			}
-			if (!att.ticketTeamId || !String(att.ticketTeamId).trim()) {
-				return res.status(400).json({ error: `Pasukan yang ditonton untuk tiket #${i + 1} wajib dipilih` });
-			}
 		}
 
 		const quantity = attendees.length;
@@ -277,21 +280,35 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			return res.status(400).json({ error: "Format email pembeli tidak valid" });
 		}
 
-		const ticketTeams = await prisma.ticketTeam.findMany({
+		const ticketSettings = await prisma.eventTicketConfig.findUnique({
 			where: { eventId },
-			select: { id: true },
+			select: { enabled: true, ticketTeamSelectionEnabled: true },
 		});
-		if (ticketTeams.length === 0) {
-			return res.status(400).json({ error: "Panitia belum menambahkan pasukan untuk pilihan penonton" });
+
+		if (!ticketSettings?.enabled) {
+			return res.status(400).json({ error: "Tiket tidak tersedia untuk event ini" });
 		}
 
-		const validTeamIds = new Set(ticketTeams.map((team) => team.id));
-		for (let i = 0; i < attendees.length; i++) {
-			const attendee = attendees[i];
-			if (!attendee) continue;
-			const ticketTeamId = String(attendee.ticketTeamId).trim();
-			if (!validTeamIds.has(ticketTeamId)) {
-				return res.status(400).json({ error: `Pasukan yang dipilih untuk tiket #${i + 1} tidak valid` });
+		if (ticketSettings.ticketTeamSelectionEnabled) {
+			const ticketTeams = await prisma.ticketTeam.findMany({
+				where: { eventId },
+				select: { id: true },
+			});
+			if (ticketTeams.length === 0) {
+				return res.status(400).json({ error: "Panitia belum menambahkan pasukan untuk pilihan penonton" });
+			}
+
+			const validTeamIds = new Set(ticketTeams.map((team) => team.id));
+			for (let i = 0; i < attendees.length; i++) {
+				const attendee = attendees[i];
+				if (!attendee) continue;
+				const ticketTeamId = String(attendee.ticketTeamId || "").trim();
+				if (!ticketTeamId) {
+					return res.status(400).json({ error: `Pasukan yang ditonton untuk tiket #${i + 1} wajib dipilih` });
+				}
+				if (!validTeamIds.has(ticketTeamId)) {
+					return res.status(400).json({ error: `Pasukan yang dipilih untuk tiket #${i + 1} tidak valid` });
+				}
 			}
 		}
 
@@ -388,7 +405,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 				const attendeeRecord = await tx.ticketAttendee.create({
 					data: {
 						purchaseId: purchase.id,
-						ticketTeamId: String(att.ticketTeamId).trim(),
+						ticketTeamId: ticketSettings.ticketTeamSelectionEnabled ? String(att.ticketTeamId).trim() : null,
 						attendeeName: att.name.trim(),
 						attendeeEmail: att.email.trim(),
 						attendeePhone: att.phone?.trim() || null,
@@ -639,6 +656,7 @@ router.get(
 				return res.json({
 					eventId,
 					enabled: false,
+					ticketTeamSelectionEnabled: true,
 					price: 0,
 					quota: 0,
 					soldCount: 0,
@@ -731,10 +749,10 @@ router.post(
 				return res.status(404).json({ error: "Konfigurasi tiket belum dibuat. Simpan konfigurasi terlebih dahulu." });
 			}
 
-			if (!existing.enabled) {
+			if (!existing.enabled && existing.ticketTeamSelectionEnabled) {
 				const teamCount = await prisma.ticketTeam.count({ where: { eventId } });
 				if (teamCount === 0) {
-					return res.status(400).json({ error: "Tambahkan minimal satu pasukan/sekolah sebelum membuka penjualan tiket." });
+					return res.status(400).json({ error: "Tambahkan minimal satu pasukan/sekolah sebelum membuka penjualan tiket berbasis pasukan." });
 				}
 			}
 
@@ -767,12 +785,15 @@ router.put(
 				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
 			}
 
-			const { enabled, price, quota, description, salesStartDate, salesEndDate } = req.body;
+			const { enabled, ticketTeamSelectionEnabled, price, quota, description, salesStartDate, salesEndDate } = req.body;
+			const normalizedTicketTeamSelectionEnabled = ticketTeamSelectionEnabled !== undefined
+				? Boolean(ticketTeamSelectionEnabled)
+				: true;
 
-			if (enabled) {
+			if (enabled && normalizedTicketTeamSelectionEnabled) {
 				const teamCount = await prisma.ticketTeam.count({ where: { eventId } });
 				if (teamCount === 0) {
-					return res.status(400).json({ error: "Tambahkan minimal satu pasukan/sekolah sebelum mengaktifkan ticketing." });
+					return res.status(400).json({ error: "Tambahkan minimal satu pasukan/sekolah atau nonaktifkan mode wajib pilih pasukan sebelum mengaktifkan ticketing." });
 				}
 			}
 
@@ -781,6 +802,7 @@ router.put(
 				create: {
 					event: { connect: { id: eventId } },
 					enabled: enabled ?? false,
+					ticketTeamSelectionEnabled: normalizedTicketTeamSelectionEnabled,
 					price: price ?? 0,
 					quota: quota ?? 0,
 					description: description || null,
@@ -789,6 +811,7 @@ router.put(
 				},
 				update: {
 					enabled: enabled ?? false,
+					ticketTeamSelectionEnabled: normalizedTicketTeamSelectionEnabled,
 					price: price ?? 0,
 					quota: quota ?? 0,
 					description: description || null,

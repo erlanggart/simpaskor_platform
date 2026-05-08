@@ -40,6 +40,7 @@ const EventTicketing: React.FC = () => {
 		id: "",
 		eventId: "",
 		enabled: false,
+		ticketTeamSelectionEnabled: true,
 		price: 0,
 		quota: 100,
 		soldCount: 0,
@@ -396,11 +397,44 @@ const EventTicketing: React.FC = () => {
 		}
 	};
 
+	const handleToggleTicketTeamSelectionMode = async () => {
+		const nextValue = !config.ticketTeamSelectionEnabled;
+		try {
+			setSaving(true);
+			const payload: any = {
+				enabled: config.enabled,
+				ticketTeamSelectionEnabled: nextValue,
+				price: Number(config.price),
+				quota: Number(config.quota),
+				description: config.description || undefined,
+			};
+			if (config.salesStartDate) payload.salesStartDate = config.salesStartDate;
+			if (config.salesEndDate) payload.salesEndDate = config.salesEndDate;
+
+			const res = await api.put(`/tickets/admin/event/${eventId}/config`, payload);
+			setConfig(res.data);
+			Swal.fire({
+				title: "Berhasil!",
+				text: nextValue
+					? "Mode pilih pasukan diaktifkan. Penonton wajib memilih pasukan saat membeli tiket."
+					: "Mode pilih pasukan dinonaktifkan. Penonton tetap bisa membeli tiket tanpa memilih pasukan.",
+				icon: "success",
+				timer: 1600,
+				showConfirmButton: false,
+			});
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal mengubah mode pilih pasukan", "error");
+		} finally {
+			setSaving(false);
+		}
+	};
+
 	const handleSaveConfig = async () => {
 		try {
 			setSaving(true);
 			const payload: any = {
 				enabled: config.enabled,
+				ticketTeamSelectionEnabled: config.ticketTeamSelectionEnabled,
 				price: Number(config.price),
 				quota: Number(config.quota),
 				description: config.description || undefined,
@@ -1014,8 +1048,38 @@ const EventTicketing: React.FC = () => {
 							</div>
 							<div>
 								<h2 className="text-lg font-semibold text-gray-900 dark:text-white">Pasukan Ticketing</h2>
-								<p className="text-sm text-gray-500 dark:text-gray-400">Daftar pilihan pasukan untuk penonton saat membeli tiket.</p>
+								<p className="text-sm text-gray-500 dark:text-gray-400">Daftar pilihan pasukan untuk penonton saat membeli tiket berbasis nominasi.</p>
 							</div>
+						</div>
+
+						<div className={`mb-5 flex items-center justify-between rounded-xl border p-4 ${
+							config.ticketTeamSelectionEnabled
+								? "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/20"
+								: "border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-900/20"
+						}`}>
+							<div>
+								<p className="text-sm font-semibold text-gray-900 dark:text-white">
+									Mode Pilih Pasukan
+								</p>
+								<p className="text-xs text-gray-500 dark:text-gray-400">
+									{config.ticketTeamSelectionEnabled
+										? "Penonton wajib memilih pasukan saat membeli tiket."
+										: "Penonton tetap bisa membeli tiket tanpa memilih pasukan."}
+								</p>
+							</div>
+							<button
+								type="button"
+								onClick={handleToggleTicketTeamSelectionMode}
+								disabled={saving}
+								title={config.ticketTeamSelectionEnabled ? "Nonaktifkan mode pilih pasukan" : "Aktifkan mode pilih pasukan"}
+								className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+									config.ticketTeamSelectionEnabled ? "bg-red-600" : "bg-green-500"
+								}`}
+							>
+								<span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+									config.ticketTeamSelectionEnabled ? "translate-x-5" : "translate-x-1"
+								}`} />
+							</button>
 						</div>
 
 						<div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6">
@@ -1140,6 +1204,30 @@ const EventTicketing: React.FC = () => {
 								<span
 									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
 										config.enabled ? "translate-x-6" : "translate-x-1"
+									}`}
+								/>
+							</button>
+						</div>
+
+						{/* Team Selection Mode */}
+						<div className="flex items-center justify-between">
+							<div>
+								<label className="text-sm font-medium text-gray-900 dark:text-white">
+									Wajib Pilih Pasukan
+								</label>
+								<p className="text-xs text-gray-500 dark:text-gray-400">
+									Matikan agar penonton tetap bisa membeli tiket tanpa memilih nominasi pasukan
+								</p>
+							</div>
+							<button
+								onClick={() => setConfig({ ...config, ticketTeamSelectionEnabled: !config.ticketTeamSelectionEnabled })}
+								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+									config.ticketTeamSelectionEnabled ? "bg-red-600" : "bg-gray-300 dark:bg-gray-600"
+								}`}
+							>
+								<span
+									className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+										config.ticketTeamSelectionEnabled ? "translate-x-6" : "translate-x-1"
 									}`}
 								/>
 							</button>
