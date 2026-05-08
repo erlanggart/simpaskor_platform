@@ -656,7 +656,7 @@ const EVotingPage: React.FC = () => {
 							</div>
 
 							<aside className="evoting-glass-panel self-end rounded-3xl border border-white/[0.15] bg-white/[0.12] p-4 text-white shadow-2xl backdrop-blur-2xl">
-								<div className="grid grid-cols-2 gap-3">
+								<div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
 									<div className="rounded-2xl bg-white/[0.12] p-4">
 										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Kategori</p>
 										<p className="mt-2 text-2xl font-black">{selectedEvent.votingConfig?.categories.length || 0}</p>
@@ -668,10 +668,6 @@ const EVotingPage: React.FC = () => {
 									<div className="rounded-2xl bg-white/[0.12] p-4">
 										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Vote</p>
 										<p className="mt-2 text-2xl font-black">{formatCompactNumber(selectedEventVoteCount)}</p>
-									</div>
-									<div className="rounded-2xl bg-white/[0.12] p-4">
-										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Mode</p>
-										<p className="mt-2 text-lg font-black">{selectedEvent.votingConfig?.isPaid ? "Berbayar" : "Gratis"}</p>
 									</div>
 								</div>
 								{selectedEvent.votingConfig?.isPaid && voteCodeInfo && (
