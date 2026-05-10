@@ -33,6 +33,7 @@ import visitorRoutes from "./routes/visitors";
 import settingsRoutes from "./routes/settings";
 import backupRoutes from "./routes/backup";
 import disbursementRoutes from "./routes/disbursements";
+import externalFinanceRoutes from "./routes/externalFinance";
 
 dotenv.config();
 
@@ -56,24 +57,29 @@ const allowedOrigins = [
 	"https://localhost:5174",
 	...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 	...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.replace("http://", "https://")] : []),
+	...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim()) : []),
 ].filter(Boolean);
 
 app.use(
-	cors({
-		origin: (origin, callback) => {
-			// Allow requests with no origin (server-to-server, webhooks)
-			if (!origin) return callback(null, true);
-			if (allowedOrigins.includes(origin)) {
-				callback(null, true);
-			} else {
-				callback(new Error("Not allowed by CORS"));
-			}
-		},
-		credentials: true,
-		methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "Authorization"],
-		exposedHeaders: ["Content-Range", "X-Content-Range"],
-		maxAge: 600, // 10 minutes
+	cors((req, callback) => {
+		const corsOptions = {
+			origin: (origin: string | undefined, originCallback: (err: Error | null, allow?: boolean) => void) => {
+				// Allow requests with no origin (server-to-server, webhooks)
+				if (!origin) return originCallback(null, true);
+				if (req.path.startsWith("/api/external") || allowedOrigins.includes(origin)) {
+					originCallback(null, true);
+				} else {
+					originCallback(new Error("Not allowed by CORS"));
+				}
+			},
+			credentials: true,
+			methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+			allowedHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+			exposedHeaders: ["Content-Range", "X-Content-Range"],
+			maxAge: 600, // 10 minutes
+		};
+
+		callback(null, corsOptions);
 	})
 );
 
@@ -197,6 +203,7 @@ app.use("/api/visitors", visitorRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/backup", backupRoutes);
 app.use("/api/disbursements", disbursementRoutes);
+app.use("/api/external", externalFinanceRoutes);
 
 // Error handling middleware
 app.use(
