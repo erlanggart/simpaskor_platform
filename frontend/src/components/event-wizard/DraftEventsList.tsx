@@ -154,7 +154,7 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 					</h3>
 				</div>
 				<p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-					Lanjutkan pembuatan event atau pantau DP yang menunggu konfirmasi
+					Lanjutkan pembuatan event atau pantau request yang menunggu konfirmasi admin
 				</p>
 			</div>
 
@@ -176,7 +176,7 @@ const DraftEventsList: React.FC<DraftEventsListProps> = ({ onDraftDeleted }) => 
 										{dpPending && (
 											<span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
 												<LockClosedIcon className="w-3 h-3" />
-												Menunggu Konfirmasi DP
+												Menunggu Konfirmasi Admin
 											</span>
 										)}
 									</div>

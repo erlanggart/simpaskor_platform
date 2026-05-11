@@ -54,11 +54,6 @@ const PricingCard: React.FC<PricingCardProps> = ({ pkg, index, className = "" })
 						<p className={`pricing-price ${priceColorClass[pkg.tier]}`}>
 							{pkg.price}
 						</p>
-						{hasNoUpfrontPayment(pkg.tier) && pkg.tier !== "IKLAN" && (
-							<span className="pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-								bagi hasil
-							</span>
-						)}
 					</div>
 					<p className="pricing-summary text-gray-500 dark:text-gray-400">
 						{pkg.summary}
@@ -72,7 +67,7 @@ const PricingCard: React.FC<PricingCardProps> = ({ pkg, index, className = "" })
 					</div>
 					<div className="pricing-meta-pill">
 						<LuSparkles className="h-3.5 w-3.5" />
-						<span>{isPaid ? "Pro setup" : "Tanpa DP"}</span>
+						<span>{isPaid ? "Pro setup" : pkg.tier === "IKLAN" ? "Tanpa DP" : "Via admin"}</span>
 					</div>
 				</div>
 

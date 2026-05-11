@@ -7,7 +7,7 @@ import {
 	LuThumbsUp,
 	LuTicketPlus,
 } from "react-icons/lu";
-import { getRevenueShareLabel, getRevenueShareShortLabel, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
+import { getRevenueShareShortLabel, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 
 export type PackageTier = "IKLAN" | "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "GOLD";
 
@@ -65,37 +65,37 @@ export const packages: PricingPackage[] = [
 		tier: "TICKETING",
 		name: "Paket Ticketing",
 		price: getRevenueShareShortLabel("TICKETING"),
-		kicker: "Revenue share",
+		kicker: "Negosiasi",
 		summary: "Jual tiket online dengan dashboard penjualan dan validasi digital.",
 		icon: LuTicket,
 		btnClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white",
 		accent: "#3b82f6",
 		accentSoft: "rgba(59,130,246,0.15)",
-		note: `Fitur E-Ticketing dengan bagi hasil ${getRevenueShareLabel("TICKETING")}`,
+		note: "Harga dan bagi hasil dinegosiasikan dengan admin setelah event dibuat",
 	},
 	{
 		tier: "VOTING",
 		name: "Paket Voting",
 		price: getRevenueShareShortLabel("VOTING"),
-		kicker: "Engagement",
+		kicker: "Negosiasi",
 		summary: "Aktifkan dukungan penonton lewat voting digital yang mudah dipantau.",
 		icon: LuThumbsUp,
 		btnClass: "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white",
 		accent: "#a855f7",
 		accentSoft: "rgba(168,85,247,0.15)",
-		note: `Fitur E-Voting dengan bagi hasil ${getRevenueShareLabel("VOTING")}`,
+		note: "Harga dan bagi hasil dinegosiasikan dengan admin setelah event dibuat",
 	},
 	{
 		tier: "TICKETING_VOTING",
 		name: "Tiket + Voting",
 		price: getRevenueShareShortLabel("TICKETING_VOTING"),
-		kicker: "Bundle",
+		kicker: "Bundle negosiasi",
 		summary: "Gabungkan ticketing dan voting dalam satu paket operasional.",
 		icon: LuTicketPlus,
 		btnClass: "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white",
 		accent: "#6366f1",
 		accentSoft: "rgba(99,102,241,0.15)",
-		note: `E-Ticketing dan E-Voting dengan bagi hasil ${getRevenueShareLabel("TICKETING_VOTING")}`,
+		note: "Harga dan bagi hasil bundle dinegosiasikan dengan admin setelah event dibuat",
 	},
 	{
 		tier: "BRONZE",

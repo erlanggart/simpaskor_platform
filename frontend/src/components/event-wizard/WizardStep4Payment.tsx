@@ -14,7 +14,7 @@ import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
 import { useAuth } from "../../hooks/useAuth";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
-import { getPackagePriceLabel, getRevenueShareLabel, getRevenueShareShortLabel, hasNoUpfrontPayment, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
+import { getPackagePriceLabel, hasNoUpfrontPayment, isRevenueSharePackage, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 import { buildDPWhatsAppUrl } from "../../utils/dpWhatsApp";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy";
 
@@ -72,37 +72,37 @@ const packages: PackageOption[] = [
 		tier: "TICKETING",
 		name: "Paket Ticketing",
 		price: 0,
-		priceLabel: getRevenueShareShortLabel("TICKETING"),
+		priceLabel: "Negosiasi",
 		icon: LuTicket,
 		color: "blue",
 		borderColor: "border-blue-400/50 dark:border-blue-500/30",
 		bgGlow: "from-blue-500/10 to-blue-600/5",
 		btnClass: "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white",
-		note: `Fitur E-Ticketing dengan bagi hasil ${getRevenueShareLabel("TICKETING")}`,
+		note: "Harga dan bagi hasil dinegosiasikan dengan admin",
 	},
 	{
 		tier: "VOTING",
 		name: "Paket Voting",
 		price: 0,
-		priceLabel: getRevenueShareShortLabel("VOTING"),
+		priceLabel: "Negosiasi",
 		icon: LuThumbsUp,
 		color: "purple",
 		borderColor: "border-purple-400/50 dark:border-purple-500/30",
 		bgGlow: "from-purple-500/10 to-purple-600/5",
 		btnClass: "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white",
-		note: `Fitur E-Voting dengan bagi hasil ${getRevenueShareLabel("VOTING")}`,
+		note: "Harga dan bagi hasil dinegosiasikan dengan admin",
 	},
 	{
 		tier: "TICKETING_VOTING",
 		name: "Tiket + Voting",
 		price: 0,
-		priceLabel: getRevenueShareShortLabel("TICKETING_VOTING"),
+		priceLabel: "Negosiasi",
 		icon: LuTicketPlus,
 		color: "indigo",
 		borderColor: "border-indigo-400/50 dark:border-indigo-500/30",
 		bgGlow: "from-indigo-500/10 to-indigo-600/5",
 		btnClass: "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white",
-		note: `E-Ticketing dan E-Voting dengan bagi hasil ${getRevenueShareLabel("TICKETING_VOTING")}`,
+		note: "Harga dan bagi hasil bundle dinegosiasikan dengan admin",
 	},
 	{
 		tier: "BRONZE",
@@ -172,14 +172,18 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 	const isDpPending =
 		paymentStatus?.paymentType === "DP_REQUEST" &&
 		paymentStatus?.status === "PENDING";
+	const isNegotiationPending =
+		paymentStatus?.paymentType === "NEGOTIATION_REQUEST" &&
+		paymentStatus?.status === "PENDING";
+	const isAdminPending = isDpPending || isNegotiationPending;
 
 	const handleSelectPackage = (tier: PackageTier) => {
-		if (isPaid || isDpPending) return;
+		if (isPaid || isAdminPending) return;
 		setSelectedPackage(tier);
 	};
 
 	const handlePayment = async () => {
-		if (!selectedPackage || !eventId || isDpPending) return;
+		if (!selectedPackage || !eventId || isAdminPending) return;
 		const selectedPrice = packages.find((pkg) => pkg.tier === selectedPackage)?.price || 0;
 		if (selectedPrice > 0 && !isGmailEmail(user?.email || "")) {
 			showError(`Email akun ${GMAIL_ONLY_EMAIL_MESSAGE} untuk pembayaran event`);
@@ -245,6 +249,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 
 	const openDPWhatsApp = (packageTier: PackageTier) => {
 		const pkg = packages.find((p) => p.tier === packageTier);
+		const isNegotiation = isRevenueSharePackage(packageTier);
 		const waUrl = buildDPWhatsAppUrl({
 			title: eventTitle,
 			packageTier,
@@ -255,13 +260,14 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			province: eventProvince,
 			city: eventCity,
 			venue: eventVenue,
+			mode: isNegotiation ? "negotiation" : "dp",
 		});
 
 		window.open(waUrl, "_blank");
 	};
 
 	const handleFreePackage = async () => {
-		if (!eventId || !selectedPackage || isDpPending) return;
+		if (!eventId || !selectedPackage || isAdminPending) return;
 
 		setIsProcessing(true);
 		try {
@@ -284,18 +290,18 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 		}
 	};
 
-	const handleDP = async () => {
-		if (!selectedPackage || !eventId || isDpPending) return;
+	const handleAdminRequest = async () => {
+		if (!selectedPackage || !eventId || isAdminPending) return;
+		const isNegotiation = isRevenueSharePackage(selectedPackage);
 		const selectedPrice = packages.find((pkg) => pkg.tier === selectedPackage)?.price || 0;
-		if (selectedPrice > 0 && !isGmailEmail(user?.email || "")) {
+		if (!isNegotiation && selectedPrice > 0 && !isGmailEmail(user?.email || "")) {
 			showError(`Email akun ${GMAIL_ONLY_EMAIL_MESSAGE} untuk pembayaran event`);
 			return;
 		}
 
 		setIsProcessing(true);
 		try {
-			// Save DP request to backend
-			const response = await api.post(`/event-payments/${eventId}/dp-request`, {
+			const response = await api.post(`/event-payments/${eventId}/${isNegotiation ? "negotiation-request" : "dp-request"}`, {
 				packageTier: selectedPackage,
 			});
 
@@ -307,7 +313,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 				status: "PENDING",
 				snapToken: null,
 				midtransOrderId: null,
-				paymentType: "DP_REQUEST",
+				paymentType: isNegotiation ? "NEGOTIATION_REQUEST" : "DP_REQUEST",
 				paidAt: null,
 			});
 
@@ -333,20 +339,23 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 				province: eventProvince,
 				city: eventCity,
 				venue: eventVenue,
+				mode: isNegotiation ? "negotiation" : "dp",
 			});
 
 			// Open WhatsApp in new tab
 			window.open(waUrl, "_blank");
 
 			showSuccess(
-				"Permintaan DP berhasil dikirim. Silakan lanjutkan pembicaraan dengan admin melalui WhatsApp.",
-				"DP Berhasil Diajukan!"
+				isNegotiation
+					? "Permintaan negosiasi berhasil dikirim. Silakan lanjutkan pembicaraan dengan admin melalui WhatsApp."
+					: "Permintaan DP berhasil dikirim. Silakan lanjutkan pembicaraan dengan admin melalui WhatsApp.",
+				isNegotiation ? "Negosiasi Berhasil Diajukan!" : "DP Berhasil Diajukan!"
 			);
 
 			// Redirect to panitia dashboard
 			navigate("/panitia/dashboard");
 		} catch (error: any) {
-			showError(error.response?.data?.error || "Gagal memproses permintaan DP");
+			showError(error.response?.data?.error || "Gagal memproses permintaan admin");
 		} finally {
 			setIsProcessing(false);
 		}
@@ -357,11 +366,13 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			{/* Header */}
 			<div className="text-center mb-8">
 				<h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-					{isPaid ? "Pembayaran Berhasil" : isDpPending ? "Menunggu Konfirmasi DP" : "Konfirmasi & Pembayaran"}
+					{isPaid ? "Pembayaran Berhasil" : isNegotiationPending ? "Menunggu Hasil Negosiasi" : isDpPending ? "Menunggu Konfirmasi DP" : "Konfirmasi & Pembayaran"}
 				</h2>
 				<p className="text-gray-600 dark:text-gray-400 mt-2">
 					{isPaid
 						? "Event Anda siap untuk dipublish!"
+						: isNegotiationPending
+						? "Event Anda terkunci sementara sampai admin mengatur hasil negosiasi."
 						: isDpPending
 						? "Event Anda terkunci sementara sampai admin mengonfirmasi DP."
 						: preSelectedTier
@@ -386,17 +397,19 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 				</div>
 			)}
 
-			{isDpPending && (
+			{isAdminPending && (
 				<div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
 					<ClockIcon className="w-16 h-16 text-amber-500 mx-auto mb-4" />
 					<h3 className="text-xl font-bold text-amber-700 dark:text-amber-300 mb-2">
-						DP Menunggu Konfirmasi Admin
+						{isNegotiationPending ? "Negosiasi Menunggu Admin" : "DP Menunggu Konfirmasi Admin"}
 					</h3>
 					<p className="text-amber-700 dark:text-amber-300 mb-1">
 						Paket: <strong>{packages.find(p => p.tier === paymentStatus?.packageTier)?.name}</strong>
 					</p>
 					<p className="text-amber-600 dark:text-amber-400 text-sm">
-						Panitia belum dapat memakai fitur event sampai super admin mengonfirmasi DP dan mengubah status event.
+						{isNegotiationPending
+							? "Panitia belum dapat memakai fitur event sampai super admin mengatur persentase bagi hasil dan mengonfirmasi paket."
+							: "Panitia belum dapat memakai fitur event sampai super admin mengonfirmasi DP dan mengubah status event."}
 					</p>
 					{paymentStatus?.packageTier && (
 						<button
@@ -412,7 +425,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 			)}
 
 			{/* Package Selection */}
-			{!isPaid && !isDpPending && (
+			{!isPaid && !isAdminPending && (
 				<>
 					{/* Pre-selected package summary */}
 					{preSelectedTier && (() => {
@@ -623,7 +636,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 
 			{/* Action Buttons */}
 			<div className="flex items-center justify-between pt-4">
-				{!isPaid && !isDpPending && (
+				{!isPaid && !isAdminPending && (
 					<button
 						type="button"
 						onClick={onBack}
@@ -634,7 +647,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 					</button>
 				)}
 
-				{isPaid || isDpPending ? (
+				{isPaid || isAdminPending ? (
 					<button
 						type="button"
 						onClick={handleFinish}
@@ -646,7 +659,7 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 					>
 						Ke Dashboard →
 					</button>
-				) : selectedPackage && hasNoUpfrontPayment(selectedPackage) ? (
+				) : selectedPackage === "IKLAN" ? (
 					<button
 						type="button"
 						onClick={handleFreePackage}
@@ -665,10 +678,20 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 							</>
 						)}
 					</button>
+				) : selectedPackage && isRevenueSharePackage(selectedPackage) ? (
+					<button
+						type="button"
+						onClick={handleAdminRequest}
+						disabled={!selectedPackage || isProcessing}
+						className="flex items-center gap-2 px-8 py-3 font-semibold rounded-xl shadow-lg transition-all bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white disabled:opacity-60"
+					>
+						<PhoneIcon className="w-5 h-5" />
+						Negosiasi via WhatsApp
+					</button>
 				) : paymentMode === "dp" ? (
 					<button
 						type="button"
-						onClick={handleDP}
+						onClick={handleAdminRequest}
 						disabled={!selectedPackage}
 						className={`flex items-center gap-2 px-8 py-3 font-semibold rounded-xl shadow-lg transition-all ${
 							selectedPackage

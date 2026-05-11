@@ -27,6 +27,7 @@ interface PackageEvent {
 	status: string;
 	packageTier: string;
 	paymentStatus: string | null;
+	platformSharePercent: number | null;
 	startDate: string;
 	endDate: string;
 	organizer: string | null;
@@ -73,7 +74,7 @@ const tierConfig: Record<string, { label: string; price: string; color: string }
 const paymentStatusConfig: Record<string, { label: string; color: string }> = {
 	PAID: { label: "Lunas", color: "green" },
 	PENDING: { label: "Menunggu", color: "yellow" },
-	DP_REQUESTED: { label: "DP Request", color: "blue" },
+	DP_REQUESTED: { label: "Menunggu Admin", color: "blue" },
 };
 
 const eventStatusConfig: Record<string, { label: string; color: string }> = {
@@ -141,6 +142,7 @@ const PackageManagement: React.FC = () => {
 	const handleUpdatePackage = async (event: PackageEvent) => {
 		const currentTier = event.packageTier;
 		const currentPayment = event.paymentStatus || "PENDING";
+		const isRevenueShareTier = ["TICKETING", "VOTING", "TICKETING_VOTING"].includes(currentTier);
 
 		const { value: formValues } = await Swal.fire({
 			title: `Edit Paket — ${event.title}`,
@@ -159,8 +161,13 @@ const PackageManagement: React.FC = () => {
 						<select id="swal-payment" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white">
 							<option value="PENDING" ${currentPayment === "PENDING" ? "selected" : ""}>Menunggu</option>
 							<option value="PAID" ${currentPayment === "PAID" ? "selected" : ""}>Lunas</option>
-							<option value="DP_REQUESTED" ${currentPayment === "DP_REQUESTED" ? "selected" : ""}>DP Request</option>
+							<option value="DP_REQUESTED" ${currentPayment === "DP_REQUESTED" ? "selected" : ""}>Menunggu Admin</option>
 						</select>
+					</div>
+					<div id="swal-share-wrap" style="${isRevenueShareTier ? "" : "display:none"}">
+						<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bagi Hasil Simpaskor (%)</label>
+						<input id="swal-platform-share" type="number" min="0" max="100" step="0.01" value="${event.platformSharePercent ?? ""}" placeholder="Contoh: 15" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white" />
+						<p class="text-xs text-gray-500 mt-1">Hak panitia otomatis dihitung dari sisa persentase.</p>
 					</div>
 				</div>
 			`,
@@ -168,10 +175,22 @@ const PackageManagement: React.FC = () => {
 			confirmButtonText: "Simpan",
 			cancelButtonText: "Batal",
 			confirmButtonColor: "#ef4444",
+			didOpen: () => {
+				const tierSelect = document.getElementById("swal-tier") as HTMLSelectElement | null;
+				const shareWrap = document.getElementById("swal-share-wrap") as HTMLDivElement | null;
+				const syncShareVisibility = () => {
+					if (!tierSelect || !shareWrap) return;
+					shareWrap.style.display = ["TICKETING", "VOTING", "TICKETING_VOTING"].includes(tierSelect.value) ? "" : "none";
+				};
+				tierSelect?.addEventListener("change", syncShareVisibility);
+				syncShareVisibility();
+			},
 			preConfirm: () => {
+				const platformShare = (document.getElementById("swal-platform-share") as HTMLInputElement | null)?.value;
 				return {
 					packageTier: (document.getElementById("swal-tier") as HTMLSelectElement).value,
 					paymentStatus: (document.getElementById("swal-payment") as HTMLSelectElement).value,
+					platformSharePercent: platformShare === "" ? null : Number(platformShare),
 				};
 			},
 		});
@@ -181,8 +200,8 @@ const PackageManagement: React.FC = () => {
 				await api.put(`/event-payments/admin/packages/${event.id}`, formValues);
 				Swal.fire({ icon: "success", title: "Berhasil!", text: "Paket berhasil diperbarui", timer: 1500, showConfirmButton: false });
 				fetchPackages();
-			} catch {
-				Swal.fire({ icon: "error", title: "Gagal", text: "Gagal memperbarui paket" });
+			} catch (error: any) {
+				Swal.fire({ icon: "error", title: "Gagal", text: error.response?.data?.error || "Gagal memperbarui paket" });
 			}
 		}
 	};
@@ -223,6 +242,11 @@ const PackageManagement: React.FC = () => {
 
 	const formatCurrency = (amount: number) => {
 		return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
+	};
+
+	const formatShare = (percent: number | null) => {
+		if (percent === null || percent === undefined) return "Belum diatur";
+		return `${percent}% Simpaskor / ${100 - percent}% Panitia`;
 	};
 
 	return (
@@ -386,6 +410,9 @@ const PackageManagement: React.FC = () => {
 												{getTierBadge(event.packageTier)}
 												{event.eventPayment && event.eventPayment.amount > 0 && (
 													<p className="text-[10px] text-gray-500 mt-0.5">{formatCurrency(event.eventPayment.amount)}</p>
+												)}
+												{["TICKETING", "VOTING", "TICKETING_VOTING"].includes(event.packageTier) && (
+													<p className="text-[10px] text-gray-500 mt-0.5">{formatShare(event.platformSharePercent)}</p>
 												)}
 											</div>
 										</td>

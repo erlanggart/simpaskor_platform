@@ -29,8 +29,9 @@ const PACKAGE_NAMES: Record<string, string> = {
 	GOLD: "Paket Gold",
 };
 
-// Tiers that don't require upfront package payment. Ticketing/Voting use revenue share.
-const NO_UPFRONT_PAYMENT_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING"];
+// Only IKLAN can be activated directly. Ticketing/Voting packages must be negotiated with admin first.
+const NO_UPFRONT_PAYMENT_TIERS = ["IKLAN"];
+const REVENUE_SHARE_TIERS = ["TICKETING", "VOTING", "TICKETING_VOTING"];
 const VALID_PACKAGE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 
 function getPackageAmount(packageTier: string | null | undefined) {
@@ -71,7 +72,7 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 
 		if (event.paymentStatus === "DP_REQUESTED") {
 			return res.status(403).json({
-				error: "Event sedang menunggu konfirmasi DP dari admin",
+				error: "Event sedang menunggu konfirmasi admin",
 			});
 		}
 
@@ -85,7 +86,13 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 			return res.status(400).json({ error: "Package tier tidak valid" });
 		}
 
-		// Handle no-upfront packages - no Midtrans package payment needed
+		if (REVENUE_SHARE_TIERS.includes(packageTier)) {
+			return res.status(400).json({
+				error: "Paket ticketing/voting harus dinegosiasikan dengan admin melalui WhatsApp",
+			});
+		}
+
+		// Handle free package - no Midtrans package payment needed
 		if (NO_UPFRONT_PAYMENT_TIERS.includes(packageTier)) {
 			let payment;
 			if (event.eventPayment) {
@@ -357,6 +364,80 @@ router.post("/:eventId/dp-request", authenticate, async (req: AuthenticatedReque
 	}
 });
 
+/**
+ * POST /api/event-payments/:eventId/negotiation-request
+ * Lock ticketing/voting event while panitia negotiates price and revenue share with admin.
+ */
+router.post("/:eventId/negotiation-request", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const userId = req.user!.userId;
+		const { eventId } = req.params;
+		const { packageTier } = req.body;
+
+		if (!eventId) {
+			return res.status(400).json({ error: "Event ID wajib diisi" });
+		}
+
+		if (!packageTier || !REVENUE_SHARE_TIERS.includes(packageTier)) {
+			return res.status(400).json({ error: "Paket negosiasi hanya untuk ticketing, voting, atau bundle" });
+		}
+
+		const event = await prisma.event.findFirst({
+			where: { id: eventId, createdById: userId },
+		});
+
+		if (!event) {
+			return res.status(404).json({ error: "Event tidak ditemukan" });
+		}
+
+		const payment = await prisma.eventPayment.upsert({
+			where: { eventId },
+			update: {
+				userId,
+				packageTier: packageTier as any,
+				amount: 0,
+				status: "PENDING",
+				midtransOrderId: null,
+				snapToken: null,
+				paymentType: "NEGOTIATION_REQUEST",
+				paidAt: null,
+			},
+			create: {
+				eventId,
+				userId,
+				packageTier: packageTier as any,
+				amount: 0,
+				status: "PENDING",
+				paymentType: "NEGOTIATION_REQUEST",
+			},
+		});
+
+		await prisma.event.update({
+			where: { id: eventId },
+			data: {
+				packageTier: packageTier as any,
+				paymentStatus: "DP_REQUESTED",
+				status: "DRAFT",
+				wizardStep: 4,
+				wizardCompleted: false,
+				platformSharePercent: null,
+			},
+		});
+
+		res.json({
+			message: "Permintaan negosiasi berhasil dikirim. Event menunggu konfirmasi admin.",
+			eventId,
+			paymentId: payment.id,
+			packageTier,
+			amount: 0,
+			status: "DP_REQUESTED",
+		});
+	} catch (error) {
+		console.error("Error requesting negotiation:", error);
+		res.status(500).json({ error: "Gagal memproses permintaan negosiasi" });
+	}
+});
+
 // ==========================================
 // ADMIN ROUTES - Package Management
 // ==========================================
@@ -407,6 +488,7 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 					status: true,
 					packageTier: true,
 					paymentStatus: true,
+					platformSharePercent: true,
 					startDate: true,
 					endDate: true,
 					organizer: true,
@@ -482,7 +564,7 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const { eventId } = req.params;
-		const { packageTier: newTier, paymentStatus: newPaymentStatus } = req.body;
+		const { packageTier: newTier, paymentStatus: newPaymentStatus, platformSharePercent } = req.body;
 
 		if (!eventId) {
 			return res.status(400).json({ error: "Event ID wajib diisi" });
@@ -507,6 +589,31 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 			updateData.paymentStatus = newPaymentStatus;
 		}
 
+		if (platformSharePercent !== undefined && platformSharePercent !== null && platformSharePercent !== "") {
+			const parsedShare = Number(platformSharePercent);
+			if (!Number.isFinite(parsedShare) || parsedShare < 0 || parsedShare > 100) {
+				return res.status(400).json({ error: "Persentase bagi hasil harus di antara 0 sampai 100" });
+			}
+			updateData.platformSharePercent = parsedShare;
+		}
+
+		const finalTier = newTier || event.packageTier;
+		const finalPlatformSharePercent =
+			updateData.platformSharePercent ?? event.platformSharePercent;
+		if (
+			newPaymentStatus === "PAID" &&
+			finalTier &&
+			REVENUE_SHARE_TIERS.includes(finalTier) &&
+			(finalPlatformSharePercent === null || finalPlatformSharePercent === undefined)
+		) {
+			return res.status(400).json({
+				error: "Isi persentase bagi hasil Simpaskor sebelum mengonfirmasi paket ticketing/voting",
+			});
+		}
+		if (newTier && !REVENUE_SHARE_TIERS.includes(newTier)) {
+			updateData.platformSharePercent = null;
+		}
+
 		if (newPaymentStatus === "PAID") {
 			updateData.wizardStep = 0;
 			updateData.wizardCompleted = true;
@@ -521,11 +628,12 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 				title: true,
 				packageTier: true,
 				paymentStatus: true,
+				platformSharePercent: true,
 			},
 		});
 
 		if (newPaymentStatus === "PAID") {
-			const packageTier = newTier || event.packageTier;
+			const packageTier = finalTier;
 			if (event.eventPayment) {
 				await prisma.eventPayment.update({
 					where: { id: event.eventPayment.id },
@@ -534,7 +642,12 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 						paidAt: new Date(),
 						packageTier: packageTier as any,
 						amount: getPackageAmount(packageTier),
-						paymentType: event.paymentStatus === "DP_REQUESTED" ? "DP_CONFIRMED" : event.eventPayment.paymentType,
+						paymentType:
+							event.eventPayment.paymentType === "NEGOTIATION_REQUEST"
+								? "NEGOTIATION_CONFIRMED"
+								: event.paymentStatus === "DP_REQUESTED"
+								? "DP_CONFIRMED"
+								: event.eventPayment.paymentType,
 					},
 				});
 			} else if (packageTier) {
@@ -545,7 +658,12 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 						packageTier: packageTier as any,
 						amount: getPackageAmount(packageTier),
 						status: "PAID",
-						paymentType: event.paymentStatus === "DP_REQUESTED" ? "DP_CONFIRMED" : "ADMIN",
+						paymentType:
+							event.paymentStatus === "DP_REQUESTED" && packageTier && REVENUE_SHARE_TIERS.includes(packageTier)
+								? "NEGOTIATION_CONFIRMED"
+								: event.paymentStatus === "DP_REQUESTED"
+								? "DP_CONFIRMED"
+								: "ADMIN",
 						paidAt: new Date(),
 					},
 				});

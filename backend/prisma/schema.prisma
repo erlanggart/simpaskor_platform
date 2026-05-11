@@ -195,6 +195,7 @@ model Event {
   coupon               EventCoupon? @relation(fields: [couponId], references: [id])
   packageTier          PackageTier? @map("package_tier") // Selected package tier for event creation
   paymentStatus        String?      @map("payment_status") // PENDING, PAID - tracks if event creation payment is done
+  platformSharePercent Float?       @map("platform_share_percent") // Persentase bagi hasil Simpaskor yang disepakati admin
   createdById          String       @map("created_by_id")
   createdBy            User         @relation("EventCreator", fields: [createdById], references: [id])
   createdAt            DateTime     @default(now()) @map("created_at")

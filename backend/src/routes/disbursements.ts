@@ -18,7 +18,14 @@ function roundCurrency(amount: number) {
 	return Math.round(amount);
 }
 
-function getRevenueShareRates(packageTier?: string | null) {
+function getRevenueShareRates(packageTier?: string | null, platformSharePercent?: number | null) {
+	if (platformSharePercent !== null && platformSharePercent !== undefined) {
+		const platformShareRate = platformSharePercent / 100;
+		return {
+			platformShareRate,
+			panitiaShareRate: 1 - platformShareRate,
+		};
+	}
 	if (packageTier === "TICKETING_VOTING") {
 		return {
 			platformShareRate: BUNDLE_PLATFORM_SHARE_RATE,
@@ -28,8 +35,8 @@ function getRevenueShareRates(packageTier?: string | null) {
 	return { platformShareRate: PLATFORM_SHARE_RATE, panitiaShareRate: PANITIA_SHARE_RATE };
 }
 
-function calculateRevenueShare(grossRevenue: number, packageTier?: string | null) {
-	const { platformShareRate, panitiaShareRate } = getRevenueShareRates(packageTier);
+function calculateRevenueShare(grossRevenue: number, packageTier?: string | null, platformSharePercent?: number | null) {
+	const { platformShareRate, panitiaShareRate } = getRevenueShareRates(packageTier, platformSharePercent);
 	const platformShare = roundCurrency(grossRevenue * platformShareRate);
 	const panitiaShare = roundCurrency(grossRevenue - platformShare);
 	return { platformShare, panitiaShare, platformShareRate, panitiaShareRate };
@@ -50,7 +57,7 @@ router.get(
 
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
-				select: { id: true, title: true, startDate: true, createdById: true, packageTier: true },
+				select: { id: true, title: true, startDate: true, createdById: true, packageTier: true, platformSharePercent: true },
 			});
 
 			if (!event) {
@@ -77,7 +84,7 @@ router.get(
 			const ticketGrossRevenue = ticketRevenue._sum.totalAmount ?? 0;
 			const votingGrossRevenue = votingRevenue._sum.totalAmount ?? 0;
 			const grossRevenue = ticketGrossRevenue + votingGrossRevenue;
-			const { platformShare, panitiaShare, platformShareRate, panitiaShareRate } = calculateRevenueShare(grossRevenue, event.packageTier);
+			const { platformShare, panitiaShare, platformShareRate, panitiaShareRate } = calculateRevenueShare(grossRevenue, event.packageTier, event.platformSharePercent);
 
 			// Get all disbursements for this event
 			const disbursements = await prisma.disbursement.findMany({
@@ -144,7 +151,7 @@ router.post(
 
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
-				select: { id: true, title: true, startDate: true, createdById: true, packageTier: true },
+				select: { id: true, title: true, startDate: true, createdById: true, packageTier: true, platformSharePercent: true },
 			});
 
 			if (!event) {
@@ -184,7 +191,7 @@ router.post(
 				]);
 
 				const grossRevenue = (ticketRevenue._sum.totalAmount ?? 0) + (votingRevenue._sum.totalAmount ?? 0);
-				const { panitiaShare } = calculateRevenueShare(grossRevenue, event.packageTier);
+				const { panitiaShare } = calculateRevenueShare(grossRevenue, event.packageTier, event.platformSharePercent);
 
 				const existingDisbursements = await tx.disbursement.findMany({
 					where: { eventId, status: { in: ["PENDING", "APPROVED", "TRANSFERRED"] } },

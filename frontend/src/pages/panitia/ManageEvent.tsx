@@ -192,8 +192,8 @@ const ManageEvent: React.FC = () => {
 				localStorage.removeItem("panitia_active_event");
 				Swal.fire({
 					icon: "info",
-					title: "Menunggu Konfirmasi DP",
-					text: "Event ini belum bisa dikelola sampai super admin mengonfirmasi DP.",
+					title: "Menunggu Konfirmasi Admin",
+					text: "Event ini belum bisa dikelola sampai super admin mengonfirmasi request paket.",
 				});
 				navigate("/panitia/dashboard", { replace: true });
 				return;
@@ -464,9 +464,9 @@ const ManageEvent: React.FC = () => {
 						<div className="flex flex-wrap gap-2">
 							{event.paymentStatus === "DP_REQUESTED" && (
 								<div className="w-full mb-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-									<p className="text-xs font-semibold text-amber-700 dark:text-amber-300">⚠️ Event ini menggunakan pembayaran DP</p>
+									<p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Event ini menunggu konfirmasi admin</p>
 									<p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-										Hanya admin yang dapat mempublish event ini setelah DP dikonfirmasi.
+										Hanya admin yang dapat mempublish event ini setelah request paket dikonfirmasi.
 									</p>
 								</div>
 							)}

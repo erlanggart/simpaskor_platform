@@ -75,8 +75,8 @@ const PanitiaEvents: React.FC = () => {
 		if (event.paymentStatus === "DP_REQUESTED") {
 			Swal.fire({
 				icon: "info",
-				title: "Menunggu Konfirmasi DP",
-				text: "Event ini belum bisa dikelola sampai super admin mengonfirmasi DP.",
+				title: "Menunggu Konfirmasi Admin",
+				text: "Event ini belum bisa dikelola sampai super admin mengonfirmasi request paket.",
 			});
 			return;
 		}
@@ -137,7 +137,7 @@ const PanitiaEvents: React.FC = () => {
 
 		return (
 			<span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-				Menunggu DP
+				Menunggu Admin
 			</span>
 		);
 	};

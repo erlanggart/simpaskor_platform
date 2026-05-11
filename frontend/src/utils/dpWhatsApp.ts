@@ -13,6 +13,7 @@ export interface DPWhatsAppEvent {
 	province?: string | null;
 	city?: string | null;
 	venue?: string | null;
+	mode?: "dp" | "negotiation";
 }
 
 function formatDate(value: string | Date | null | undefined): string | null {
@@ -46,18 +47,23 @@ export function buildDPWhatsAppMessage(event: DPWhatsAppEvent): string {
 	const tier = event.packageTier;
 	const packageName = event.packageName || getPackageName(tier);
 	const packagePriceLabel = event.packagePriceLabel || getPackagePriceLabel(tier);
+	const isNegotiation = event.mode === "negotiation";
 
 	return [
 		"Halo Admin Simpaskor!",
 		"",
-		"Saya ingin mendaftarkan event dengan sistem DP (Down Payment).",
+		isNegotiation
+			? "Saya ingin melakukan negosiasi harga dan bagi hasil untuk event."
+			: "Saya ingin mendaftarkan event dengan sistem DP (Down Payment).",
 		"",
 		`*Nama Event:* ${event.title || "-"}`,
 		`*Paket Dipilih:* ${packageName} (${packagePriceLabel})`,
 		`*Waktu Pelaksanaan:* ${formatSchedule(event.startDate, event.endDate)}`,
 		`*Lokasi Event:* ${formatLocation(event)}`,
 		"",
-		"Mohon informasi lebih lanjut untuk proses DP dan pembuatan event. Terima kasih!",
+		isNegotiation
+			? "Mohon informasi lebih lanjut untuk kesepakatan harga dan persentase bagi hasil. Terima kasih!"
+			: "Mohon informasi lebih lanjut untuk proses DP dan pembuatan event. Terima kasih!",
 	].join("\n");
 }
 
