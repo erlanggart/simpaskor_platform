@@ -16,6 +16,7 @@ import {
 	CurrencyDollarIcon,
 	CheckCircleIcon,
 	ClockIcon,
+	PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -166,6 +167,16 @@ const EventVoting: React.FC = () => {
 	const nomineePhotoInputRef = useRef<HTMLInputElement>(null);
 	const [showCropper, setShowCropper] = useState(false);
 	const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+	const [cropTarget, setCropTarget] = useState<"add" | "edit">("add");
+
+	// Edit nominee state
+	const [editingNominee, setEditingNominee] = useState<VotingNominee | null>(null);
+	const [editNomineeForm, setEditNomineeForm] = useState({ nomineeName: "", nomineeSubtitle: "" });
+	const [editNomineePhotoFile, setEditNomineePhotoFile] = useState<File | null>(null);
+	const [editNomineePhotoPreview, setEditNomineePhotoPreview] = useState<string | null>(null);
+	const [clearNomineePhoto, setClearNomineePhoto] = useState(false);
+	const [savingNominee, setSavingNominee] = useState(false);
+	const editNomineePhotoInputRef = useRef<HTMLInputElement>(null);
 
 	// Results state
 	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean }>({ categories: [], totalVotes: 0, pricePerVote: 0, isPaid: false });
@@ -496,6 +507,41 @@ const EventVoting: React.FC = () => {
 			Swal.fire("Error", err.response?.data?.error || "Gagal menambah nominee", "error");
 		} finally {
 			setAddingNominee(false);
+		}
+	};
+
+	const handleUpdateNominee = async () => {
+		if (!editingNominee) return;
+		if (!editNomineeForm.nomineeName.trim()) {
+			Swal.fire("Error", "Nama nominee wajib diisi", "error");
+			return;
+		}
+		try {
+			setSavingNominee(true);
+			const formData = new FormData();
+			formData.append("nomineeName", editNomineeForm.nomineeName.trim());
+			if (editNomineeForm.nomineeSubtitle.trim()) {
+				formData.append("nomineeSubtitle", editNomineeForm.nomineeSubtitle.trim());
+			}
+			if (editNomineePhotoFile) {
+				formData.append("nomineePhoto", editNomineePhotoFile);
+			} else if (clearNomineePhoto) {
+				formData.append("clearPhoto", "true");
+			}
+			const res = await api.put(`/voting/admin/nominees/${editingNominee.id}`, formData, {
+				headers: { "Content-Type": "multipart/form-data" },
+			});
+			setNominees((prev) => prev.map((n) => (n.id === editingNominee.id ? res.data : n)));
+			setEditingNominee(null);
+			setEditNomineeForm({ nomineeName: "", nomineeSubtitle: "" });
+			setEditNomineePhotoFile(null);
+			setEditNomineePhotoPreview(null);
+			setClearNomineePhoto(false);
+			Swal.fire({ title: "Berhasil!", text: "Nominee berhasil diperbarui", icon: "success", timer: 1500, showConfirmButton: false });
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal memperbarui nominee", "error");
+		} finally {
+			setSavingNominee(false);
 		}
 	};
 
@@ -1262,6 +1308,7 @@ const EventVoting: React.FC = () => {
 																if (file) {
 																	const objectUrl = URL.createObjectURL(file);
 																	setCropImageSrc(objectUrl);
+																	setCropTarget("add");
 																	setShowCropper(true);
 																}
 																// Reset input so same file can be re-selected
@@ -1323,32 +1370,145 @@ const EventVoting: React.FC = () => {
 											) : (
 												<div className="grid gap-2">
 													{nominees.map((nominee, idx) => (
-														<div key={nominee.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-															<div className="flex items-center gap-3 min-w-0">
-																<span className="text-sm font-semibold text-gray-400 w-5 text-right">{idx + 1}</span>
-																{nominee.nomineePhoto ? (
-																	<img src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : (appConfig.api.backendUrl + nominee.nomineePhoto)} alt="" className="w-8 h-8 rounded-full object-cover" />
-																) : (
-																	<div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-																		<UserIcon className="w-4 h-4 text-gray-500" />
+														<div key={nominee.id} className="rounded-lg bg-gray-50 dark:bg-gray-700/50">
+															{editingNominee?.id === nominee.id ? (
+																/* ---- Inline Edit Form ---- */
+																<div className="p-3 space-y-3">
+																	<p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Edit Nominee</p>
+																	<div>
+																		<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Nominee <span className="text-red-500">*</span></label>
+																		<input
+																			type="text"
+																			value={editNomineeForm.nomineeName}
+																			onChange={(e) => setEditNomineeForm((f) => ({ ...f, nomineeName: e.target.value }))}
+																			className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+																		/>
 																	</div>
-																)}
-																<div className="min-w-0">
-																	<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{nominee.nomineeName}</p>
-																	{nominee.nomineeSubtitle && (
-																		<p className="text-xs text-gray-500 dark:text-gray-400 truncate">{nominee.nomineeSubtitle}</p>
-																	)}
+																	<div>
+																		<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Subtitle <span className="text-gray-400">(opsional)</span></label>
+																		<input
+																			type="text"
+																			value={editNomineeForm.nomineeSubtitle}
+																			onChange={(e) => setEditNomineeForm((f) => ({ ...f, nomineeSubtitle: e.target.value }))}
+																			placeholder="Contoh: nama sekolah, asal kota"
+																			className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+																		/>
+																	</div>
+																	<div>
+																		<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Foto Nominee <span className="text-gray-400">(opsional)</span></label>
+																		<input
+																			type="file"
+																			accept="image/jpeg,image/jpg,image/png,image/webp"
+																			ref={editNomineePhotoInputRef}
+																			className="hidden"
+																			onChange={(e) => {
+																				const file = e.target.files?.[0] || null;
+																				if (file) {
+																					const objectUrl = URL.createObjectURL(file);
+																					setCropImageSrc(objectUrl);
+																					setCropTarget("edit");
+																					setShowCropper(true);
+																				}
+																				if (editNomineePhotoInputRef.current) editNomineePhotoInputRef.current.value = "";
+																			}}
+																		/>
+																		<div className="flex items-center gap-3">
+																			<button
+																				type="button"
+																				onClick={() => editNomineePhotoInputRef.current?.click()}
+																				className="px-3 py-2 text-sm rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:border-amber-400 hover:text-amber-600 transition-colors"
+																			>
+																				{editNomineePhotoFile ? "Ganti Foto" : "Pilih Foto"}
+																			</button>
+																			{editNomineePhotoPreview ? (
+																				<div className="flex items-center gap-2">
+																					<img src={editNomineePhotoPreview} alt="preview" className="w-10 h-10 rounded-full object-cover border border-gray-300" />
+																					<button
+																						type="button"
+																						onClick={() => { setEditNomineePhotoFile(null); setEditNomineePhotoPreview(null); setClearNomineePhoto(true); }}
+																						className="text-red-500 hover:text-red-700 text-xs"
+																					>✕ Hapus foto</button>
+																				</div>
+																			) : editingNominee.nomineePhoto && !clearNomineePhoto ? (
+																				<div className="flex items-center gap-2">
+																					<img src={editingNominee.nomineePhoto.startsWith("http") ? editingNominee.nomineePhoto : (appConfig.api.backendUrl + editingNominee.nomineePhoto)} alt="" className="w-10 h-10 rounded-full object-cover border border-gray-300" />
+																					<button
+																						type="button"
+																						onClick={() => setClearNomineePhoto(true)}
+																						className="text-red-500 hover:text-red-700 text-xs"
+																					>✕ Hapus foto</button>
+																				</div>
+																			) : (
+																				<span className="text-xs text-gray-400">JPG, PNG, WEBP — maks 3MB</span>
+																			)}
+																		</div>
+																	</div>
+																	<div className="flex gap-2 justify-end">
+																		<button
+																			onClick={() => {
+																				setEditingNominee(null);
+																				setEditNomineeForm({ nomineeName: "", nomineeSubtitle: "" });
+																				setEditNomineePhotoFile(null);
+																				setEditNomineePhotoPreview(null);
+																				setClearNomineePhoto(false);
+																			}}
+																			className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+																		>
+																			Batal
+																		</button>
+																		<button
+																			onClick={handleUpdateNominee}
+																			disabled={savingNominee || !editNomineeForm.nomineeName.trim()}
+																			className="px-4 py-2 text-sm rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium disabled:opacity-50"
+																		>
+																			{savingNominee ? "Menyimpan..." : "Simpan Perubahan"}
+																		</button>
+																	</div>
 																</div>
-															</div>
-															<div className="flex items-center gap-2 ml-3">
-																<span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{nominee.voteCount}</span>
-																<button
-																	onClick={() => handleDeleteNominee(nominee.id)}
-																	className="p-1 text-gray-400 hover:text-red-600 rounded"
-																>
-																	<TrashIcon className="w-3.5 h-3.5" />
-																</button>
-															</div>
+															) : (
+																/* ---- Normal Nominee Row ---- */
+																<div className="flex items-center justify-between py-2 px-3">
+																	<div className="flex items-center gap-3 min-w-0">
+																		<span className="text-sm font-semibold text-gray-400 w-5 text-right">{idx + 1}</span>
+																		{nominee.nomineePhoto ? (
+																			<img src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : (appConfig.api.backendUrl + nominee.nomineePhoto)} alt="" className="w-8 h-8 rounded-full object-cover" />
+																		) : (
+																			<div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+																				<UserIcon className="w-4 h-4 text-gray-500" />
+																			</div>
+																		)}
+																		<div className="min-w-0">
+																			<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{nominee.nomineeName}</p>
+																			{nominee.nomineeSubtitle && (
+																				<p className="text-xs text-gray-500 dark:text-gray-400 truncate">{nominee.nomineeSubtitle}</p>
+																			)}
+																		</div>
+																	</div>
+																	<div className="flex items-center gap-2 ml-3">
+																		<span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{nominee.voteCount}</span>
+																		<button
+																			onClick={() => {
+																				setEditingNominee(nominee);
+																				setEditNomineeForm({ nomineeName: nominee.nomineeName, nomineeSubtitle: nominee.nomineeSubtitle || "" });
+																				setEditNomineePhotoFile(null);
+																				setEditNomineePhotoPreview(null);
+																				setClearNomineePhoto(false);
+																				setShowAddNomineeForm(false);
+																			}}
+																			className="p-1 text-gray-400 hover:text-amber-600 rounded"
+																			title="Edit nominee"
+																		>
+																			<PencilSquareIcon className="w-3.5 h-3.5" />
+																		</button>
+																		<button
+																			onClick={() => handleDeleteNominee(nominee.id)}
+																			className="p-1 text-gray-400 hover:text-red-600 rounded"
+																		>
+																			<TrashIcon className="w-3.5 h-3.5" />
+																		</button>
+																	</div>
+																</div>
+															)}
 														</div>
 													))}
 												</div>
@@ -1549,8 +1709,14 @@ const EventVoting: React.FC = () => {
 				cropShape="rect"
 				onCropComplete={(croppedBlob) => {
 					const croppedFile = new File([croppedBlob], "nominee-photo.jpg", { type: "image/jpeg" });
-					setNomineePhotoFile(croppedFile);
-					setNomineePhotoPreview(URL.createObjectURL(croppedBlob));
+					if (cropTarget === "edit") {
+						setEditNomineePhotoFile(croppedFile);
+						setEditNomineePhotoPreview(URL.createObjectURL(croppedBlob));
+						setClearNomineePhoto(false);
+					} else {
+						setNomineePhotoFile(croppedFile);
+						setNomineePhotoPreview(URL.createObjectURL(croppedBlob));
+					}
 					setShowCropper(false);
 					if (cropImageSrc) URL.revokeObjectURL(cropImageSrc);
 					setCropImageSrc(null);

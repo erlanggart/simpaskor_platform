@@ -1305,6 +1305,44 @@ router.post(
 	}
 );
 
+// PUT /api/voting/admin/nominees/:nomineeId - Update nominee
+router.put(
+	"/admin/nominees/:nomineeId",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	uploadNomineePhoto.single("nomineePhoto"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { nomineeName, nomineeSubtitle, clearPhoto } = req.body;
+
+			if (!nomineeName) {
+				return res.status(400).json({ error: "Nama nominee wajib diisi" });
+			}
+
+			const updateData: Record<string, unknown> = {
+				nomineeName,
+				nomineeSubtitle: nomineeSubtitle || null,
+			};
+
+			if (req.file) {
+				updateData.nomineePhoto = `/uploads/nominees/${req.file.filename}`;
+			} else if (clearPhoto === "true") {
+				updateData.nomineePhoto = null;
+			}
+
+			const nominee = await prisma.votingNominee.update({
+				where: { id: req.params.nomineeId },
+				data: updateData,
+			});
+
+			res.json(nominee);
+		} catch (error) {
+			console.error("Error updating nominee:", error);
+			res.status(500).json({ error: "Gagal memperbarui nominee" });
+		}
+	}
+);
+
 // DELETE /api/voting/admin/nominees/:nomineeId - Delete nominee
 router.delete(
 	"/admin/nominees/:nomineeId",
