@@ -54,6 +54,7 @@ const PackageManagement = lazy(() => import("./pages/admin/PackageManagement"));
 const AdminSettings = lazy(() => import("./pages/admin/Settings"));
 const AdminBackup = lazy(() => import("./pages/admin/Backup"));
 const DisbursementManagement = lazy(() => import("./pages/admin/DisbursementManagement"));
+const ApiIntegration = lazy(() => import("./pages/admin/ApiIntegration"));
 const PanitiaDashboard = lazy(() => import("./pages/panitia/Dashboard"));
 const PanitiaEventsList = lazy(() => import("./pages/panitia/Events"));
 const PanitiaPanduan = lazy(() => import("./pages/panitia/Panduan"));
@@ -166,6 +167,7 @@ function App() {
 							<Route path="guides" element={<GuideManagement />} />
 							<Route path="packages" element={<PackageManagement />} />
 							<Route path="settings" element={<AdminSettings />} />
+							<Route path="api-integration" element={<ApiIntegration />} />
 							<Route path="backup" element={<AdminBackup />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
