@@ -104,7 +104,68 @@ const ApiIntegration: React.FC = () => {
     "tickets": 100,
     "voting": 100,
     "registrations": 20
-  }
+  },
+  "details": {
+    "tickets": [
+      {
+        "source": "ticket",
+        "id": "ticket_purchase_id",
+        "eventId": "event_id",
+        "eventTitle": "Festival Paskibra Nasional",
+        "eventSlug": "festival-paskibra-nasional",
+        "baseAmount": 50000,
+        "adminFee": 4000,
+        "quantity": 2,
+        "status": "PAID",
+        "paidAt": "2026-02-01T08:15:00.000Z",
+        "midtransOrderId": "TICKET-123"
+      }
+    ],
+    "voting": [
+      {
+        "source": "voting",
+        "id": "voting_purchase_id",
+        "eventId": "event_id",
+        "eventTitle": "Festival Paskibra Nasional",
+        "eventSlug": "festival-paskibra-nasional",
+        "baseAmount": 20000,
+        "adminFee": 1000,
+        "voteCount": 2,
+        "status": "PAID",
+        "paidAt": "2026-02-01T09:20:00.000Z",
+        "midtransOrderId": "VOTE-123"
+      }
+    ],
+    "registrations": [
+      {
+        "source": "registration",
+        "id": "registration_payment_id",
+        "eventId": "event_id",
+        "eventTitle": "Festival Paskibra Nasional",
+        "eventSlug": "festival-paskibra-nasional",
+        "baseAmount": 100000,
+        "adminFee": 5000,
+        "status": "PAID",
+        "paidAt": "2026-02-01T10:25:00.000Z",
+        "midtransOrderId": "REG-123"
+      }
+    ]
+  },
+  "data": [
+    {
+      "source": "ticket",
+      "id": "ticket_purchase_id",
+      "eventId": "event_id",
+      "eventTitle": "Festival Paskibra Nasional",
+      "eventSlug": "festival-paskibra-nasional",
+      "baseAmount": 50000,
+      "adminFee": 4000,
+      "quantity": 2,
+      "status": "PAID",
+      "paidAt": "2026-02-01T08:15:00.000Z",
+      "midtransOrderId": "TICKET-123"
+    }
+  ]
 }`;
 
 	return (
@@ -197,7 +258,7 @@ const ApiIntegration: React.FC = () => {
 									<tr>
 										<td className="px-4 py-2 align-top"><code className="text-sm text-blue-600 dark:text-blue-400 font-mono">includeDetails</code></td>
 										<td className="px-4 py-2 align-top"><span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded font-mono">boolean</span></td>
-										<td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 align-top">Sertakan data detail per transaksi. Default: <code className="font-mono text-xs">false</code></td>
+										<td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 align-top">Sertakan data detail per transaksi yang sudah dipisah dalam <code className="font-mono text-xs">details.tickets</code>, <code className="font-mono text-xs">details.voting</code>, dan <code className="font-mono text-xs">details.registrations</code>. Default: <code className="font-mono text-xs">false</code></td>
 									</tr>
 								</tbody>
 							</table>

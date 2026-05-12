@@ -188,6 +188,11 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 		const ticketAdminFee = sum(ticketDetails.map((item) => item.adminFee));
 		const votingAdminFee = sum(votingDetails.map((item) => item.adminFee));
 		const registrationAdminFee = sum(registrationDetails.map((item) => item.adminFee));
+		const detailsBySource = {
+			tickets: ticketDetails,
+			voting: votingDetails,
+			registrations: registrationDetails,
+		};
 
 		res.json({
 			currency: "IDR",
@@ -208,7 +213,12 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 				voting: votingDetails.length,
 				registrations: registrationDetails.length,
 			},
-			...(includeDetails ? { data: [...ticketDetails, ...votingDetails, ...registrationDetails] } : {}),
+			...(includeDetails
+				? {
+						details: detailsBySource,
+						data: [...ticketDetails, ...votingDetails, ...registrationDetails],
+				  }
+				: {}),
 		});
 	} catch (error: any) {
 		if (error.message?.includes("tanggal")) {
