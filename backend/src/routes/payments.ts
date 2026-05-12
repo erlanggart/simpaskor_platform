@@ -8,6 +8,12 @@ import {
 	MIDTRANS_IS_PRODUCTION,
 } from "../lib/midtrans";
 import { sendTicketEmailFromServer, sendVotingPurchaseEmail } from "../lib/email";
+import {
+	calculateRegistrationAdminFee,
+	calculateTicketAdminFee,
+	calculateVotingAdminFee,
+	sendVertinovaPaymentSuccessWebhook,
+} from "../lib/vertinovaFinanceWebhook";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -173,6 +179,7 @@ async function handleTicketPayment(
 	}
 
 	if (result === "success") {
+		const paidAt = new Date();
 		// Payment confirmed: update status (soldCount already reserved at purchase time)
 		await prisma.$transaction(async (tx) => {
 			await tx.ticketPurchase.update({
@@ -180,7 +187,7 @@ async function handleTicketPayment(
 				data: {
 					status: "PAID",
 					paymentType,
-					paidAt: new Date(),
+					paidAt,
 				},
 			});
 			// Also mark all attendees as PAID
@@ -189,6 +196,13 @@ async function handleTicketPayment(
 				data: { status: "PAID" },
 			});
 			// soldCount was already incremented atomically during purchase — no need to increment again
+		});
+
+		void sendVertinovaPaymentSuccessWebhook({
+			orderId: midtransOrderId,
+			amount: calculateTicketAdminFee(ticket.quantity),
+			paidAt: paidAt.toISOString(),
+			description: `Admin fee tiket ${ticket.event.title} (${ticket.quantity} tiket)`,
 		});
 
 		// Send ticket email with QR code to buyer (include all attendee tickets)
@@ -270,13 +284,20 @@ async function handleVotingPayment(
 	}
 
 	if (result === "success") {
+		const paidAt = new Date();
 		await prisma.votingPurchase.update({
 			where: { id: purchase.id },
 			data: {
 				status: "PAID",
 				paymentType,
-				paidAt: new Date(),
+				paidAt,
 			},
+		});
+		void sendVertinovaPaymentSuccessWebhook({
+			orderId: midtransOrderId,
+			amount: calculateVotingAdminFee(purchase.totalAmount, purchase.voteCount),
+			paidAt: paidAt.toISOString(),
+			description: `Admin fee voting ${purchase.event.title} (${purchase.voteCount} suara)`,
 		});
 
 		// Send voting purchase code email to buyer
@@ -311,7 +332,7 @@ async function handleRegistrationPayment(
 ) {
 	const payment = await prisma.registrationPayment.findUnique({
 		where: { midtransOrderId },
-		include: { participation: true },
+		include: { participation: { include: { event: { select: { title: true } } } } },
 	});
 	if (!payment) {
 		console.warn(`[Midtrans] Registration payment not found: ${midtransOrderId}`);
@@ -325,13 +346,14 @@ async function handleRegistrationPayment(
 	}
 
 	if (result === "success") {
+		const paidAt = new Date();
 		await prisma.$transaction(async (tx) => {
 			await tx.registrationPayment.update({
 				where: { id: payment.id },
 				data: {
 					status: "PAID",
 					paymentType,
-					paidAt: new Date(),
+					paidAt,
 				},
 			});
 			// Payment success: move from PENDING_PAYMENT to REGISTERED
@@ -340,6 +362,12 @@ async function handleRegistrationPayment(
 				where: { id: payment.participationId },
 				data: { status: "REGISTERED" },
 			});
+		});
+		void sendVertinovaPaymentSuccessWebhook({
+			orderId: midtransOrderId,
+			amount: calculateRegistrationAdminFee(),
+			paidAt: paidAt.toISOString(),
+			description: `Admin fee pendaftaran ${payment.participation.event.title}`,
 		});
 	} else if (result === "failed" || result === "expired") {
 		await prisma.$transaction(async (tx) => {
