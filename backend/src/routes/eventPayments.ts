@@ -33,10 +33,62 @@ const PACKAGE_NAMES: Record<string, string> = {
 const NO_UPFRONT_PAYMENT_TIERS = ["IKLAN"];
 const REVENUE_SHARE_TIERS = ["TICKETING", "VOTING", "TICKETING_VOTING"];
 const VALID_PACKAGE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
+const DEFAULT_PLATFORM_SHARE_RATE = 0.15;
+const DEFAULT_PANITIA_SHARE_RATE = 0.85;
+const DEFAULT_BUNDLE_PLATFORM_SHARE_RATE = 0.25;
+const DEFAULT_BUNDLE_PANITIA_SHARE_RATE = 0.75;
 
 function getPackageAmount(packageTier: string | null | undefined) {
 	if (!packageTier) return 0;
 	return PACKAGE_PRICES[packageTier] ?? 0;
+}
+
+function roundCurrency(amount: number) {
+	return Math.round(amount);
+}
+
+function getRevenueShareRates(packageTier?: string | null, platformSharePercent?: number | null) {
+	if (platformSharePercent !== null && platformSharePercent !== undefined) {
+		const platformShareRate = platformSharePercent / 100;
+		return {
+			platformShareRate,
+			panitiaShareRate: 1 - platformShareRate,
+		};
+	}
+
+	if (packageTier === "TICKETING_VOTING") {
+		return {
+			platformShareRate: DEFAULT_BUNDLE_PLATFORM_SHARE_RATE,
+			panitiaShareRate: DEFAULT_BUNDLE_PANITIA_SHARE_RATE,
+		};
+	}
+
+	return {
+		platformShareRate: DEFAULT_PLATFORM_SHARE_RATE,
+		panitiaShareRate: DEFAULT_PANITIA_SHARE_RATE,
+	};
+}
+
+function calculateRevenueSummary(
+	ticketGrossRevenue: number,
+	votingGrossRevenue: number,
+	packageTier?: string | null,
+	platformSharePercent?: number | null
+) {
+	const grossRevenue = ticketGrossRevenue + votingGrossRevenue;
+	const { platformShareRate, panitiaShareRate } = getRevenueShareRates(packageTier, platformSharePercent);
+	const platformShare = roundCurrency(grossRevenue * platformShareRate);
+	const panitiaShare = roundCurrency(grossRevenue - platformShare);
+
+	return {
+		grossRevenue,
+		ticketGrossRevenue,
+		votingGrossRevenue,
+		platformShare,
+		panitiaShare,
+		platformShareRate,
+		panitiaShareRate,
+	};
 }
 
 /**
@@ -520,6 +572,49 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 			prisma.event.count({ where }),
 		]);
 
+		const eventIds = events.map((event) => event.id);
+		const [ticketRevenueByEvent, votingRevenueByEvent] = eventIds.length
+			? await Promise.all([
+					prisma.ticketPurchase.groupBy({
+						by: ["eventId"],
+						where: {
+							eventId: { in: eventIds },
+							status: { in: ["PAID", "USED"] },
+						},
+						_sum: { totalAmount: true },
+					}),
+					prisma.votingPurchase.groupBy({
+						by: ["eventId"],
+						where: {
+							eventId: { in: eventIds },
+							status: "PAID",
+						},
+						_sum: { totalAmount: true },
+					}),
+				])
+			: [[], []];
+
+		const ticketRevenueMap = new Map(
+			ticketRevenueByEvent.map((item) => [item.eventId, item._sum.totalAmount ?? 0])
+		);
+		const votingRevenueMap = new Map(
+			votingRevenueByEvent.map((item) => [item.eventId, item._sum.totalAmount ?? 0])
+		);
+		const eventsWithRevenue = events.map((event) => {
+			const ticketGrossRevenue = ticketRevenueMap.get(event.id) ?? 0;
+			const votingGrossRevenue = votingRevenueMap.get(event.id) ?? 0;
+
+			return {
+				...event,
+				revenueSummary: calculateRevenueSummary(
+					ticketGrossRevenue,
+					votingGrossRevenue,
+					event.packageTier,
+					event.platformSharePercent
+				),
+			};
+		});
+
 		// Stats
 		const allPackagedEvents = await prisma.event.groupBy({
 			by: ["packageTier"],
@@ -540,7 +635,7 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 		});
 
 		res.json({
-			data: events,
+			data: eventsWithRevenue,
 			total,
 			page: pageNum,
 			totalPages: Math.ceil(total / limitNum),

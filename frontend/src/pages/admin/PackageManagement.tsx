@@ -46,6 +46,15 @@ interface PackageEvent {
 	} | null;
 	ticketConfig: { enabled: boolean } | null;
 	votingConfig: { enabled: boolean } | null;
+	revenueSummary: {
+		grossRevenue: number;
+		ticketGrossRevenue: number;
+		votingGrossRevenue: number;
+		platformShare: number;
+		panitiaShare: number;
+		platformShareRate: number;
+		panitiaShareRate: number;
+	};
 }
 
 interface Stats {
@@ -249,6 +258,10 @@ const PackageManagement: React.FC = () => {
 		return `${percent}% Simpaskor / ${100 - percent}% Panitia`;
 	};
 
+	const formatRate = (rate: number) => {
+		return `${Number((rate * 100).toFixed(2))}%`;
+	};
+
 	return (
 		<div className="p-4 md:p-6 space-y-6">
 			{/* Header */}
@@ -366,6 +379,7 @@ const PackageManagement: React.FC = () => {
 								<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Paket</th>
 								<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Pembayaran</th>
 								<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">Fitur</th>
+								<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase hidden xl:table-cell">Pendapatan</th>
 								<th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase hidden lg:table-cell">Tanggal Event</th>
 								<th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Aksi</th>
 							</tr>
@@ -373,14 +387,14 @@ const PackageManagement: React.FC = () => {
 						<tbody className="divide-y divide-gray-200 dark:divide-gray-700">
 							{loading ? (
 								<tr>
-									<td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+									<td colSpan={8} className="px-4 py-12 text-center text-gray-400">
 										<LuRefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
 										Memuat data...
 									</td>
 								</tr>
 							) : events.length === 0 ? (
 								<tr>
-									<td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+									<td colSpan={8} className="px-4 py-12 text-center text-gray-400">
 										<LuPackage className="w-8 h-8 mx-auto mb-2 opacity-50" />
 										Tidak ada paket ditemukan
 									</td>
@@ -442,6 +456,38 @@ const PackageManagement: React.FC = () => {
 													<span className="text-[10px] text-gray-400">-</span>
 												)}
 											</div>
+										</td>
+										<td className="px-4 py-3 hidden xl:table-cell">
+											{["TICKETING", "VOTING", "TICKETING_VOTING"].includes(event.packageTier) ? (
+												<div className="min-w-[180px] space-y-1">
+													<div>
+														<p className="text-[10px] text-gray-400">Total pendapatan</p>
+														<p className="text-xs font-semibold text-gray-800 dark:text-gray-100">
+															{formatCurrency(event.revenueSummary.grossRevenue)}
+														</p>
+													</div>
+													<div className="grid grid-cols-2 gap-2">
+														<div>
+															<p className="text-[10px] text-red-500">Simpaskor {formatRate(event.revenueSummary.platformShareRate)}</p>
+															<p className="text-xs font-semibold text-red-600 dark:text-red-400">
+																{formatCurrency(event.revenueSummary.platformShare)}
+															</p>
+														</div>
+														<div>
+															<p className="text-[10px] text-emerald-600">Panitia {formatRate(event.revenueSummary.panitiaShareRate)}</p>
+															<p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+																{formatCurrency(event.revenueSummary.panitiaShare)}
+															</p>
+														</div>
+													</div>
+													<div className="flex gap-2 text-[10px] text-gray-400">
+														<span>Tiket: {formatCurrency(event.revenueSummary.ticketGrossRevenue)}</span>
+														<span>Vote: {formatCurrency(event.revenueSummary.votingGrossRevenue)}</span>
+													</div>
+												</div>
+											) : (
+												<span className="text-xs text-gray-400">-</span>
+											)}
 										</td>
 										<td className="px-4 py-3 hidden lg:table-cell">
 											<div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
