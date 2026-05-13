@@ -144,6 +144,7 @@ const AdminDashboard = () => {
 			JURI: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
 			PESERTA: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
 			PELATIH: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+			MITRA: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
 		};
 		return map[role] || "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
 	};
@@ -301,6 +302,7 @@ const AdminDashboard = () => {
 							{ role: "JURI", label: "Juri", color: "bg-purple-500 dark:bg-purple-600" },
 							{ role: "PESERTA", label: "Peserta", color: "bg-green-500 dark:bg-green-600" },
 							{ role: "PELATIH", label: "Pelatih", color: "bg-orange-500 dark:bg-orange-600" },
+							{ role: "MITRA", label: "Mitra", color: "bg-rose-500 dark:bg-rose-600" },
 						].map((item) => {
 							const count = stats.users.byRole[item.role] || 0;
 							const pct = stats.users.total > 0 ? Math.round((count / stats.users.total) * 100) : 0;

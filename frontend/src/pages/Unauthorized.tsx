@@ -25,6 +25,8 @@ const Unauthorized: React.FC = () => {
 				return "/juri/dashboard";
 			case "PELATIH":
 				return "/pelatih/dashboard";
+			case "MITRA":
+				return "/mitra/dashboard";
 			default:
 				return "/dashboard";
 		}
@@ -42,6 +44,8 @@ const Unauthorized: React.FC = () => {
 				return "Juri";
 			case "PELATIH":
 				return "Pelatih";
+			case "MITRA":
+				return "Mitra";
 			default:
 				return role;
 		}

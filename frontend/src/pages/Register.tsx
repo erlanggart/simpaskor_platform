@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "../hooks/useAuth";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import api from "../utils/api";
@@ -32,6 +32,7 @@ const Register = () => {
 	const [showPassword, setShowPassword] = useState(false);
 	const { register: registerUser, setAuth } = useAuth();
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { executeRecaptcha } = useGoogleReCaptcha();
 
 	const {
@@ -84,7 +85,7 @@ const Register = () => {
 			if (result.data.isNewUser) {
 				// New user registered via Google - log in and redirect to role selection
 				setAuth(result.data.user, result.data.token);
-				navigate("/select-role");
+				navigate(`/select-role${location.search}`);
 			} else {
 				// Existing user - log them in directly
 				setAuth(result.data.user, result.data.token);
@@ -134,7 +135,7 @@ const Register = () => {
 			};
 
 			await registerUser(registrationData);
-			navigate("/select-role");
+			navigate(`/select-role${location.search}`);
 		} catch (err: any) {
 			const errorMessage = err.response?.data?.message;
 

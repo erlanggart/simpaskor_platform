@@ -42,6 +42,40 @@ function calculateRevenueShare(grossRevenue: number, packageTier?: string | null
 	return { platformShare, panitiaShare, platformShareRate, panitiaShareRate };
 }
 
+const WITHDRAWABLE_COMMISSION_STATUSES = ["PENDING", "APPROVED", "PAID"] as const;
+
+async function getMitraWithdrawalSummary(tx: any, mitraProfileId: string) {
+	const [commissionTotal, withdrawnTotal, pendingTotal] = await Promise.all([
+		tx.mitraCommission.aggregate({
+			where: { mitraProfileId, status: { in: WITHDRAWABLE_COMMISSION_STATUSES } },
+			_sum: { amount: true },
+			_count: true,
+		}),
+		tx.mitraWithdrawal.aggregate({
+			where: { mitraProfileId, status: "TRANSFERRED" },
+			_sum: { amount: true },
+			_count: true,
+		}),
+		tx.mitraWithdrawal.aggregate({
+			where: { mitraProfileId, status: { in: ["PENDING", "APPROVED"] } },
+			_sum: { amount: true },
+			_count: true,
+		}),
+	]);
+
+	const totalCommission = commissionTotal._sum.amount ?? 0;
+	const totalWithdrawn = withdrawnTotal._sum.amount ?? 0;
+	const totalPending = pendingTotal._sum.amount ?? 0;
+
+	return {
+		totalCommission,
+		totalWithdrawn,
+		totalPending,
+		remainingBalance: Math.max(0, totalCommission - totalWithdrawn - totalPending),
+		totalCommissionEvents: commissionTotal._count,
+	};
+}
+
 // ==========================================
 // PANITIA ROUTES - Request Disbursement
 // ==========================================
@@ -236,6 +270,113 @@ router.post(
 );
 
 // ==========================================
+// MITRA ROUTES - Request Commission Withdrawal
+// ==========================================
+
+router.get(
+	"/mitra",
+	authenticate,
+	authorize("MITRA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const profile = await prisma.mitraProfile.findUnique({
+				where: { userId: req.user!.userId },
+				select: {
+					id: true,
+					referralCode: true,
+					commissionPerEvent: true,
+				},
+			});
+
+			if (!profile) {
+				return res.status(404).json({ error: "Profil mitra tidak ditemukan" });
+			}
+
+			const [summary, withdrawals] = await Promise.all([
+				getMitraWithdrawalSummary(prisma, profile.id),
+				prisma.mitraWithdrawal.findMany({
+					where: { mitraProfileId: profile.id },
+					orderBy: { createdAt: "desc" },
+					include: {
+						requestedBy: { select: { id: true, name: true, email: true } },
+						processedBy: { select: { id: true, name: true, email: true } },
+					},
+				}),
+			]);
+
+			res.json({ profile, summary, withdrawals });
+		} catch (error) {
+			console.error("Error fetching mitra withdrawals:", error);
+			res.status(500).json({ error: "Gagal memuat data penarikan mitra" });
+		}
+	}
+);
+
+router.post(
+	"/mitra/request",
+	authenticate,
+	authorize("MITRA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { amount, bankName, accountNumber, accountHolder, notes } = req.body;
+			const parsedAmount = Number(amount);
+
+			if (!parsedAmount || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || parsedAmount > 10_000_000_000) {
+				return res.status(400).json({ error: "Jumlah penarikan tidak valid" });
+			}
+			if (!bankName?.trim() || !accountNumber?.trim() || !accountHolder?.trim()) {
+				return res.status(400).json({ error: "Data rekening bank wajib diisi lengkap" });
+			}
+
+			const withdrawal = await prisma.$transaction(async (tx) => {
+				const profile = await tx.mitraProfile.findUnique({
+					where: { userId: req.user!.userId },
+					select: { id: true },
+				});
+
+				if (!profile) {
+					throw new Error("Profil mitra tidak ditemukan");
+				}
+
+				await tx.$queryRaw`SELECT id FROM "mitra_profiles" WHERE "id" = ${profile.id} FOR UPDATE`;
+				await tx.$queryRaw`SELECT id FROM "mitra_withdrawals" WHERE "mitra_profile_id" = ${profile.id} FOR UPDATE`;
+				const summary = await getMitraWithdrawalSummary(tx, profile.id);
+
+				if (parsedAmount > summary.remainingBalance) {
+					throw new Error(`Saldo komisi tidak mencukupi. Saldo tersedia: Rp ${summary.remainingBalance.toLocaleString("id-ID")}`);
+				}
+
+				return tx.mitraWithdrawal.create({
+					data: {
+						mitraProfileId: profile.id,
+						requestedById: req.user!.userId,
+						amount: parsedAmount,
+						bankName: bankName.trim(),
+						accountNumber: accountNumber.trim(),
+						accountHolder: accountHolder.trim(),
+						notes: notes?.trim() || null,
+					},
+					include: {
+						requestedBy: { select: { id: true, name: true, email: true } },
+					},
+				});
+			});
+
+			res.status(201).json({
+				message: "Pengajuan penarikan komisi berhasil dibuat",
+				withdrawal,
+			});
+		} catch (error: any) {
+			if (error.message?.includes("Saldo komisi tidak mencukupi") || error.message?.includes("Profil mitra")) {
+				return res.status(400).json({ error: error.message });
+			}
+			console.error("Error creating mitra withdrawal:", error);
+			res.status(500).json({ error: "Gagal membuat pengajuan penarikan mitra" });
+		}
+	}
+);
+
+// ==========================================
 // SUPERADMIN ROUTES - Manage Disbursements
 // ==========================================
 
@@ -252,52 +393,258 @@ router.get(
 			const skip = (pageNum - 1) * limitNum;
 
 			const where: any = {};
-			if (status) where.status = status;
+			const mitraWhere: any = {};
+			if (status) {
+				where.status = status;
+				mitraWhere.status = status;
+			}
 			if (search) {
+				const term = search as string;
 				where.OR = [
-					{ event: { title: { contains: search as string, mode: "insensitive" } } },
-					{ requestedBy: { name: { contains: search as string, mode: "insensitive" } } },
-					{ bankName: { contains: search as string, mode: "insensitive" } },
-					{ accountHolder: { contains: search as string, mode: "insensitive" } },
+					{ event: { title: { contains: term, mode: "insensitive" } } },
+					{ requestedBy: { name: { contains: term, mode: "insensitive" } } },
+					{ requestedBy: { email: { contains: term, mode: "insensitive" } } },
+					{ bankName: { contains: term, mode: "insensitive" } },
+					{ accountHolder: { contains: term, mode: "insensitive" } },
+				];
+				mitraWhere.OR = [
+					{ mitraProfile: { referralCode: { contains: term, mode: "insensitive" } } },
+					{ mitraProfile: { user: { name: { contains: term, mode: "insensitive" } } } },
+					{ mitraProfile: { user: { email: { contains: term, mode: "insensitive" } } } },
+					{ requestedBy: { name: { contains: term, mode: "insensitive" } } },
+					{ requestedBy: { email: { contains: term, mode: "insensitive" } } },
+					{ bankName: { contains: term, mode: "insensitive" } },
+					{ accountHolder: { contains: term, mode: "insensitive" } },
 				];
 			}
 
-			const [disbursements, total] = await Promise.all([
+			const [eventDisbursements, mitraWithdrawals] = await Promise.all([
 				prisma.disbursement.findMany({
 					where,
 					orderBy: { createdAt: "desc" },
-					skip,
-					take: limitNum,
 					include: {
 						event: { select: { id: true, title: true, startDate: true, slug: true } },
 						requestedBy: { select: { id: true, name: true, email: true } },
 						processedBy: { select: { id: true, name: true, email: true } },
 					},
 				}),
-				prisma.disbursement.count({ where }),
+				prisma.mitraWithdrawal.findMany({
+					where: mitraWhere,
+					orderBy: { createdAt: "desc" },
+					include: {
+						mitraProfile: {
+							select: {
+								id: true,
+								referralCode: true,
+								user: { select: { id: true, name: true, email: true } },
+							},
+						},
+						requestedBy: { select: { id: true, name: true, email: true } },
+						processedBy: { select: { id: true, name: true, email: true } },
+					},
+				}),
 			]);
 
+			const disbursements = [
+				...eventDisbursements.map((item) => ({ ...item, kind: "EVENT" })),
+				...mitraWithdrawals.map((item) => ({ ...item, kind: "MITRA", event: null })),
+			].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+			const total = disbursements.length;
+			const paginated = disbursements.slice(skip, skip + limitNum);
+
 			// Summary stats
-			const [pendingTotal, approvedTotal, transferredTotal] = await Promise.all([
+			const [pendingTotal, approvedTotal, transferredTotal, mitraPendingTotal, mitraApprovedTotal, mitraTransferredTotal] = await Promise.all([
 				prisma.disbursement.aggregate({ where: { status: "PENDING" }, _sum: { amount: true }, _count: true }),
 				prisma.disbursement.aggregate({ where: { status: "APPROVED" }, _sum: { amount: true }, _count: true }),
 				prisma.disbursement.aggregate({ where: { status: "TRANSFERRED" }, _sum: { amount: true }, _count: true }),
+				prisma.mitraWithdrawal.aggregate({ where: { status: "PENDING" }, _sum: { amount: true }, _count: true }),
+				prisma.mitraWithdrawal.aggregate({ where: { status: "APPROVED" }, _sum: { amount: true }, _count: true }),
+				prisma.mitraWithdrawal.aggregate({ where: { status: "TRANSFERRED" }, _sum: { amount: true }, _count: true }),
 			]);
 
 			res.json({
-				data: disbursements,
+				data: paginated,
 				total,
 				page: pageNum,
 				totalPages: Math.ceil(total / limitNum),
 				stats: {
-					pending: { count: pendingTotal._count, amount: pendingTotal._sum.amount ?? 0 },
-					approved: { count: approvedTotal._count, amount: approvedTotal._sum.amount ?? 0 },
-					transferred: { count: transferredTotal._count, amount: transferredTotal._sum.amount ?? 0 },
+					pending: {
+						count: pendingTotal._count + mitraPendingTotal._count,
+						amount: (pendingTotal._sum.amount ?? 0) + (mitraPendingTotal._sum.amount ?? 0),
+					},
+					approved: {
+						count: approvedTotal._count + mitraApprovedTotal._count,
+						amount: (approvedTotal._sum.amount ?? 0) + (mitraApprovedTotal._sum.amount ?? 0),
+					},
+					transferred: {
+						count: transferredTotal._count + mitraTransferredTotal._count,
+						amount: (transferredTotal._sum.amount ?? 0) + (mitraTransferredTotal._sum.amount ?? 0),
+					},
 				},
 			});
 		} catch (error) {
 			console.error("Error fetching all disbursements:", error);
 			res.status(500).json({ error: "Gagal memuat data pencairan" });
+		}
+	}
+);
+
+// PATCH /api/disbursements/admin/mitra/:withdrawalId/approve - Approve a mitra withdrawal
+router.patch(
+	"/admin/mitra/:withdrawalId/approve",
+	authenticate,
+	authorize("SUPERADMIN"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { withdrawalId } = req.params;
+			const { adminNotes } = req.body;
+
+			const withdrawal = await prisma.mitraWithdrawal.findUnique({
+				where: { id: withdrawalId },
+			});
+
+			if (!withdrawal) {
+				return res.status(404).json({ error: "Pengajuan penarikan mitra tidak ditemukan" });
+			}
+
+			if (withdrawal.status !== "PENDING") {
+				return res.status(400).json({ error: "Hanya pengajuan PENDING yang bisa disetujui" });
+			}
+
+			const updated = await prisma.mitraWithdrawal.update({
+				where: { id: withdrawalId },
+				data: {
+					status: "APPROVED",
+					adminNotes: adminNotes?.trim() || null,
+					processedById: req.user!.userId,
+					processedAt: new Date(),
+				},
+				include: {
+					mitraProfile: {
+						select: {
+							id: true,
+							referralCode: true,
+							user: { select: { id: true, name: true, email: true } },
+						},
+					},
+					requestedBy: { select: { id: true, name: true, email: true } },
+					processedBy: { select: { id: true, name: true, email: true } },
+				},
+			});
+
+			res.json({ message: "Pengajuan penarikan mitra disetujui", withdrawal: updated });
+		} catch (error) {
+			console.error("Error approving mitra withdrawal:", error);
+			res.status(500).json({ error: "Gagal menyetujui pengajuan mitra" });
+		}
+	}
+);
+
+// PATCH /api/disbursements/admin/mitra/:withdrawalId/transfer - Mark mitra withdrawal as transferred
+router.patch(
+	"/admin/mitra/:withdrawalId/transfer",
+	authenticate,
+	authorize("SUPERADMIN"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { withdrawalId } = req.params;
+			const { adminNotes, transferProof } = req.body;
+
+			const withdrawal = await prisma.mitraWithdrawal.findUnique({
+				where: { id: withdrawalId },
+			});
+
+			if (!withdrawal) {
+				return res.status(404).json({ error: "Pengajuan penarikan mitra tidak ditemukan" });
+			}
+
+			if (withdrawal.status !== "PENDING" && withdrawal.status !== "APPROVED") {
+				return res.status(400).json({ error: "Hanya pengajuan PENDING atau APPROVED yang bisa ditandai sudah ditransfer" });
+			}
+
+			const updated = await prisma.mitraWithdrawal.update({
+				where: { id: withdrawalId },
+				data: {
+					status: "TRANSFERRED",
+					adminNotes: adminNotes?.trim() || withdrawal.adminNotes,
+					processedById: req.user!.userId,
+					processedAt: new Date(),
+					transferProof: transferProof?.trim() || null,
+					transferredAt: new Date(),
+				},
+				include: {
+					mitraProfile: {
+						select: {
+							id: true,
+							referralCode: true,
+							user: { select: { id: true, name: true, email: true } },
+						},
+					},
+					requestedBy: { select: { id: true, name: true, email: true } },
+					processedBy: { select: { id: true, name: true, email: true } },
+				},
+			});
+
+			res.json({ message: "Penarikan mitra berhasil ditandai sudah ditransfer", withdrawal: updated });
+		} catch (error) {
+			console.error("Error marking mitra transfer:", error);
+			res.status(500).json({ error: "Gagal memproses penarikan mitra" });
+		}
+	}
+);
+
+// PATCH /api/disbursements/admin/mitra/:withdrawalId/reject - Reject a mitra withdrawal
+router.patch(
+	"/admin/mitra/:withdrawalId/reject",
+	authenticate,
+	authorize("SUPERADMIN"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { withdrawalId } = req.params;
+			const { adminNotes } = req.body;
+
+			if (!adminNotes?.trim()) {
+				return res.status(400).json({ error: "Alasan penolakan wajib diisi" });
+			}
+
+			const withdrawal = await prisma.mitraWithdrawal.findUnique({
+				where: { id: withdrawalId },
+			});
+
+			if (!withdrawal) {
+				return res.status(404).json({ error: "Pengajuan penarikan mitra tidak ditemukan" });
+			}
+
+			if (withdrawal.status === "TRANSFERRED") {
+				return res.status(400).json({ error: "Penarikan yang sudah ditransfer tidak bisa ditolak" });
+			}
+
+			const updated = await prisma.mitraWithdrawal.update({
+				where: { id: withdrawalId },
+				data: {
+					status: "REJECTED",
+					adminNotes: adminNotes.trim(),
+					processedById: req.user!.userId,
+					processedAt: new Date(),
+				},
+				include: {
+					mitraProfile: {
+						select: {
+							id: true,
+							referralCode: true,
+							user: { select: { id: true, name: true, email: true } },
+						},
+					},
+					requestedBy: { select: { id: true, name: true, email: true } },
+					processedBy: { select: { id: true, name: true, email: true } },
+				},
+			});
+
+			res.json({ message: "Pengajuan penarikan mitra ditolak", withdrawal: updated });
+		} catch (error) {
+			console.error("Error rejecting mitra withdrawal:", error);
+			res.status(500).json({ error: "Gagal menolak pengajuan mitra" });
 		}
 	}
 );

@@ -55,6 +55,30 @@ const resetPasswordSchema = z.object({
 	newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+const generateMitraReferralCode = async (name: string) => {
+	const initials = name
+		.trim()
+		.split(/\s+/)
+		.map((part) => part[0])
+		.join("")
+		.slice(0, 4)
+		.toUpperCase()
+		.replace(/[^A-Z0-9]/g, "") || "MTR";
+
+	for (let attempt = 0; attempt < 8; attempt += 1) {
+		const suffix = crypto.randomBytes(3).toString("hex").toUpperCase();
+		const code = `MTR-${initials}-${suffix}`;
+		const existing = await prisma.mitraProfile.findUnique({
+			where: { referralCode: code },
+			select: { id: true },
+		});
+
+		if (!existing) return code;
+	}
+
+	return `MTR-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+};
+
 // Register endpoint
 // Protected by rate limiting (3 attempts per hour per IP) and reCAPTCHA v3
 router.post(
@@ -424,7 +448,7 @@ router.patch(
 	async (req: AuthenticatedRequest, res: Response): Promise<void | Response> => {
 		try {
 			const schema = z.object({
-				role: z.enum(["PESERTA", "JURI", "PELATIH", "PANITIA"]),
+				role: z.enum(["PESERTA", "JURI", "PELATIH", "PANITIA", "MITRA"]),
 			});
 
 			const { role } = schema.parse(req.body);
@@ -449,13 +473,32 @@ router.patch(
 				});
 			}
 
-			const updatedUser = await prisma.user.update({
-				where: { id: userId },
-				data: {
-					role: role as UserRole,
-					status: UserStatus.ACTIVE,
-				},
-				include: { profile: true },
+			const updatedUser = await prisma.$transaction(async (tx) => {
+				const nextUser = await tx.user.update({
+					where: { id: userId },
+					data: {
+						role: role as UserRole,
+						status: UserStatus.ACTIVE,
+					},
+					include: { profile: true, mitraProfile: true },
+				});
+
+				if (role === "MITRA" && !nextUser.mitraProfile) {
+					const referralCode = await generateMitraReferralCode(nextUser.name);
+					return tx.user.update({
+						where: { id: userId },
+						data: {
+							mitraProfile: {
+								create: {
+									referralCode,
+								},
+							},
+						},
+						include: { profile: true, mitraProfile: true },
+					});
+				}
+
+				return nextUser;
 			});
 
 			// Generate new token with updated role

@@ -13,6 +13,7 @@ const QuickActions: React.FC = () => {
 			case "PESERTA": return "/peserta/dashboard";
 			case "JURI": return "/juri/events";
 			case "PELATIH": return "/pelatih/dashboard";
+			case "MITRA": return "/mitra/dashboard";
 			default: return "/login";
 		}
 	};

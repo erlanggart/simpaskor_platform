@@ -118,7 +118,7 @@ export interface RegisterRequest {
 	email: string;
 	password: string;
 	name: string;
-	role?: "PESERTA" | "PELATIH" | "JURI" | "PANITIA";
+	role?: "PESERTA" | "PELATIH" | "JURI" | "PANITIA" | "MITRA";
 	phone?: string;
 	institution?: string;
 }
@@ -128,7 +128,7 @@ export interface User {
 	email: string;
 	name: string;
 	phone?: string;
-	role: "SUPERADMIN" | "PANITIA" | "JURI" | "PESERTA" | "PELATIH";
+	role: "SUPERADMIN" | "PANITIA" | "JURI" | "PESERTA" | "PELATIH" | "MITRA";
 	status: "ACTIVE" | "INACTIVE" | "PENDING" | "SUSPENDED";
 	emailVerified: boolean;
 	lastLogin?: string;

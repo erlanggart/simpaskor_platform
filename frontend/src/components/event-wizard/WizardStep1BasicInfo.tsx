@@ -3,6 +3,7 @@ import {
 	CalendarIcon,
 	MapPinIcon,
 	DocumentTextIcon,
+	TagIcon,
 } from "@heroicons/react/24/outline";
 import { Step1Props, Step1Data } from "../../types/eventWizard";
 import {
@@ -234,6 +235,38 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 						/>
 					</div>
 				</div>
+			</div>
+
+			{/* Mitra Referral */}
+			<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-950/20 border border-gray-200 dark:border-gray-700 p-6 transition-colors">
+				<div className="flex items-center gap-3 mb-4">
+					<TagIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Kode Referral Mitra</h3>
+				</div>
+
+				<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+					Kode Referral
+				</label>
+				<input
+					type="text"
+					name="referralCode"
+					value={data.referralCode}
+					onChange={(event) => {
+						const value = event.target.value.toUpperCase();
+						setData((prev: Step1Data) => ({ ...prev, referralCode: value }));
+					}}
+					placeholder="Contoh: MTR-ABCD-123ABC"
+					className={`w-full px-4 py-2.5 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent transition-colors ${
+						errors.referralCode ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
+					}`}
+				/>
+				{errors.referralCode ? (
+					<p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.referralCode}</p>
+				) : (
+					<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+						Opsional. Jika valid, mitra pemilik kode akan mendapatkan komisi Rp200.000 untuk event ini.
+					</p>
+				)}
 			</div>
 
 			{/* Navigation */}

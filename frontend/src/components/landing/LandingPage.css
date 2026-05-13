@@ -388,21 +388,6 @@ html:not(.dark) .landing-title-gradient-voting {
 	background-clip: text;
 }
 
-.landing-title-gradient-coaching {
-	background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 30%, #ffffff 60%, #93c5fd 100%);
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
-	background-clip: text;
-}
-
-:root:not(.dark) .landing-title-gradient-coaching,
-html:not(.dark) .landing-title-gradient-coaching {
-	background: linear-gradient(135deg, #2563eb 0%, #0891b2 30%, #1f2937 60%, #3b82f6 100%);
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
-	background-clip: text;
-}
-
 /* Pricing section gradient */
 .landing-title-gradient-pricing {
 	background: linear-gradient(135deg, #f97316 0%, #eab308 30%, #ffffff 60%, #fed7aa 100%);
@@ -1342,23 +1327,6 @@ html:not(.dark) .section-icon-glow-purple::before {
 	background: radial-gradient(
 		circle,
 		rgba(168, 85, 247, 0.08) 0%,
-		transparent 70%
-	);
-}
-
-.section-icon-glow-blue::before {
-	background: radial-gradient(
-		circle,
-		rgba(59, 130, 246, 0.15) 0%,
-		transparent 70%
-	);
-}
-
-:root:not(.dark) .section-icon-glow-blue::before,
-html:not(.dark) .section-icon-glow-blue::before {
-	background: radial-gradient(
-		circle,
-		rgba(59, 130, 246, 0.08) 0%,
 		transparent 70%
 	);
 }

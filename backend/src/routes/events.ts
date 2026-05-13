@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { authenticate, optionalAuthenticate, AuthenticatedRequest } from "../middleware/auth";
 import { uploadEventThumbnail, uploadJuknis } from "../middleware/upload";
@@ -18,6 +19,58 @@ const EVENT_PACKAGE_PRICES: Record<string, number> = {
 function getEventPackageAmount(packageTier: string | null | undefined) {
 	if (!packageTier) return 0;
 	return EVENT_PACKAGE_PRICES[packageTier] ?? 0;
+}
+
+async function applyMitraReferral(
+	tx: Prisma.TransactionClient,
+	eventId: string,
+	referralCode: string | null | undefined
+) {
+	const normalizedCode = referralCode?.trim().toUpperCase();
+
+	if (!normalizedCode) {
+		await tx.mitraCommission.deleteMany({ where: { eventId } });
+		await tx.event.update({
+			where: { id: eventId },
+			data: { mitraProfileId: null },
+		});
+		return null;
+	}
+
+	const mitraProfile = await tx.mitraProfile.findUnique({
+		where: { referralCode: normalizedCode },
+		select: {
+			id: true,
+			referralCode: true,
+			commissionPerEvent: true,
+		},
+	});
+
+	if (!mitraProfile) {
+		throw new Error("INVALID_MITRA_REFERRAL_CODE");
+	}
+
+	await tx.event.update({
+		where: { id: eventId },
+		data: { mitraProfileId: mitraProfile.id },
+	});
+
+	await tx.mitraCommission.upsert({
+		where: { eventId },
+		create: {
+			eventId,
+			mitraProfileId: mitraProfile.id,
+			referralCode: mitraProfile.referralCode,
+			amount: mitraProfile.commissionPerEvent,
+		},
+		update: {
+			mitraProfileId: mitraProfile.id,
+			referralCode: mitraProfile.referralCode,
+			amount: mitraProfile.commissionPerEvent,
+		},
+	});
+
+	return mitraProfile;
 }
 
 // GET /api/events - Get all published events with search and filters
@@ -1372,6 +1425,13 @@ router.get(
 						},
 					},
 					eventPayment: true,
+					mitraProfile: {
+						select: {
+							referralCode: true,
+							commissionPerEvent: true,
+						},
+					},
+					mitraCommission: true,
 				},
 			});
 
@@ -1410,6 +1470,7 @@ router.post(
 				province,
 				city,
 				venue,
+				referralCode,
 			} = req.body;
 
 			// Validate required fields for step 1
@@ -1427,31 +1488,53 @@ router.post(
 			const uniqueSlug = `${baseSlug}-${Date.now().toString(36)}`;
 
 			// Create draft event (no coupon required)
-			const draft = await prisma.event.create({
-				data: {
-					title,
-					slug: uniqueSlug,
-					description: description || null,
-					startDate: new Date(startDate),
-					endDate: new Date(endDate),
-					registrationDeadline: registrationDeadline
-						? new Date(registrationDeadline)
-						: null,
-					province,
-					city,
-					venue: venue || null,
-					status: "DRAFT",
-					wizardStep: 2, // Move to step 2
-					wizardCompleted: false,
-					createdById: user.userId,
-				},
+			const draft = await prisma.$transaction(async (tx) => {
+				const createdDraft = await tx.event.create({
+					data: {
+						title,
+						slug: uniqueSlug,
+						description: description || null,
+						startDate: new Date(startDate),
+						endDate: new Date(endDate),
+						registrationDeadline: registrationDeadline
+							? new Date(registrationDeadline)
+							: null,
+						province,
+						city,
+						venue: venue || null,
+						status: "DRAFT",
+						wizardStep: 2, // Move to step 2
+						wizardCompleted: false,
+						createdById: user.userId,
+					},
+				});
+
+				await applyMitraReferral(tx, createdDraft.id, referralCode);
+
+				return tx.event.findUnique({
+					where: { id: createdDraft.id },
+					include: {
+						mitraProfile: {
+							select: {
+								referralCode: true,
+								commissionPerEvent: true,
+							},
+						},
+						mitraCommission: true,
+					},
+				});
 			});
 
 			res.status(201).json({
 				message: "Draft created successfully",
 				event: draft,
 			});
-		} catch (error) {
+		} catch (error: any) {
+			if (error?.message === "INVALID_MITRA_REFERRAL_CODE") {
+				return res.status(400).json({
+					message: "Kode referral mitra tidak ditemukan",
+				});
+			}
 			console.error("Error creating draft event:", error);
 			res.status(500).json({ message: "Failed to create draft event" });
 		}
@@ -1665,6 +1748,10 @@ router.patch(
 				return res.status(401).json({ message: "Unauthorized" });
 			}
 
+			if (!id) {
+				return res.status(400).json({ message: "Event ID is required" });
+			}
+
 			const {
 				thumbnail,
 				juknisUrl,
@@ -1748,6 +1835,10 @@ router.patch(
 				return res.status(401).json({ message: "Unauthorized" });
 			}
 
+			if (!id) {
+				return res.status(400).json({ message: "Event ID is required" });
+			}
+
 			const {
 				title,
 				description,
@@ -1757,6 +1848,7 @@ router.patch(
 				province,
 				city,
 				venue,
+				referralCode,
 			} = req.body;
 
 			// Verify ownership
@@ -1779,29 +1871,53 @@ router.patch(
 
 			// Update step 1 data
 			// Don't change wizardStep for completed events (edit mode)
-			const updatedDraft = await prisma.event.update({
-				where: { id },
-				data: {
-					title: title || existingDraft.title,
-					description: description !== undefined ? description : existingDraft.description,
-					startDate: startDate ? new Date(startDate) : existingDraft.startDate,
-					endDate: endDate ? new Date(endDate) : existingDraft.endDate,
-					registrationDeadline: registrationDeadline
-						? new Date(registrationDeadline)
-						: existingDraft.registrationDeadline,
-					province: province || existingDraft.province,
-					city: city || existingDraft.city,
-					venue: venue !== undefined ? venue : existingDraft.venue,
-					// Only update wizardStep for incomplete drafts
-					...(existingDraft.wizardCompleted ? {} : { wizardStep: 2 }),
-				},
+			const updatedDraft = await prisma.$transaction(async (tx) => {
+				await tx.event.update({
+					where: { id },
+					data: {
+						title: title || existingDraft.title,
+						description: description !== undefined ? description : existingDraft.description,
+						startDate: startDate ? new Date(startDate) : existingDraft.startDate,
+						endDate: endDate ? new Date(endDate) : existingDraft.endDate,
+						registrationDeadline: registrationDeadline
+							? new Date(registrationDeadline)
+							: existingDraft.registrationDeadline,
+						province: province || existingDraft.province,
+						city: city || existingDraft.city,
+						venue: venue !== undefined ? venue : existingDraft.venue,
+						// Only update wizardStep for incomplete drafts
+						...(existingDraft.wizardCompleted ? {} : { wizardStep: 2 }),
+					},
+				});
+
+				if (referralCode !== undefined) {
+					await applyMitraReferral(tx, id, referralCode);
+				}
+
+				return tx.event.findUnique({
+					where: { id },
+					include: {
+						mitraProfile: {
+							select: {
+								referralCode: true,
+								commissionPerEvent: true,
+							},
+						},
+						mitraCommission: true,
+					},
+				});
 			});
 
 			res.json({
 				message: "Step 1 updated successfully",
 				event: updatedDraft,
 			});
-		} catch (error) {
+		} catch (error: any) {
+			if (error?.message === "INVALID_MITRA_REFERRAL_CODE") {
+				return res.status(400).json({
+					message: "Kode referral mitra tidak ditemukan",
+				});
+			}
 			console.error("Error updating draft step 1:", error);
 			res.status(500).json({ message: "Failed to update draft" });
 		}

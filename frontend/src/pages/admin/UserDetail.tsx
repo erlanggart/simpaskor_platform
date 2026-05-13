@@ -254,6 +254,7 @@ const UserDetailPage: React.FC = () => {
 			PESERTA: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
 			JURI: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
 			PELATIH: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+			MITRA: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
 		};
 		return colors[role] || "bg-gray-100 text-gray-800";
 	};
@@ -487,7 +488,7 @@ const UserDetailPage: React.FC = () => {
 				<JuriSection assignments={roleData.juryAssignments} />
 			)}
 
-			{(user.role === "SUPERADMIN" || user.role === "PELATIH") && (
+			{(user.role === "SUPERADMIN" || user.role === "PELATIH" || user.role === "MITRA") && (
 				<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-8 text-center">
 					<UserIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" />
 					<p className="text-gray-500 dark:text-gray-400">

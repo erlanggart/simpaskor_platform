@@ -13,6 +13,7 @@ import { api } from "../../utils/api";
 
 interface DisbursementItem {
 	id: string;
+	kind?: "EVENT" | "MITRA";
 	amount: number;
 	bankName: string;
 	accountNumber: string;
@@ -24,7 +25,12 @@ interface DisbursementItem {
 	transferredAt: string | null;
 	processedAt: string | null;
 	createdAt: string;
-	event: { id: string; title: string; startDate: string; slug: string | null };
+	event: { id: string; title: string; startDate: string; slug: string | null } | null;
+	mitraProfile?: {
+		id: string;
+		referralCode: string;
+		user: { id: string; name: string; email: string };
+	};
 	requestedBy: { id: string; name: string; email: string };
 	processedBy: { id: string; name: string; email: string } | null;
 }
@@ -67,13 +73,16 @@ const DisbursementManagement: React.FC = () => {
 		}
 	};
 
-	const handleApprove = async (id: string) => {
+	const getActionBasePath = (item: DisbursementItem) =>
+		item.kind === "MITRA" ? `/disbursements/admin/mitra/${item.id}` : `/disbursements/admin/${item.id}`;
+
+	const handleApprove = async (item: DisbursementItem) => {
 		const result = await Swal.fire({
 			title: "Setujui Pencairan?",
 			text: "Pengajuan akan ditandai sebagai disetujui.",
 			input: "textarea",
 			inputLabel: "Catatan (opsional)",
-			inputPlaceholder: "Catatan untuk pengelola event...",
+			inputPlaceholder: item.kind === "MITRA" ? "Catatan untuk mitra..." : "Catatan untuk pengelola event...",
 			icon: "question",
 			showCancelButton: true,
 			confirmButtonText: "Setujui",
@@ -83,7 +92,7 @@ const DisbursementManagement: React.FC = () => {
 		if (!result.isConfirmed) return;
 
 		try {
-			await api.patch(`/disbursements/admin/${id}/approve`, { adminNotes: result.value || null });
+			await api.patch(`${getActionBasePath(item)}/approve`, { adminNotes: result.value || null });
 			Swal.fire("Berhasil", "Pengajuan disetujui", "success");
 			fetchDisbursements();
 		} catch (err: any) {
@@ -115,7 +124,7 @@ const DisbursementManagement: React.FC = () => {
 		if (!result.isConfirmed) return;
 
 		try {
-			await api.patch(`/disbursements/admin/${d.id}/transfer`, { adminNotes: result.value || null });
+			await api.patch(`${getActionBasePath(d)}/transfer`, { adminNotes: result.value || null });
 			Swal.fire("Berhasil", "Pencairan ditandai sudah ditransfer", "success");
 			fetchDisbursements();
 		} catch (err: any) {
@@ -123,7 +132,7 @@ const DisbursementManagement: React.FC = () => {
 		}
 	};
 
-	const handleReject = async (id: string) => {
+	const handleReject = async (item: DisbursementItem) => {
 		const result = await Swal.fire({
 			title: "Tolak Pengajuan?",
 			input: "textarea",
@@ -139,7 +148,7 @@ const DisbursementManagement: React.FC = () => {
 		if (!result.isConfirmed) return;
 
 		try {
-			await api.patch(`/disbursements/admin/${id}/reject`, { adminNotes: result.value });
+			await api.patch(`${getActionBasePath(item)}/reject`, { adminNotes: result.value });
 			Swal.fire("Berhasil", "Pengajuan ditolak", "success");
 			fetchDisbursements();
 		} catch (err: any) {
@@ -169,7 +178,7 @@ const DisbursementManagement: React.FC = () => {
 				<BanknotesIcon className="w-8 h-8 text-red-600" />
 				<div>
 					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manajemen Pencairan</h1>
-					<p className="text-sm text-gray-500 dark:text-gray-400">Kelola pengajuan pencairan dana dari pengelola event</p>
+					<p className="text-sm text-gray-500 dark:text-gray-400">Kelola pengajuan pencairan dana dari pengelola event dan mitra</p>
 				</div>
 			</div>
 
@@ -217,7 +226,7 @@ const DisbursementManagement: React.FC = () => {
 						type="text"
 						value={search}
 						onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-						placeholder="Cari event, pengelola, bank..."
+						placeholder="Cari event, mitra, kode referral, bank..."
 						className="w-full pl-10 pr-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
 					/>
 				</div>
@@ -259,11 +268,16 @@ const DisbursementManagement: React.FC = () => {
 											{formatCurrency(d.amount)}
 										</h3>
 										<p className="text-sm text-gray-500 dark:text-gray-400">
-											{d.event.title}
+											{d.kind === "MITRA" ? "Penarikan Komisi Mitra" : d.event?.title}
 										</p>
 										<p className="text-xs text-gray-400 mt-0.5">
 											Diajukan oleh {d.requestedBy.name} ({d.requestedBy.email}) · {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
 										</p>
+										{d.kind === "MITRA" && d.mitraProfile && (
+											<p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">
+												Mitra: {d.mitraProfile.user.name} - Kode {d.mitraProfile.referralCode}
+											</p>
+										)}
 									</div>
 									<div className="flex items-center gap-2">
 										{getStatusBadge(d.status)}
@@ -318,7 +332,7 @@ const DisbursementManagement: React.FC = () => {
 									<div className="flex gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
 										{d.status === "PENDING" && (
 											<button
-												onClick={() => handleApprove(d.id)}
+												onClick={() => handleApprove(d)}
 												className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
 											>
 												Setujui
@@ -331,7 +345,7 @@ const DisbursementManagement: React.FC = () => {
 											Tandai Ditransfer
 										</button>
 										<button
-											onClick={() => handleReject(d.id)}
+											onClick={() => handleReject(d)}
 											className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
 										>
 											Tolak

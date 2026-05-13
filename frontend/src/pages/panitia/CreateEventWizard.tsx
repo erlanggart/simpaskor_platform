@@ -64,6 +64,7 @@ const CreateEventWizard: React.FC = () => {
 		province: "",
 		city: "",
 		venue: "",
+		referralCode: "",
 	});
 
 	// Step 2 data
@@ -194,6 +195,7 @@ const CreateEventWizard: React.FC = () => {
 				province: draft.province || "",
 				city: draft.city || "",
 				venue: draft.venue || "",
+				referralCode: draft.mitraProfile?.referralCode || "",
 			});
 
 			// Load Step 2 data
@@ -267,6 +269,10 @@ const CreateEventWizard: React.FC = () => {
 			return true;
 		} catch (error: any) {
 			console.error("Error saving step 1:", error);
+			if (error.response?.data?.message?.includes("Kode referral")) {
+				setErrors({ referralCode: error.response.data.message });
+				return false;
+			}
 			showError(error.response?.data?.message || "Gagal menyimpan data");
 			return false;
 		} finally {

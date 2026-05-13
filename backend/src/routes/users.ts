@@ -33,7 +33,7 @@ const createUserSchema = z.object({
 	email: z.string().email("Invalid email format"),
 	password: z.string().min(8, "Password must be at least 8 characters"),
 	name: z.string().min(1, "Name is required"),
-	role: z.enum(["SUPERADMIN", "PANITIA", "JURI", "PESERTA", "PELATIH"]),
+	role: z.enum(["SUPERADMIN", "PANITIA", "JURI", "PESERTA", "PELATIH", "MITRA"]),
 	phone: z.string().optional(),
 	institution: z.string().optional(),
 	status: z.enum(["ACTIVE", "INACTIVE", "PENDING", "SUSPENDED"]).optional(),
@@ -44,7 +44,7 @@ const updateUserSchema = z.object({
 	lastName: z.string().min(1).optional(),
 	phone: z.string().optional(),
 	role: z
-		.enum(["SUPERADMIN", "PANITIA", "JURI", "PESERTA", "PELATIH"])
+		.enum(["SUPERADMIN", "PANITIA", "JURI", "PESERTA", "PELATIH", "MITRA"])
 		.optional(),
 	status: z.enum(["ACTIVE", "INACTIVE", "PENDING", "SUSPENDED"]).optional(),
 });
@@ -1001,6 +1001,26 @@ router.get(
 				// Get participations where they might be linked as coach
 				// For now, pelatih has no specific relations
 				roleData = {};
+			} else if (user.role === UserRole.MITRA) {
+				const mitraProfile = await prisma.mitraProfile.findUnique({
+					where: { userId },
+					include: {
+						commissions: {
+							include: {
+								event: {
+									select: {
+										id: true,
+										title: true,
+										slug: true,
+										status: true,
+									},
+								},
+							},
+							orderBy: { createdAt: "desc" },
+						},
+					},
+				});
+				roleData = { mitraProfile };
 			}
 
 			res.json({

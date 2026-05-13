@@ -236,6 +236,11 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Performa", icon: LuChartBar, path: "/pelatih/performance" }
 				);
 				break;
+			case "MITRA":
+				roleSpecificItems.push(
+					{ name: "Referral", icon: LuTicket, path: "/mitra/dashboard" }
+				);
+				break;
 		}
 
 		return [...baseItems, ...roleSpecificItems];
@@ -259,6 +264,8 @@ export const DashboardLayout: React.FC = () => {
 				return "/juri/dashboard";
 			case "PELATIH":
 				return "/pelatih/dashboard";
+			case "MITRA":
+				return "/mitra/dashboard";
 			default:
 				return "/dashboard";
 		}
@@ -271,6 +278,7 @@ export const DashboardLayout: React.FC = () => {
 			case "PESERTA": return "/peserta/profile";
 			case "JURI": return "/juri/profile";
 			case "PELATIH": return "/pelatih/profile";
+			case "MITRA": return "/mitra/profile";
 			default: return "/profile";
 		}
 	};

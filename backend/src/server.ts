@@ -34,6 +34,7 @@ import settingsRoutes from "./routes/settings";
 import backupRoutes from "./routes/backup";
 import disbursementRoutes from "./routes/disbursements";
 import externalFinanceRoutes from "./routes/externalFinance";
+import mitraRoutes from "./routes/mitra";
 
 dotenv.config();
 
@@ -204,6 +205,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/backup", backupRoutes);
 app.use("/api/disbursements", disbursementRoutes);
 app.use("/api/external", externalFinanceRoutes);
+app.use("/api/mitra", mitraRoutes);
 
 // Error handling middleware
 app.use(

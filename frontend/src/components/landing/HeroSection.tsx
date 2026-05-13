@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
 	LuArrowRight,
 	LuChevronDown,
+	LuHandshake,
 } from "react-icons/lu";
 import HeroBannerCarousel from "./HeroBannerCarousel";
 
@@ -47,9 +48,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 						<div className="simpaskor-underline mx-auto lg:mx-0" />
 
 						<p className="text-xs md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-5 md:mb-8 max-w-lg mx-auto lg:mx-0">
-							Solusi All-in-One: Transformasi Digital untuk Rekap Nilai, Tiketing, Voting, Marketplace, hingga Direktori Juri, Pelatih, dan Peserta dalam Satu Genggaman.
+							Solusi All-in-One: Transformasi Digital untuk Rekap Nilai, Tiketing, Voting, Marketplace, hingga Direktori Juri dan Peserta dalam Satu Genggaman.
 						</p>
-						<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+						<div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center lg:justify-start gap-3">
 							<Link
 								to="/events"
 								className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-xs md:text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
@@ -62,6 +63,14 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 								className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-xs md:text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 group"
 							>
 								<span>Selenggarakan Event Anda</span>
+								<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+							</Link>
+							<Link
+								to="/mitra"
+								className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 rounded-full bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-300 text-xs md:text-sm font-semibold hover:bg-red-100 dark:hover:bg-red-950/35 transition-all duration-300 group"
+							>
+								<LuHandshake className="w-4 h-4" />
+								<span>Daftar Mitra</span>
 								<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
 							</Link>
 						</div>

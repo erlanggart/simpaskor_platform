@@ -31,6 +31,7 @@ export interface Step1Data {
 	province: string;
 	city: string;
 	venue: string;
+	referralCode: string;
 }
 
 // Step 2: Categories & Package
@@ -94,6 +95,15 @@ export interface DraftEvent {
 	couponId: string | null;
 	packageTier: string | null;
 	paymentStatus: string | null;
+	mitraProfile?: {
+		referralCode: string;
+		commissionPerEvent: number;
+	} | null;
+	mitraCommission?: {
+		id: string;
+		amount: number;
+		status: "PENDING" | "APPROVED" | "PAID" | "CANCELLED";
+	} | null;
 	eventPayment?: EventPaymentData | null;
 	assessmentCategories: {
 		id: string;

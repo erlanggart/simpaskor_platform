@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
 import {
@@ -8,10 +8,11 @@ import {
 	AcademicCapIcon,
 	CheckCircleIcon,
 	ClipboardDocumentListIcon,
+	UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
 interface RoleOption {
-	id: "PESERTA" | "JURI" | "PELATIH" | "PANITIA";
+	id: "PESERTA" | "JURI" | "PELATIH" | "PANITIA" | "MITRA";
 	title: string;
 	icon: React.ElementType;
 	description: string;
@@ -71,6 +72,22 @@ const roles: RoleOption[] = [
 		iconBg: "bg-blue-500/10 text-blue-500",
 	},
 	{
+		id: "MITRA",
+		title: "Mitra",
+		icon: UserGroupIcon,
+		description:
+			"Bagikan kode referral ke panitia dan dapatkan komisi untuk setiap event yang menggunakan kode Anda.",
+		features: [
+			"Kode referral unik",
+			"Komisi Rp200.000/event",
+			"Riwayat referral event",
+			"Dashboard komisi",
+		],
+		gradient: "from-red-500 to-pink-600",
+		borderColor: "border-red-500/50 hover:border-red-400",
+		iconBg: "bg-red-500/10 text-red-500",
+	},
+	{
 		id: "PELATIH",
 		title: "Pelatih",
 		icon: AcademicCapIcon,
@@ -89,7 +106,11 @@ const roles: RoleOption[] = [
 ];
 
 const RoleSelection = () => {
-	const [selectedRole, setSelectedRole] = useState<string | null>(null);
+	const location = useLocation();
+	const initialRole = new URLSearchParams(location.search).get("role")?.toUpperCase();
+	const [selectedRole, setSelectedRole] = useState<string | null>(
+		roles.some((role) => role.id === initialRole) ? initialRole || null : null
+	);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const { setAuth } = useAuth();
@@ -115,6 +136,7 @@ const RoleSelection = () => {
 				PESERTA: "/peserta/dashboard",
 				JURI: "/juri/dashboard",
 				PELATIH: "/pelatih/dashboard",
+				MITRA: "/mitra/dashboard",
 			};
 			navigate(dashboardPaths[selectedRole] || "/dashboard", { replace: true });
 		} catch (err: any) {
@@ -141,7 +163,7 @@ const RoleSelection = () => {
 				</div>
 
 				{/* Role Cards */}
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6 mb-8">
 					{roles.map((role) => {
 						const Icon = role.icon;
 						const isSelected = selectedRole === role.id;

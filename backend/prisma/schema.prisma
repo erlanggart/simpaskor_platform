@@ -16,6 +16,7 @@ enum UserRole {
   JURI
   PESERTA
   PELATIH
+  MITRA
 }
 
 enum UserStatus {
@@ -42,21 +43,24 @@ model User {
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  profile            UserProfile?
-  sessions           UserSession[]
-  createdEvents      Event[]                  @relation("EventCreator")
-  participations     EventParticipation[]
-  evaluations        Evaluation[]
-  materialEvaluations MaterialEvaluation[]
-  createdCoupons     EventCoupon[]            @relation("CouponCreator")
-  usedCoupons        EventCoupon[]            @relation("CouponUser")
-  juryAssignments    JuryEventAssignment[]
-  eventComments      EventComment[]
-  eventLikes         EventLike[]
-  orders             Order[]
-  ticketPurchases    TicketPurchase[]
-  disbursementRequests  Disbursement[]  @relation("DisbursementRequester")
-  disbursementProcessed Disbursement[]  @relation("DisbursementProcessor")
+  profile                  UserProfile?
+  sessions                 UserSession[]
+  createdEvents            Event[]               @relation("EventCreator")
+  participations           EventParticipation[]
+  evaluations              Evaluation[]
+  materialEvaluations      MaterialEvaluation[]
+  createdCoupons           EventCoupon[]         @relation("CouponCreator")
+  usedCoupons              EventCoupon[]         @relation("CouponUser")
+  juryAssignments          JuryEventAssignment[]
+  eventComments            EventComment[]
+  eventLikes               EventLike[]
+  orders                   Order[]
+  ticketPurchases          TicketPurchase[]
+  disbursementRequests     Disbursement[]        @relation("DisbursementRequester")
+  disbursementProcessed    Disbursement[]        @relation("DisbursementProcessor")
+  mitraWithdrawalRequests  MitraWithdrawal[]     @relation("MitraWithdrawalRequester")
+  mitraWithdrawalProcessed MitraWithdrawal[]     @relation("MitraWithdrawalProcessor")
+  mitraProfile             MitraProfile?
 
   @@map("users")
 }
@@ -80,16 +84,16 @@ model UserProfile {
 }
 
 model UserSession {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  ipAddress String?  @map("ip_address")
-  userAgent String?  @map("user_agent")
-  deviceName String? @map("device_name")
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  deviceName String?  @map("device_name")
   lastActive DateTime @default(now()) @map("last_active")
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("user_sessions")
 }
@@ -107,9 +111,9 @@ model SchoolCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  participations      EventParticipation[]
-  eventLimits         EventSchoolCategoryLimit[]
-  groups              ParticipationGroup[]
+  participations EventParticipation[]
+  eventLimits    EventSchoolCategoryLimit[]
+  groups         ParticipationGroup[]
 
   @@map("school_categories")
 }
@@ -125,8 +129,8 @@ model AssessmentCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  eventCategories       EventAssessmentCategory[]
-  evaluations           Evaluation[]
+  eventCategories        EventAssessmentCategory[]
+  evaluations            Evaluation[]
   juryAssignedCategories JuryAssignedCategory[]
 
   @@map("assessment_categories")
@@ -165,41 +169,43 @@ model EventSchoolCategoryLimit {
 }
 
 model Event {
-  id                   String       @id @default(uuid())
+  id                   String        @id @default(uuid())
   title                String // e.g., "Lomba Paskibra Tingkat Nasional 2025"
-  slug                 String?      @unique
+  slug                 String?       @unique
   description          String? // Event description
   thumbnail            String? // URL/path to event thumbnail image
-  juknisUrl            String?      @map("juknis_url") // URL/path to event technical guideline document
-  startDate            DateTime     @map("start_date")
-  endDate              DateTime     @map("end_date")
-  registrationDeadline DateTime?    @map("registration_deadline")
+  juknisUrl            String?       @map("juknis_url") // URL/path to event technical guideline document
+  startDate            DateTime      @map("start_date")
+  endDate              DateTime      @map("end_date")
+  registrationDeadline DateTime?     @map("registration_deadline")
   location             String? // Full location string (deprecated, use province + city)
   province             String? // Province name
   city                 String? // City/Kabupaten name
   venue                String? // Specific venue name
-  maxParticipants      Int?         @map("max_participants")
-  currentParticipants  Int          @default(0) @map("current_participants")
-  registrationFee      Decimal?     @map("registration_fee") @db.Decimal(10, 2)
+  maxParticipants      Int?          @map("max_participants")
+  currentParticipants  Int           @default(0) @map("current_participants")
+  registrationFee      Decimal?      @map("registration_fee") @db.Decimal(10, 2)
   organizer            String? // Organization/institution name
-  contactPersonName    String?      @map("contact_person_name") // Contact person name
-  contactEmail         String?      @map("contact_email")
-  contactPhone         String?      @map("contact_phone")
-  status               String       @default("DRAFT") // DRAFT, PUBLISHED, ONGOING, COMPLETED, CANCELLED
-  wizardStep           Int          @default(1) @map("wizard_step") // Current wizard step (1-3), 0 = completed
-  wizardCompleted      Boolean      @default(false) @map("wizard_completed") // Whether wizard is completed
-  featured             Boolean      @default(false) // Featured events appear on landing page
-  isPinned             Boolean      @default(false) @map("is_pinned") // Pinned events appear in carousel
-  pinnedOrder          Int?         @map("pinned_order") // Display order in carousel (lower = first)
-  couponId             String?      @map("coupon_id") // Coupon used to create this event (legacy)
-  coupon               EventCoupon? @relation(fields: [couponId], references: [id])
-  packageTier          PackageTier? @map("package_tier") // Selected package tier for event creation
-  paymentStatus        String?      @map("payment_status") // PENDING, PAID - tracks if event creation payment is done
-  platformSharePercent Float?       @map("platform_share_percent") // Persentase bagi hasil Simpaskor yang disepakati admin
-  createdById          String       @map("created_by_id")
-  createdBy            User         @relation("EventCreator", fields: [createdById], references: [id])
-  createdAt            DateTime     @default(now()) @map("created_at")
-  updatedAt            DateTime     @updatedAt @map("updated_at")
+  contactPersonName    String?       @map("contact_person_name") // Contact person name
+  contactEmail         String?       @map("contact_email")
+  contactPhone         String?       @map("contact_phone")
+  status               String        @default("DRAFT") // DRAFT, PUBLISHED, ONGOING, COMPLETED, CANCELLED
+  wizardStep           Int           @default(1) @map("wizard_step") // Current wizard step (1-3), 0 = completed
+  wizardCompleted      Boolean       @default(false) @map("wizard_completed") // Whether wizard is completed
+  featured             Boolean       @default(false) // Featured events appear on landing page
+  isPinned             Boolean       @default(false) @map("is_pinned") // Pinned events appear in carousel
+  pinnedOrder          Int?          @map("pinned_order") // Display order in carousel (lower = first)
+  couponId             String?       @map("coupon_id") // Coupon used to create this event (legacy)
+  coupon               EventCoupon?  @relation(fields: [couponId], references: [id])
+  packageTier          PackageTier?  @map("package_tier") // Selected package tier for event creation
+  paymentStatus        String?       @map("payment_status") // PENDING, PAID - tracks if event creation payment is done
+  platformSharePercent Float?        @map("platform_share_percent") // Persentase bagi hasil Simpaskor yang disepakati admin
+  mitraProfileId       String?       @map("mitra_profile_id")
+  mitraProfile         MitraProfile? @relation(fields: [mitraProfileId], references: [id])
+  createdById          String        @map("created_by_id")
+  createdBy            User          @relation("EventCreator", fields: [createdById], references: [id])
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
 
   // Relations
   participations       EventParticipation[]
@@ -218,27 +224,96 @@ model Event {
   votingPurchases      VotingPurchase[]
   eventPayment         EventPayment?
   disbursements        Disbursement[]
+  mitraCommission      MitraCommission?
 
   @@map("events")
 }
 
+enum MitraCommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+model MitraProfile {
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referralCode       String   @unique @map("referral_code")
+  commissionPerEvent Int      @default(200000) @map("commission_per_event")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  events      Event[]
+  commissions MitraCommission[]
+  withdrawals MitraWithdrawal[]
+
+  @@index([referralCode])
+  @@map("mitra_profiles")
+}
+
+model MitraCommission {
+  id             String                @id @default(uuid())
+  mitraProfileId String                @map("mitra_profile_id")
+  mitraProfile   MitraProfile          @relation(fields: [mitraProfileId], references: [id], onDelete: Cascade)
+  eventId        String                @unique @map("event_id")
+  event          Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  referralCode   String                @map("referral_code")
+  amount         Int                   @default(200000)
+  status         MitraCommissionStatus @default(PENDING)
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  @@index([mitraProfileId])
+  @@index([status])
+  @@map("mitra_commissions")
+}
+
+model MitraWithdrawal {
+  id             String             @id @default(uuid())
+  mitraProfileId String             @map("mitra_profile_id")
+  mitraProfile   MitraProfile       @relation(fields: [mitraProfileId], references: [id], onDelete: Cascade)
+  requestedById  String             @map("requested_by_id")
+  requestedBy    User               @relation("MitraWithdrawalRequester", fields: [requestedById], references: [id])
+  amount         Float
+  bankName       String             @map("bank_name")
+  accountNumber  String             @map("account_number")
+  accountHolder  String             @map("account_holder")
+  notes          String?
+  status         DisbursementStatus @default(PENDING)
+  adminNotes     String?            @map("admin_notes")
+  processedById  String?            @map("processed_by_id")
+  processedBy    User?              @relation("MitraWithdrawalProcessor", fields: [processedById], references: [id])
+  processedAt    DateTime?          @map("processed_at")
+  transferProof  String?            @map("transfer_proof")
+  transferredAt  DateTime?          @map("transferred_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  @@index([mitraProfileId])
+  @@index([requestedById])
+  @@index([status])
+  @@map("mitra_withdrawals")
+}
+
 // Jury Event Assignment - Tracks which jury is assigned to which event
 model JuryEventAssignment {
-  id                    String                           @id @default(uuid())
-  juryId                String                           @map("jury_id")
-  jury                  User                             @relation(fields: [juryId], references: [id], onDelete: Cascade)
-  eventId               String                           @map("event_id")
-  event                 Event                            @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  status                String                           @default("PENDING") // PENDING, CONFIRMED, REJECTED
-  invitedAt             DateTime                         @default(now()) @map("invited_at")
-  respondedAt           DateTime?                        @map("responded_at")
-  rejectionReason       String?                          @map("rejection_reason")
-  notes                 String? // Notes from panitia to jury
-  createdAt             DateTime                         @default(now()) @map("created_at")
-  updatedAt             DateTime                         @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  juryId          String    @map("jury_id")
+  jury            User      @relation(fields: [juryId], references: [id], onDelete: Cascade)
+  eventId         String    @map("event_id")
+  event           Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  status          String    @default("PENDING") // PENDING, CONFIRMED, REJECTED
+  invitedAt       DateTime  @default(now()) @map("invited_at")
+  respondedAt     DateTime? @map("responded_at")
+  rejectionReason String?   @map("rejection_reason")
+  notes           String? // Notes from panitia to jury
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  assignedCategories    JuryAssignedCategory[]
+  assignedCategories JuryAssignedCategory[]
 
   @@unique([juryId, eventId])
   @@index([juryId, status])
@@ -247,12 +322,12 @@ model JuryEventAssignment {
 
 // Junction table for Jury assigned assessment categories
 model JuryAssignedCategory {
-  id                   String                @id @default(uuid())
-  assignmentId         String                @map("assignment_id")
-  assignment           JuryEventAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  assessmentCategoryId String                @map("assessment_category_id")
-  assessmentCategory   AssessmentCategory    @relation(fields: [assessmentCategoryId], references: [id], onDelete: Cascade)
-  createdAt            DateTime              @default(now()) @map("created_at")
+  id                   String              @id @default(uuid())
+  assignmentId         String              @map("assignment_id")
+  assignment           JuryEventAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assessmentCategoryId String              @map("assessment_category_id")
+  assessmentCategory   AssessmentCategory  @relation(fields: [assessmentCategoryId], references: [id], onDelete: Cascade)
+  createdAt            DateTime            @default(now()) @map("created_at")
 
   @@unique([assignmentId, assessmentCategoryId])
   @@map("jury_assigned_categories")
@@ -346,24 +421,24 @@ model Evaluation {
 
 // Event Material - Materi per kategori penilaian per event
 model EventMaterial {
-  id                        String   @id @default(uuid())
-  eventId                   String   @map("event_id")
-  event                     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  eventAssessmentCategoryId String   @map("event_assessment_category_id")
-  number                    Int      // Nomor urut materi (1, 2, 3, ...)
-  name                      String   // Nama materi (e.g., "Maju Langkah", "Hadap Kanan")
-  description               String?  // Deskripsi materi
-  order                     Int      @default(0) // Urutan tampilan
-  
+  id                        String  @id @default(uuid())
+  eventId                   String  @map("event_id")
+  event                     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventAssessmentCategoryId String  @map("event_assessment_category_id")
+  number                    Int // Nomor urut materi (1, 2, 3, ...)
+  name                      String // Nama materi (e.g., "Maju Langkah", "Hadap Kanan")
+  description               String? // Deskripsi materi
+  order                     Int     @default(0) // Urutan tampilan
+
   // Denormalized for performance - stores JSON array of score categories with options
   // Format: [{"name": "Kurang", "color": "red", "order": 0, "options": [{"name": "", "score": 1, "order": 0}]}]
-  scoreCategories           Json     @default("[]") @map("score_categories")
-  
+  scoreCategories Json @default("[]") @map("score_categories")
+
   // Denormalized for performance - stores array of school category UUIDs
-  schoolCategoryIds         String[] @default([]) @map("school_category_ids")
-  
-  createdAt                 DateTime @default(now()) @map("created_at")
-  updatedAt                 DateTime @updatedAt @map("updated_at")
+  schoolCategoryIds String[] @default([]) @map("school_category_ids")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([eventId, eventAssessmentCategoryId, number])
   @@map("event_materials")
@@ -371,26 +446,26 @@ model EventMaterial {
 
 // Material Evaluation - Penilaian per materi oleh juri
 model MaterialEvaluation {
-  id                String   @id @default(uuid())
-  eventId           String   @map("event_id")
-  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  materialId        String   @map("material_id")
-  juryId            String   @map("jury_id")
-  jury              User     @relation(fields: [juryId], references: [id])
-  participantId     String   @map("participant_id") // ParticipationGroup ID
-  
+  id            String @id @default(uuid())
+  eventId       String @map("event_id")
+  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  materialId    String @map("material_id")
+  juryId        String @map("jury_id")
+  jury          User   @relation(fields: [juryId], references: [id])
+  participantId String @map("participant_id") // ParticipationGroup ID
+
   // Score - null means "not scored" and requires skipReason
-  score             Float?   // Score given for this material
-  scoreCategoryName String?  @map("score_category_name") // e.g., "Kurang", "Cukup", "Baik"
-  
+  score             Float? // Score given for this material
+  scoreCategoryName String? @map("score_category_name") // e.g., "Kurang", "Cukup", "Baik"
+
   // Skip reason if not scoring (materi tidak sesuai, materi tidak dijalankan)
-  isSkipped         Boolean  @default(false) @map("is_skipped")
-  skipReason        String?  @map("skip_reason") // "TIDAK_SESUAI" or "TIDAK_DIJALANKAN"
-  
-  notes             String?
-  scoredAt          DateTime? @map("scored_at") // Client-side timestamp when jury clicked score
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  isSkipped  Boolean @default(false) @map("is_skipped")
+  skipReason String? @map("skip_reason") // "TIDAK_SESUAI" or "TIDAK_DIJALANKAN"
+
+  notes     String?
+  scoredAt  DateTime? @map("scored_at") // Client-side timestamp when jury clicked score
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@unique([eventId, materialId, juryId, participantId])
   @@map("material_evaluations")
@@ -398,29 +473,29 @@ model MaterialEvaluation {
 
 // Extra Nilai - Punishment (pengurangan) atau Poin Plus (penambahan) untuk peserta
 enum ExtraNilaiType {
-  PUNISHMENT  // Pengurangan nilai
-  POINPLUS    // Penambahan nilai
+  PUNISHMENT // Pengurangan nilai
+  POINPLUS // Penambahan nilai
 }
 
 enum ExtraNilaiScope {
-  GENERAL   // Diterapkan ke total nilai keseluruhan
-  CATEGORY  // Diterapkan ke kategori penilaian tertentu
-  JUARA     // Diterapkan ke total juara tertentu (Juara Utama / Juara Umum / Custom)
+  GENERAL // Diterapkan ke total nilai keseluruhan
+  CATEGORY // Diterapkan ke kategori penilaian tertentu
+  JUARA // Diterapkan ke total juara tertentu (Juara Utama / Juara Umum / Custom)
 }
 
 model ExtraNilai {
-  id                   String              @id @default(uuid())
-  eventId              String              @map("event_id")
-  participantId        String              @map("participant_id") // ParticipationGroup ID
-  type                 ExtraNilaiType      // PUNISHMENT atau POINPLUS
-  scope                ExtraNilaiScope     // GENERAL, CATEGORY, atau JUARA
-  assessmentCategoryId String?             @map("assessment_category_id") // Required if scope is CATEGORY
-  juaraCategoryId      String?             @map("juara_category_id") // Required if scope is JUARA
-  value                Float               // Nilai poin (selalu positif, tipe menentukan + atau -)
-  reason               String?             // Alasan pemberian punishment/poin plus
-  createdById          String              @map("created_by_id")
-  createdAt            DateTime            @default(now()) @map("created_at")
-  updatedAt            DateTime            @updatedAt @map("updated_at")
+  id                   String          @id @default(uuid())
+  eventId              String          @map("event_id")
+  participantId        String          @map("participant_id") // ParticipationGroup ID
+  type                 ExtraNilaiType // PUNISHMENT atau POINPLUS
+  scope                ExtraNilaiScope // GENERAL, CATEGORY, atau JUARA
+  assessmentCategoryId String?         @map("assessment_category_id") // Required if scope is CATEGORY
+  juaraCategoryId      String?         @map("juara_category_id") // Required if scope is JUARA
+  value                Float // Nilai poin (selalu positif, tipe menentukan + atau -)
+  reason               String? // Alasan pemberian punishment/poin plus
+  createdById          String          @map("created_by_id")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
 
   @@index([eventId, participantId])
   @@index([eventId, type])
@@ -429,22 +504,22 @@ model ExtraNilai {
 
 // Juara Category Type
 enum JuaraCategoryType {
-  UTAMA   // Juara Utama - primary champion category
-  UMUM    // Juara Umum - overall champion (all categories)
-  CUSTOM  // Custom category (max 2 per event)
+  UTAMA // Juara Utama - primary champion category
+  UMUM // Juara Umum - overall champion (all categories)
+  CUSTOM // Custom category (max 2 per event)
 }
 
 // Juara Category - Defines champion calculation categories per event
 model JuaraCategory {
-  id          String             @id @default(uuid())
-  eventId     String             @map("event_id")
+  id          String            @id @default(uuid())
+  eventId     String            @map("event_id")
   type        JuaraCategoryType
-  name        String             // Display name (e.g., "Juara Utama", "Best PBB")
+  name        String // Display name (e.g., "Juara Utama", "Best PBB")
   description String?
-  order       Int                @default(0)
-  rankCount   Int                @default(3) @map("rank_count") // Number of ranks (e.g., 3 = Juara 1, 2, 3)
-  createdAt   DateTime           @default(now()) @map("created_at")
-  updatedAt   DateTime           @updatedAt @map("updated_at")
+  order       Int               @default(0)
+  rankCount   Int               @default(3) @map("rank_count") // Number of ranks (e.g., 3 = Juara 1, 2, 3)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
 
   // Relations
   assessmentCategories JuaraCategoryAssessment[]
@@ -461,10 +536,10 @@ model JuaraRank {
   id              String        @id @default(uuid())
   juaraCategoryId String        @map("juara_category_id")
   juaraCategory   JuaraCategory @relation(fields: [juaraCategoryId], references: [id], onDelete: Cascade)
-  startRank       Int           @map("start_rank")    // Starting rank position (e.g., 1)
-  endRank         Int           @map("end_rank")      // Ending rank position (e.g., 3)
-  label           String                              // Display label (e.g., "Juara Utama")
-  order           Int           @default(0)           // Display order
+  startRank       Int           @map("start_rank") // Starting rank position (e.g., 1)
+  endRank         Int           @map("end_rank") // Ending rank position (e.g., 3)
+  label           String // Display label (e.g., "Juara Utama")
+  order           Int           @default(0) // Display order
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
@@ -475,11 +550,11 @@ model JuaraRank {
 
 // Junction table - which assessment categories belong to each juara category
 model JuaraCategoryAssessment {
-  id                   String             @id @default(uuid())
-  juaraCategoryId      String             @map("juara_category_id")
-  juaraCategory        JuaraCategory      @relation(fields: [juaraCategoryId], references: [id], onDelete: Cascade)
-  assessmentCategoryId String             @map("assessment_category_id")
-  createdAt            DateTime           @default(now()) @map("created_at")
+  id                   String        @id @default(uuid())
+  juaraCategoryId      String        @map("juara_category_id")
+  juaraCategory        JuaraCategory @relation(fields: [juaraCategoryId], references: [id], onDelete: Cascade)
+  assessmentCategoryId String        @map("assessment_category_id")
+  createdAt            DateTime      @default(now()) @map("created_at")
 
   @@unique([juaraCategoryId, assessmentCategoryId])
   @@map("juara_category_assessments")
@@ -489,7 +564,7 @@ model JuaraCategoryAssessment {
 model PerformanceField {
   id          String   @id @default(uuid())
   eventId     String   @map("event_id")
-  name        String   // e.g., "Lapangan A", "Lapangan B", "Stage 1"
+  name        String // e.g., "Lapangan A", "Lapangan B", "Stage 1"
   description String?
   order       Int      @default(0)
   isActive    Boolean  @default(true) @map("is_active")
@@ -506,17 +581,17 @@ model PerformanceField {
 
 // Performance Session - Sesi penampilan peserta di lapangan
 model PerformanceSession {
-  id            String            @id @default(uuid())
-  fieldId       String            @map("field_id")
-  field         PerformanceField  @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  participantId String            @map("participant_id") // ParticipationGroup ID
-  startTime     DateTime?         @map("start_time")
-  endTime       DateTime?         @map("end_time")
-  duration      Int?              // Duration in seconds (calculated from start/end)
-  status        String            @default("QUEUED") // QUEUED, PERFORMING, COMPLETED
+  id            String           @id @default(uuid())
+  fieldId       String           @map("field_id")
+  field         PerformanceField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  participantId String           @map("participant_id") // ParticipationGroup ID
+  startTime     DateTime?        @map("start_time")
+  endTime       DateTime?        @map("end_time")
+  duration      Int? // Duration in seconds (calculated from start/end)
+  status        String           @default("QUEUED") // QUEUED, PERFORMING, COMPLETED
   notes         String?
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
 
   // Relations
   materialChecks MaterialCheck[]
@@ -547,7 +622,7 @@ model EventComment {
   id        String   @id @default(uuid())
   eventId   String   @map("event_id")
   userId    String   @map("user_id")
-  content   String   // Isi komentar
+  content   String // Isi komentar
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -612,17 +687,17 @@ model Product {
 }
 
 model Order {
-  id               String      @id @default(uuid())
-  userId           String      @map("user_id")
-  totalAmount      Float       @map("total_amount")
-  status           OrderStatus @default(PENDING)
-  notes            String?
-  midtransOrderId  String?     @unique @map("midtrans_order_id")
-  snapToken        String?     @map("snap_token")
-  paymentType      String?     @map("payment_type")
-  paidAt           DateTime?   @map("paid_at")
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
+  id              String      @id @default(uuid())
+  userId          String      @map("user_id")
+  totalAmount     Float       @map("total_amount")
+  status          OrderStatus @default(PENDING)
+  notes           String?
+  midtransOrderId String?     @unique @map("midtrans_order_id")
+  snapToken       String?     @map("snap_token")
+  paymentType     String?     @map("payment_type")
+  paidAt          DateTime?   @map("paid_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 
   // Relations
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -659,18 +734,18 @@ enum TicketStatus {
 }
 
 model EventTicketConfig {
-  id             String   @id @default(uuid())
-  eventId        String   @unique @map("event_id")
-  enabled        Boolean  @default(false)
-  ticketTeamSelectionEnabled Boolean @default(true) @map("ticket_team_selection_enabled")
-  price          Float    @default(0)
-  quota          Int      @default(0)
-  soldCount      Int      @default(0) @map("sold_count")
-  description    String?
-  salesStartDate DateTime? @map("sales_start_date")
-  salesEndDate   DateTime? @map("sales_end_date")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id                         String    @id @default(uuid())
+  eventId                    String    @unique @map("event_id")
+  enabled                    Boolean   @default(false)
+  ticketTeamSelectionEnabled Boolean   @default(true) @map("ticket_team_selection_enabled")
+  price                      Float     @default(0)
+  quota                      Int       @default(0)
+  soldCount                  Int       @default(0) @map("sold_count")
+  description                String?
+  salesStartDate             DateTime? @map("sales_start_date")
+  salesEndDate               DateTime? @map("sales_end_date")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
 
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -679,24 +754,24 @@ model EventTicketConfig {
 }
 
 model TicketPurchase {
-  id               String       @id @default(uuid())
-  eventId          String       @map("event_id")
-  userId           String?      @map("user_id")
-  buyerName        String       @map("buyer_name")
-  buyerEmail       String       @map("buyer_email")
-  buyerPhone       String?      @map("buyer_phone")
-  quantity         Int          @default(1)
-  totalAmount      Float        @map("total_amount")
-  ticketCode       String       @unique @map("ticket_code")
-  status           TicketStatus @default(PENDING)
-  midtransOrderId  String?      @unique @map("midtrans_order_id")
-  snapToken        String?      @map("snap_token")
-  paymentType      String?      @map("payment_type")
-  paidAt           DateTime?    @map("paid_at")
-  usedAt           DateTime?    @map("used_at")
-  notes            String?
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
+  id              String       @id @default(uuid())
+  eventId         String       @map("event_id")
+  userId          String?      @map("user_id")
+  buyerName       String       @map("buyer_name")
+  buyerEmail      String       @map("buyer_email")
+  buyerPhone      String?      @map("buyer_phone")
+  quantity        Int          @default(1)
+  totalAmount     Float        @map("total_amount")
+  ticketCode      String       @unique @map("ticket_code")
+  status          TicketStatus @default(PENDING)
+  midtransOrderId String?      @unique @map("midtrans_order_id")
+  snapToken       String?      @map("snap_token")
+  paymentType     String?      @map("payment_type")
+  paidAt          DateTime?    @map("paid_at")
+  usedAt          DateTime?    @map("used_at")
+  notes           String?
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
 
   // Relations
   event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -710,13 +785,13 @@ model TicketPurchase {
 }
 
 model TicketTeam {
-  id          String   @id @default(uuid())
-  eventId     String   @map("event_id")
-  teamName    String   @map("team_name")
-  schoolName  String?  @map("school_name")
-  logoUrl     String?  @map("logo_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid())
+  eventId    String   @map("event_id")
+  teamName   String   @map("team_name")
+  schoolName String?  @map("school_name")
+  logoUrl    String?  @map("logo_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Relations
   event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -727,17 +802,17 @@ model TicketTeam {
 }
 
 model TicketAttendee {
-  id             String       @id @default(uuid())
-  purchaseId     String       @map("purchase_id")
-  ticketTeamId   String?      @map("ticket_team_id")
-  attendeeName   String       @map("attendee_name")
-  attendeeEmail  String       @map("attendee_email")
-  attendeePhone  String?      @map("attendee_phone")
-  ticketCode     String       @unique @map("ticket_code")
-  status         TicketStatus @default(PENDING)
-  usedAt         DateTime?    @map("used_at")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id            String       @id @default(uuid())
+  purchaseId    String       @map("purchase_id")
+  ticketTeamId  String?      @map("ticket_team_id")
+  attendeeName  String       @map("attendee_name")
+  attendeeEmail String       @map("attendee_email")
+  attendeePhone String?      @map("attendee_phone")
+  ticketCode    String       @unique @map("ticket_code")
+  status        TicketStatus @default(PENDING)
+  usedAt        DateTime?    @map("used_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
 
   // Relations
   purchase   TicketPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
@@ -754,8 +829,8 @@ model TicketAttendee {
 // ==========================================
 
 enum VotingMode {
-  TEAM      // Vote for a team (ParticipationGroup)
-  PERSONAL  // Vote for an individual member within a team
+  TEAM // Vote for a team (ParticipationGroup)
+  PERSONAL // Vote for an individual member within a team
 }
 
 enum VotingPurchaseStatus {
@@ -767,15 +842,15 @@ enum VotingPurchaseStatus {
 
 // Event-level voting config (enabled, pricing)
 model EventVotingConfig {
-  id            String    @id @default(uuid())
-  eventId       String    @unique @map("event_id")
-  enabled       Boolean   @default(false)
-  isPaid        Boolean   @default(false) @map("is_paid")
-  pricePerVote  Float     @default(0) @map("price_per_vote")
-  startDate     DateTime? @map("start_date")
-  endDate       DateTime? @map("end_date")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  eventId      String    @unique @map("event_id")
+  enabled      Boolean   @default(false)
+  isPaid       Boolean   @default(false) @map("is_paid")
+  pricePerVote Float     @default(0) @map("price_per_vote")
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // Relations
   event      Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -786,19 +861,19 @@ model EventVotingConfig {
 
 // Individual voting title/category per event (e.g., "Tim Terfavorit", "Kostum Terindah")
 model VotingCategory {
-  id                String          @id @default(uuid())
-  configId          String          @map("config_id")
+  id                String            @id @default(uuid())
+  configId          String            @map("config_id")
   config            EventVotingConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  title             String          // "Tim Terfavorit", "Komandan Terbaik", etc.
+  title             String // "Tim Terfavorit", "Komandan Terbaik", etc.
   description       String?
-  mode              VotingMode      @default(TEAM)
-  position          String?         // For PERSONAL mode: position filter (e.g., "Komandan")
-  schoolCategoryIds String[]        @default([]) @map("school_category_ids") // Filter by school category UUIDs
-  maxVotesPerVoter  Int             @default(1) @map("max_votes_per_voter")
-  isActive          Boolean         @default(true) @map("is_active")
-  order             Int             @default(0)
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
+  mode              VotingMode        @default(TEAM)
+  position          String? // For PERSONAL mode: position filter (e.g., "Komandan")
+  schoolCategoryIds String[]          @default([]) @map("school_category_ids") // Filter by school category UUIDs
+  maxVotesPerVoter  Int               @default(1) @map("max_votes_per_voter")
+  isActive          Boolean           @default(true) @map("is_active")
+  order             Int               @default(0)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
 
   // Relations
   nominees VotingNominee[]
@@ -830,17 +905,17 @@ model VotingNominee {
 
 // Individual vote record
 model VotingVote {
-  id           String         @id @default(uuid())
-  categoryId   String         @map("category_id")
-  category     VotingCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  nomineeId    String         @map("nominee_id")
-  nominee      VotingNominee  @relation(fields: [nomineeId], references: [id], onDelete: Cascade)
-  purchaseId   String?        @map("purchase_id") // If paid voting
-  purchase     VotingPurchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
-  voterName    String?        @map("voter_name")
-  voterEmail   String?        @map("voter_email")
-  voterIp      String?        @map("voter_ip")
-  createdAt    DateTime       @default(now()) @map("created_at")
+  id         String          @id @default(uuid())
+  categoryId String          @map("category_id")
+  category   VotingCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  nomineeId  String          @map("nominee_id")
+  nominee    VotingNominee   @relation(fields: [nomineeId], references: [id], onDelete: Cascade)
+  purchaseId String?         @map("purchase_id") // If paid voting
+  purchase   VotingPurchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  voterName  String?         @map("voter_name")
+  voterEmail String?         @map("voter_email")
+  voterIp    String?         @map("voter_ip")
+  createdAt  DateTime        @default(now()) @map("created_at")
 
   @@index([categoryId])
   @@index([nomineeId])
@@ -850,23 +925,23 @@ model VotingVote {
 
 // Paid voting transaction (like ticket purchase)
 model VotingPurchase {
-  id               String               @id @default(uuid())
-  eventId          String               @map("event_id")
-  event            Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  buyerName        String               @map("buyer_name")
-  buyerEmail       String               @map("buyer_email")
-  buyerPhone       String?              @map("buyer_phone")
-  voteCount        Int                  @default(1) @map("vote_count")
-  totalAmount      Float                @map("total_amount")
-  purchaseCode     String               @unique @map("purchase_code")
-  status           VotingPurchaseStatus @default(PENDING)
-  midtransOrderId  String?              @unique @map("midtrans_order_id")
-  snapToken        String?              @map("snap_token")
-  paymentType      String?              @map("payment_type")
-  paidAt           DateTime?            @map("paid_at")
-  usedVotes        Int                  @default(0) @map("used_votes")
-  createdAt    DateTime             @default(now()) @map("created_at")
-  updatedAt    DateTime             @updatedAt @map("updated_at")
+  id              String               @id @default(uuid())
+  eventId         String               @map("event_id")
+  event           Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  buyerName       String               @map("buyer_name")
+  buyerEmail      String               @map("buyer_email")
+  buyerPhone      String?              @map("buyer_phone")
+  voteCount       Int                  @default(1) @map("vote_count")
+  totalAmount     Float                @map("total_amount")
+  purchaseCode    String               @unique @map("purchase_code")
+  status          VotingPurchaseStatus @default(PENDING)
+  midtransOrderId String?              @unique @map("midtrans_order_id")
+  snapToken       String?              @map("snap_token")
+  paymentType     String?              @map("payment_type")
+  paidAt          DateTime?            @map("paid_at")
+  usedVotes       Int                  @default(0) @map("used_votes")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
 
   // Relations
   votes VotingVote[]
@@ -889,20 +964,20 @@ enum RegistrationPaymentStatus {
 }
 
 model RegistrationPayment {
-  id                String                    @id @default(uuid())
-  participationId   String                    @unique @map("participation_id")
-  participation     EventParticipation        @relation(fields: [participationId], references: [id], onDelete: Cascade)
-  eventId           String                    @map("event_id")
-  userId            String                    @map("user_id")
-  amount            Float
-  status            RegistrationPaymentStatus @default(PENDING)
-  paymentMethod     String?                   @map("payment_method") // MIDTRANS or MANUAL
-  midtransOrderId   String?                   @unique @map("midtrans_order_id")
-  snapToken         String?                   @map("snap_token")
-  paymentType       String?                   @map("payment_type")
-  paidAt            DateTime?                 @map("paid_at")
-  createdAt         DateTime                  @default(now()) @map("created_at")
-  updatedAt         DateTime                  @updatedAt @map("updated_at")
+  id              String                    @id @default(uuid())
+  participationId String                    @unique @map("participation_id")
+  participation   EventParticipation        @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  eventId         String                    @map("event_id")
+  userId          String                    @map("user_id")
+  amount          Float
+  status          RegistrationPaymentStatus @default(PENDING)
+  paymentMethod   String?                   @map("payment_method") // MIDTRANS or MANUAL
+  midtransOrderId String?                   @unique @map("midtrans_order_id")
+  snapToken       String?                   @map("snap_token")
+  paymentType     String?                   @map("payment_type")
+  paidAt          DateTime?                 @map("paid_at")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
 
   @@index([participationId])
   @@index([eventId])
@@ -948,15 +1023,15 @@ enum GuideRole {
 }
 
 model Guide {
-  id          String    @id @default(uuid())
+  id          String       @id @default(uuid())
   role        GuideRole
   title       String
   description String?
-  icon        String?   // icon name e.g. "LuCalendarPlus"
-  order       Int       @default(0)
-  isPublished Boolean   @default(false) @map("is_published")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  icon        String? // icon name e.g. "LuCalendarPlus"
+  order       Int          @default(0)
+  isPublished Boolean      @default(false) @map("is_published")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
   slides      GuideSlide[]
 
   @@index([role])
@@ -1033,32 +1108,32 @@ model DailyVisitor {
 // ==========================================
 
 enum DisbursementStatus {
-  PENDING    // Diajukan oleh panitia, menunggu review superadmin
-  APPROVED   // Disetujui superadmin, menunggu transfer
+  PENDING // Diajukan oleh panitia, menunggu review superadmin
+  APPROVED // Disetujui superadmin, menunggu transfer
   TRANSFERRED // Sudah ditransfer oleh superadmin
-  REJECTED   // Ditolak superadmin
+  REJECTED // Ditolak superadmin
 }
 
 model Disbursement {
-  id              String             @id @default(uuid())
-  eventId         String             @map("event_id")
-  event           Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  requestedById   String             @map("requested_by_id")
-  requestedBy     User               @relation("DisbursementRequester", fields: [requestedById], references: [id])
-  amount          Float              // Jumlah yang diajukan untuk pencairan
-  bankName        String             @map("bank_name")
-  accountNumber   String             @map("account_number")
-  accountHolder   String             @map("account_holder")
-  notes           String?            // Catatan dari panitia
-  status          DisbursementStatus @default(PENDING)
-  adminNotes      String?            @map("admin_notes") // Catatan dari superadmin
-  processedById   String?            @map("processed_by_id")
-  processedBy     User?              @relation("DisbursementProcessor", fields: [processedById], references: [id])
-  processedAt     DateTime?          @map("processed_at")
-  transferProof   String?            @map("transfer_proof") // URL bukti transfer
-  transferredAt   DateTime?          @map("transferred_at")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  id            String             @id @default(uuid())
+  eventId       String             @map("event_id")
+  event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  requestedById String             @map("requested_by_id")
+  requestedBy   User               @relation("DisbursementRequester", fields: [requestedById], references: [id])
+  amount        Float // Jumlah yang diajukan untuk pencairan
+  bankName      String             @map("bank_name")
+  accountNumber String             @map("account_number")
+  accountHolder String             @map("account_holder")
+  notes         String? // Catatan dari panitia
+  status        DisbursementStatus @default(PENDING)
+  adminNotes    String?            @map("admin_notes") // Catatan dari superadmin
+  processedById String?            @map("processed_by_id")
+  processedBy   User?              @relation("DisbursementProcessor", fields: [processedById], references: [id])
+  processedAt   DateTime?          @map("processed_at")
+  transferProof String?            @map("transfer_proof") // URL bukti transfer
+  transferredAt DateTime?          @map("transferred_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
 
   @@index([eventId])
   @@index([requestedById])

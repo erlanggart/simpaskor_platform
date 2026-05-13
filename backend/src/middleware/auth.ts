@@ -149,6 +149,7 @@ export const requirePeserta = authorize(
 	UserRole.PANITIA,
 	UserRole.PESERTA
 );
+export const requireMitra = authorize(UserRole.SUPERADMIN, UserRole.MITRA);
 
 // Middleware untuk mengecek ownership atau admin
 export const requireOwnershipOrAdmin = (

@@ -332,6 +332,7 @@ const UserManagement: React.FC = () => {
 			PESERTA: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
 			JURI: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
 			PELATIH: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+			MITRA: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
 		};
 		return colors[role] || "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
 	};
@@ -389,6 +390,7 @@ const UserManagement: React.FC = () => {
 		{ value: "PESERTA", label: "Peserta" },
 		{ value: "JURI", label: "Juri" },
 		{ value: "PELATIH", label: "Pelatih" },
+		{ value: "MITRA", label: "Mitra" },
 	];
 
 	const statusFilterOptions = [
@@ -953,6 +955,7 @@ const UserManagement: React.FC = () => {
 										>
 											<option value="PESERTA">Peserta</option>
 											<option value="PELATIH">Pelatih</option>
+											<option value="MITRA">Mitra</option>
 											<option value="JURI">Juri</option>
 											<option value="PANITIA">Panitia</option>
 											<option value="SUPERADMIN">Super Admin</option>

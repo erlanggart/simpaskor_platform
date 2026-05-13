@@ -11,7 +11,7 @@ interface Person {
 
 interface PinnedPersonCarouselProps {
 	persons: Person[];
-	accentColor: "purple" | "blue";
+	accentColor: "purple";
 	linkPrefix: string;
 	onPersonClick?: (personId: string) => void;
 }
@@ -73,17 +73,14 @@ const getPositionStyle = (
 
 const accentGradients = {
 	purple: "from-purple-800 to-purple-950",
-	blue: "from-blue-800 to-blue-950",
 };
 
 const accentBadge = {
 	purple: "bg-purple-600/90",
-	blue: "bg-blue-600/90",
 };
 
 const accentGlow = {
 	purple: "section-icon-glow-purple",
-	blue: "section-icon-glow-blue",
 };
 
 const PinnedPersonCarousel: React.FC<PinnedPersonCarouselProps> = ({
@@ -211,7 +208,7 @@ const PinnedPersonCarousel: React.FC<PinnedPersonCarouselProps> = ({
 										{/* Role badge */}
 										<div className="absolute top-3 left-3 z-10">
 											<div className={`${accentBadge[accentColor]} backdrop-blur-sm text-white px-3 py-1 rounded-full text-[11px] font-semibold shadow-lg`}>
-												{accentColor === "purple" ? "Juri" : "Pelatih"}
+												Juri
 											</div>
 										</div>
 

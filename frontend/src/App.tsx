@@ -17,6 +17,7 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 const MarketplacePage = lazy(() => import("./pages/MarketplacePage"));
 const ETicketingPage = lazy(() => import("./pages/ETicketingPage"));
 const EVotingPage = lazy(() => import("./pages/EVotingPage"));
+const MitraPage = lazy(() => import("./pages/MitraPage"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
@@ -77,6 +78,7 @@ import JuriEventPenilaian from "./pages/juri/EventPenilaian";
 const JuriPenilaianDetail = lazy(() => import("./pages/juri/PenilaianDetail"));
 import JuriMaterialScoring from "./pages/juri/MaterialScoring";
 const PelatihDashboard = lazy(() => import("./pages/pelatih/Dashboard"));
+const MitraDashboard = lazy(() => import("./pages/mitra/Dashboard"));
 const ManageJury = lazy(() => import("./pages/panitia/ManageJury"));
 const ManageJuara = lazy(() => import("./pages/panitia/ManageJuara"));
 const ManageMateri = lazy(() => import("./pages/panitia/ManageMateri"));
@@ -106,6 +108,7 @@ function App() {
 						<Route path="marketplace" element={<MarketplacePage />} />
 						<Route path="e-ticketing" element={<ETicketingPage />} />
 						<Route path="e-voting" element={<EVotingPage />} />
+						<Route path="mitra" element={<MitraPage />} />
 						<Route path="events/:id" element={<EventDetail />} />
 						<Route path="juries" element={<AllJuries />} />
 						<Route path="pelatih" element={<AllPelatih />} />
@@ -320,6 +323,19 @@ function App() {
 					>
 						<Route path="pelatih">
 							<Route path="dashboard" element={<PelatihDashboard />} />
+							<Route path="profile" element={<Profile />} />
+						</Route>
+					</Route>
+					{/* Mitra Routes - Dashboard Layout */}
+					<Route
+						element={
+							<ProtectedRoute allowedRoles={["MITRA"]}>
+								<DashboardLayout />
+							</ProtectedRoute>
+						}
+					>
+						<Route path="mitra">
+							<Route path="dashboard" element={<MitraDashboard />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>
 					</Route>

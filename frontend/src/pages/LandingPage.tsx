@@ -33,7 +33,6 @@ const sectionNavLabels = [
 	{ id: "ticketing", label: "Ticketing", icon: LuTicket },
 	{ id: "voting", label: "Voting", icon: LuThumbsUp },
 	{ id: "jury", label: "Juri", icon: LuGavel },
-	{ id: "pelatih", label: "Pelatih", icon: LuUsers },
 	{ id: "klasemen", label: "Klasemen", icon: LuTrophy },
 	{ id: "marketplace", label: "Marketplace", icon: LuStore },
 	{ id: "paket", label: "Paket", icon: LuPackage },
@@ -43,7 +42,7 @@ const LandingPage: React.FC = () => {
 	const [activeSection, setActiveSection] = useState(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sectionRefs = useRef<(HTMLElement | null)[]>([]);
-	const { pinnedEvents, publicStats, juries, pelatih, klasemen, loading } = useLandingData();
+	const { pinnedEvents, publicStats, juries, klasemen, loading } = useLandingData();
 	const [selectedJuriId, setSelectedJuriId] = useState<string | null>(null);
 	const isIPhone = typeof navigator !== "undefined" && /iPhone|iPod/i.test(navigator.userAgent);
 
@@ -228,55 +227,8 @@ const LandingPage: React.FC = () => {
 					</div>
 				</section>
 
-				{/* ===== SECTION 6: PELATIH ===== */}
+				{/* ===== SECTION 6: KLASEMEN ===== */}
 				<section ref={setSectionRef(5)} className="landing-section-inner">
-					<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
-						<div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-16">
-							{/* Left: Text */}
-							<div className="flex-1 text-center lg:text-left max-w-2xl">
-								<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-4">
-									PELATIH PROFESIONAL
-								</p>
-								<h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-none mb-3 landing-title-gradient-coaching">
-									PELATIH
-								</h1>
-								<p className="text-sm md:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wide mb-6">
-									Bimbing Atlet Unggulan
-								</p>
-								<div className="w-12 h-[1px] bg-gradient-to-r from-blue-500/50 to-transparent mx-auto lg:mx-0 mb-6" />
-								<p className="text-sm md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0">
-									Pelatih profesional yang berpengalaman dalam membentuk
-									atlet-atlet berprestasi. Dengan metode pelatihan terkini
-									dan pendekatan personal untuk setiap atlet.
-								</p>
-								<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-									<Link
-										to="/pelatih"
-										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
-									>
-										<span>Lihat Semua Pelatih</span>
-										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-									</Link>
-									<Link
-										to="/register"
-										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all duration-300 group"
-									>
-										<span>Daftar sebagai Pelatih</span>
-										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-									</Link>
-								</div>
-							</div>
-
-							{/* Right: Pinned Pelatih Carousel */}
-							<div className="flex-shrink-0 hidden lg:flex flex-col items-center gap-6">
-								<PinnedPersonCarousel persons={pelatih} accentColor="blue" linkPrefix="/pelatih" />
-							</div>
-						</div>
-					</div>
-				</section>
-
-				{/* ===== SECTION 7: KLASEMEN ===== */}
-				<section ref={setSectionRef(6)} className="landing-section-inner">
 					<KlasemenSection
 						top5={klasemen.top5}
 						year={klasemen.year}
@@ -285,13 +237,13 @@ const LandingPage: React.FC = () => {
 					/>
 				</section>
 
-				{/* ===== SECTION 8: MARKETPLACE ===== */}
-				<section ref={setSectionRef(7)} className="landing-section-inner">
+				{/* ===== SECTION 7: MARKETPLACE ===== */}
+				<section ref={setSectionRef(6)} className="landing-section-inner">
 					<MarketplaceSection />
 				</section>
 
-				{/* ===== SECTION 9: PAKET ===== */}
-				<section ref={setSectionRef(8)} className="landing-section-inner">
+				{/* ===== SECTION 8: PAKET ===== */}
+				<section ref={setSectionRef(7)} className="landing-section-inner">
 					<PricingSection />
 				</section>
 

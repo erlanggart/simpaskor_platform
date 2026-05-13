@@ -314,6 +314,8 @@ const getDashboardPath = (role?: string) => {
 			return "/peserta/dashboard";
 		case "PELATIH":
 			return "/pelatih/dashboard";
+		case "MITRA":
+			return "/mitra/dashboard";
 		default:
 			return "/dashboard";
 	}

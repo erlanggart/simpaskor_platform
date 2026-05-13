@@ -130,6 +130,8 @@ const Dashboard = () => {
 				return "/juri/dashboard";
 			case "PELATIH":
 				return "/pelatih/dashboard";
+			case "MITRA":
+				return "/mitra/dashboard";
 			default:
 				// Default fallback for unknown roles
 				return "/peserta/dashboard";
