@@ -197,16 +197,6 @@ router.post(
 				return res.status(403).json({ error: "Tidak memiliki akses" });
 			}
 
-			// Check H-4 rule: can only request disbursement if event is at least 4 days away
-			const now = new Date();
-			const eventDate = new Date(event.startDate);
-			const diffDays = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-			if (diffDays < 4) {
-				return res.status(400).json({
-					error: `Pengajuan pencairan hanya bisa dilakukan maksimal H-4 sebelum event. Event dimulai dalam ${diffDays} hari.`,
-				});
-			}
-
 			// Calculate available balance and create disbursement in a single transaction
 			// to prevent race condition where multiple requests pass the balance check
 			const disbursement = await prisma.$transaction(async (tx) => {

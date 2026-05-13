@@ -56,7 +56,6 @@ const EventDisbursement: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [summary, setSummary] = useState<Summary | null>(null);
 	const [disbursements, setDisbursements] = useState<DisbursementData[]>([]);
-	const [eventInfo, setEventInfo] = useState<{ id: string; title: string; startDate: string } | null>(null);
 	const [showForm, setShowForm] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 
@@ -91,27 +90,11 @@ const EventDisbursement: React.FC = () => {
 			const res = await api.get(`/disbursements/event/${eventId}`);
 			setSummary(res.data.summary);
 			setDisbursements(res.data.disbursements);
-			setEventInfo(res.data.event);
 		} catch (err: any) {
 			console.error("Error fetching disbursements:", err);
 		} finally {
 			setLoading(false);
 		}
-	};
-
-	const canRequestDisbursement = () => {
-		if (!eventInfo) return false;
-		const now = new Date();
-		const eventDate = new Date(eventInfo.startDate);
-		const diffDays = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-		return diffDays >= 4;
-	};
-
-	const getDaysUntilEvent = () => {
-		if (!eventInfo) return 0;
-		const now = new Date();
-		const eventDate = new Date(eventInfo.startDate);
-		return Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -258,26 +241,18 @@ const EventDisbursement: React.FC = () => {
 				</div>
 			)}
 
-			{/* Request Button / Warning */}
-			<div className="mb-6">
-				{canRequestDisbursement() ? (
-					<button
-						onClick={() => setShowForm(!showForm)}
-						className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors shadow-sm"
-					>
-						<PlusIcon className="w-5 h-5" />
-						{showForm ? "Tutup Form" : "Ajukan Pencairan"}
-					</button>
-				) : (
-					<div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4">
-						<p className="text-sm text-yellow-700 dark:text-yellow-400 font-medium">
-							Pengajuan pencairan hanya bisa dilakukan maksimal H-4 sebelum event.
-							{getDaysUntilEvent() >= 0
-								? ` Event dimulai dalam ${getDaysUntilEvent()} hari.`
-								: " Event sudah berlalu."}
-						</p>
-					</div>
-				)}
+			{/* Request Button / Info */}
+			<div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
+				<button
+					onClick={() => setShowForm(!showForm)}
+					className="flex items-center justify-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors shadow-sm"
+				>
+					<PlusIcon className="w-5 h-5" />
+					{showForm ? "Tutup Form" : "Ajukan Pencairan"}
+				</button>
+				<div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+					Pencairan dapat diajukan kapan saja selama tidak melebihi saldo tersedia. Proses transfer membutuhkan waktu hingga 4 hari kerja.
+				</div>
 			</div>
 
 			{/* Request Form */}
@@ -304,7 +279,7 @@ const EventDisbursement: React.FC = () => {
 									/>
 								</div>
 								{summary && (
-									<p className="text-xs text-gray-400 mt-1">Maks: {formatCurrency(summary.remainingBalance)}</p>
+									<p className="text-xs text-gray-400 mt-1">Maksimal sesuai saldo tersedia: {formatCurrency(summary.remainingBalance)}</p>
 								)}
 							</div>
 							<div>

@@ -29,6 +29,7 @@ import {
 	LuDatabase,
 	LuCreditCard,
 	LuBanknote,
+	LuBadgeDollarSign,
 	LuBell,
 	LuCode,
 } from "react-icons/lu";
@@ -183,6 +184,7 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
 					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Kelola Paket", icon: LuCreditCard, path: "/admin/packages" },
+					{ name: "Bagi Hasil", icon: LuBadgeDollarSign, path: "/admin/revenue-share" },
 					{ name: "Pencairan", icon: LuBanknote, path: "/admin/disbursements" },
 					{ name: "API", icon: LuCode, path: "/admin/api-integration" },
 					{ name: "Setting", icon: LuSettings, path: "/admin/settings" },

@@ -32,6 +32,7 @@ const PACKAGE_NAMES: Record<string, string> = {
 // Only IKLAN can be activated directly. Ticketing/Voting packages must be negotiated with admin first.
 const NO_UPFRONT_PAYMENT_TIERS = ["IKLAN"];
 const REVENUE_SHARE_TIERS = ["TICKETING", "VOTING", "TICKETING_VOTING"];
+const TICKET_VOTE_SHARE_TIERS = ["TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 const VALID_PACKAGE_TIERS = ["IKLAN", "TICKETING", "VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 const DEFAULT_PLATFORM_SHARE_RATE = 0.15;
 const DEFAULT_PANITIA_SHARE_RATE = 0.85;
@@ -500,7 +501,7 @@ router.post("/:eventId/negotiation-request", authenticate, async (req: Authentic
  */
 router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req: AuthenticatedRequest, res: Response) => {
 	try {
-		const { search, packageTier, paymentStatus, eventStatus, page = "1", limit = "15" } = req.query;
+		const { search, packageTier, paymentStatus, eventStatus, revenueShareOnly, shareStatus, page = "1", limit = "15" } = req.query;
 		const pageNum = Math.max(1, parseInt(page as string));
 		const limitNum = Math.min(50, Math.max(1, parseInt(limit as string)));
 		const skip = (pageNum - 1) * limitNum;
@@ -511,9 +512,17 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 
 		if (packageTier) {
 			where.packageTier = packageTier as string;
+		} else if (revenueShareOnly === "true") {
+			where.packageTier = { in: TICKET_VOTE_SHARE_TIERS };
 		}
 		if (paymentStatus) {
 			where.paymentStatus = paymentStatus as string;
+		}
+		if (shareStatus === "set") {
+			where.platformSharePercent = { not: null };
+		}
+		if (shareStatus === "unset") {
+			where.platformSharePercent = null;
 		}
 		if (eventStatus) {
 			where.status = eventStatus as string;
@@ -698,14 +707,14 @@ router.put("/admin/packages/:eventId", authenticate, authorize("SUPERADMIN"), as
 		if (
 			newPaymentStatus === "PAID" &&
 			finalTier &&
-			REVENUE_SHARE_TIERS.includes(finalTier) &&
+			TICKET_VOTE_SHARE_TIERS.includes(finalTier) &&
 			(finalPlatformSharePercent === null || finalPlatformSharePercent === undefined)
 		) {
 			return res.status(400).json({
 				error: "Isi persentase bagi hasil Simpaskor sebelum mengonfirmasi paket ticketing/voting",
 			});
 		}
-		if (newTier && !REVENUE_SHARE_TIERS.includes(newTier)) {
+		if (newTier && !TICKET_VOTE_SHARE_TIERS.includes(newTier)) {
 			updateData.platformSharePercent = null;
 		}
 

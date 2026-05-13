@@ -29,6 +29,8 @@ import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy"
 import { config as appConfig } from "../../utils/config";
 import { EventTicketConfig, TicketPurchase, TicketTeam } from "../../types/ticket";
 
+const TICKET_REVENUE_SHARE_TIERS = ["TICKETING", "TICKETING_VOTING", "BRONZE", "GOLD"];
+
 const EventTicketing: React.FC = () => {
 	const { eventSlug } = useParams();
 	const [activeTab, setActiveTab] = useState<"dashboard" | "teams" | "config" | "purchases" | "scan">("dashboard");
@@ -50,6 +52,7 @@ const EventTicketing: React.FC = () => {
 	});
 	const [saving, setSaving] = useState(false);
 	const [togglingTicketing, setTogglingTicketing] = useState(false);
+	const [ticketingShareLocked, setTicketingShareLocked] = useState(false);
 
 	// Dashboard state
 	const [dashboard, setDashboard] = useState<{
@@ -129,6 +132,10 @@ const EventTicketing: React.FC = () => {
 				const { event, ...configData } = res.data;
 				setConfig(configData);
 				if (event) {
+					setTicketingShareLocked(
+						TICKET_REVENUE_SHARE_TIERS.includes(event.packageTier) &&
+						(event.platformSharePercent === null || event.platformSharePercent === undefined)
+					);
 					// Auto-fill sales dates from event schedule if not set
 					if (!configData.salesStartDate && event.registrationDeadline) {
 						configData.salesStartDate = event.registrationDeadline;
@@ -362,6 +369,14 @@ const EventTicketing: React.FC = () => {
 
 	const handleToggleTicketing = async () => {
 		const isOpen = config.enabled;
+		if (!isOpen && ticketingShareLocked) {
+			Swal.fire(
+				"Menunggu Admin",
+				"Penjualan tiket belum bisa dibuka. Hubungi admin untuk negosiasi dan pengaturan persentase bagi hasil terlebih dahulu.",
+				"info"
+			);
+			return;
+		}
 		const result = await Swal.fire({
 			icon: isOpen ? "warning" : "question",
 			title: isOpen ? "Tutup Penjualan Tiket?" : "Buka Penjualan Tiket?",
@@ -431,6 +446,14 @@ const EventTicketing: React.FC = () => {
 
 	const handleSaveConfig = async () => {
 		try {
+			if (config.enabled && ticketingShareLocked) {
+				Swal.fire(
+					"Menunggu Admin",
+					"Nonaktifkan E-Ticketing terlebih dahulu. Fitur tiket baru bisa dibuka setelah admin mengatur persentase bagi hasil.",
+					"info"
+				);
+				return;
+			}
 			setSaving(true);
 			const payload: any = {
 				enabled: config.enabled,
@@ -738,13 +761,17 @@ const EventTicketing: React.FC = () => {
 								{config.enabled ? "Penjualan Tiket Dibuka" : "Penjualan Tiket Ditutup"}
 							</p>
 							<p className="text-xs text-gray-500 dark:text-gray-400">
-								{config.enabled ? "Publik dapat membeli tiket saat ini" : "Publik tidak dapat membeli tiket saat ini"}
+								{config.enabled
+									? "Publik dapat membeli tiket saat ini"
+									: ticketingShareLocked
+									? "Menunggu admin mengatur persentase bagi hasil tiket"
+									: "Publik tidak dapat membeli tiket saat ini"}
 							</p>
 						</div>
 					</div>
 					<button
 						onClick={handleToggleTicketing}
-						disabled={togglingTicketing}
+						disabled={togglingTicketing || (!config.enabled && ticketingShareLocked)}
 						className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
 							config.enabled
 								? "bg-red-600 text-white hover:bg-red-700"
@@ -758,6 +785,11 @@ const EventTicketing: React.FC = () => {
 							: "Buka Penjualan"}
 					</button>
 				</div>
+				{ticketingShareLocked && (
+					<div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+						Paket ini sudah memiliki fitur tiket, tetapi penjualan tetap ditutup sampai panitia menghubungi admin dan admin mengatur persentase bagi hasil.
+					</div>
+				)}
 			</div>
 
 			{/* Tabs */}
@@ -1192,11 +1224,23 @@ const EventTicketing: React.FC = () => {
 									Aktifkan E-Ticketing
 								</label>
 								<p className="text-xs text-gray-500 dark:text-gray-400">
-									Event akan muncul di halaman e-ticketing publik
+									{ticketingShareLocked
+										? "Menunggu admin mengatur persentase bagi hasil tiket"
+										: "Event akan muncul di halaman e-ticketing publik"}
 								</p>
 							</div>
 							<button
-								onClick={() => setConfig({ ...config, enabled: !config.enabled })}
+								onClick={() => {
+									if (!config.enabled && ticketingShareLocked) {
+										Swal.fire(
+											"Menunggu Admin",
+											"Hubungi admin untuk negosiasi dan pengaturan persentase bagi hasil sebelum membuka E-Ticketing.",
+											"info"
+										);
+										return;
+									}
+									setConfig({ ...config, enabled: !config.enabled });
+								}}
 								className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
 									config.enabled ? "bg-red-600" : "bg-gray-300 dark:bg-gray-600"
 								}`}

@@ -17,6 +17,7 @@ import {
 	CheckCircleIcon,
 	ClockIcon,
 	PencilSquareIcon,
+	ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -34,6 +35,7 @@ import ImageCropper from "../../components/ImageCropper";
 const INDONESIA_TIME_ZONE = "Asia/Jakarta";
 const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
 const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+const VOTING_REVENUE_SHARE_TIERS = ["VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 
 type VotingDashboard = {
 	enabled: boolean;
@@ -138,6 +140,7 @@ const EventVoting: React.FC = () => {
 		categories: [],
 	});
 	const [saving, setSaving] = useState(false);
+	const [votingShareLocked, setVotingShareLocked] = useState(false);
 
 	// Categories state
 	const [categories, setCategories] = useState<VotingCategory[]>([]);
@@ -212,6 +215,12 @@ const EventVoting: React.FC = () => {
 				setLoading(true);
 				const res = await api.get(`/voting/admin/event/${eventId}/config`);
 				setConfig(res.data);
+				if (res.data.event) {
+					setVotingShareLocked(
+						VOTING_REVENUE_SHARE_TIERS.includes(res.data.event.packageTier) &&
+						(res.data.event.platformSharePercent === null || res.data.event.platformSharePercent === undefined)
+					);
+				}
 				if (res.data.categories) {
 					setCategories(res.data.categories);
 				}
@@ -347,6 +356,14 @@ const EventVoting: React.FC = () => {
 
 	const handleSaveConfig = async () => {
 		try {
+			if (config.enabled && votingShareLocked) {
+				Swal.fire(
+					"Menunggu Admin",
+					"Nonaktifkan E-Voting terlebih dahulu. Voting baru bisa dibuka setelah admin mengatur persentase bagi hasil.",
+					"info"
+				);
+				return;
+			}
 			setSaving(true);
 			const payload: any = {
 				enabled: config.enabled,
@@ -659,6 +676,15 @@ const EventVoting: React.FC = () => {
 				)}
 			</div>
 
+			{votingShareLocked && (
+				<div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+					<ExclamationTriangleIcon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+					<p>
+						Paket ini sudah memiliki fitur voting, tetapi voting publik tetap ditutup sampai panitia menghubungi admin dan admin mengatur persentase bagi hasil.
+					</p>
+				</div>
+			)}
+
 			{/* Tabs */}
 			<div className="flex gap-2 overflow-x-auto pb-1">
 				{tabs.map((tab) => {
@@ -887,10 +913,22 @@ const EventVoting: React.FC = () => {
 					<div className="flex items-center justify-between">
 						<div>
 							<h3 className="font-medium text-gray-900 dark:text-white">Aktifkan E-Voting</h3>
-							<p className="text-sm text-gray-500">Izinkan publik untuk melakukan voting</p>
+							<p className="text-sm text-gray-500">
+								{votingShareLocked ? "Menunggu admin mengatur persentase bagi hasil voting" : "Izinkan publik untuk melakukan voting"}
+							</p>
 						</div>
 						<button
-							onClick={() => setConfig({ ...config, enabled: !config.enabled })}
+							onClick={() => {
+								if (!config.enabled && votingShareLocked) {
+									Swal.fire(
+										"Menunggu Admin",
+										"Hubungi admin untuk negosiasi dan pengaturan persentase bagi hasil sebelum membuka E-Voting.",
+										"info"
+									);
+									return;
+								}
+								setConfig({ ...config, enabled: !config.enabled });
+							}}
 							className={`relative w-11 h-6 rounded-full transition-colors ${
 								config.enabled ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
 							}`}

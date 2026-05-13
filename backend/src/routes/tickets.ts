@@ -18,6 +18,10 @@ import { uploadTicketTeamLogo } from "../middleware/upload";
 
 const router = Router();
 type TicketTeamAssignmentInput = { attendeeId: string; ticketTeamId: string };
+const REVENUE_SHARE_TICKET_TIERS = ["TICKETING", "TICKETING_VOTING", "BRONZE", "GOLD"];
+
+const requiresTicketRevenueShareAgreement = (event: { packageTier?: string | null; platformSharePercent?: number | null }) =>
+	!!event.packageTier && REVENUE_SHARE_TICKET_TIERS.includes(event.packageTier) && event.platformSharePercent === null;
 
 // Resolve event slug or ID to actual event ID
 const resolveEventId = async (eventIdOrSlug: string | undefined): Promise<string | null> => {
@@ -644,6 +648,9 @@ router.get(
 					startDate: true,
 					endDate: true,
 					registrationDeadline: true,
+					packageTier: true,
+					paymentStatus: true,
+					platformSharePercent: true,
 				},
 			});
 
@@ -744,9 +751,19 @@ router.post(
 			const existing = await prisma.eventTicketConfig.findUnique({
 				where: { eventId },
 			});
+			const event = await prisma.event.findUnique({
+				where: { id: eventId },
+				select: { packageTier: true, platformSharePercent: true },
+			});
 
 			if (!existing) {
 				return res.status(404).json({ error: "Konfigurasi tiket belum dibuat. Simpan konfigurasi terlebih dahulu." });
+			}
+
+			if (!existing.enabled && event && requiresTicketRevenueShareAgreement(event)) {
+				return res.status(400).json({
+					error: "Penjualan tiket belum bisa dibuka. Hubungi admin untuk negosiasi dan pengaturan persentase bagi hasil terlebih dahulu.",
+				});
 			}
 
 			if (!existing.enabled && existing.ticketTeamSelectionEnabled) {
@@ -789,6 +806,16 @@ router.put(
 			const normalizedTicketTeamSelectionEnabled = ticketTeamSelectionEnabled !== undefined
 				? Boolean(ticketTeamSelectionEnabled)
 				: true;
+			const event = await prisma.event.findUnique({
+				where: { id: eventId },
+				select: { packageTier: true, platformSharePercent: true },
+			});
+
+			if (enabled && event && requiresTicketRevenueShareAgreement(event)) {
+				return res.status(400).json({
+					error: "Penjualan tiket belum bisa diaktifkan. Hubungi admin untuk negosiasi dan pengaturan persentase bagi hasil terlebih dahulu.",
+				});
+			}
 
 			if (enabled && normalizedTicketTeamSelectionEnabled) {
 				const teamCount = await prisma.ticketTeam.count({ where: { eventId } });

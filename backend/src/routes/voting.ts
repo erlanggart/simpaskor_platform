@@ -21,6 +21,10 @@ const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
 const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 const VOTING_ADMIN_FEE_PER_VOTE = 500;
 const VOTING_MAX_ADMIN_FEE = 10000;
+const REVENUE_SHARE_VOTING_TIERS = ["VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
+
+const requiresVotingRevenueShareAgreement = (event: { packageTier?: string | null; platformSharePercent?: number | null }) =>
+	!!event.packageTier && REVENUE_SHARE_VOTING_TIERS.includes(event.packageTier) && event.platformSharePercent === null;
 
 const calculateVotingAdminFee = (totalAmount: number, voteCount: number): number => {
 	if (totalAmount <= 0) return 0;
@@ -890,6 +894,9 @@ router.get(
 					startDate: true,
 					endDate: true,
 					registrationDeadline: true,
+					packageTier: true,
+					paymentStatus: true,
+					platformSharePercent: true,
 					schoolCategoryLimits: {
 						include: { schoolCategory: { select: { id: true, name: true } } },
 						orderBy: { schoolCategory: { order: "asc" } },
@@ -959,6 +966,16 @@ router.put(
 			const { enabled, isPaid, pricePerVote, startDate, endDate } = req.body;
 			const parsedStartDate = parseIndonesiaDateTime(startDate);
 			const parsedEndDate = parseIndonesiaDateTime(endDate);
+			const event = await prisma.event.findUnique({
+				where: { id: eventId },
+				select: { packageTier: true, platformSharePercent: true },
+			});
+
+			if (enabled && event && requiresVotingRevenueShareAgreement(event)) {
+				return res.status(400).json({
+					error: "Voting belum bisa diaktifkan. Hubungi admin untuk negosiasi dan pengaturan persentase bagi hasil terlebih dahulu.",
+				});
+			}
 
 			const config = await prisma.eventVotingConfig.upsert({
 				where: { eventId },

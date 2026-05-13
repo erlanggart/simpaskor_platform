@@ -410,6 +410,44 @@ html:not(.dark) .landing-title-gradient-pricing {
 	min-height: calc(100vh - 3.5rem);
 }
 
+/* ===== Voting Landing Carousel ===== */
+.voting-ticket-carousel {
+	display: flex;
+	gap: 0.75rem;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scroll-behavior: smooth;
+	scroll-snap-type: x mandatory;
+	-webkit-overflow-scrolling: touch;
+	padding: 0.25rem 0.25rem 0.75rem;
+}
+
+.voting-ticket-carousel::-webkit-scrollbar {
+	height: 0;
+}
+
+.voting-ticket-carousel {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.voting-ticket-carousel-card {
+	flex: 0 0 calc((100% - 0.75rem) / 2);
+	scroll-snap-align: start;
+}
+
+@media (min-width: 640px) {
+	.voting-ticket-carousel-card {
+		flex-basis: calc((100% - 1.5rem) / 3);
+	}
+}
+
+@media (min-width: 1024px) {
+	.voting-ticket-carousel-card {
+		flex-basis: calc((100% - 3.75rem) / 6);
+	}
+}
+
 /* ===== Pricing Section ===== */
 @keyframes pricing-card-enter {
 	from {
