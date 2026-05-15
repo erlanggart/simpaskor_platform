@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
 	LuUsers,
 	LuTrophy,
-	LuCalendar,
 	LuLayoutGrid,
 	LuHouse,
 	LuEye,
@@ -92,11 +91,6 @@ const LandingPage: React.FC = () => {
 			value: loading ? "..." : `${publicStats.eventsCount || 34}`,
 			label: "TOTAL EVENT",
 			icon: LuTrophy,
-		},
-		{
-			value: "2025",
-			label: "BERDIRI",
-			icon: LuCalendar,
 		},
 	];
 

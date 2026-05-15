@@ -330,7 +330,6 @@ export const DashboardLayout: React.FC = () => {
 		<div className="h-screen w-screen overflow-hidden relative">
 			{/* Fixed background with grid + gradient */}
 			<div className="main-layout-bg" />
-			<div className="neon-red-lines" />
 
 			{/* ===== Mobile Top Bar ===== */}
 			<header className="fixed top-0 left-0 right-0 z-40 md:hidden h-14 px-3 flex items-center justify-between">

@@ -100,7 +100,7 @@ const TicketGuideCard: React.FC = () => {
 
 				<Link
 					to="/e-ticketing"
-					className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-gray-900/15 transition-all duration-300 hover:bg-yellow-600 hover:shadow-yellow-500/25 dark:bg-white dark:text-gray-950 dark:hover:bg-yellow-300"
+					className="landing-modern-btn landing-modern-btn-yellow group mt-5 w-full"
 				>
 					<span>Beli Tiket Sekarang</span>
 					<LuArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -118,7 +118,7 @@ const TicketGuideCard: React.FC = () => {
 				whileInView={{ opacity: 1, y: 0 }}
 				viewport={{ once: true, amount: 0.35 }}
 				transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-				className="group relative w-full overflow-hidden rounded-2xl border border-yellow-200/70 bg-white/80 p-4 text-left shadow-lg shadow-yellow-100/60 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-yellow-300/80 hover:shadow-xl hover:shadow-yellow-100/80 dark:border-yellow-400/15 dark:bg-white/[0.045] dark:shadow-black/20 dark:hover:border-yellow-400/25"
+				className="landing-modern-card landing-modern-card-yellow group relative w-full p-4 text-left"
 			>
 				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(234,179,8,0.18),transparent_44%)]" />
 				<div className="relative flex items-center justify-between gap-4">

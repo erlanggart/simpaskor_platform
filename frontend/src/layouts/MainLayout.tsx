@@ -34,7 +34,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 		>
 			{/* Fixed background with grid + gradient (dark/light aware) */}
 			<div className="main-layout-bg" />
-			<div className="neon-red-lines" />
 
 			{/* ===== Top Header Bar ===== */}
 			{showNavbar && (
@@ -230,9 +229,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
 			{/* ===== Mobile Bottom Navigation ===== */}
 			{showNavbar && !isIPhone && (
-				<nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-					<div className="mx-3 mb-3 px-2 py-2 rounded-2xl bg-white/80 dark:bg-white/[0.06] backdrop-blur-xl border border-gray-200/50 dark:border-white/[0.08] shadow-lg shadow-black/5 dark:shadow-black/20">
-						<div className="flex items-center justify-around">
+				<nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 md:hidden">
+					<div className="mobile-bottom-nav-shell mx-3 mb-3">
+						<div className="flex items-stretch justify-between">
 							{featureNav.map((item) => {
 								const isActive =
 									item.to === "/"
@@ -243,33 +242,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 									<Link
 										key={item.to}
 										to={item.to}
-										className="group relative flex flex-col items-center gap-0.5 outline-none"
+										className={`mobile-nav-item ${isActive ? "mobile-nav-item-active" : ""}`}
 										aria-label={item.label}
+										aria-current={isActive ? "page" : undefined}
 									>
-										{/* Active indicator dot */}
-										{isActive && (
-											<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
-										)}
-
-										<div
-											className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 ${
-												isActive
-													? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110"
-													: "text-gray-400 dark:text-gray-500"
-											}`}
-										>
-											<Icon className="w-[18px] h-[18px]" />
-										</div>
-
-										<span
-											className={`text-[8px] font-medium leading-tight ${
-												isActive
-													? "text-red-500 dark:text-red-400"
-													: "text-gray-400 dark:text-gray-500"
-											}`}
-										>
-											{item.label}
+										<span className="mobile-nav-icon-wrap">
+											<Icon className="mobile-nav-icon-svg" strokeWidth={isActive ? 2.4 : 2} />
 										</span>
+										<span className="mobile-nav-label">{item.label}</span>
 									</Link>
 								);
 							})}

@@ -12,7 +12,6 @@ export const AuthLayout: React.FC = () => {
 		<div className="min-h-screen relative overflow-hidden flex flex-col">
 			{/* Shared background from MainLayout */}
 			<div className="main-layout-bg" />
-			<div className="neon-red-lines" />
 
 			{/* Top Header */}
 			<header className="relative z-20 h-14 flex items-center justify-between px-4 sm:px-8">

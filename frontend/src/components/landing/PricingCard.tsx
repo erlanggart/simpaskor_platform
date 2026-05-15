@@ -1,8 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { LuArrowRight, LuBadgeCheck, LuCheck, LuSparkles } from "react-icons/lu";
+import { LuArrowRight, LuCheck } from "react-icons/lu";
 import { hasNoUpfrontPayment } from "../../utils/packagePricing";
-import { glowColor, packageFeatures, priceColorClass, type PackageFeature, type PricingPackage } from "./pricingData";
+import { glowColor, packageFeatures, type PackageFeature, type PricingPackage } from "./pricingData";
 
 interface PricingCardProps {
 	pkg: PricingPackage;
@@ -26,82 +26,70 @@ const PricingCard: React.FC<PricingCardProps> = ({ pkg, index, className = "" })
 				"--pricing-accent-soft": pkg.accentSoft,
 			} as React.CSSProperties}
 		>
+			{pkg.featured && (
+				<div className="pricing-card-popular">
+					<span>★ POPULAR</span>
+				</div>
+			)}
+
 			<div className="pricing-card-shimmer absolute inset-0 pointer-events-none z-10" />
-			<div className="pricing-card-orbit" />
+			<div className="pricing-card-glow" />
 
 			<div className="pricing-card-body relative z-20 flex h-full flex-col">
-				<div className="pricing-card-head flex items-start justify-between gap-2.5">
-					<div className="flex min-w-0 items-center gap-2.5">
-						<div className="pricing-card-icon flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl">
-							<Icon className="h-4 w-4" />
-						</div>
-						<div className="min-w-0">
-							<p className="pricing-kicker text-gray-400 dark:text-gray-500">
-								{pkg.kicker}
-							</p>
-							<h3 className="pricing-card-title text-gray-900 dark:text-white">
-								{pkg.name}
-							</h3>
-						</div>
+				<div className="pricing-card-head">
+					<div className="pricing-card-icon">
+						<Icon className="h-5 w-5" />
 					</div>
 					<span className="pricing-tier-badge">
 						{pkg.tier.replace("_", " + ")}
 					</span>
 				</div>
 
-				<div className="pricing-copy-block">
-					<div className="flex flex-wrap items-end gap-x-2 gap-y-1">
-						<p className={`pricing-price ${priceColorClass[pkg.tier]}`}>
-							{pkg.price}
-						</p>
-					</div>
-					<p className="pricing-summary text-gray-500 dark:text-gray-400">
-						{pkg.summary}
-					</p>
+				<div className="pricing-card-meta">
+					<p className="pricing-kicker">{pkg.kicker}</p>
+					<h3 className="pricing-card-title">{pkg.name}</h3>
 				</div>
 
-				<div className="pricing-meta-grid grid grid-cols-2 gap-2">
-					<div className="pricing-meta-pill">
-						<LuBadgeCheck className="h-3.5 w-3.5" />
-						<span>{includedFeatures.length || "Demo"} fitur</span>
-					</div>
-					<div className="pricing-meta-pill">
-						<LuSparkles className="h-3.5 w-3.5" />
-						<span>{isPaid ? "Pro setup" : pkg.tier === "IKLAN" ? "Tanpa DP" : "Via admin"}</span>
-					</div>
+				<div className="pricing-price-block">
+					<p className="pricing-price">{pkg.price}</p>
+					<p className="pricing-summary">{pkg.summary}</p>
 				</div>
 
-				<div className="pricing-feature-list">
+				<div className="pricing-divider" />
+
+				<ul className="pricing-feature-list">
 					{includedFeatures.length === 0 ? (
-						<div className="pricing-feature" style={{ animationDelay: `${index * 80}ms` }}>
-							<LuCheck className="h-3.5 w-3.5 flex-shrink-0" />
+						<li className="pricing-feature" style={{ animationDelay: `${index * 80}ms` }}>
+							<span className="pricing-feature-check">
+								<LuCheck className="h-3 w-3" strokeWidth={3} />
+							</span>
 							<span>Akses demo saja</span>
-						</div>
+						</li>
 					) : (
 						includedFeatures.map((feature, fi) => (
-							<div
+							<li
 								key={feature.name}
 								className="pricing-feature"
 								style={{ animationDelay: `${index * 80 + fi * 35}ms` }}
 							>
-								<LuCheck className="h-3.5 w-3.5 flex-shrink-0" />
+								<span className="pricing-feature-check">
+									<LuCheck className="h-3 w-3" strokeWidth={3} />
+								</span>
 								<span>{feature.name}</span>
-							</div>
+							</li>
 						))
 					)}
-				</div>
+				</ul>
 
 				{pkg.note && (
-					<p className="pricing-note">
-						{pkg.note}
-					</p>
+					<p className="pricing-note">{pkg.note}</p>
 				)}
 
 				<Link
 					to="/register"
 					className={`pricing-card-btn ${pkg.btnClass}`}
 				>
-					<span>Daftar Sekarang</span>
+					<span>{isPaid ? "Daftar Sekarang" : "Mulai Sekarang"}</span>
 					<LuArrowRight className="h-4 w-4 pricing-btn-arrow" />
 				</Link>
 			</div>

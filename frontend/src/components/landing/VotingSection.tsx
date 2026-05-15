@@ -114,7 +114,7 @@ const VotingSection: React.FC = () => {
 							<button
 								type="button"
 								onClick={() => scrollCarousel("left")}
-								className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300/50 bg-gray-900/[0.06] text-gray-800 transition-all duration-300 hover:bg-gray-900/[0.12] dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/[0.12]"
+								className="landing-modern-btn landing-modern-btn-purple landing-modern-icon-btn"
 								aria-label="Voting sebelumnya"
 							>
 								<LuArrowLeft className="w-3.5 h-3.5" />
@@ -122,7 +122,7 @@ const VotingSection: React.FC = () => {
 							<button
 								type="button"
 								onClick={() => scrollCarousel("right")}
-								className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300/50 bg-gray-900/[0.06] text-gray-800 transition-all duration-300 hover:bg-gray-900/[0.12] dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/[0.12]"
+								className="landing-modern-btn landing-modern-btn-purple landing-modern-icon-btn"
 								aria-label="Voting berikutnya"
 							>
 								<LuArrowRight className="w-3.5 h-3.5" />
@@ -131,7 +131,7 @@ const VotingSection: React.FC = () => {
 					)}
 					<Link
 						to="/e-voting"
-						className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-xs font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
+						className="landing-modern-btn landing-modern-btn-purple group"
 					>
 						<span>Lihat Semua Voting</span>
 						<LuArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -162,14 +162,14 @@ const VotingSection: React.FC = () => {
 							<Link
 								to="/e-voting"
 								key={event.id}
-								className="voting-ticket-carousel-card group overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md shadow-gray-200/80 transition-all duration-300 hover:scale-[1.02] hover:border-purple-400/30 hover:shadow-lg hover:shadow-purple-200/70 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-purple-500/20"
+								className="voting-ticket-carousel-card landing-modern-card landing-modern-card-purple group"
 							>
 								<div className="relative aspect-[2/3] w-full bg-gradient-to-br from-purple-100 via-pink-50 to-red-100 overflow-hidden dark:from-purple-900/10 dark:via-pink-900/10 dark:to-red-900/10">
 									{event.thumbnail ? (
 										<img
 											src={getImageUrl(event.thumbnail)}
 											alt={event.title}
-											className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+											className="w-full h-full object-cover"
 											loading="lazy"
 										/>
 									) : (

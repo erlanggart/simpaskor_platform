@@ -69,7 +69,6 @@ export const PreAssignLayout: React.FC = () => {
 		<div className="h-screen w-screen overflow-hidden relative">
 			{/* Fixed background with grid + gradient */}
 			<div className="main-layout-bg" />
-			<div className="neon-red-lines" />
 
 			{/* ===== Left Sidebar Navigation (desktop) ===== */}
 			<nav className="fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center gap-2 border-r border-gray-200/10 dark:border-white/5">

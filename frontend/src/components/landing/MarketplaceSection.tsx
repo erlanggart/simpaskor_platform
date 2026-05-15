@@ -57,7 +57,7 @@ const MarketplaceSection: React.FC = () => {
 				</div>
 				<Link
 					to="/marketplace"
-					className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-xs font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group flex-shrink-0"
+					className="landing-modern-btn landing-modern-btn-orange group flex-shrink-0"
 				>
 					<span>Buka Marketplace</span>
 					<LuArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -82,7 +82,7 @@ const MarketplaceSection: React.FC = () => {
 							<Link
 								key={product.id}
 								to="/marketplace"
-								className={`group overflow-hidden rounded-xl border border-gray-200/70 bg-white shadow-md shadow-gray-200/80 transition-all duration-300 hover:scale-[1.02] hover:border-orange-400/30 hover:shadow-lg hover:shadow-gray-300/80 dark:bg-white/[0.03] dark:border-white/[0.06] dark:shadow-none dark:hover:border-orange-500/20 ${
+								className={`landing-modern-card landing-modern-card-orange group ${
 									isOutOfStock ? "opacity-60" : ""
 								}`}
 							>
@@ -91,7 +91,7 @@ const MarketplaceSection: React.FC = () => {
 										<img
 											src={getImageUrl(product.thumbnail)}
 											alt={product.name}
-											className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+											className="w-full h-full object-cover"
 											loading="lazy"
 										/>
 									) : (

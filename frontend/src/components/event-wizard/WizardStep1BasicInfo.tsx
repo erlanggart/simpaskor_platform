@@ -260,12 +260,8 @@ const WizardStep1BasicInfo: React.FC<Step1Props> = ({
 						errors.referralCode ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"
 					}`}
 				/>
-				{errors.referralCode ? (
+				{errors.referralCode && (
 					<p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.referralCode}</p>
-				) : (
-					<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-						Opsional. Jika valid, mitra pemilik kode akan mendapatkan komisi Rp200.000 untuk event ini.
-					</p>
 				)}
 			</div>
 

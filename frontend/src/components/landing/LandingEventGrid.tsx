@@ -197,14 +197,14 @@ const LandingEventGrid: React.FC = () => {
 						<Link
 							key={event.id}
 							to={`/events/${event.slug || event.id}`}
-							className="group relative rounded-xl overflow-hidden bg-gray-100/50 dark:bg-white/[0.03] border border-gray-200/50 dark:border-white/[0.06] hover:border-orange-400/30 dark:hover:border-orange-500/20 transition-all duration-300 hover:scale-[1.02]"
+							className="landing-modern-card landing-modern-card-orange group relative"
 						>
 							<div className="relative aspect-[2/3] max-h-[44vh] w-full bg-gradient-to-br from-orange-900/10 to-red-900/10 overflow-hidden">
 								{event.thumbnail ? (
 									<img
 										src={getImageUrl(event.thumbnail)}
 										alt={event.title}
-										className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+										className="w-full h-full object-cover"
 										loading="lazy"
 									/>
 								) : (
