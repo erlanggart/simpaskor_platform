@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import type { IconType } from "react-icons";
@@ -112,16 +113,6 @@ const VoteGuideCard: React.FC = () => {
 
 	return (
 		<>
-			<motion.aside
-				initial={{ opacity: 0, y: 18, scale: 0.98 }}
-				whileInView={{ opacity: 1, y: 0, scale: 1 }}
-				viewport={{ once: true, amount: 0.35 }}
-				transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-				className="group relative hidden overflow-hidden rounded-2xl border border-purple-200/60 bg-white/75 p-4 shadow-xl shadow-purple-100/60 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-300/70 hover:shadow-2xl hover:shadow-purple-200/60 dark:border-purple-400/15 dark:bg-white/[0.045] dark:shadow-black/20 dark:hover:border-purple-400/30 lg:block"
-			>
-				{guideContent}
-			</motion.aside>
-
 			<motion.button
 				type="button"
 				onClick={() => setIsGuideOpen(true)}
@@ -129,7 +120,7 @@ const VoteGuideCard: React.FC = () => {
 				whileInView={{ opacity: 1, y: 0 }}
 				viewport={{ once: true, amount: 0.35 }}
 				transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-				className="group relative overflow-hidden rounded-2xl border border-purple-200/70 bg-white/80 p-4 text-left shadow-lg shadow-purple-100/60 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-300/80 dark:border-purple-400/15 dark:bg-white/[0.045] dark:shadow-black/20 lg:hidden"
+				className="group relative w-full overflow-hidden rounded-2xl border border-purple-200/70 bg-white/80 p-4 text-left shadow-lg shadow-purple-100/60 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-300/80 hover:shadow-xl hover:shadow-purple-100/80 dark:border-purple-400/15 dark:bg-white/[0.045] dark:shadow-black/20 dark:hover:border-purple-400/25"
 			>
 				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_44%)]" />
 				<div className="relative flex items-center justify-between gap-4">
@@ -146,38 +137,42 @@ const VoteGuideCard: React.FC = () => {
 				</div>
 			</motion.button>
 
-			<AnimatePresence>
-				{isGuideOpen && (
-					<motion.div
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						exit={{ opacity: 0 }}
-						className="fixed inset-0 z-[80] flex items-end bg-black/55 p-4 backdrop-blur-sm sm:items-center"
-						onClick={() => setIsGuideOpen(false)}
-					>
-						<motion.div
-							initial={{ y: 28, scale: 0.97, opacity: 0 }}
-							animate={{ y: 0, scale: 1, opacity: 1 }}
-							exit={{ y: 28, scale: 0.97, opacity: 0 }}
-							transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-							className="relative mx-auto max-h-[86vh] w-full max-w-md overflow-y-auto rounded-2xl border border-purple-200/60 bg-white/95 p-4 shadow-2xl backdrop-blur-xl dark:border-purple-400/15 dark:bg-gray-950/95"
-							onClick={(event) => event.stopPropagation()}
-						>
-							<button
-								type="button"
+			{typeof document !== "undefined" &&
+				createPortal(
+					<AnimatePresence>
+						{isGuideOpen && (
+							<motion.div
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/55 px-4 py-5 backdrop-blur-sm sm:px-6 sm:py-8"
 								onClick={() => setIsGuideOpen(false)}
-								className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-900/5 text-gray-500 transition-colors hover:bg-gray-900/10 hover:text-gray-900 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/15 dark:hover:text-white"
-								aria-label="Tutup panduan"
 							>
-								<LuX className="h-4 w-4" />
-							</button>
-							<div className="pr-7">
-								{guideContent}
-							</div>
-						</motion.div>
-					</motion.div>
+								<motion.div
+									initial={{ y: 22, scale: 0.98, opacity: 0 }}
+									animate={{ y: 0, scale: 1, opacity: 1 }}
+									exit={{ y: 22, scale: 0.98, opacity: 0 }}
+									transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+									className="relative flex max-h-[calc(100dvh-2.5rem)] w-full max-w-[26rem] flex-col overflow-hidden rounded-2xl border border-purple-200/60 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-purple-400/15 dark:bg-gray-950/95 sm:max-h-[calc(100dvh-4rem)] sm:max-w-md"
+									onClick={(event) => event.stopPropagation()}
+								>
+									<button
+										type="button"
+										onClick={() => setIsGuideOpen(false)}
+										className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-gray-900/5 text-gray-500 transition-colors hover:bg-gray-900/10 hover:text-gray-900 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/15 dark:hover:text-white"
+										aria-label="Tutup panduan"
+									>
+										<LuX className="h-4 w-4" />
+									</button>
+									<div className="relative overflow-y-auto p-4 pr-11 sm:p-5 sm:pr-12">
+										{guideContent}
+									</div>
+								</motion.div>
+							</motion.div>
+						)}
+					</AnimatePresence>,
+					document.body,
 				)}
-			</AnimatePresence>
 		</>
 	);
 };
