@@ -84,7 +84,7 @@ const EventTicketing: React.FC = () => {
 
 	// Scanner state
 	const [scanning, setScanning] = useState(false);
-	const [scanResult, setScanResult] = useState<{
+	type ScanResult = {
 		valid: boolean;
 		message?: string;
 		error?: string;
@@ -100,13 +100,50 @@ const EventTicketing: React.FC = () => {
 			ticketTeam?: TicketTeam | null;
 		};
 		usedAt?: string;
-	} | null>(null);
+	};
+	const [scanResult, setScanResult] = useState<ScanResult | null>(null);
 	const [manualCode, setManualCode] = useState("");
 	const [scanProcessing, setScanProcessing] = useState(false);
 	const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+	// Continuous-scan support
+	const [continuousMode, setContinuousMode] = useState(true);
+	const [scanHistory, setScanHistory] = useState<Array<ScanResult & { at: number; code: string }>>([]);
+	const [scanStats, setScanStats] = useState({ valid: 0, invalid: 0 });
 	const scannerRef = useRef<Html5Qrcode | null>(null);
-	const lastScannedRef = useRef<string>("");
+	const lastScannedRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
 	const facingModeRef = useRef<"environment" | "user">("environment");
+	// Local cache: codes we've already validated as USED in this session.
+	// Lets us reject obvious duplicates instantly without a server round-trip
+	// (huge win during a network blip on busy gates).
+	const usedCodesRef = useRef<Set<string>>(new Set());
+	const audioCtxRef = useRef<AudioContext | null>(null);
+
+	// Web Audio beep — different tones for valid vs invalid.
+	const playBeep = useCallback((kind: "ok" | "err") => {
+		try {
+			if (!audioCtxRef.current) {
+				const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+				if (!Ctx) return;
+				audioCtxRef.current = new Ctx();
+			}
+			const ctx = audioCtxRef.current!;
+			if (ctx.state === "suspended") ctx.resume();
+			const osc = ctx.createOscillator();
+			const gain = ctx.createGain();
+			osc.type = "square";
+			osc.frequency.value = kind === "ok" ? 880 : 220;
+			gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+			gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+			gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (kind === "ok" ? 0.12 : 0.30));
+			osc.connect(gain).connect(ctx.destination);
+			osc.start();
+			osc.stop(ctx.currentTime + (kind === "ok" ? 0.13 : 0.32));
+		} catch {
+			// ignore — audio failure must never block scanning
+		}
+		// Mobile haptic feedback
+		try { navigator.vibrate?.(kind === "ok" ? 80 : [120, 60, 120]); } catch {}
+	}, []);
 
 	// Fetch event ID from slug
 	useEffect(() => {
@@ -305,14 +342,12 @@ const EventTicketing: React.FC = () => {
 				{ facingMode: selectedMode },
 				{ fps: 10, qrbox: { width: 250, height: 250 } },
 				async (decodedText) => {
-					// Prevent duplicate scans
-					if (lastScannedRef.current === decodedText) return;
-					lastScannedRef.current = decodedText;
+					// Short re-fire suppression: same QR within 1.5s = ignore (prevents
+					// camera firing the callback multiple times for one physical ticket).
+					const now = Date.now();
+					if (lastScannedRef.current.code === decodedText && now - lastScannedRef.current.at < 1500) return;
+					lastScannedRef.current = { code: decodedText, at: now };
 					await handleScanTicket(decodedText);
-					// Reset after 3 seconds to allow re-scan
-					setTimeout(() => {
-						lastScannedRef.current = "";
-					}, 3000);
 				},
 				() => {} // ignore scan failures
 			);
@@ -333,20 +368,54 @@ const EventTicketing: React.FC = () => {
 		setTimeout(() => startScanner(newMode), 300);
 	}, [stopScanner, startScanner]);
 
-	const handleScanTicket = async (ticketCode: string) => {
-		if (!ticketCode.trim() || scanProcessing) return;
+	const handleScanTicket = useCallback(async (ticketCode: string) => {
+		const code = ticketCode.trim();
+		if (!code || scanProcessing) return;
+
+		// Local instant-reject: code already used in this session
+		if (usedCodesRef.current.has(code)) {
+			const localResult: ScanResult = {
+				valid: false,
+				error: "Tiket sudah digunakan (cache lokal)",
+				ticket: { ticketCode: code, buyerName: "—", status: "USED" },
+			};
+			setScanResult(localResult);
+			setScanStats((s) => ({ ...s, invalid: s.invalid + 1 }));
+			setScanHistory((h) => [{ ...localResult, at: Date.now(), code }, ...h].slice(0, 10));
+			playBeep("err");
+			return;
+		}
+
 		try {
 			setScanProcessing(true);
-			const res = await api.post(`/tickets/admin/scan/${ticketCode.trim()}`);
-			setScanResult(res.data);
-			await stopScanner();
+			const res = await api.post(`/tickets/admin/scan/${code}`, eventId ? { eventId } : {});
+			const data: ScanResult = res.data;
+			setScanResult(data);
+			if (data.valid) {
+				usedCodesRef.current.add(code);
+				setScanStats((s) => ({ ...s, valid: s.valid + 1 }));
+				playBeep("ok");
+			} else {
+				setScanStats((s) => ({ ...s, invalid: s.invalid + 1 }));
+				playBeep("err");
+			}
+			setScanHistory((h) => [{ ...data, at: Date.now(), code }, ...h].slice(0, 10));
+			if (!continuousMode) {
+				await stopScanner();
+			}
 		} catch (err: any) {
-			setScanResult(err.response?.data || { valid: false, error: "Gagal memindai tiket" });
-			await stopScanner();
+			const data: ScanResult = err.response?.data || { valid: false, error: "Gagal memindai tiket" };
+			setScanResult(data);
+			setScanStats((s) => ({ ...s, invalid: s.invalid + 1 }));
+			setScanHistory((h) => [{ ...data, at: Date.now(), code }, ...h].slice(0, 10));
+			playBeep("err");
+			if (!continuousMode) {
+				await stopScanner();
+			}
 		} finally {
 			setScanProcessing(false);
 		}
-	};
+	}, [scanProcessing, continuousMode, eventId, playBeep, stopScanner]);
 
 	const fetchPurchases = async () => {
 		if (!eventId) return;
@@ -1583,8 +1652,32 @@ const EventTicketing: React.FC = () => {
 			{/* Scan Tab */}
 			{activeTab === "scan" && (
 				<div className="max-w-lg mx-auto">
-					{/* Scanner Area - hidden when result is shown */}
-					{!scanResult && !scanProcessing && (
+					{/* Stats bar — always visible */}
+					<div className="grid grid-cols-3 gap-2 mb-3">
+						<div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2 text-center">
+							<div className="text-xs text-green-700 dark:text-green-400">Valid</div>
+							<div className="text-xl font-bold text-green-700 dark:text-green-400">{scanStats.valid}</div>
+						</div>
+						<div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-center">
+							<div className="text-xs text-red-700 dark:text-red-400">Invalid</div>
+							<div className="text-xl font-bold text-red-700 dark:text-red-400">{scanStats.invalid}</div>
+						</div>
+						<button
+							onClick={() => setContinuousMode((v) => !v)}
+							className={`rounded-lg p-2 text-center text-xs font-medium border transition-colors ${
+								continuousMode
+									? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+									: "bg-gray-50 dark:bg-gray-900/20 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+							}`}
+							title="Mode scan berurutan tanpa berhenti"
+						>
+							<div className="text-[10px] uppercase tracking-wide">Continuous</div>
+							<div className="text-sm font-bold mt-0.5">{continuousMode ? "ON" : "OFF"}</div>
+						</button>
+					</div>
+
+					{/* Scanner Area — visible when scanning OR (in non-continuous mode) when no result yet */}
+					{(scanning || (!scanResult && !scanProcessing)) && (
 					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden mb-6">
 						<div className="p-4">
 							<div className="flex items-center justify-between mb-4">
@@ -1631,6 +1724,37 @@ const EventTicketing: React.FC = () => {
 									</div>
 								</div>
 							)}
+
+							{/* Continuous-mode toast: show last result over scanner without stopping camera */}
+							{continuousMode && scanning && scanResult && (
+								<div className={`mt-3 rounded-lg border-2 p-3 flex items-center gap-3 ${
+									scanResult.valid
+										? "bg-green-50 dark:bg-green-900/20 border-green-500"
+										: "bg-red-50 dark:bg-red-900/20 border-red-500"
+								}`}>
+									{scanResult.valid ? (
+										<CheckCircleIcon className="w-8 h-8 text-green-600 flex-shrink-0" />
+									) : (
+										<XCircleIcon className="w-8 h-8 text-red-600 flex-shrink-0" />
+									)}
+									<div className="flex-1 min-w-0">
+										<div className={`text-sm font-bold ${scanResult.valid ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>
+											{scanResult.valid ? "VALID" : "DITOLAK"} — {scanResult.ticket?.buyerName || "—"}
+										</div>
+										<div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+											{scanResult.valid ? scanResult.message : scanResult.error}
+											{scanResult.ticket?.ticketTeam ? ` · ${scanResult.ticket.ticketTeam.teamName}` : ""}
+										</div>
+									</div>
+									<button
+										onClick={() => setScanResult(null)}
+										className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+										title="Tutup"
+									>
+										<XCircleIcon className="w-5 h-5" />
+									</button>
+								</div>
+							)}
 						</div>
 
 						{/* Manual Input */}
@@ -1665,15 +1789,46 @@ const EventTicketing: React.FC = () => {
 					</div>
 					)}
 
-					{/* Processing indicator */}
-					{scanProcessing && (
+					{/* Scan history (last 10) — always visible to give panitia confidence */}
+					{scanHistory.length > 0 && (
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden mb-6">
+							<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+								<h3 className="text-sm font-medium text-gray-900 dark:text-white">Riwayat Scan ({scanHistory.length})</h3>
+								<button
+									onClick={() => { setScanHistory([]); setScanStats({ valid: 0, invalid: 0 }); }}
+									className="text-xs text-gray-500 hover:text-red-600"
+								>
+									Bersihkan
+								</button>
+							</div>
+							<ul className="max-h-72 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+								{scanHistory.map((h, i) => (
+									<li key={`${h.code}-${h.at}-${i}`} className="px-4 py-2 flex items-center gap-2 text-sm">
+										{h.valid ? (
+											<CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
+										) : (
+											<XCircleIcon className="w-5 h-5 text-red-600 flex-shrink-0" />
+										)}
+										<div className="flex-1 min-w-0">
+											<div className="font-medium text-gray-900 dark:text-white truncate">{h.ticket?.buyerName || h.code}</div>
+											<div className="text-xs text-gray-500 dark:text-gray-400 truncate font-mono">{h.code}</div>
+										</div>
+										<div className="text-xs text-gray-400 flex-shrink-0">{new Date(h.at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+
+					{/* Processing indicator (only meaningful in non-continuous mode; continuous mode shows toast over scanner) */}
+					{scanProcessing && !continuousMode && (
 						<div className="flex justify-center py-4">
 							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
 						</div>
 					)}
 
-					{/* Scan Result */}
-					{scanResult && !scanProcessing && (
+					{/* Detailed Scan Result — only in non-continuous mode */}
+					{scanResult && !scanProcessing && !continuousMode && (
 						<div className={`rounded-xl shadow-sm overflow-hidden ${
 							scanResult.valid
 								? "bg-green-50 dark:bg-green-900/20 border-2 border-green-500"

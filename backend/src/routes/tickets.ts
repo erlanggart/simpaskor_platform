@@ -39,7 +39,18 @@ const generateTicketCode = (): string => {
 	return `TKT-${random.slice(0, 8)}-${random.slice(8)}`;
 };
 
+// In-memory standings cache. groupBy + findMany is expensive when many panitia
+// refresh the dashboard during a live event. 30s TTL is fine — standings are
+// informational, not used for any write decisions.
+const TICKET_STANDINGS_TTL_MS = 30_000;
+const ticketStandingsCache = new Map<string, { at: number; data: any[] }>();
+
 const getTicketTeamStandings = async (eventId: string) => {
+	const cached = ticketStandingsCache.get(eventId);
+	if (cached && Date.now() - cached.at < TICKET_STANDINGS_TTL_MS) {
+		return cached.data;
+	}
+
 	const [teams, groupedViewers] = await Promise.all([
 		prisma.ticketTeam.findMany({
 			where: { eventId },
@@ -60,12 +71,19 @@ const getTicketTeamStandings = async (eventId: string) => {
 	]);
 
 	const viewerMap = new Map(groupedViewers.map((row) => [row.ticketTeamId, row._count._all]));
-	return teams
+	const result = teams
 		.map((team) => ({
 			...team,
 			viewerCount: viewerMap.get(team.id) ?? 0,
 		}))
 		.sort((a, b) => b.viewerCount - a.viewerCount || a.teamName.localeCompare(b.teamName));
+
+	ticketStandingsCache.set(eventId, { at: Date.now(), data: result });
+	return result;
+};
+
+const invalidateTicketStandings = (eventId: string) => {
+	ticketStandingsCache.delete(eventId);
 };
 
 // Verify PANITIA owns the event (SUPERADMIN bypasses)
@@ -654,7 +672,7 @@ router.get(
 				},
 			});
 
-			let config = await prisma.eventTicketConfig.findUnique({
+			const config = await prisma.eventTicketConfig.findUnique({
 				where: { eventId },
 			});
 
@@ -674,22 +692,10 @@ router.get(
 				});
 			}
 
-			// Compute real soldCount from active reservations (PENDING + PAID + USED)
-			const realSoldCount = await prisma.ticketPurchase.aggregate({
-				where: { eventId, status: { in: ["PENDING", "PAID", "USED"] } },
-				_sum: { quantity: true },
-			});
-			const actualSoldCount = realSoldCount._sum.quantity ?? 0;
-
-			// Auto-fix if stored soldCount is out of sync
-			if (actualSoldCount !== config.soldCount) {
-				console.log(`[tickets] soldCount out of sync for event ${eventId}: stored=${config.soldCount}, actual=${actualSoldCount}. Auto-fixing.`);
-				config = await prisma.eventTicketConfig.update({
-					where: { eventId },
-					data: { soldCount: actualSoldCount },
-				});
-			}
-
+			// NOTE: Auto-fix soldCount removed from this hot path. It used to run an
+			// aggregate + UPDATE on every dashboard load — when many panitia refresh
+			// during an event, this caused row-lock contention on EventTicketConfig.
+			// Use POST /admin/event/:eventId/sync-sold-count manually if drift is suspected.
 			res.json({ ...config, event: event || null });
 		} catch (error) {
 			console.error("Error fetching ticket config:", error);
@@ -914,6 +920,7 @@ router.post(
 				},
 			});
 
+			invalidateTicketStandings(eventId);
 			res.status(201).json({ ...team, viewerCount: 0 });
 		} catch (error) {
 			console.error("Error creating ticket team:", error);
@@ -947,6 +954,7 @@ router.delete(
 			}
 
 			await prisma.ticketTeam.delete({ where: { id: team.id } });
+			invalidateTicketStandings(team.eventId);
 			res.json({ message: "Pasukan ticketing berhasil dihapus" });
 		} catch (error) {
 			console.error("Error deleting ticket team:", error);
@@ -1315,6 +1323,12 @@ router.patch(
 );
 
 // POST /api/tickets/admin/scan/:ticketCode - Scan and validate ticket (mark as USED)
+//
+// Hot path. Optimised for high concurrency at venue gates:
+//  - Minimal SELECT (no deep includes)
+//  - Compare-and-swap update (race-safe, no read-then-write)
+//  - Single round-trip ownership check via JOIN in WHERE
+//  - Optional eventId scope check from client (extra safety for multi-event panitia)
 router.post(
 	"/admin/scan/:ticketCode",
 	authenticate,
@@ -1322,234 +1336,197 @@ router.post(
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const code = req.params.ticketCode;
+			const expectedEventId = typeof req.body?.eventId === "string" ? req.body.eventId.trim() : "";
+			const isSuper = req.user?.role === "SUPERADMIN";
+			const usedAt = new Date();
 
-			// First, check if it's an attendee ticket code
+			// 1) Lookup attendee with minimal fields needed for validation + response
 			const attendee = await prisma.ticketAttendee.findUnique({
 				where: { ticketCode: code },
-				include: {
+				select: {
+					id: true,
+					status: true,
+					usedAt: true,
+					attendeeName: true,
+					attendeeEmail: true,
+					attendeePhone: true,
+					purchaseId: true,
+					ticketTeam: { select: { id: true, teamName: true } },
 					purchase: {
-						include: {
-							event: {
-								select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true, createdById: true },
-							},
+						select: {
+							status: true,
+							event: { select: { id: true, title: true, startDate: true, venue: true, createdById: true } },
 						},
 					},
-					ticketTeam: true,
 				},
 			});
 
 			if (attendee) {
-				// Verify PANITIA owns this event
-				if (!(await verifyEventOwnership(req, attendee.purchase.event.id))) {
-					return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
+				const ev = attendee.purchase.event;
+				if (!isSuper && ev.createdById !== req.user?.userId) {
+					return res.status(403).json({ valid: false, error: "Tidak memiliki akses ke event ini" });
+				}
+				if (expectedEventId && expectedEventId !== ev.id) {
+					return res.status(400).json({ valid: false, error: "Tiket bukan untuk event ini" });
 				}
 
-				// Validate attendee ticket
+				const baseTicket = {
+					ticketCode: code,
+					buyerName: attendee.attendeeName,
+					buyerEmail: attendee.attendeeEmail,
+					buyerPhone: attendee.attendeePhone,
+					eventTitle: ev.title,
+					eventDate: ev.startDate,
+					venue: ev.venue,
+					quantity: 1,
+					ticketTeam: attendee.ticketTeam,
+				};
+
+				// Fast-fail without DB write for terminal states
 				if (attendee.status === "USED") {
 					return res.status(400).json({
-						valid: false,
-						error: "Tiket sudah digunakan",
-						usedAt: attendee.usedAt,
-						ticket: {
-							ticketCode: attendee.ticketCode,
-							buyerName: attendee.attendeeName,
-							buyerEmail: attendee.attendeeEmail,
-							eventTitle: attendee.purchase.event.title,
-							quantity: 1,
-							status: attendee.status,
-							ticketTeam: attendee.ticketTeam,
-						},
+						valid: false, error: "Tiket sudah digunakan", usedAt: attendee.usedAt,
+						ticket: { ...baseTicket, status: "USED", usedAt: attendee.usedAt },
 					});
 				}
-
 				if (attendee.status === "CANCELLED" || attendee.purchase.status === "CANCELLED") {
-					return res.status(400).json({
-						valid: false,
-						error: "Tiket telah dibatalkan",
-						ticket: {
-							ticketCode: attendee.ticketCode,
-							buyerName: attendee.attendeeName,
-							buyerEmail: attendee.attendeeEmail,
-							eventTitle: attendee.purchase.event.title,
-							quantity: 1,
-							status: "CANCELLED",
-							ticketTeam: attendee.ticketTeam,
-						},
-					});
+					return res.status(400).json({ valid: false, error: "Tiket telah dibatalkan", ticket: { ...baseTicket, status: "CANCELLED" } });
 				}
-
 				if (attendee.status === "EXPIRED" || attendee.purchase.status === "EXPIRED") {
+					return res.status(400).json({ valid: false, error: "Tiket sudah kedaluwarsa", ticket: { ...baseTicket, status: "EXPIRED" } });
+				}
+				if (attendee.status === "PENDING" || attendee.purchase.status === "PENDING") {
+					return res.status(400).json({ valid: false, error: "Tiket belum dibayar", ticket: { ...baseTicket, status: "PENDING" } });
+				}
+
+				// Compare-and-swap: only flip PAID -> USED. count===0 means another scanner won the race.
+				const cas = await prisma.ticketAttendee.updateMany({
+					where: { id: attendee.id, status: "PAID" },
+					data: { status: "USED", usedAt },
+				});
+
+				if (cas.count === 0) {
+					// Lost the race — re-read minimal status to give an accurate message
+					const fresh = await prisma.ticketAttendee.findUnique({
+						where: { id: attendee.id },
+						select: { status: true, usedAt: true },
+					});
 					return res.status(400).json({
 						valid: false,
-						error: "Tiket sudah kedaluwarsa",
-						ticket: {
-							ticketCode: attendee.ticketCode,
-							buyerName: attendee.attendeeName,
-							buyerEmail: attendee.attendeeEmail,
-							eventTitle: attendee.purchase.event.title,
-							quantity: 1,
-							status: "EXPIRED",
-							ticketTeam: attendee.ticketTeam,
-						},
+						error: fresh?.status === "USED" ? "Tiket sudah digunakan" : "Tiket tidak bisa divalidasi",
+						usedAt: fresh?.usedAt ?? null,
+						ticket: { ...baseTicket, status: fresh?.status ?? "USED", usedAt: fresh?.usedAt ?? null },
 					});
 				}
 
-				if (attendee.status === "PENDING" || attendee.purchase.status === "PENDING") {
-					return res.status(400).json({ valid: false, error: "Tiket belum dibayar" });
-				}
-
-				// If purchase was scanned as a whole (USED) but attendee hasn't been marked yet, sync & block
-				if (attendee.purchase.status === "USED") {
-					// Auto-sync attendee status then reject to prevent re-entry
-					await prisma.ticketAttendee.update({
-						where: { id: attendee.id },
-						data: { status: "USED", usedAt: new Date() },
-					});
-					return res.status(400).json({ valid: false, error: "Tiket ini sudah digunakan (seluruh paket tiket sudah di-scan)", ticket: { ticketCode: attendee.ticketCode, buyerName: attendee.attendeeName, status: "USED" } });
-				}
-
-				// Mark attendee ticket as USED and close the purchase once all attendee tickets are used.
-				const usedAt = new Date();
-				const updated = await prisma.$transaction(async (tx) => {
-					const updatedAttendee = await tx.ticketAttendee.update({
-						where: { id: attendee.id },
-						data: { status: "USED", usedAt },
-					});
-
-					const remainingPaidAttendees = await tx.ticketAttendee.count({
+				// Best-effort: close parent purchase if no PAID attendees remain.
+				// This is non-blocking for the response — fire-and-forget without await would lose error logging,
+				// so we keep the await but it's a tiny COUNT + optional UPDATE.
+				try {
+					const remaining = await prisma.ticketAttendee.count({
 						where: { purchaseId: attendee.purchaseId, status: "PAID" },
 					});
-					if (remainingPaidAttendees === 0 && attendee.purchase.status === "PAID") {
-						await tx.ticketPurchase.update({
-							where: { id: attendee.purchaseId },
+					if (remaining === 0 && attendee.purchase.status === "PAID") {
+						await prisma.ticketPurchase.updateMany({
+							where: { id: attendee.purchaseId, status: "PAID" },
 							data: { status: "USED", usedAt },
 						});
 					}
-
-					return updatedAttendee;
-				});
+				} catch (e) {
+					console.error("[scan] purchase close best-effort failed:", e);
+				}
 
 				return res.json({
 					valid: true,
 					message: "Tiket berhasil diverifikasi",
-					ticket: {
-						ticketCode: updated.ticketCode,
-						buyerName: updated.attendeeName,
-						buyerEmail: updated.attendeeEmail,
-						buyerPhone: attendee.attendeePhone,
-						eventTitle: attendee.purchase.event.title,
-						eventDate: attendee.purchase.event.startDate,
-						venue: attendee.purchase.event.venue,
-						quantity: 1,
-						status: updated.status,
-						usedAt: updated.usedAt,
-						ticketTeam: attendee.ticketTeam,
-					},
+					ticket: { ...baseTicket, status: "USED", usedAt },
 				});
 			}
 
-			// Fallback: check legacy purchase ticket code
+			// 2) Fallback: legacy purchase-level code (older tickets without per-attendee codes)
 			const ticket = await prisma.ticketPurchase.findUnique({
 				where: { ticketCode: code },
-				include: {
-					event: {
-						select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true, createdById: true },
-					},
+				select: {
+					id: true,
+					status: true,
+					usedAt: true,
+					quantity: true,
+					buyerName: true,
+					buyerEmail: true,
+					buyerPhone: true,
+					event: { select: { id: true, title: true, startDate: true, venue: true, createdById: true } },
 				},
 			});
 
 			if (!ticket) {
-				return res.status(404).json({
-					valid: false,
-					error: "Tiket tidak ditemukan",
-				});
+				return res.status(404).json({ valid: false, error: "Tiket tidak ditemukan" });
+			}
+			if (!isSuper && ticket.event.createdById !== req.user?.userId) {
+				return res.status(403).json({ valid: false, error: "Tidak memiliki akses ke event ini" });
+			}
+			if (expectedEventId && expectedEventId !== ticket.event.id) {
+				return res.status(400).json({ valid: false, error: "Tiket bukan untuk event ini" });
 			}
 
-			// Verify PANITIA owns this event
-			if (!(await verifyEventOwnership(req, ticket.event.id))) {
-				return res.status(403).json({ error: "Tidak memiliki akses ke event ini" });
-			}
+			const baseTicket = {
+				ticketCode: code,
+				buyerName: ticket.buyerName,
+				buyerEmail: ticket.buyerEmail,
+				buyerPhone: ticket.buyerPhone,
+				eventTitle: ticket.event.title,
+				eventDate: ticket.event.startDate,
+				venue: ticket.event.venue,
+				quantity: ticket.quantity,
+			};
 
 			if (ticket.status === "USED") {
 				return res.status(400).json({
-					valid: false,
-					error: "Tiket sudah digunakan",
-					usedAt: ticket.usedAt,
-					ticket: {
-						ticketCode: ticket.ticketCode,
-						buyerName: ticket.buyerName,
-						buyerEmail: ticket.buyerEmail,
-						eventTitle: ticket.event.title,
-						quantity: ticket.quantity,
-						status: ticket.status,
-					},
+					valid: false, error: "Tiket sudah digunakan", usedAt: ticket.usedAt,
+					ticket: { ...baseTicket, status: "USED", usedAt: ticket.usedAt },
 				});
 			}
-
 			if (ticket.status === "CANCELLED") {
-				return res.status(400).json({
-					valid: false,
-					error: "Tiket telah dibatalkan",
-					ticket: {
-						ticketCode: ticket.ticketCode,
-						buyerName: ticket.buyerName,
-						status: ticket.status,
-					},
-				});
+				return res.status(400).json({ valid: false, error: "Tiket telah dibatalkan", ticket: { ...baseTicket, status: "CANCELLED" } });
 			}
-
 			if (ticket.status === "EXPIRED") {
-				return res.status(400).json({
-					valid: false,
-					error: "Tiket sudah kedaluwarsa",
-					ticket: {
-						ticketCode: ticket.ticketCode,
-						buyerName: ticket.buyerName,
-						status: ticket.status,
-					},
-				});
+				return res.status(400).json({ valid: false, error: "Tiket sudah kedaluwarsa", ticket: { ...baseTicket, status: "EXPIRED" } });
 			}
-
 			if (ticket.status === "PENDING") {
+				return res.status(400).json({ valid: false, error: "Tiket belum dibayar", ticket: { ...baseTicket, status: "PENDING" } });
+			}
+
+			// CAS on purchase
+			const cas = await prisma.ticketPurchase.updateMany({
+				where: { id: ticket.id, status: "PAID" },
+				data: { status: "USED", usedAt },
+			});
+			if (cas.count === 0) {
+				const fresh = await prisma.ticketPurchase.findUnique({
+					where: { id: ticket.id },
+					select: { status: true, usedAt: true },
+				});
 				return res.status(400).json({
 					valid: false,
-					error: "Tiket belum dibayar",
-					ticket: {
-						ticketCode: ticket.ticketCode,
-						buyerName: ticket.buyerName,
-						status: ticket.status,
-					},
+					error: fresh?.status === "USED" ? "Tiket sudah digunakan" : "Tiket tidak bisa divalidasi",
+					usedAt: fresh?.usedAt ?? null,
+					ticket: { ...baseTicket, status: fresh?.status ?? "USED", usedAt: fresh?.usedAt ?? null },
 				});
 			}
 
-			// Status is PAID — mark purchase AND all attendees as USED atomically
-			const usedAt = new Date();
-			const [updated] = await prisma.$transaction([
-				prisma.ticketPurchase.update({
-					where: { id: ticket.id },
-					data: { status: "USED", usedAt },
-				}),
-				prisma.ticketAttendee.updateMany({
+			// Mark all PAID attendees as USED (separate query, not blocking validation reply)
+			try {
+				await prisma.ticketAttendee.updateMany({
 					where: { purchaseId: ticket.id, status: "PAID" },
 					data: { status: "USED", usedAt },
-				}),
-			]);
+				});
+			} catch (e) {
+				console.error("[scan] attendee bulk mark best-effort failed:", e);
+			}
 
-			res.json({
+			return res.json({
 				valid: true,
 				message: "Tiket berhasil diverifikasi",
-				ticket: {
-					ticketCode: updated.ticketCode,
-					buyerName: updated.buyerName,
-					buyerEmail: updated.buyerEmail,
-					buyerPhone: updated.buyerPhone,
-					eventTitle: ticket.event.title,
-					eventDate: ticket.event.startDate,
-					venue: ticket.event.venue,
-					quantity: updated.quantity,
-					status: updated.status,
-					usedAt: updated.usedAt,
-				},
+				ticket: { ...baseTicket, status: "USED", usedAt },
 			});
 		} catch (error) {
 			console.error("Error scanning ticket:", error);

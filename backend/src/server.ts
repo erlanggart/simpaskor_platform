@@ -121,9 +121,25 @@ const paymentLimiter = rateLimit({
 			req.baseUrl === "/api/tickets" &&
 			req.path.startsWith("/admin/resend-email/");
 
-		return isAdminEmailResend;
+		// Panitia gate scanning must NOT be rate-limited (high concurrency at venue)
+		const isAdminScan =
+			req.baseUrl === "/api/tickets" &&
+			req.path.startsWith("/admin/scan/");
+
+		return isAdminEmailResend || isAdminScan;
 	},
 	message: { error: "Terlalu banyak permintaan transaksi. Silakan tunggu sebentar." },
+});
+
+// Dedicated limiter for ticket scan endpoint — generous to support concurrent gates,
+// but still guards against runaway clients (e.g. broken loops).
+const ticketScanLimiter = rateLimit({
+	windowMs: 60 * 1000,
+	max: 1200, // up to 20 scans/sec sustained per IP (covers a NAT'd venue with many gates)
+	standardHeaders: true,
+	legacyHeaders: false,
+	skip: (req) => req.method !== 'POST' || !req.path.startsWith('/admin/scan/'),
+	message: { error: "Terlalu banyak permintaan scan dari jaringan ini. Tunggu sebentar." },
 });
 
 const webhookLimiter = rateLimit({
@@ -193,7 +209,7 @@ app.use("/api/performance", performanceFieldRoutes);
 app.use("/api/admin", adminStatsRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", paymentLimiter, orderRoutes);
-app.use("/api/tickets", paymentLimiter, ticketRoutes);
+app.use("/api/tickets", ticketScanLimiter, paymentLimiter, ticketRoutes);
 app.use("/api/voting", votingRoutes);
 app.use("/api/payments", webhookLimiter, paymentRoutes);
 app.use("/api/registration-payments", paymentLimiter, registrationPaymentRoutes);
