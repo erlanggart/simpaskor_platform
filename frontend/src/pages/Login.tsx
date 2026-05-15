@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,68 +41,36 @@ const Login = () => {
 		resolver: zodResolver(loginSchema),
 	});
 
-	// Initialize Google Sign-In
-	useEffect(() => {
-		const initializeGoogleSignIn = () => {
-			if (window.google && window.google.accounts) {
-				window.google.accounts.id.initialize({
-					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-					callback: handleGoogleSignIn,
-				});
-			}
-		};
-
-		// Load Google Sign-In script
-		const script = document.createElement("script");
-		script.src = "https://accounts.google.com/gsi/client";
-		script.async = true;
-		script.defer = true;
-		script.onload = initializeGoogleSignIn;
-		document.body.appendChild(script);
-
-		return () => {
-			// Only remove if script is still in body
-			if (script.parentNode) {
-				document.body.removeChild(script);
-			}
-		};
-	}, []);
-
 	// Handle Google Sign-In response
-	const handleGoogleSignIn = async (response: any) => {
+	// useCallback + useRef prevents stale closure when Google calls this from initialize
+	const handleGoogleSignIn = useCallback(async (response: any) => {
 		try {
 			setIsLoading(true);
 			setError(null);
 
-			// Send credential to backend
 			const result = await api.post("/auth/google", {
 				credential: response.credential,
 			});
 
-			// Save token and user to auth context
 			setAuth(result.data.user, result.data.token);
 
 			const user = result.data.user;
 
-			// If user is PANITIA, check for active assignment in localStorage
 			if (user && user.role === "PANITIA") {
 				const storedEvent = localStorage.getItem("panitia_active_event");
 				if (storedEvent) {
 					try {
 						const eventData = JSON.parse(storedEvent);
 						if (eventData.slug) {
-							// Redirect to event management
 							navigate(`/panitia/events/${eventData.slug}/manage`);
 							return;
 						}
-					} catch (error) {
-						// Invalid data, remove it
+					} catch {
 						localStorage.removeItem("panitia_active_event");
 					}
 				}
 			}
 
-			// Navigate to dashboard
 			navigate("/dashboard");
 		} catch (err: any) {
 			setError(
@@ -112,17 +80,81 @@ const Login = () => {
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [setAuth, navigate]);
+
+	// Keep a ref to always call the latest version of the callback
+	const handleGoogleSignInRef = useRef(handleGoogleSignIn);
+	useEffect(() => {
+		handleGoogleSignInRef.current = handleGoogleSignIn;
+	}, [handleGoogleSignIn]);
+
+	// Initialize Google Sign-In
+	useEffect(() => {
+		const initializeGoogleSignIn = () => {
+			if (window.google && window.google.accounts) {
+				window.google.accounts.id.initialize({
+					client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+					callback: (response: any) => handleGoogleSignInRef.current(response),
+					// FedCM: works without third-party cookies (required in modern browsers)
+					use_fedcm_for_prompt: true,
+				});
+			}
+		};
+
+		// Reuse script if already loaded
+		if (window.google && window.google.accounts) {
+			initializeGoogleSignIn();
+			return;
+		}
+
+		const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+		if (existing) {
+			existing.addEventListener("load", initializeGoogleSignIn);
+			return () => existing.removeEventListener("load", initializeGoogleSignIn);
+		}
+
+		const script = document.createElement("script");
+		script.src = "https://accounts.google.com/gsi/client";
+		script.async = true;
+		script.defer = true;
+		script.onload = initializeGoogleSignIn;
+		document.body.appendChild(script);
+
+		return () => {
+			if (script.parentNode) {
+				document.body.removeChild(script);
+			}
+		};
+	}, []);
 
 	// Trigger Google Sign-In popup
 	const triggerGoogleSignIn = () => {
-		if (window.google && window.google.accounts) {
-			window.google.accounts.id.prompt();
-		} else {
-			setError(
-				"Google Sign-In belum siap. Silakan refresh halaman dan coba lagi."
-			);
+		if (!window.google || !window.google.accounts) {
+			setError("Google Sign-In belum siap. Silakan refresh halaman dan coba lagi.");
+			return;
 		}
+
+		window.google.accounts.id.prompt((notification: any) => {
+			// Detect when One Tap is suppressed (dismissed before / cookies blocked)
+			if (notification.isNotDisplayed()) {
+				const reason = notification.getNotDisplayedReason();
+				if (reason === "opt_out_or_no_session") {
+					setError(
+						"Tidak ada sesi Google aktif di browser ini. Silakan login ke akun Google Anda terlebih dahulu, lalu coba lagi."
+					);
+				} else if (reason === "suppressed_by_user") {
+					setError(
+						"Google Sign-In dinonaktifkan. Silakan aktifkan cookie pihak ketiga atau gunakan login dengan email dan password."
+					);
+				} else {
+					setError(
+						"Google Sign-In tidak dapat ditampilkan. Coba buka halaman di tab baru atau gunakan login email."
+					);
+				}
+			} else if (notification.isSkippedMoment()) {
+				// User dismissed the One Tap — that's fine, no error needed
+			}
+		});
 	};
 
 	const onSubmit = async (data: LoginForm) => {

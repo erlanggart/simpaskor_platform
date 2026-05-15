@@ -3240,6 +3240,7 @@ router.get(
 					number: number;
 					categoryId: string;
 					categoryName: string;
+					scoreCategories: unknown;
 				};
 				scores: {
 					juryId: string;
@@ -3282,6 +3283,7 @@ router.get(
 						number: material.number,
 						categoryId: material.eventAssessmentCategoryId,
 						categoryName: categoryMap.get(material.eventAssessmentCategoryId)?.name || "Lainnya",
+						scoreCategories: material.scoreCategories ?? [],
 					},
 					scores,
 					totalScore,

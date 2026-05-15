@@ -28,6 +28,19 @@ export interface AssessmentEventParticipation {
 	};
 }
 
+export interface ScoreOption {
+	name: string;
+	score: number;
+	order?: number;
+}
+
+export interface ScoreCategory {
+	name: string;
+	color: string;
+	order?: number;
+	options: ScoreOption[];
+}
+
 export interface AssessmentMaterialScore {
 	material: {
 		id: string;
@@ -35,6 +48,7 @@ export interface AssessmentMaterialScore {
 		number: number;
 		categoryId: string;
 		categoryName: string;
+		scoreCategories: ScoreCategory[];
 	};
 	scores: {
 		juryId: string;
