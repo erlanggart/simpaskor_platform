@@ -99,6 +99,10 @@ export interface VotingEvent {
 			mode: VotingMode;
 			maxVotesPerVoter?: number;
 			nominees?: VotingNominee[];
+			_count?: {
+				nominees: number;
+				votes: number;
+			};
 		}[];
 	} | null;
 }

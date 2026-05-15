@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
@@ -58,7 +58,6 @@ const EVotingPage: React.FC = () => {
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
-	const [statusFilter, setStatusFilter] = useState<"all" | "open" | "upcoming" | "ended">("all");
 
 	// Voting detail view
 	const [selectedEvent, setSelectedEvent] = useState<VotingEvent | null>(null);
@@ -519,38 +518,18 @@ const EVotingPage: React.FC = () => {
 		return "Gratis Vote";
 	};
 
-	const filteredEvents = useMemo(() => {
-		if (statusFilter === "all") return events;
-		const now = new Date();
-		return events.filter((event) => {
-			const start = event.votingConfig?.startDate ? new Date(event.votingConfig.startDate) : null;
-			const end = event.votingConfig?.endDate ? new Date(event.votingConfig.endDate) : null;
-			switch (statusFilter) {
-				case "upcoming":
-					return start && start > now;
-				case "open":
-					return (!start || start <= now) && (!end || end >= now);
-				case "ended":
-					return end && end < now;
-				default:
-					return true;
-			}
-		});
-	}, [events, statusFilter]);
-
-	const statusOptions = [
-		{ id: "all" as const, label: "Semua" },
-		{ id: "open" as const, label: "Buka" },
-		{ id: "upcoming" as const, label: "Segera" },
-		{ id: "ended" as const, label: "Selesai" },
-	];
+	const filteredEvents = events;
 
 	const getEventNomineeCount = (event: VotingEvent) =>
-		event.votingConfig?.categories.reduce((total, category) => total + (category.nominees?.length || 0), 0) || 0;
+		event.votingConfig?.categories.reduce(
+			(total, category) => total + (category._count?.nominees ?? category.nominees?.length ?? 0),
+			0
+		) || 0;
 
 	const getEventVoteCount = (event: VotingEvent) =>
 		event.votingConfig?.categories.reduce(
-			(total, category) => total + (category.nominees?.reduce((sum, nominee) => sum + nominee.voteCount, 0) || 0),
+			(total, category) =>
+				total + (category._count?.votes ?? category.nominees?.reduce((sum, nominee) => sum + nominee.voteCount, 0) ?? 0),
 			0
 		) || 0;
 
@@ -561,8 +540,6 @@ const EVotingPage: React.FC = () => {
 		}).format(value);
 
 	const getEventLocationLabel = (event: VotingEvent) => event.city || event.venue || event.location || "Online";
-
-	const featuredEvent = filteredEvents.find((event) => isVotingOpen(event)) || filteredEvents[0] || events[0] || null;
 
 	const currentCategory = selectedEvent?.votingConfig?.categories.find((c) => c.id === selectedCategoryId);
 	const sortedNominees = [...(currentCategory?.nominees || [])].sort((a, b) => b.voteCount - a.voteCount);
@@ -1190,49 +1167,6 @@ const EVotingPage: React.FC = () => {
 									)}
 								</div>
 
-								<div className="grid grid-cols-2 gap-2">
-									{statusOptions.map((opt) => (
-										<button
-											key={opt.id}
-											onClick={() => setStatusFilter(opt.id)}
-											className={`rounded-2xl px-3 py-3 text-sm font-black transition-all ${
-												statusFilter === opt.id
-													? "bg-slate-950 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-950"
-													: "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:bg-white/[0.1]"
-											}`}
-										>
-											{opt.label}
-										</button>
-									))}
-								</div>
-
-								{featuredEvent && (
-									<button
-										onClick={() => openVotingEvent(featuredEvent.id)}
-										className="group mt-3 w-full overflow-hidden rounded-3xl bg-slate-950 text-left text-white shadow-xl transition-all hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"
-									>
-										<div className="flex gap-3 p-3">
-											<div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-800">
-												{featuredEvent.thumbnail ? (
-													<img src={getImageUrl(featuredEvent.thumbnail)} alt={featuredEvent.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-												) : (
-													<div className="flex h-full w-full items-center justify-center">
-														<LuTrophy className="h-7 w-7 opacity-45" />
-													</div>
-												)}
-											</div>
-											<div className="min-w-0 flex-1 py-1">
-												<p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 dark:text-red-500">Sorotan</p>
-												<h3 className="mt-1 line-clamp-2 text-sm font-black leading-tight">{featuredEvent.title}</h3>
-												<div className="mt-2 flex items-center gap-2 text-xs opacity-70">
-													<LuMapPin className="h-3.5 w-3.5" />
-													<span className="truncate">{getEventLocationLabel(featuredEvent)}</span>
-												</div>
-											</div>
-											<LuArrowRight className="mt-2 h-5 w-5 flex-shrink-0 transition-transform group-hover:translate-x-1" />
-										</div>
-									</button>
-								)}
 							</div>
 							<VoteGuideCard />
 						</div>
@@ -1246,9 +1180,6 @@ const EVotingPage: React.FC = () => {
 							{filteredEvents.length > 0 ? `${filteredEvents.length} event tersedia` : "Event tidak ditemukan"}
 						</h2>
 					</div>
-					<p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-						{statusOptions.find((option) => option.id === statusFilter)?.label || "Semua"}
-					</p>
 				</div>
 
 				{/* Events Grid */}

@@ -32,7 +32,7 @@ const ticketGuideSteps: TicketGuideStep[] = [
 	},
 	{
 		title: "Konfirmasi & bayar",
-		description: "Cek ringkasan pembelian, lalu lanjutkan pembayaran Midtrans. Tiket gratis langsung diproses tanpa pembayaran.",
+		description: "Cek ringkasan pembelian, lalu lanjutkan pembayaran kalau event-nya berbayar. Kalau sudah beres, tiket langsung diproses.",
 		icon: LuCreditCard,
 	},
 	{

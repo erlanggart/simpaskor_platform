@@ -228,6 +228,12 @@ router.get("/events", async (req: AuthenticatedRequest, res: Response) => {
 									id: true,
 									title: true,
 									mode: true,
+									_count: {
+										select: {
+											nominees: true,
+											votes: true,
+										},
+									},
 								},
 							},
 						},
