@@ -28,6 +28,7 @@ import {
 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
+import VoteGuideCard from "../components/landing/VoteGuideCard";
 
 type VoteCodeInfo = {
 	purchaseCode: string;
@@ -1168,69 +1169,72 @@ const EVotingPage: React.FC = () => {
 							</div>
 						</div>
 
-						<div className="rounded-3xl border border-slate-200/70 bg-white/[0.88] p-3 shadow-xl shadow-slate-200/80 backdrop-blur-xl dark:border-white/[0.08] dark:bg-slate-950/[0.45] dark:shadow-black/20">
-							<div className="relative mb-3">
-								<LuSearch className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-								<input
-									type="text"
-									value={search}
-									onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-									placeholder="Cari event atau kota..."
-									className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-10 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-500/10 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-white dark:focus:border-red-400/40 dark:focus:bg-white/[0.07]"
-								/>
-								{search && (
+						<div className="space-y-4">
+							<div className="rounded-3xl border border-slate-200/70 bg-white/[0.88] p-3 shadow-xl shadow-slate-200/80 backdrop-blur-xl dark:border-white/[0.08] dark:bg-slate-950/[0.45] dark:shadow-black/20">
+								<div className="relative mb-3">
+									<LuSearch className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+									<input
+										type="text"
+										value={search}
+										onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+										placeholder="Cari event atau kota..."
+										className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-10 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition-all focus:border-red-300 focus:bg-white focus:ring-4 focus:ring-red-500/10 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-white dark:focus:border-red-400/40 dark:focus:bg-white/[0.07]"
+									/>
+									{search && (
+										<button
+											onClick={() => { setSearch(""); setPage(1); }}
+											className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.08] dark:hover:text-slate-200"
+										>
+											<LuX className="w-4 h-4" />
+										</button>
+									)}
+								</div>
+
+								<div className="grid grid-cols-2 gap-2">
+									{statusOptions.map((opt) => (
+										<button
+											key={opt.id}
+											onClick={() => setStatusFilter(opt.id)}
+											className={`rounded-2xl px-3 py-3 text-sm font-black transition-all ${
+												statusFilter === opt.id
+													? "bg-slate-950 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-950"
+													: "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:bg-white/[0.1]"
+											}`}
+										>
+											{opt.label}
+										</button>
+									))}
+								</div>
+
+								{featuredEvent && (
 									<button
-										onClick={() => { setSearch(""); setPage(1); }}
-										className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.08] dark:hover:text-slate-200"
+										onClick={() => openVotingEvent(featuredEvent.id)}
+										className="group mt-3 w-full overflow-hidden rounded-3xl bg-slate-950 text-left text-white shadow-xl transition-all hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"
 									>
-										<LuX className="w-4 h-4" />
+										<div className="flex gap-3 p-3">
+											<div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-800">
+												{featuredEvent.thumbnail ? (
+													<img src={getImageUrl(featuredEvent.thumbnail)} alt={featuredEvent.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+												) : (
+													<div className="flex h-full w-full items-center justify-center">
+														<LuTrophy className="h-7 w-7 opacity-45" />
+													</div>
+												)}
+											</div>
+											<div className="min-w-0 flex-1 py-1">
+												<p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 dark:text-red-500">Sorotan</p>
+												<h3 className="mt-1 line-clamp-2 text-sm font-black leading-tight">{featuredEvent.title}</h3>
+												<div className="mt-2 flex items-center gap-2 text-xs opacity-70">
+													<LuMapPin className="h-3.5 w-3.5" />
+													<span className="truncate">{getEventLocationLabel(featuredEvent)}</span>
+												</div>
+											</div>
+											<LuArrowRight className="mt-2 h-5 w-5 flex-shrink-0 transition-transform group-hover:translate-x-1" />
+										</div>
 									</button>
 								)}
 							</div>
-
-							<div className="grid grid-cols-2 gap-2">
-								{statusOptions.map((opt) => (
-									<button
-										key={opt.id}
-										onClick={() => setStatusFilter(opt.id)}
-										className={`rounded-2xl px-3 py-3 text-sm font-black transition-all ${
-											statusFilter === opt.id
-												? "bg-slate-950 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-950"
-												: "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:bg-white/[0.1]"
-										}`}
-									>
-										{opt.label}
-									</button>
-								))}
-							</div>
-
-							{featuredEvent && (
-								<button
-									onClick={() => openVotingEvent(featuredEvent.id)}
-									className="group mt-3 w-full overflow-hidden rounded-3xl bg-slate-950 text-left text-white shadow-xl transition-all hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"
-								>
-									<div className="flex gap-3 p-3">
-										<div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-800">
-											{featuredEvent.thumbnail ? (
-												<img src={getImageUrl(featuredEvent.thumbnail)} alt={featuredEvent.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-											) : (
-												<div className="flex h-full w-full items-center justify-center">
-													<LuTrophy className="h-7 w-7 opacity-45" />
-												</div>
-											)}
-										</div>
-										<div className="min-w-0 flex-1 py-1">
-											<p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 dark:text-red-500">Sorotan</p>
-											<h3 className="mt-1 line-clamp-2 text-sm font-black leading-tight">{featuredEvent.title}</h3>
-											<div className="mt-2 flex items-center gap-2 text-xs opacity-70">
-												<LuMapPin className="h-3.5 w-3.5" />
-												<span className="truncate">{getEventLocationLabel(featuredEvent)}</span>
-											</div>
-										</div>
-										<LuArrowRight className="mt-2 h-5 w-5 flex-shrink-0 transition-transform group-hover:translate-x-1" />
-									</div>
-								</button>
-							)}
+							<VoteGuideCard />
 						</div>
 					</div>
 				</section>

@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
 import {
-	LuArrowRight,
 	LuUsers,
 	LuTrophy,
 	LuCalendar,
 	LuLayoutGrid,
-	LuGavel,
 	LuHouse,
 	LuEye,
 	LuThumbsUp,
@@ -19,9 +16,6 @@ import HeroSection from "../components/landing/HeroSection";
 import EventSection from "../components/landing/EventSection";
 import TicketingSection from "../components/landing/TicketingSection";
 import VotingSection from "../components/landing/VotingSection";
-import KlasemenSection from "../components/landing/KlasemenSection";
-import PinnedPersonCarousel from "../components/landing/PinnedPersonCarousel";
-import JuriDetailModal from "../components/landing/JuriDetailModal";
 import MarketplaceSection from "../components/landing/MarketplaceSection";
 import PricingSection from "../components/landing/PricingSection";
 import "../components/landing/LandingPage.css";
@@ -32,8 +26,6 @@ const sectionNavLabels = [
 	{ id: "events", label: "Event", icon: LuLayoutGrid },
 	{ id: "ticketing", label: "Ticketing", icon: LuTicket },
 	{ id: "voting", label: "Voting", icon: LuThumbsUp },
-	{ id: "jury", label: "Juri", icon: LuGavel },
-	{ id: "klasemen", label: "Klasemen", icon: LuTrophy },
 	{ id: "marketplace", label: "Marketplace", icon: LuStore },
 	{ id: "paket", label: "Paket", icon: LuPackage },
 ];
@@ -42,8 +34,7 @@ const LandingPage: React.FC = () => {
 	const [activeSection, setActiveSection] = useState(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const sectionRefs = useRef<(HTMLElement | null)[]>([]);
-	const { pinnedEvents, publicStats, juries, klasemen, loading } = useLandingData();
-	const [selectedJuriId, setSelectedJuriId] = useState<string | null>(null);
+	const { pinnedEvents, publicStats, loading } = useLandingData();
 	const isIPhone = typeof navigator !== "undefined" && /iPhone|iPod/i.test(navigator.userAgent);
 
 	const scrollToSection = useCallback((index: number) => {
@@ -180,70 +171,13 @@ const LandingPage: React.FC = () => {
 					<VotingSection />
 				</section>
 
-				{/* ===== SECTION 5: JURY ===== */}
+				{/* ===== SECTION 5: MARKETPLACE ===== */}
 				<section ref={setSectionRef(4)} className="landing-section-inner">
-					<div className="relative z-10 w-full max-w-6xl mx-auto px-6 md:px-12 lg:px-16">
-						<div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-16">
-							{/* Left: Text */}
-							<div className="flex-1 text-center lg:text-left max-w-2xl">
-								<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-400 font-medium mb-4">
-									JURI PROFESIONAL
-								</p>
-								<h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-none mb-3 landing-title-gradient-voting">
-									JURI
-								</h1>
-								<p className="text-sm md:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wide mb-6">
-									Tim Penilai Berpengalaman
-								</p>
-								<div className="w-12 h-[1px] bg-gradient-to-r from-purple-500/50 to-transparent mx-auto lg:mx-0 mb-6" />
-								<p className="text-sm md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-8 max-w-lg mx-auto lg:mx-0">
-									Sistem penilaian yang adil dan transparan didukung oleh
-									juri-juri berpengalaman. Setiap aspek dinilai secara
-									profesional dengan standar nasional.
-								</p>
-								<div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-									<Link
-										to="/juries"
-										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-900/[0.06] dark:bg-white/[0.06] border border-gray-300/50 dark:border-white/10 text-gray-800 dark:text-white text-sm font-medium hover:bg-gray-900/[0.12] dark:hover:bg-white/[0.12] hover:border-gray-400/50 dark:hover:border-white/20 transition-all duration-300 group"
-									>
-										<span>Lihat Semua Juri</span>
-										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-									</Link>
-									<Link
-										to="/register"
-										className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all duration-300 group"
-									>
-										<span>Daftar sebagai Juri</span>
-										<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-									</Link>
-								</div>
-							</div>
-
-							{/* Right: Pinned Juri Carousel */}
-							<div className="flex-shrink-0 hidden lg:flex flex-col items-center gap-6">
-								<PinnedPersonCarousel persons={juries} accentColor="purple" linkPrefix="/juries" onPersonClick={(id) => setSelectedJuriId(id)} />
-							</div>
-						</div>
-					</div>
-				</section>
-
-				{/* ===== SECTION 6: KLASEMEN ===== */}
-				<section ref={setSectionRef(5)} className="landing-section-inner">
-					<KlasemenSection
-						top5={klasemen.top5}
-						year={klasemen.year}
-						totalEvents={klasemen.totalEvents}
-						loading={loading}
-					/>
-				</section>
-
-				{/* ===== SECTION 7: MARKETPLACE ===== */}
-				<section ref={setSectionRef(6)} className="landing-section-inner">
 					<MarketplaceSection />
 				</section>
 
-				{/* ===== SECTION 8: PAKET ===== */}
-				<section ref={setSectionRef(7)} className="landing-section-inner">
+				{/* ===== SECTION 6: PAKET ===== */}
+				<section ref={setSectionRef(5)} className="landing-section-inner">
 					<PricingSection />
 				</section>
 
@@ -264,13 +198,6 @@ const LandingPage: React.FC = () => {
 				<span className="absolute inset-0 rounded-full bg-[#25D366] animate-wa-ping opacity-0" />
 			</a>
 
-			{/* Juri Detail Modal */}
-			{selectedJuriId && (
-				<JuriDetailModal
-					juriId={selectedJuriId}
-					onClose={() => setSelectedJuriId(null)}
-				/>
-			)}
 		</div>
 	);
 };

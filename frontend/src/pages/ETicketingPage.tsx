@@ -8,6 +8,7 @@ import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevron
 import Swal from "sweetalert2";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
+import TicketGuideCard from "../components/landing/TicketGuideCard";
 
 const ETicketingPage: React.FC = () => {
 	const { user } = useAuth();
@@ -381,59 +382,64 @@ const ETicketingPage: React.FC = () => {
 
 	return (
 		<div className="min-h-screen transition-colors">
-			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-				{/* Header */}
-				<div className="mb-6">
-					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">
-						BELI TIKET ONLINE
-					</p>
-					<h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-1">
-						E-Ticketing
-					</h1>
-					<p className="text-sm text-gray-500 dark:text-gray-400">
-						Beli tiket event secara online
-					</p>
-				</div>
+			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+				<div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+					<div className="min-w-0">
+						{/* Header */}
+						<div className="mb-6">
+							<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">
+								BELI TIKET ONLINE
+							</p>
+							<h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-1">
+								E-Ticketing
+							</h1>
+							<p className="text-sm text-gray-500 dark:text-gray-400">
+								Beli tiket event secara online
+							</p>
+						</div>
 
-				{/* Search + Filters */}
-				<div className="mb-6 space-y-4">
-					{/* Search bar */}
-					<div className="relative">
-						<LuSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-						<input
-							type="text"
-							value={search}
-							onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-							placeholder="Cari event tiket berdasarkan nama atau lokasi..."
-							className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 transition-colors"
-						/>
-						{search && (
-							<button
-								onClick={() => { setSearch(""); setPage(1); }}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-							>
-								<LuX className="w-4 h-4" />
-							</button>
-						)}
-					</div>
+						{/* Search + Filters */}
+						<div className="space-y-4">
+							{/* Search bar */}
+							<div className="relative">
+								<LuSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+								<input
+									type="text"
+									value={search}
+									onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+									placeholder="Cari event tiket berdasarkan nama atau lokasi..."
+									className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.08] text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 transition-colors"
+								/>
+								{search && (
+									<button
+										onClick={() => { setSearch(""); setPage(1); }}
+										className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+									>
+										<LuX className="w-4 h-4" />
+									</button>
+								)}
+							</div>
 
-					{/* Availability filter pills */}
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Ketersediaan:</span>
-						{availabilityOptions.map((opt) => (
-							<button
-								key={opt.id}
-								onClick={() => setAvailabilityFilter(opt.id)}
-								className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-									availabilityFilter === opt.id
-										? "bg-red-500 text-white"
-										: "bg-gray-200/60 dark:bg-white/[0.08] text-gray-600 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/[0.14]"
-								}`}
-							>
-								{opt.label}
-							</button>
-						))}
+							{/* Availability filter pills */}
+							<div className="flex flex-wrap items-center gap-1.5">
+								<span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Ketersediaan:</span>
+								{availabilityOptions.map((opt) => (
+									<button
+										key={opt.id}
+										onClick={() => setAvailabilityFilter(opt.id)}
+										className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+											availabilityFilter === opt.id
+												? "bg-red-500 text-white"
+												: "bg-gray-200/60 dark:bg-white/[0.08] text-gray-600 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/[0.14]"
+										}`}
+									>
+										{opt.label}
+									</button>
+								))}
+							</div>
+						</div>
 					</div>
+					<TicketGuideCard />
 				</div>
 
 				{/* Result info */}
