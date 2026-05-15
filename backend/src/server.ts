@@ -41,6 +41,13 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust the first proxy hop (nginx in front of the Node container).
+// Without this, Express sees req.ip as 127.0.0.1 for every request and
+// express-rate-limit cannot distinguish users — all panitia gates would
+// share one rate-limit bucket. Set to the number of proxy hops in front
+// of the app (1 = single nginx). Override via TRUST_PROXY env if needed.
+app.set("trust proxy", process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : 1);
+
 // Middleware
 app.use(
 	helmet({
