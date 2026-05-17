@@ -7,6 +7,7 @@ import {
 	MagnifyingGlassIcon,
 	ArrowPathIcon,
 	FunnelIcon,
+	ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -37,6 +38,8 @@ interface DisbursementItem {
 		totalWithdrawn: number;
 		totalPending: number;
 		activeBalance: number;
+		platformSharePercent?: number;
+		panitiaSharePercent?: number;
 	} | null;
 	mitraProfile?: {
 		id: string;
@@ -62,6 +65,19 @@ const DisbursementManagement: React.FC = () => {
 		approved: { count: number; amount: number };
 		transferred: { count: number; amount: number };
 	} | null>(null);
+	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+	const toggleExpanded = (id: string) => {
+		setExpandedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
+		});
+	};
 
 	useEffect(() => {
 		fetchDisbursements();
@@ -219,10 +235,19 @@ const DisbursementManagement: React.FC = () => {
 			},
 		];
 
+		const hasShareRates = typeof balance.platformSharePercent === "number" && typeof balance.panitiaSharePercent === "number";
+
 		return (
 			<div className="mb-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-gray-700 dark:bg-gray-900/30">
 				<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-					<p className="text-xs font-semibold uppercase text-slate-500 dark:text-gray-400">Saldo Event</p>
+					<div className="flex flex-wrap items-center gap-2">
+						<p className="text-xs font-semibold uppercase text-slate-500 dark:text-gray-400">Saldo Event</p>
+						{hasShareRates && (
+							<span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2.5 py-0.5 text-[11px] font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+								Bagi hasil Panitia {balance.panitiaSharePercent}% &middot; SIMPASKOR {balance.platformSharePercent}%
+							</span>
+						)}
+					</div>
 					<p className="rounded-full bg-blue-50 px-3 py-1 text-sm font-black text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
 						Aktif {formatCurrency(balance.activeBalance)}
 					</p>
@@ -326,102 +351,118 @@ const DisbursementManagement: React.FC = () => {
 					<p className="text-gray-500 dark:text-gray-400">Belum ada pengajuan pencairan</p>
 				</div>
 			) : (
-				<div className="space-y-3">
-					{disbursements.map((d) => (
-						<div key={d.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800/70">
-							<div className="p-4">
-								<div className="mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-									<div className="min-w-0">
-										<h3 className="text-lg font-bold text-gray-900 dark:text-white">
-											{formatCurrency(d.amount)}
-										</h3>
-										<p className="truncate text-sm font-medium text-gray-600 dark:text-gray-300">
-											{d.kind === "MITRA" ? "Penarikan Komisi Mitra" : d.event?.title}
-										</p>
-										<p className="mt-0.5 truncate text-xs text-gray-400">
-											Diajukan oleh {d.requestedBy.name} ({d.requestedBy.email}) - {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+				<div className="space-y-2">
+					{disbursements.map((d) => {
+						const isExpanded = expandedIds.has(d.id);
+						const titleText = d.kind === "MITRA" ? "Penarikan Komisi Mitra" : d.event?.title || "Event";
+						return (
+							<div key={d.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800/70">
+								<button
+									type="button"
+									onClick={() => toggleExpanded(d.id)}
+									aria-expanded={isExpanded}
+									className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40"
+								>
+									<div className="flex min-w-0 flex-1 items-center gap-3">
+										<ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+										<div className="min-w-0 flex-1">
+											<div className="flex flex-wrap items-center gap-2">
+												<span className="text-base font-bold text-gray-900 dark:text-white">{formatCurrency(d.amount)}</span>
+												<span className="truncate text-sm text-gray-600 dark:text-gray-300">{titleText}</span>
+											</div>
+											<p className="mt-0.5 truncate text-xs text-gray-400">
+												{d.requestedBy.name} &middot; {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+											</p>
+										</div>
+									</div>
+									<div className="flex flex-shrink-0 items-center gap-2">{getStatusBadge(d.status)}</div>
+								</button>
+
+								{isExpanded && (
+									<div className="border-t border-gray-100 px-4 py-4 dark:border-gray-700/60">
+										<div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+											{d.status === "PENDING" && (
+												<button
+													onClick={() => handleApprove(d)}
+													className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+												>
+													Setujui
+												</button>
+											)}
+											{(d.status === "PENDING" || d.status === "APPROVED") && (
+												<>
+													<button
+														onClick={() => handleTransfer(d)}
+														className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+													>
+														Transfer
+													</button>
+													<button
+														onClick={() => handleReject(d)}
+														className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700"
+													>
+														Tolak
+													</button>
+												</>
+											)}
+										</div>
+
+										<p className="mb-3 truncate text-xs text-gray-400">
+											Diajukan oleh {d.requestedBy.name} ({d.requestedBy.email})
 										</p>
 										{d.kind === "MITRA" && d.mitraProfile && (
-											<p className="mt-1 truncate text-xs font-semibold text-red-600 dark:text-red-400">
+											<p className="mb-3 truncate text-xs font-semibold text-red-600 dark:text-red-400">
 												Mitra: {d.mitraProfile.user.name} - Kode {d.mitraProfile.referralCode}
 											</p>
 										)}
-									</div>
-									<div className="flex flex-wrap items-center gap-2 lg:justify-end">
-										{getStatusBadge(d.status)}
-										{d.status === "PENDING" && (
-											<button
-												onClick={() => handleApprove(d)}
-												className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
-											>
-												Setujui
-											</button>
+
+										{renderEventBalance(d)}
+
+										<div className="mb-3 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-700/30">
+											<div className="grid gap-2 text-sm sm:grid-cols-3">
+												<div className="min-w-0">
+													<p className="text-[11px] font-medium text-gray-400">Bank</p>
+													<p className="truncate font-semibold text-gray-900 dark:text-white">{d.bankName}</p>
+												</div>
+												<div className="min-w-0">
+													<p className="text-[11px] font-medium text-gray-400">No. Rekening</p>
+													<p className="truncate font-mono font-semibold text-gray-900 dark:text-white">{d.accountNumber}</p>
+												</div>
+												<div className="min-w-0">
+													<p className="text-[11px] font-medium text-gray-400">Atas Nama</p>
+													<p className="truncate font-semibold text-gray-900 dark:text-white">{d.accountHolder}</p>
+												</div>
+											</div>
+										</div>
+
+										{d.notes && (
+											<p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
+												<span className="font-medium">Catatan:</span> {d.notes}
+											</p>
 										)}
-										{(d.status === "PENDING" || d.status === "APPROVED") && (
-											<>
-												<button
-													onClick={() => handleTransfer(d)}
-													className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-700"
-												>
-													Transfer
-												</button>
-												<button
-													onClick={() => handleReject(d)}
-													className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700"
-												>
-													Tolak
-												</button>
-											</>
+
+										{d.adminNotes && (
+											<div className={`mb-3 rounded-lg p-3 text-sm ${
+												d.status === "REJECTED"
+													? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+													: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+											}`}>
+												<span className="font-medium">Catatan Admin:</span> {d.adminNotes}
+											</div>
+										)}
+
+										{d.status === "TRANSFERRED" && d.transferredAt && (
+											<p className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+												<CheckCircleIcon className="h-4 w-4" />
+												Ditransfer pada {new Date(d.transferredAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+												{d.processedBy && ` oleh ${d.processedBy.name}`}
+											</p>
 										)}
 									</div>
-								</div>
-
-								{renderEventBalance(d)}
-
-								<div className="mb-3 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-700/30">
-									<div className="grid gap-2 text-sm sm:grid-cols-3">
-										<div className="min-w-0">
-											<p className="text-[11px] font-medium text-gray-400">Bank</p>
-											<p className="truncate font-semibold text-gray-900 dark:text-white">{d.bankName}</p>
-										</div>
-										<div className="min-w-0">
-											<p className="text-[11px] font-medium text-gray-400">No. Rekening</p>
-											<p className="truncate font-mono font-semibold text-gray-900 dark:text-white">{d.accountNumber}</p>
-										</div>
-										<div className="min-w-0">
-											<p className="text-[11px] font-medium text-gray-400">Atas Nama</p>
-											<p className="truncate font-semibold text-gray-900 dark:text-white">{d.accountHolder}</p>
-										</div>
-									</div>
-								</div>
-
-								{d.notes && (
-									<p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-										<span className="font-medium">Catatan:</span> {d.notes}
-									</p>
 								)}
-
-								{d.adminNotes && (
-									<div className={`text-sm p-3 rounded-lg mb-3 ${
-										d.status === "REJECTED"
-											? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
-											: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-									}`}>
-										<span className="font-medium">Catatan Admin:</span> {d.adminNotes}
-									</div>
-								)}
-
-								{d.status === "TRANSFERRED" && d.transferredAt && (
-									<p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-										<CheckCircleIcon className="w-4 h-4" />
-										Ditransfer pada {new Date(d.transferredAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-										{d.processedBy && ` oleh ${d.processedBy.name}`}
-									</p>
-								)}
-
 							</div>
-						</div>
-					))}
+						);
+					})}
 
 					{/* Pagination */}
 					{totalPages > 1 && (

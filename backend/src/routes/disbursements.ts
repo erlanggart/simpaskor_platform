@@ -592,7 +592,7 @@ router.get(
 					where,
 					orderBy: { createdAt: "desc" },
 					include: {
-						event: { select: { id: true, title: true, startDate: true, slug: true } },
+						event: { select: { id: true, title: true, startDate: true, slug: true, packageTier: true, platformSharePercent: true } },
 						requestedBy: { select: { id: true, name: true, email: true } },
 						processedBy: { select: { id: true, name: true, email: true } },
 					},
@@ -636,6 +636,11 @@ router.get(
 			const data = paginated.map((item) => {
 				if (item.kind !== "EVENT" || !item.event?.id) return item;
 				const balance = eventBalanceMap.get(item.event.id);
+				const eventRecord = (item as any).event as { packageTier?: string | null; platformSharePercent?: number | null } | null;
+				const { platformShareRate, panitiaShareRate } = getRevenueShareRates(
+					eventRecord?.packageTier ?? null,
+					eventRecord?.platformSharePercent ?? null
+				);
 				return {
 					...item,
 					eventBalance: balance
@@ -650,6 +655,8 @@ router.get(
 								totalWithdrawn: balance.totalWithdrawn,
 								totalPending: balance.totalPending,
 								activeBalance: balance.activeBalance,
+								platformSharePercent: Math.round(platformShareRate * 100),
+								panitiaSharePercent: Math.round(panitiaShareRate * 100),
 						  }
 						: null,
 				};
