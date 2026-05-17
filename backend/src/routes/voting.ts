@@ -14,6 +14,7 @@ import {
 } from "../lib/midtrans";
 import { sendVotingPurchaseEmail } from "../lib/email";
 import { uploadNomineePhoto } from "../middleware/upload";
+import { recordVotingRevenueShare } from "../lib/revenueLedger";
 
 const router = Router();
 
@@ -125,14 +126,20 @@ const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 	const paymentResult = resolvePaymentStatus(txStatus.transaction_status, txStatus.fraud_status);
 
 	if (paymentResult === "success") {
-		return prisma.votingPurchase.update({
-			where: { id: purchase.id },
-			data: {
-				status: "PAID",
-				paymentType: txStatus.payment_type,
-				paidAt: new Date(),
-			},
-			include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
+		return prisma.$transaction(async (tx) => {
+			await tx.votingPurchase.update({
+				where: { id: purchase.id },
+				data: {
+					status: "PAID",
+					paymentType: txStatus.payment_type,
+					paidAt: new Date(),
+				},
+			});
+			await recordVotingRevenueShare(tx, purchase.id);
+			return tx.votingPurchase.findUnique({
+				where: { id: purchase.id },
+				include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
+			});
 		});
 	}
 

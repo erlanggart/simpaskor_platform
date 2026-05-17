@@ -14,6 +14,7 @@ import {
 	calculateVotingAdminFee,
 	sendVertinovaPaymentSuccessWebhook,
 } from "../lib/vertinovaFinanceWebhook";
+import { recordTicketRevenueShare, recordVotingRevenueShare } from "../lib/revenueLedger";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -195,6 +196,7 @@ async function handleTicketPayment(
 				where: { purchaseId: ticket.id },
 				data: { status: "PAID" },
 			});
+			await recordTicketRevenueShare(tx, ticket.id);
 			// soldCount was already incremented atomically during purchase — no need to increment again
 		});
 
@@ -285,13 +287,16 @@ async function handleVotingPayment(
 
 	if (result === "success") {
 		const paidAt = new Date();
-		await prisma.votingPurchase.update({
-			where: { id: purchase.id },
-			data: {
-				status: "PAID",
-				paymentType,
-				paidAt,
-			},
+		await prisma.$transaction(async (tx) => {
+			await tx.votingPurchase.update({
+				where: { id: purchase.id },
+				data: {
+					status: "PAID",
+					paymentType,
+					paidAt,
+				},
+			});
+			await recordVotingRevenueShare(tx, purchase.id);
 		});
 		void sendVertinovaPaymentSuccessWebhook({
 			orderId: midtransOrderId,

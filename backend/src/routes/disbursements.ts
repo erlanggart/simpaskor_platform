@@ -6,6 +6,7 @@ import {
 	AuthenticatedRequest,
 } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
+import { getEventRevenueLedgerSummary } from "../lib/revenueLedger";
 
 const router = Router();
 
@@ -76,6 +77,188 @@ async function getMitraWithdrawalSummary(tx: any, mitraProfileId: string) {
 	};
 }
 
+async function getRevenueShareHistory(tx: any, eventId: string) {
+	const shares = await tx.revenueShare.findMany({
+		where: { eventId },
+		orderBy: { createdAt: "desc" },
+		take: 100,
+		include: {
+			transaction: true,
+			withdrawalItems: {
+				include: {
+					withdrawal: {
+						select: {
+							id: true,
+							status: true,
+							processedAt: true,
+							transferredAt: true,
+							createdAt: true,
+						},
+					},
+				},
+			},
+		},
+	});
+
+	return shares.map((share: any) => ({
+		id: share.id,
+		transactionId: share.transactionId,
+		sourceType: share.transaction.sourceType,
+		sourceCode: share.transaction.sourceCode,
+		transactionStatus: share.transaction.status,
+		nominalTransaksi: Number(share.grossAmount),
+		platformSharePercent: Number(share.platformSharePercent),
+		panitiaSharePercent: Number(share.panitiaSharePercent),
+		platformAmount: Number(share.platformAmount),
+		panitiaAmount: Number(share.panitiaAmount),
+		withdrawnPanitiaAmount: Number(share.withdrawnPanitiaAmount),
+		activePanitiaAmount: Math.max(0, Number(share.panitiaAmount) - Number(share.withdrawnPanitiaAmount)),
+		status: share.status,
+		fundStatus:
+			share.transaction.status === "CANCELLED" || share.status === "CANCELLED"
+				? "dibatalkan"
+				: share.status === "WITHDRAWN"
+				? "sudah ditarik"
+				: share.status === "PARTIALLY_WITHDRAWN"
+				? "sebagian ditarik"
+				: "belum ditarik",
+		paidAt: share.transaction.paidAt,
+		createdAt: share.createdAt,
+		withdrawnAt: share.withdrawnAt,
+		withdrawalItems: share.withdrawalItems.map((item: any) => ({
+			id: item.id,
+			amount: Number(item.amount),
+			withdrawalId: item.withdrawalId,
+			withdrawalStatus: item.withdrawal.status,
+			processedAt: item.withdrawal.processedAt,
+			transferredAt: item.withdrawal.transferredAt,
+		})),
+	}));
+}
+
+async function finalizeEventDisbursement(
+	tx: any,
+	params: {
+		disbursementId: string;
+		processedById: string;
+		adminNotes?: string | null;
+		finalStatus: "APPROVED" | "TRANSFERRED";
+		transferProof?: string | null;
+	}
+) {
+	const lockedRows = await tx.$queryRaw<any[]>`
+		SELECT *
+		FROM "disbursements"
+		WHERE "id" = ${params.disbursementId}
+		FOR UPDATE
+	`;
+	const disbursement = lockedRows[0];
+
+	if (!disbursement) {
+		throw new Error("Pengajuan tidak ditemukan");
+	}
+
+	const now = new Date();
+
+	if (disbursement.status === "APPROVED" && params.finalStatus === "TRANSFERRED") {
+		return tx.disbursement.update({
+			where: { id: params.disbursementId },
+			data: {
+				status: "TRANSFERRED",
+				adminNotes: params.adminNotes?.trim() || disbursement.admin_notes,
+				processedById: params.processedById,
+				processedAt: now,
+				transferProof: params.transferProof?.trim() || null,
+				transferredAt: now,
+			},
+			include: {
+				event: { select: { id: true, title: true } },
+				requestedBy: { select: { id: true, name: true, email: true } },
+				processedBy: { select: { id: true, name: true, email: true } },
+			},
+		});
+	}
+
+	if (disbursement.status !== "PENDING") {
+		throw new Error(
+			params.finalStatus === "APPROVED"
+				? "Hanya pengajuan PENDING yang bisa disetujui"
+				: "Hanya pengajuan PENDING atau APPROVED yang bisa ditandai sudah ditransfer"
+		);
+	}
+
+	await tx.$queryRaw`SELECT "id" FROM "events" WHERE "id" = ${disbursement.event_id} FOR UPDATE`;
+	await tx.$queryRaw`
+		SELECT "id"
+		FROM "revenue_shares"
+		WHERE "event_id" = ${disbursement.event_id}
+			AND "status" IN ('AVAILABLE', 'PARTIALLY_WITHDRAWN')
+			AND "panitia_amount" - "withdrawn_panitia_amount" > 0
+		FOR UPDATE
+	`;
+
+	const shares = await tx.revenueShare.findMany({
+		where: {
+			eventId: disbursement.event_id,
+			status: { in: ["AVAILABLE", "PARTIALLY_WITHDRAWN"] },
+		},
+		orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+	});
+
+	const availableShares = shares
+		.map((share: any) => ({
+			...share,
+			availableAmount: Math.max(0, Number(share.panitiaAmount) - Number(share.withdrawnPanitiaAmount)),
+		}))
+		.filter((share: any) => share.availableAmount > 0);
+	const finalAmount = roundCurrency(availableShares.reduce((sum: number, share: any) => sum + share.availableAmount, 0));
+
+	if (finalAmount <= 0) {
+		throw new Error("Tidak ada saldo aktif yang bisa ditarik");
+	}
+
+	for (const share of availableShares) {
+		await tx.withdrawalItem.create({
+			data: {
+				withdrawalId: params.disbursementId,
+				revenueShareId: share.id,
+				amount: share.availableAmount,
+			},
+		});
+		await tx.revenueShare.update({
+			where: { id: share.id },
+			data: {
+				withdrawnPanitiaAmount: Number(share.panitiaAmount),
+				status: "WITHDRAWN",
+				withdrawnAt: now,
+			},
+		});
+	}
+
+	return tx.disbursement.update({
+		where: { id: params.disbursementId },
+		data: {
+			amount: finalAmount,
+			status: params.finalStatus,
+			adminNotes: params.adminNotes?.trim() || null,
+			processedById: params.processedById,
+			processedAt: now,
+			...(params.finalStatus === "TRANSFERRED"
+				? {
+						transferProof: params.transferProof?.trim() || null,
+						transferredAt: now,
+				  }
+				: {}),
+		},
+		include: {
+			event: { select: { id: true, title: true } },
+			requestedBy: { select: { id: true, name: true, email: true } },
+			processedBy: { select: { id: true, name: true, email: true } },
+			items: true,
+		},
+	});
+}
+
 // ==========================================
 // PANITIA ROUTES - Request Disbursement
 // ==========================================
@@ -87,7 +270,10 @@ router.get(
 	authorize("SUPERADMIN", "PANITIA"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { eventId } = req.params;
+			const eventId = req.params.eventId;
+			if (!eventId) {
+				return res.status(400).json({ error: "Event ID wajib diisi" });
+			}
 
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
@@ -103,60 +289,48 @@ router.get(
 				return res.status(403).json({ error: "Tidak memiliki akses" });
 			}
 
-			// Get total revenue from ticket + voting sales
-			const [ticketRevenue, votingRevenue] = await Promise.all([
-				prisma.ticketPurchase.aggregate({
-					where: { eventId, status: { in: ["PAID", "USED"] } },
-					_sum: { totalAmount: true },
+			const [ledgerSummary, disbursements, revenueShares] = await Promise.all([
+				getEventRevenueLedgerSummary(prisma, eventId),
+				prisma.disbursement.findMany({
+					where: { eventId },
+					orderBy: { createdAt: "desc" },
+					include: {
+						requestedBy: { select: { id: true, name: true, email: true } },
+						processedBy: { select: { id: true, name: true, email: true } },
+						items: {
+							include: {
+								revenueShare: {
+									include: { transaction: true },
+								},
+							},
+						},
+					},
 				}),
-				prisma.votingPurchase.aggregate({
-					where: { eventId, status: "PAID" },
-					_sum: { totalAmount: true },
-				}),
+				getRevenueShareHistory(prisma, eventId),
 			]);
-
-			const ticketGrossRevenue = ticketRevenue._sum.totalAmount ?? 0;
-			const votingGrossRevenue = votingRevenue._sum.totalAmount ?? 0;
-			const grossRevenue = ticketGrossRevenue + votingGrossRevenue;
-			const { platformShare, panitiaShare, platformShareRate, panitiaShareRate } = calculateRevenueShare(grossRevenue, event.packageTier, event.platformSharePercent);
-
-			// Get all disbursements for this event
-			const disbursements = await prisma.disbursement.findMany({
-				where: { eventId },
-				orderBy: { createdAt: "desc" },
-				include: {
-					requestedBy: { select: { id: true, name: true, email: true } },
-					processedBy: { select: { id: true, name: true, email: true } },
-				},
-			});
-
-			// Calculate totals
-			const totalDisbursed = disbursements
-				.filter((d) => d.status === "TRANSFERRED")
-				.reduce((sum, d) => sum + d.amount, 0);
-			const totalPending = disbursements
-				.filter((d) => d.status === "PENDING" || d.status === "APPROVED")
-				.reduce((sum, d) => sum + d.amount, 0);
-			const remainingBalance = panitiaShare - totalDisbursed - totalPending;
 
 			res.json({
 				event: { id: event.id, title: event.title, startDate: event.startDate },
 				summary: {
-					totalRevenue: panitiaShare,
-					grossRevenue,
-					ticketRevenue: roundCurrency(ticketGrossRevenue * panitiaShareRate),
-					votingRevenue: roundCurrency(votingGrossRevenue * panitiaShareRate),
-					ticketGrossRevenue,
-					votingGrossRevenue,
-					platformShare,
-					panitiaShare,
-					platformShareRate,
-					panitiaShareRate,
-					totalDisbursed,
-					totalPending,
-					remainingBalance,
+					totalRevenue: ledgerSummary.panitiaShare,
+					totalIncome: ledgerSummary.grossRevenue,
+					grossRevenue: ledgerSummary.grossRevenue,
+					ticketRevenue: ledgerSummary.ticketRevenue,
+					votingRevenue: ledgerSummary.votingRevenue,
+					ticketGrossRevenue: ledgerSummary.ticketGrossRevenue,
+					votingGrossRevenue: ledgerSummary.votingGrossRevenue,
+					platformShare: ledgerSummary.platformShare,
+					panitiaShare: ledgerSummary.panitiaShare,
+					platformShareRate: ledgerSummary.platformShareRate,
+					panitiaShareRate: ledgerSummary.panitiaShareRate,
+					totalDisbursed: ledgerSummary.totalWithdrawn,
+					totalWithdrawals: ledgerSummary.totalWithdrawn,
+					totalPending: ledgerSummary.totalPending,
+					remainingBalance: ledgerSummary.activeBalance,
+					activeBalance: ledgerSummary.activeBalance,
 				},
 				disbursements,
+				revenueShares,
 			});
 		} catch (error) {
 			console.error("Error fetching disbursements:", error);
@@ -172,8 +346,12 @@ router.post(
 	authorize("SUPERADMIN", "PANITIA"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { eventId } = req.params;
+			const eventId = req.params.eventId;
 			const { amount, bankName, accountNumber, accountHolder, notes } = req.body;
+
+			if (!eventId) {
+				return res.status(400).json({ error: "Event ID wajib diisi" });
+			}
 
 			const parsedAmount = Number(amount);
 			if (!parsedAmount || !Number.isFinite(parsedAmount) || parsedAmount <= 0 || parsedAmount > 10_000_000_000) {
@@ -197,42 +375,34 @@ router.post(
 				return res.status(403).json({ error: "Tidak memiliki akses" });
 			}
 
-			// Calculate available balance and create disbursement in a single transaction
-			// to prevent race condition where multiple requests pass the balance check
 			const disbursement = await prisma.$transaction(async (tx) => {
-				// Lock existing disbursements for this event to prevent concurrent requests.
+				await tx.$queryRaw`SELECT "id" FROM "events" WHERE "id" = ${eventId} FOR UPDATE`;
 				await tx.$queryRaw`SELECT id FROM "disbursements" WHERE "event_id" = ${eventId} FOR UPDATE`;
-
-				const [ticketRevenue, votingRevenue] = await Promise.all([
-					tx.ticketPurchase.aggregate({
-						where: { eventId, status: { in: ["PAID", "USED"] } },
-						_sum: { totalAmount: true },
-					}),
-					tx.votingPurchase.aggregate({
-						where: { eventId, status: "PAID" },
-						_sum: { totalAmount: true },
-					}),
-				]);
-
-				const grossRevenue = (ticketRevenue._sum.totalAmount ?? 0) + (votingRevenue._sum.totalAmount ?? 0);
-				const { panitiaShare } = calculateRevenueShare(grossRevenue, event.packageTier, event.platformSharePercent);
-
-				const existingDisbursements = await tx.disbursement.findMany({
-					where: { eventId, status: { in: ["PENDING", "APPROVED", "TRANSFERRED"] } },
+				const activeRequest = await tx.disbursement.findFirst({
+					where: { eventId, status: "PENDING" },
+					select: { id: true },
 				});
 
-				const totalCommitted = existingDisbursements.reduce((sum, d) => sum + d.amount, 0);
-				const availableBalance = panitiaShare - totalCommitted;
+				if (activeRequest) {
+					throw new Error("Masih ada pengajuan penarikan yang menunggu ACC admin");
+				}
 
-				if (parsedAmount > availableBalance) {
-					throw new Error(`Saldo tidak mencukupi. Saldo tersedia: Rp ${availableBalance.toLocaleString("id-ID")}`);
+				const ledgerSummary = await getEventRevenueLedgerSummary(tx, eventId);
+				const availableBalance = roundCurrency(ledgerSummary.activeBalance);
+
+				if (availableBalance <= 0) {
+					throw new Error("Belum ada saldo aktif yang bisa ditarik");
+				}
+
+				if (roundCurrency(parsedAmount) !== availableBalance) {
+					throw new Error(`Penarikan harus sebesar seluruh saldo aktif periode ini: Rp ${availableBalance.toLocaleString("id-ID")}`);
 				}
 
 				return tx.disbursement.create({
 					data: {
 						eventId: event.id,
 						requestedById: req.user!.userId,
-						amount: parsedAmount,
+						amount: availableBalance,
 						bankName: bankName.trim(),
 						accountNumber: accountNumber.trim(),
 						accountHolder: accountHolder.trim(),
@@ -249,8 +419,10 @@ router.post(
 				disbursement,
 			});
 		} catch (error: any) {
-			// Handle balance insufficient error from transaction
-			if (error.message?.includes("Saldo tidak mencukupi")) {
+			if (
+				error.message?.includes("saldo aktif") ||
+				error.message?.includes("pengajuan penarikan")
+			) {
 				return res.status(400).json({ error: error.message });
 			}
 			console.error("Error creating disbursement:", error);
@@ -646,38 +818,28 @@ router.patch(
 	authorize("SUPERADMIN"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { disbursementId } = req.params;
+			const disbursementId = req.params.disbursementId;
 			const { adminNotes } = req.body;
 
-			const disbursement = await prisma.disbursement.findUnique({
-				where: { id: disbursementId },
-			});
-
-			if (!disbursement) {
-				return res.status(404).json({ error: "Pengajuan tidak ditemukan" });
+			if (!disbursementId) {
+				return res.status(400).json({ error: "ID pengajuan wajib diisi" });
 			}
 
-			if (disbursement.status !== "PENDING") {
-				return res.status(400).json({ error: "Hanya pengajuan PENDING yang bisa disetujui" });
-			}
-
-			const updated = await prisma.disbursement.update({
-				where: { id: disbursementId },
-				data: {
-					status: "APPROVED",
-					adminNotes: adminNotes?.trim() || null,
+			const updated = await prisma.$transaction((tx) => {
+				return finalizeEventDisbursement(tx, {
+					disbursementId,
 					processedById: req.user!.userId,
-					processedAt: new Date(),
-				},
-				include: {
-					event: { select: { id: true, title: true } },
-					requestedBy: { select: { id: true, name: true, email: true } },
-					processedBy: { select: { id: true, name: true, email: true } },
-				},
+					adminNotes,
+					finalStatus: "APPROVED",
+				});
 			});
 
 			res.json({ message: "Pengajuan pencairan disetujui", disbursement: updated });
-		} catch (error) {
+		} catch (error: any) {
+			if (error.message?.includes("Pengajuan") || error.message?.includes("saldo") || error.message?.includes("PENDING")) {
+				const status = error.message?.includes("tidak ditemukan") ? 404 : 400;
+				return res.status(status).json({ error: error.message });
+			}
 			console.error("Error approving disbursement:", error);
 			res.status(500).json({ error: "Gagal menyetujui pengajuan" });
 		}
@@ -691,40 +853,29 @@ router.patch(
 	authorize("SUPERADMIN"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			const { disbursementId } = req.params;
+			const disbursementId = req.params.disbursementId;
 			const { adminNotes, transferProof } = req.body;
 
-			const disbursement = await prisma.disbursement.findUnique({
-				where: { id: disbursementId },
-			});
-
-			if (!disbursement) {
-				return res.status(404).json({ error: "Pengajuan tidak ditemukan" });
+			if (!disbursementId) {
+				return res.status(400).json({ error: "ID pengajuan wajib diisi" });
 			}
 
-			if (disbursement.status !== "PENDING" && disbursement.status !== "APPROVED") {
-				return res.status(400).json({ error: "Hanya pengajuan PENDING atau APPROVED yang bisa ditandai sudah ditransfer" });
-			}
-
-			const updated = await prisma.disbursement.update({
-				where: { id: disbursementId },
-				data: {
-					status: "TRANSFERRED",
-					adminNotes: adminNotes?.trim() || disbursement.adminNotes,
+			const updated = await prisma.$transaction((tx) => {
+				return finalizeEventDisbursement(tx, {
+					disbursementId,
 					processedById: req.user!.userId,
-					processedAt: new Date(),
-					transferProof: transferProof?.trim() || null,
-					transferredAt: new Date(),
-				},
-				include: {
-					event: { select: { id: true, title: true } },
-					requestedBy: { select: { id: true, name: true, email: true } },
-					processedBy: { select: { id: true, name: true, email: true } },
-				},
+					adminNotes,
+					finalStatus: "TRANSFERRED",
+					transferProof,
+				});
 			});
 
 			res.json({ message: "Pencairan berhasil ditandai sudah ditransfer", disbursement: updated });
-		} catch (error) {
+		} catch (error: any) {
+			if (error.message?.includes("Pengajuan") || error.message?.includes("saldo") || error.message?.includes("PENDING")) {
+				const status = error.message?.includes("tidak ditemukan") ? 404 : 400;
+				return res.status(status).json({ error: error.message });
+			}
 			console.error("Error marking transfer:", error);
 			res.status(500).json({ error: "Gagal memproses pencairan" });
 		}
@@ -753,8 +904,8 @@ router.patch(
 				return res.status(404).json({ error: "Pengajuan tidak ditemukan" });
 			}
 
-			if (disbursement.status === "TRANSFERRED") {
-				return res.status(400).json({ error: "Pencairan yang sudah ditransfer tidak bisa ditolak" });
+			if (disbursement.status !== "PENDING") {
+				return res.status(400).json({ error: "Hanya pengajuan PENDING yang bisa ditolak" });
 			}
 
 			const updated = await prisma.disbursement.update({

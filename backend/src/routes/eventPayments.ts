@@ -7,6 +7,7 @@ import {
 	PaymentPrefix,
 	isMidtransConfigured,
 } from "../lib/midtrans";
+import { getEventRevenueLedgerSummary } from "../lib/revenueLedger";
 
 const router = Router();
 
@@ -581,46 +582,22 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 			prisma.event.count({ where }),
 		]);
 
-		const eventIds = events.map((event) => event.id);
-		const [ticketRevenueByEvent, votingRevenueByEvent] = eventIds.length
-			? await Promise.all([
-					prisma.ticketPurchase.groupBy({
-						by: ["eventId"],
-						where: {
-							eventId: { in: eventIds },
-							status: { in: ["PAID", "USED"] },
-						},
-						_sum: { totalAmount: true },
-					}),
-					prisma.votingPurchase.groupBy({
-						by: ["eventId"],
-						where: {
-							eventId: { in: eventIds },
-							status: "PAID",
-						},
-						_sum: { totalAmount: true },
-					}),
-				])
-			: [[], []];
-
-		const ticketRevenueMap = new Map(
-			ticketRevenueByEvent.map((item) => [item.eventId, item._sum.totalAmount ?? 0])
-		);
-		const votingRevenueMap = new Map(
-			votingRevenueByEvent.map((item) => [item.eventId, item._sum.totalAmount ?? 0])
-		);
-		const eventsWithRevenue = events.map((event) => {
-			const ticketGrossRevenue = ticketRevenueMap.get(event.id) ?? 0;
-			const votingGrossRevenue = votingRevenueMap.get(event.id) ?? 0;
-
+		const revenueSummaries = await Promise.all(events.map((event) => getEventRevenueLedgerSummary(prisma, event.id)));
+		const eventsWithRevenue = events.map((event, index) => {
+			const summary = revenueSummaries[index]!;
 			return {
 				...event,
-				revenueSummary: calculateRevenueSummary(
-					ticketGrossRevenue,
-					votingGrossRevenue,
-					event.packageTier,
-					event.platformSharePercent
-				),
+				revenueSummary: {
+					grossRevenue: summary.grossRevenue,
+					ticketGrossRevenue: summary.ticketGrossRevenue,
+					votingGrossRevenue: summary.votingGrossRevenue,
+					platformShare: summary.platformShare,
+					panitiaShare: summary.panitiaShare,
+					platformShareRate: summary.platformShareRate,
+					panitiaShareRate: summary.panitiaShareRate,
+					activeBalance: summary.activeBalance,
+					totalWithdrawn: summary.totalWithdrawn,
+				},
 			};
 		});
 

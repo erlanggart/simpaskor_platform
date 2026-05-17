@@ -31,6 +31,7 @@ interface DisbursementData {
 
 interface Summary {
 	totalRevenue: number;
+	totalIncome: number;
 	ticketRevenue: number;
 	votingRevenue: number;
 	grossRevenue: number;
@@ -43,6 +44,25 @@ interface Summary {
 	totalDisbursed: number;
 	totalPending: number;
 	remainingBalance: number;
+	activeBalance: number;
+	totalWithdrawals: number;
+}
+
+interface RevenueShareHistory {
+	id: string;
+	sourceType: "TICKET" | "VOTING";
+	sourceCode: string | null;
+	nominalTransaksi: number;
+	platformSharePercent: number;
+	panitiaSharePercent: number;
+	platformAmount: number;
+	panitiaAmount: number;
+	withdrawnPanitiaAmount: number;
+	activePanitiaAmount: number;
+	fundStatus: string;
+	paidAt: string;
+	createdAt: string;
+	withdrawnAt: string | null;
 }
 
 const formatCurrency = (amount: number) =>
@@ -56,6 +76,7 @@ const EventDisbursement: React.FC = () => {
 	const [loading, setLoading] = useState(true);
 	const [summary, setSummary] = useState<Summary | null>(null);
 	const [disbursements, setDisbursements] = useState<DisbursementData[]>([]);
+	const [revenueShares, setRevenueShares] = useState<RevenueShareHistory[]>([]);
 	const [showForm, setShowForm] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 
@@ -90,6 +111,7 @@ const EventDisbursement: React.FC = () => {
 			const res = await api.get(`/disbursements/event/${eventId}`);
 			setSummary(res.data.summary);
 			setDisbursements(res.data.disbursements);
+			setRevenueShares(res.data.revenueShares || []);
 		} catch (err: any) {
 			console.error("Error fetching disbursements:", err);
 		} finally {
@@ -106,6 +128,10 @@ const EventDisbursement: React.FC = () => {
 		}
 		if (!bankName.trim() || !accountNumber.trim() || !accountHolder.trim()) {
 			Swal.fire("Error", "Data rekening bank wajib diisi lengkap", "error");
+			return;
+		}
+		if (summary && Math.round(parsedAmount) !== Math.round(summary.activeBalance)) {
+			Swal.fire("Jumlah harus sesuai saldo aktif", `Penarikan periode ini harus sebesar ${formatCurrency(summary.activeBalance)} agar saldo lama dikunci dan saldo berjalan reset.`, "warning");
 			return;
 		}
 
@@ -244,14 +270,18 @@ const EventDisbursement: React.FC = () => {
 			{/* Request Button / Info */}
 			<div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
 				<button
-					onClick={() => setShowForm(!showForm)}
+					onClick={() => {
+						const next = !showForm;
+						setShowForm(next);
+						if (next && summary) setAmount(String(Math.round(summary.activeBalance)));
+					}}
 					className="flex items-center justify-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors shadow-sm"
 				>
 					<PlusIcon className="w-5 h-5" />
 					{showForm ? "Tutup Form" : "Ajukan Pencairan"}
 				</button>
 				<div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-					Pencairan dapat diajukan kapan saja selama tidak melebihi saldo tersedia. Proses transfer membutuhkan waktu hingga 4 hari kerja.
+					Saat pengajuan disetujui admin, seluruh saldo aktif periode ini dikunci permanen dan saldo berjalan dimulai lagi dari nol.
 				</div>
 			</div>
 
@@ -279,7 +309,7 @@ const EventDisbursement: React.FC = () => {
 									/>
 								</div>
 								{summary && (
-									<p className="text-xs text-gray-400 mt-1">Maksimal sesuai saldo tersedia: {formatCurrency(summary.remainingBalance)}</p>
+									<p className="text-xs text-gray-400 mt-1">Harus sesuai saldo aktif periode ini: {formatCurrency(summary.activeBalance)}</p>
 								)}
 							</div>
 							<div>
@@ -434,6 +464,54 @@ const EventDisbursement: React.FC = () => {
 								)}
 							</div>
 						))}
+					</div>
+				)}
+			</div>
+
+			{/* Revenue Share History */}
+			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm mt-6">
+				<div className="p-6 border-b border-gray-200 dark:border-gray-700">
+					<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Histori Pembagian Persentase</h3>
+				</div>
+				{revenueShares.length === 0 ? (
+					<div className="p-8 text-sm text-gray-500 dark:text-gray-400">Belum ada transaksi berbayar yang masuk ke histori bagi hasil.</div>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="min-w-full text-sm">
+							<thead className="bg-gray-50 dark:bg-gray-900/40 text-xs uppercase text-gray-500 dark:text-gray-400">
+								<tr>
+									<th className="px-4 py-3 text-left">Transaksi</th>
+									<th className="px-4 py-3 text-right">Nominal</th>
+									<th className="px-4 py-3 text-right">Simpaskor</th>
+									<th className="px-4 py-3 text-right">Panitia</th>
+									<th className="px-4 py-3 text-left">Status Dana</th>
+									<th className="px-4 py-3 text-left">Waktu</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+								{revenueShares.map((share) => (
+									<tr key={share.id}>
+										<td className="px-4 py-3">
+											<p className="font-semibold text-gray-900 dark:text-white">{share.sourceType === "TICKET" ? "Tiket" : "Vote"}</p>
+											<p className="text-xs text-gray-400">{share.sourceCode || "-"}</p>
+										</td>
+										<td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{formatCurrency(share.nominalTransaksi)}</td>
+										<td className="px-4 py-3 text-right">
+											<p className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(share.platformAmount)}</p>
+											<p className="text-xs text-gray-400">{share.platformSharePercent}%</p>
+										</td>
+										<td className="px-4 py-3 text-right">
+											<p className="font-semibold text-blue-600 dark:text-blue-400">{formatCurrency(share.panitiaAmount)}</p>
+											<p className="text-xs text-gray-400">{share.panitiaSharePercent}%</p>
+										</td>
+										<td className="px-4 py-3 capitalize text-gray-700 dark:text-gray-300">{share.fundStatus}</td>
+										<td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+											{new Date(share.paidAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
 					</div>
 				)}
 			</div>

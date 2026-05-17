@@ -1200,6 +1200,21 @@ router.patch(
 					});
 				}
 
+				await tx.$queryRaw`SELECT "id" FROM "events" WHERE "id" = ${purchase.eventId} FOR UPDATE`;
+				const ledgerTransaction = await tx.transaction.findUnique({
+					where: {
+						sourceType_sourceId: {
+							sourceType: "TICKET",
+							sourceId: purchase.id,
+						},
+					},
+					include: { revenueShare: true },
+				});
+
+				if (ledgerTransaction?.revenueShare && Number(ledgerTransaction.revenueShare.withdrawnPanitiaAmount) > 0) {
+					throw new Error("Tiket tidak bisa dibatalkan karena dana transaksi sudah masuk histori penarikan.");
+				}
+
 				await tx.ticketAttendee.updateMany({
 					where: { purchaseId: purchase.id, status: { in: ["PAID", "PENDING"] } },
 					data: { status: "CANCELLED" },
@@ -1208,6 +1223,18 @@ router.patch(
 					where: { eventId: purchase.eventId },
 					data: { soldCount: { decrement: purchase.quantity } },
 				});
+				if (ledgerTransaction) {
+					await tx.transaction.update({
+						where: { id: ledgerTransaction.id },
+						data: { status: "CANCELLED" },
+					});
+					if (ledgerTransaction.revenueShare) {
+						await tx.revenueShare.update({
+							where: { id: ledgerTransaction.revenueShare.id },
+							data: { status: "CANCELLED" },
+						});
+					}
+				}
 				return tx.ticketPurchase.update({
 					where: { id: purchase.id },
 					data: { status: "CANCELLED" },
@@ -1215,7 +1242,10 @@ router.patch(
 			});
 
 			res.json(updated);
-		} catch (error) {
+		} catch (error: any) {
+			if (error.message?.includes("histori penarikan")) {
+				return res.status(400).json({ error: error.message });
+			}
 			console.error("Error updating ticket status:", error);
 			res.status(500).json({ error: "Gagal mengubah status tiket" });
 		}
