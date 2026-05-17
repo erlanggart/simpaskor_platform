@@ -7,7 +7,7 @@ import {
 	PaymentPrefix,
 	isMidtransConfigured,
 } from "../lib/midtrans";
-import { getEventRevenueLedgerSummary } from "../lib/revenueLedger";
+import { getEventRevenueLedgerSummary, reconcileEventRevenueLedger } from "../lib/revenueLedger";
 
 const router = Router();
 
@@ -582,6 +582,7 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 			prisma.event.count({ where }),
 		]);
 
+		await Promise.all(events.map((event) => prisma.$transaction((tx) => reconcileEventRevenueLedger(tx, event.id))));
 		const revenueSummaries = await Promise.all(events.map((event) => getEventRevenueLedgerSummary(prisma, event.id)));
 		const eventsWithRevenue = events.map((event, index) => {
 			const summary = revenueSummaries[index]!;

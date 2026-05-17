@@ -6,7 +6,7 @@ import {
 	AuthenticatedRequest,
 } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
-import { getEventRevenueLedgerSummary } from "../lib/revenueLedger";
+import { getEventRevenueLedgerSummary, reconcileEventRevenueLedger } from "../lib/revenueLedger";
 
 const router = Router();
 
@@ -161,13 +161,14 @@ async function finalizeEventDisbursement(
 	const now = new Date();
 
 	if (disbursement.status === "APPROVED" && params.finalStatus === "TRANSFERRED") {
+		const processedAt = disbursement.processed_at ?? now;
 		return tx.disbursement.update({
 			where: { id: params.disbursementId },
 			data: {
 				status: "TRANSFERRED",
 				adminNotes: params.adminNotes?.trim() || disbursement.admin_notes,
 				processedById: params.processedById,
-				processedAt: now,
+				processedAt,
 				transferProof: params.transferProof?.trim() || null,
 				transferredAt: now,
 			},
@@ -289,6 +290,8 @@ router.get(
 				return res.status(403).json({ error: "Tidak memiliki akses" });
 			}
 
+			await prisma.$transaction((tx) => reconcileEventRevenueLedger(tx, eventId));
+
 			const [ledgerSummary, disbursements, revenueShares] = await Promise.all([
 				getEventRevenueLedgerSummary(prisma, eventId),
 				prisma.disbursement.findMany({
@@ -386,6 +389,8 @@ router.post(
 				if (activeRequest) {
 					throw new Error("Masih ada pengajuan penarikan yang menunggu ACC admin");
 				}
+
+				await reconcileEventRevenueLedger(tx, eventId);
 
 				const ledgerSummary = await getEventRevenueLedgerSummary(tx, eventId);
 				const availableBalance = roundCurrency(ledgerSummary.activeBalance);
@@ -621,6 +626,7 @@ router.get(
 						.map((item) => item.event!.id)
 				)
 			);
+			await Promise.all(paginatedEventIds.map((eventId) => prisma.$transaction((tx) => reconcileEventRevenueLedger(tx, eventId))));
 			const eventBalanceEntries = await Promise.all(
 				paginatedEventIds.map(async (eventId) => [eventId, await getEventRevenueLedgerSummary(prisma, eventId)] as const)
 			);
