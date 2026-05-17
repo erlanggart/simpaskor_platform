@@ -637,10 +637,12 @@ router.get(
 				if (item.kind !== "EVENT" || !item.event?.id) return item;
 				const balance = eventBalanceMap.get(item.event.id);
 				const eventRecord = (item as any).event as { packageTier?: string | null; platformSharePercent?: number | null } | null;
-				const { platformShareRate, panitiaShareRate } = getRevenueShareRates(
+				const { platformShareRate } = getRevenueShareRates(
 					eventRecord?.packageTier ?? null,
 					eventRecord?.platformSharePercent ?? null
 				);
+				const platformSharePercent = Math.round(platformShareRate * 10000) / 100;
+				const panitiaSharePercent = Math.round((100 - platformSharePercent) * 100) / 100;
 				return {
 					...item,
 					eventBalance: balance
@@ -655,8 +657,8 @@ router.get(
 								totalWithdrawn: balance.totalWithdrawn,
 								totalPending: balance.totalPending,
 								activeBalance: balance.activeBalance,
-								platformSharePercent: Math.round(platformShareRate * 100),
-								panitiaSharePercent: Math.round(panitiaShareRate * 100),
+								platformSharePercent,
+								panitiaSharePercent,
 						  }
 						: null,
 				};
