@@ -614,6 +614,36 @@ router.get(
 
 			const total = disbursements.length;
 			const paginated = disbursements.slice(skip, skip + limitNum);
+			const paginatedEventIds = Array.from(
+				new Set(
+					paginated
+						.filter((item) => item.kind === "EVENT" && item.event?.id)
+						.map((item) => item.event!.id)
+				)
+			);
+			const eventBalanceEntries = await Promise.all(
+				paginatedEventIds.map(async (eventId) => [eventId, await getEventRevenueLedgerSummary(prisma, eventId)] as const)
+			);
+			const eventBalanceMap = new Map(eventBalanceEntries);
+			const data = paginated.map((item) => {
+				if (item.kind !== "EVENT" || !item.event?.id) return item;
+				const balance = eventBalanceMap.get(item.event.id);
+				return {
+					...item,
+					eventBalance: balance
+						? {
+								grossRevenue: balance.grossRevenue,
+								ticketGrossRevenue: balance.ticketGrossRevenue,
+								votingGrossRevenue: balance.votingGrossRevenue,
+								platformShare: balance.platformShare,
+								panitiaShare: balance.panitiaShare,
+								totalWithdrawn: balance.totalWithdrawn,
+								totalPending: balance.totalPending,
+								activeBalance: balance.activeBalance,
+						  }
+						: null,
+				};
+			});
 
 			// Summary stats
 			const [pendingTotal, approvedTotal, transferredTotal, mitraPendingTotal, mitraApprovedTotal, mitraTransferredTotal] = await Promise.all([
@@ -626,7 +656,7 @@ router.get(
 			]);
 
 			res.json({
-				data: paginated,
+				data,
 				total,
 				page: pageNum,
 				totalPages: Math.ceil(total / limitNum),

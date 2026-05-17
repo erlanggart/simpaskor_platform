@@ -26,6 +26,16 @@ interface DisbursementItem {
 	processedAt: string | null;
 	createdAt: string;
 	event: { id: string; title: string; startDate: string; slug: string | null } | null;
+	eventBalance?: {
+		grossRevenue: number;
+		ticketGrossRevenue: number;
+		votingGrossRevenue: number;
+		platformShare: number;
+		panitiaShare: number;
+		totalWithdrawn: number;
+		totalPending: number;
+		activeBalance: number;
+	} | null;
 	mitraProfile?: {
 		id: string;
 		referralCode: string;
@@ -171,6 +181,40 @@ const DisbursementManagement: React.FC = () => {
 		}
 	};
 
+	const renderEventBalance = (item: DisbursementItem) => {
+		if (item.kind !== "EVENT" || !item.eventBalance) return null;
+		const balance = item.eventBalance;
+
+		return (
+			<div className="bg-slate-50 dark:bg-gray-900/40 border border-slate-200 dark:border-gray-700 rounded-lg p-3 mb-3">
+				<div className="flex items-center justify-between gap-3 mb-2">
+					<p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">Saldo Event</p>
+					<p className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(balance.activeBalance)}</p>
+				</div>
+				<div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+					<div>
+						<p className="text-xs text-gray-400">Pemasukan</p>
+						<p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(balance.grossRevenue)}</p>
+						<p className="text-[11px] text-gray-400">Tiket {formatCurrency(balance.ticketGrossRevenue)} - Vote {formatCurrency(balance.votingGrossRevenue)}</p>
+					</div>
+					<div>
+						<p className="text-xs text-gray-400">Hak Panitia</p>
+						<p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(balance.panitiaShare)}</p>
+					</div>
+					<div>
+						<p className="text-xs text-gray-400">SIMPASKOR</p>
+						<p className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(balance.platformShare)}</p>
+					</div>
+					<div>
+						<p className="text-xs text-gray-400">Sudah Dikunci</p>
+						<p className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(balance.totalWithdrawn)}</p>
+						<p className="text-[11px] text-gray-400">Menunggu {formatCurrency(balance.totalPending)}</p>
+					</div>
+				</div>
+			</div>
+		);
+	};
+
 	return (
 		<div className="p-6 max-w-7xl mx-auto">
 			{/* Header */}
@@ -273,16 +317,18 @@ const DisbursementManagement: React.FC = () => {
 										<p className="text-xs text-gray-400 mt-0.5">
 											Diajukan oleh {d.requestedBy.name} ({d.requestedBy.email}) · {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
 										</p>
-										{d.kind === "MITRA" && d.mitraProfile && (
-											<p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">
-												Mitra: {d.mitraProfile.user.name} - Kode {d.mitraProfile.referralCode}
-											</p>
-										)}
+								{d.kind === "MITRA" && d.mitraProfile && (
+									<p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">
+										Mitra: {d.mitraProfile.user.name} - Kode {d.mitraProfile.referralCode}
+									</p>
+								)}
 									</div>
 									<div className="flex items-center gap-2">
 										{getStatusBadge(d.status)}
 									</div>
 								</div>
+
+								{renderEventBalance(d)}
 
 								{/* Bank Details */}
 								<div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 mb-3">
