@@ -30,17 +30,6 @@ import Swal from "sweetalert2";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
 import VoteGuideCard from "../components/landing/VoteGuideCard";
 
-type VoteCodeInfo = {
-	purchaseCode: string;
-	eventId: string;
-	eventTitle?: string;
-	status: string;
-	voteCount: number;
-	usedVotes: number;
-	remainingVotes: number;
-	message?: string;
-};
-
 const VOTING_ADMIN_FEE_PER_VOTE = 500;
 const VOTING_MAX_ADMIN_FEE = 10000;
 
@@ -73,13 +62,8 @@ const EVotingPage: React.FC = () => {
 	const [voteCount, setVoteCount] = useState(1);
 	const [purchasing, setPurchasing] = useState(false);
 
-	// Purchase code entry for paid voting
-	const [showCodeEntry, setShowCodeEntry] = useState(false);
-	const [purchaseCode, setPurchaseCode] = useState("");
-	const [voteCodeInfo, setVoteCodeInfo] = useState<VoteCodeInfo | null>(null);
-	const [checkingVoteCode, setCheckingVoteCode] = useState(false);
 	const [paidVoteTarget, setPaidVoteTarget] = useState<{ categoryId: string; nomineeId: string } | null>(null);
-	const normalizePurchaseCode = (value: string) => value.toUpperCase().replace(/[\s\u200B-\u200D\uFEFF]+/g, "");
+	const normalizeVoteCount = (value: string) => Math.max(1, parseInt(value, 10) || 1);
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -123,54 +107,11 @@ const EVotingPage: React.FC = () => {
 		}
 	};
 
-	const clearActiveVoteCode = () => {
-		setPurchaseCode("");
-		setVoteCodeInfo(null);
-		setPaidVoteTarget(null);
-		setShowCodeEntry(false);
-	};
-
 	const openVotingEvent = (eventId: string) => {
-		clearActiveVoteCode();
+		setPaidVoteTarget(null);
+		setShowPurchaseModal(false);
 		setVotedNominees(new Set());
 		fetchEventDetail(eventId);
-	};
-
-	const checkVoteCode = async (code = purchaseCode): Promise<VoteCodeInfo | null> => {
-		const normalizedCode = normalizePurchaseCode(code);
-		if (!normalizedCode) {
-			Swal.fire("Kode Kosong", "Masukkan kode vote atau ID pesanan terlebih dahulu", "warning");
-			return null;
-		}
-
-		try {
-			setCheckingVoteCode(true);
-			const res = await api.post("/voting/code-status", {
-				purchaseCode: normalizedCode,
-				eventId: selectedEvent?.id,
-			});
-			const codeInfo: VoteCodeInfo = res.data;
-			setPurchaseCode(codeInfo.purchaseCode);
-			setVoteCodeInfo(codeInfo);
-
-			if (codeInfo.status !== "PAID") {
-				Swal.fire("Kode Belum Aktif", codeInfo.message || "Kode vote belum bisa digunakan", "warning");
-				return null;
-			}
-			if (codeInfo.remainingVotes <= 0) {
-				Swal.fire("Vote Habis", "Semua vote pada kode ini sudah digunakan", "info");
-				return null;
-			}
-
-			return codeInfo;
-		} catch (err: any) {
-			const message = err.response?.data?.error || "Gagal memeriksa kode vote";
-			setVoteCodeInfo(null);
-			Swal.fire("Gagal", message, "error");
-			return null;
-		} finally {
-			setCheckingVoteCode(false);
-		}
 	};
 
 	const formatDate = (date: string) => {
@@ -241,69 +182,9 @@ const EVotingPage: React.FC = () => {
 		}
 	};
 
-	const castPaidVote = async (target: { categoryId: string; nomineeId: string }, code: string) => {
-		try {
-			setVoting(true);
-			const normalizedCode = normalizePurchaseCode(code);
-			const res = await api.post("/voting/vote-paid", {
-				categoryId: target.categoryId,
-				nomineeId: target.nomineeId,
-				purchaseCode: normalizedCode,
-				voterName: user?.name || undefined,
-				voterEmail: user?.email || undefined,
-			});
-			const activeCode = res.data.purchaseCode || normalizedCode;
-
-			const nextCodeInfo: VoteCodeInfo = {
-				purchaseCode: activeCode,
-				eventId: selectedEvent?.id || "",
-				status: "PAID",
-				voteCount: res.data.voteCount,
-				usedVotes: res.data.usedVotes,
-				remainingVotes: res.data.remainingVotes,
-				message: res.data.remainingVotes > 0 ? "Kode vote aktif" : "Semua vote pada kode ini sudah digunakan",
-			};
-			setPurchaseCode(activeCode);
-			setVoteCodeInfo(nextCodeInfo);
-			setShowCodeEntry(false);
-			setPaidVoteTarget(null);
-
-			Swal.fire({
-				title: "Vote Berhasil!",
-				text: `Sisa vote pada kode ini: ${nextCodeInfo.remainingVotes}`,
-				icon: "success",
-				timer: 1500,
-				showConfirmButton: false,
-			});
-
-			if (selectedEvent) {
-				fetchEventDetail(selectedEvent.id);
-			}
-		} catch (err: any) {
-			Swal.fire("Gagal", err.response?.data?.error || "Gagal melakukan vote", "error");
-		} finally {
-			setVoting(false);
-		}
-	};
-
 	const handlePaidVote = async (categoryId: string, nomineeId: string) => {
-		const target = { categoryId, nomineeId };
-		if (voteCodeInfo?.status === "PAID" && voteCodeInfo.remainingVotes > 0 && purchaseCode.trim()) {
-			await castPaidVote(target, purchaseCode);
-			return;
-		}
-
-		setPaidVoteTarget(target);
-		setShowCodeEntry(true);
-	};
-
-	const submitPaidVote = async () => {
-		if (!paidVoteTarget || !purchaseCode.trim()) return;
-
-		const codeInfo = await checkVoteCode(purchaseCode);
-		if (!codeInfo) return;
-
-		await castPaidVote(paidVoteTarget, codeInfo.purchaseCode);
+		setPaidVoteTarget({ categoryId, nomineeId });
+		setShowPurchaseModal(true);
 	};
 
 	const handlePurchaseVotes = async () => {
@@ -311,8 +192,19 @@ const EVotingPage: React.FC = () => {
 			Swal.fire("Error", "Nama dan email wajib diisi", "error");
 			return;
 		}
+		if (!paidVoteTarget) {
+			Swal.fire("Pilih Nominee", "Pilih nominee yang ingin diberi vote terlebih dahulu", "warning");
+			return;
+		}
 		if (!isGmailEmail(buyerEmail)) {
 			Swal.fire("Error", `Email pembeli ${GMAIL_ONLY_EMAIL_MESSAGE}`, "error");
+			return;
+		}
+
+		const targetCategory = selectedEvent.votingConfig?.categories.find((category) => category.id === paidVoteTarget.categoryId);
+		const targetNominee = targetCategory?.nominees?.find((nominee) => nominee.id === paidVoteTarget.nomineeId);
+		if (!targetCategory || !targetNominee) {
+			Swal.fire("Gagal", "Nominee tidak ditemukan. Muat ulang halaman lalu coba lagi.", "error");
 			return;
 		}
 
@@ -320,6 +212,8 @@ const EVotingPage: React.FC = () => {
 			setPurchasing(true);
 			const res = await api.post("/voting/purchase", {
 				eventId: selectedEvent.id,
+				categoryId: paidVoteTarget.categoryId,
+				nomineeId: paidVoteTarget.nomineeId,
 				buyerName: buyerName.trim(),
 				buyerEmail: buyerEmail.trim(),
 				buyerPhone: buyerPhone.trim() || undefined,
@@ -343,38 +237,28 @@ const EVotingPage: React.FC = () => {
 							if (confirmRes.data.status !== "PAID") {
 								throw new Error(confirmRes.data.message || "Pembayaran vote belum dikonfirmasi");
 							}
-							const normalizedCode = normalizePurchaseCode(purchaseCode);
-							const confirmedVoteCount = confirmRes.data.voteCount ?? voteCount;
-							const confirmedUsedVotes = confirmRes.data.usedVotes ?? 0;
-							setPurchaseCode(normalizedCode);
-							setVoteCodeInfo({
-								purchaseCode: normalizedCode,
-								eventId: selectedEvent.id,
-								status: "PAID",
-								voteCount: confirmedVoteCount,
-								usedVotes: confirmedUsedVotes,
-								remainingVotes: Math.max(0, confirmedVoteCount - confirmedUsedVotes),
-								message: "Kode vote aktif",
-							});
+							const confirmedVoteCount = confirmRes.data.appliedVotes || confirmRes.data.voteCount || voteCount;
+							setPaidVoteTarget(null);
 							Swal.fire({
-								title: "Pembayaran Berhasil!",
+								title: "Vote Berhasil!",
 								html: `<div class="text-left space-y-2">
-									<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
-									<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
+									<p><strong>Nominee:</strong> ${targetNominee.nomineeName}</p>
+									<p><strong>Jumlah Vote:</strong> ${confirmedVoteCount}</p>
 									<p><strong>Subtotal Vote:</strong> ${formatCurrency(totalAmount)}</p>
 									<p><strong>Biaya Admin:</strong> ${formatCurrency(adminFee)}</p>
 									<p><strong>Total sebelum QRIS:</strong> ${formatCurrency(paymentAmount)}</p>
-									<p class="text-sm text-gray-500 mt-3">Kode vote juga dikirim ke email Anda dan sudah aktif di halaman ini.</p>
+									<p class="text-sm text-gray-500 mt-3">Vote langsung masuk ke nominee setelah pembayaran terkonfirmasi.</p>
 								</div>`,
 								icon: "success",
 								confirmButtonColor: "#dc2626",
 							});
+							fetchEventDetail(selectedEvent.id);
 						} catch (err: any) {
 							Swal.fire({
 								title: "Menunggu Konfirmasi Pembayaran",
 								html: `<div class="text-left space-y-2">
 									<p>Pembayaran sudah diterima Midtrans, tetapi server masih menunggu konfirmasi.</p>
-									<p class="text-sm text-gray-500">Kode vote akan aktif dan dikirim ke email setelah pembayaran terkonfirmasi. Coba lagi beberapa saat lagi.</p>
+									<p class="text-sm text-gray-500">Vote akan otomatis masuk ke nominee setelah pembayaran terkonfirmasi.</p>
 								</div>`,
 								icon: "info",
 								confirmButtonColor: "#dc2626",
@@ -385,7 +269,7 @@ const EVotingPage: React.FC = () => {
 					onPending: () => {
 						Swal.fire({
 							title: "Menunggu Pembayaran",
-							html: `<p>Pembayaran sedang diproses. Kode vote akan dikirim ke email Anda setelah pembayaran dikonfirmasi.</p>`,
+							html: `<p>Pembayaran sedang diproses. Vote akan otomatis masuk ke nominee setelah pembayaran dikonfirmasi.</p>`,
 							icon: "info",
 							confirmButtonColor: "#dc2626",
 						});
@@ -394,44 +278,34 @@ const EVotingPage: React.FC = () => {
 						Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Vote tidak aktif.", "error");
 					},
 					onClose: () => {
-						Swal.fire("Pembayaran Belum Selesai", "Pembayaran belum dilakukan. Kode vote akan dikirim ke email Anda setelah pembayaran berhasil.", "warning");
+						Swal.fire("Pembayaran Belum Selesai", "Pembayaran belum dilakukan. Vote masuk setelah pembayaran berhasil.", "warning");
 					},
 				});
 			} else if (totalAmount === 0) {
 				setShowPurchaseModal(false);
-				const normalizedCode = normalizePurchaseCode(purchaseCode);
-				setPurchaseCode(normalizedCode);
-				setVoteCodeInfo({
-					purchaseCode: normalizedCode,
-					eventId: selectedEvent.id,
-					status: "PAID",
-					voteCount,
-					usedVotes: 0,
-					remainingVotes: voteCount,
-					message: "Kode vote aktif",
-				});
+				setPaidVoteTarget(null);
 				Swal.fire({
 					title: res.data.message,
 					html: `<div class="text-left space-y-2">
-						<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
+						<p><strong>Nominee:</strong> ${targetNominee.nomineeName}</p>
 						<p><strong>Jumlah Vote:</strong> ${voteCount}</p>
 						<p><strong>Subtotal Vote:</strong> ${formatCurrency(totalAmount)}</p>
 						<p><strong>Biaya Admin:</strong> ${formatCurrency(adminFee)}</p>
 						<p><strong>Total sebelum QRIS:</strong> ${formatCurrency(paymentAmount)}</p>
-						<p class="text-sm text-gray-500 mt-3">Kode ini sudah aktif di halaman ini. Klik peserta untuk memakai jatah vote.</p>
+						<p class="text-sm text-gray-500 mt-3">Vote langsung masuk ke nominee pilihan Anda.</p>
 					</div>`,
 					icon: "success",
 					confirmButtonColor: "#dc2626",
 				});
+				fetchEventDetail(selectedEvent.id);
 			} else {
 				setShowPurchaseModal(false);
 				Swal.fire({
 					title: "Pembayaran Belum Siap",
 					html: `<div class="text-left space-y-2">
 						<p>Pesanan vote sudah dibuat, tetapi halaman pembayaran belum bisa dibuka.</p>
-						<p><strong>Kode:</strong> <span class="font-mono text-lg">${purchaseCode}</span></p>
 						<p><strong>Total sebelum QRIS:</strong> ${formatCurrency(paymentAmount)}</p>
-						<p class="text-sm text-gray-500 mt-3">Kode belum aktif sebelum pembayaran berhasil. Muat ulang halaman lalu coba beli lagi, atau hubungi panitia jika kendala berlanjut.</p>
+						<p class="text-sm text-gray-500 mt-3">Muat ulang halaman lalu coba beli lagi, atau hubungi panitia jika kendala berlanjut.</p>
 					</div>`,
 					icon: "warning",
 					confirmButtonColor: "#dc2626",
@@ -547,6 +421,8 @@ const EVotingPage: React.FC = () => {
 	const remainingNominees = sortedNominees.slice(3);
 	const podiumOrder = podiumNominees;
 	const categoryVoteCount = sortedNominees.reduce((total, nominee) => total + nominee.voteCount, 0);
+	const selectedPaidCategory = selectedEvent?.votingConfig?.categories.find((category) => category.id === paidVoteTarget?.categoryId);
+	const selectedPaidNominee = selectedPaidCategory?.nominees?.find((nominee) => nominee.id === paidVoteTarget?.nomineeId);
 
 	// Event detail / voting view
 	if (selectedEvent) {
@@ -562,7 +438,7 @@ const EVotingPage: React.FC = () => {
 				<main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
 					{/* Back button */}
 					<button
-						onClick={() => { setSelectedEvent(null); setSelectedCategoryId(null); setVotedNominees(new Set()); clearActiveVoteCode(); }}
+						onClick={() => { setSelectedEvent(null); setSelectedCategoryId(null); setVotedNominees(new Set()); setPaidVoteTarget(null); setShowPurchaseModal(false); }}
 						className="group mb-5 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur-xl transition-all hover:-translate-x-0.5 hover:border-red-200 hover:text-red-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:text-red-300"
 					>
 						<LuArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
@@ -613,24 +489,6 @@ const EVotingPage: React.FC = () => {
 									</span>
 								</div>
 
-								{selectedEvent.votingConfig?.isPaid && isVotingOpen(selectedEvent) && (
-									<div className="mt-6 flex flex-wrap gap-3">
-										<button
-											onClick={() => setShowPurchaseModal(true)}
-											className="evoting-primary-action inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-950/25 transition-all hover:-translate-y-0.5 hover:bg-red-700"
-										>
-											<LuTicket className="w-4 h-4" />
-											Beli Vote
-										</button>
-										<button
-											onClick={() => setShowCodeEntry(true)}
-											className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.12] px-5 py-3 text-sm font-black text-white backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white/[0.18]"
-										>
-											<LuThumbsUp className="w-4 h-4" />
-											{voteCodeInfo ? "Ganti Kode" : "Masukkan Kode"}
-										</button>
-									</div>
-								)}
 							</div>
 
 							<aside className="evoting-glass-panel self-end rounded-3xl border border-white/[0.15] bg-white/[0.12] p-4 text-white shadow-2xl backdrop-blur-2xl">
@@ -648,26 +506,6 @@ const EVotingPage: React.FC = () => {
 										<p className="mt-2 text-2xl font-black">{formatCompactNumber(selectedEventVoteCount)}</p>
 									</div>
 								</div>
-								{selectedEvent.votingConfig?.isPaid && voteCodeInfo && (
-									<div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
-										voteCodeInfo.status === "PAID" && voteCodeInfo.remainingVotes > 0
-											? "border-emerald-300/40 bg-emerald-400/[0.15] text-emerald-50"
-											: "border-amber-300/40 bg-amber-400/[0.15] text-amber-50"
-									}`}>
-										<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-											<div>
-												<p className="font-bold">Kode aktif: <span className="font-mono">{voteCodeInfo.purchaseCode}</span></p>
-												<p className="text-xs opacity-80">Sisa {voteCodeInfo.remainingVotes} dari {voteCodeInfo.voteCount} vote</p>
-											</div>
-											<button
-												onClick={clearActiveVoteCode}
-												className="self-start text-xs font-bold underline underline-offset-2 sm:self-center"
-											>
-												Hapus
-											</button>
-										</div>
-									</div>
-								)}
 							</aside>
 						</div>
 					</section>
@@ -735,7 +573,7 @@ const EVotingPage: React.FC = () => {
 							<div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-5 items-end">
 								{podiumOrder.map((nominee, podiumIdx) => {
 									const rank = sortedNominees.findIndex((item) => item.id === nominee.id) + 1;
-									const isVoted = votedNominees.has(nominee.id);
+									const isVoted = !selectedEvent.votingConfig?.isPaid && votedNominees.has(nominee.id);
 									const maxVotes = sortedNominees[0]?.voteCount || 1;
 									const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
 									const isFirst = rank === 1;
@@ -841,8 +679,8 @@ const EVotingPage: React.FC = () => {
 															getVotingStatus(selectedEvent).color === "amber" ? "Belum Dibuka" : "Sudah Ditutup"
 														) : (
 															<>
-																<LuThumbsUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-																Vote
+																{selectedEvent.votingConfig?.isPaid ? <LuTicket className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <LuThumbsUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+																{selectedEvent.votingConfig?.isPaid ? "Beli Vote" : "Vote"}
 														</>
 													)}
 												</button>
@@ -858,7 +696,7 @@ const EVotingPage: React.FC = () => {
 									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 										{remainingNominees.map((nominee, idx) => {
 											const rank = idx + 4;
-											const isVoted = votedNominees.has(nominee.id);
+											const isVoted = !selectedEvent.votingConfig?.isPaid && votedNominees.has(nominee.id);
 											const maxVotes = sortedNominees[0]?.voteCount || 1;
 											const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
 
@@ -927,8 +765,8 @@ const EVotingPage: React.FC = () => {
 																			: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
 																}`}
 															>
-																{isVoted ? <LuCircleCheck className="w-4 h-4" /> : <LuThumbsUp className="w-4 h-4" />}
-																{isVoted ? "Sudah Vote" : "Vote"}
+																{isVoted ? <LuCircleCheck className="w-4 h-4" /> : selectedEvent.votingConfig?.isPaid ? <LuTicket className="w-4 h-4" /> : <LuThumbsUp className="w-4 h-4" />}
+																{isVoted ? "Sudah Vote" : selectedEvent.votingConfig?.isPaid ? "Beli Vote" : "Vote"}
 															</button>
 														</div>
 													</div>
@@ -946,70 +784,20 @@ const EVotingPage: React.FC = () => {
 						</div>
 					)}
 
-					{/* Purchase code entry modal */}
-					{showCodeEntry && (
-						<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCodeEntry(false)}>
-							<div className="bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Masukkan Kode Vote</h3>
-								<input
-									type="text"
-									value={purchaseCode}
-									onChange={(e) => {
-										setPurchaseCode(normalizePurchaseCode(e.target.value));
-										setVoteCodeInfo(null);
-									}}
-									placeholder="Kode vote / ID pesanan"
-									className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white font-mono text-center"
-								/>
-								{voteCodeInfo && (
-									<div className={`rounded-lg px-3 py-2 text-xs ${
-										voteCodeInfo.status === "PAID" && voteCodeInfo.remainingVotes > 0
-											? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300"
-											: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-									}`}>
-										<p className="font-semibold">{voteCodeInfo.message || "Status kode vote"}</p>
-										<p>Sisa {voteCodeInfo.remainingVotes} dari {voteCodeInfo.voteCount} vote</p>
-									</div>
-								)}
-								{voteCodeInfo?.status === "PAID" && voteCodeInfo.remainingVotes > 0 && !paidVoteTarget && (
-									<div className="rounded-lg px-3 py-2 text-xs bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
-										<p className="font-semibold">Silakan pilih nominasi terlebih dahulu</p>
-										<p>Kode sudah aktif. Tutup modal ini lalu klik tombol Vote pada peserta yang ingin dipilih.</p>
-									</div>
-								)}
-								<div className="flex gap-3">
-									<button
-										onClick={() => setShowCodeEntry(false)}
-										className="flex-1 px-4 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-lg"
-									>
-										Batal
-									</button>
-									<button
-										onClick={() => checkVoteCode(purchaseCode)}
-										disabled={checkingVoteCode || !purchaseCode.trim()}
-										className="px-4 py-2.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-50"
-									>
-										{checkingVoteCode ? "..." : "Cek"}
-									</button>
-									{paidVoteTarget && (
-										<button
-											onClick={submitPaidVote}
-											disabled={voting || checkingVoteCode || !purchaseCode.trim()}
-											className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-										>
-											{voting ? "..." : "Vote"}
-										</button>
-									)}
-								</div>
-							</div>
-						</div>
-					)}
-
 					{/* Purchase votes modal */}
 					{showPurchaseModal && (
-						<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowPurchaseModal(false)}>
+						<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}>
 							<div className="bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
 								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Beli Paket Vote</h3>
+								{selectedPaidNominee && (
+									<div className="rounded-xl border border-red-100/70 bg-red-50/70 px-4 py-3 dark:border-red-500/20 dark:bg-red-500/10">
+										<p className="text-xs font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-300">Nominee Pilihan</p>
+										<p className="mt-1 font-semibold text-gray-900 dark:text-white">{selectedPaidNominee.nomineeName}</p>
+										{selectedPaidNominee.nomineeSubtitle && (
+											<p className="text-xs text-gray-500 dark:text-gray-400">{selectedPaidNominee.nomineeSubtitle}</p>
+										)}
+									</div>
+								)}
 
 								<div>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1049,9 +837,9 @@ const EVotingPage: React.FC = () => {
 									<input
 										type="number"
 										min={1}
-										max={100}
+										step={1}
 										value={voteCount}
-										onChange={(e) => setVoteCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+										onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
 										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
 									/>
 								</div>
@@ -1084,7 +872,7 @@ const EVotingPage: React.FC = () => {
 								</div>
 								<div className="flex gap-3">
 									<button
-										onClick={() => setShowPurchaseModal(false)}
+										onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
 										className="flex-1 px-4 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-lg"
 									>
 										Batal

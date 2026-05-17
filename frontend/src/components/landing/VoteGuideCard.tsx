@@ -31,13 +31,13 @@ const voteGuideSteps: VoteGuideStep[] = [
 		icon: LuThumbsUp,
 	},
 	{
-		title: "Gunakan vote aktif",
-		description: "Kalau butuh kode vote, beli paketnya dulu dan selesaikan pembayaran sampai kodenya aktif.",
+		title: "Beli paket vote",
+		description: "Tentukan jumlah vote untuk nominee pilihanmu, lalu selesaikan pembayaran.",
 		icon: LuCreditCard,
 	},
 	{
-		title: "Kirim dukungan",
-		description: "Masukkan kode aktif kalau diminta, klik Vote, dan dukunganmu langsung masuk.",
+		title: "Dukungan masuk otomatis",
+		description: "Setelah pembayaran berhasil, vote langsung tercatat untuk nominee yang kamu pilih.",
 		icon: LuTicketCheck,
 	},
 ];

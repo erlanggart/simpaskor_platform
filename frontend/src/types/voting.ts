@@ -63,6 +63,8 @@ export interface VotingPurchase {
 	buyerName: string;
 	buyerEmail: string;
 	buyerPhone: string | null;
+	categoryId: string | null;
+	nomineeId: string | null;
 	voteCount: number;
 	totalAmount: number;
 	purchaseCode: string;

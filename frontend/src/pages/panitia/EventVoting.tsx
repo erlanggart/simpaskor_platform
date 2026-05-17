@@ -11,7 +11,6 @@ import {
 	UserGroupIcon,
 	UserIcon,
 	LockClosedIcon,
-	EnvelopeIcon,
 	TrophyIcon,
 	CurrencyDollarIcon,
 	CheckCircleIcon,
@@ -21,7 +20,6 @@ import {
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
-import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy";
 import { config as appConfig } from "../../utils/config";
 import {
 	EventVotingConfig,
@@ -297,41 +295,6 @@ const EventVoting: React.FC = () => {
 			console.error("Error fetching voting dashboard");
 		} finally {
 			setDashboardLoading(false);
-		}
-	};
-
-	const handleResendVotingEmail = async (purchaseId: string, buyerEmail: string) => {
-		const { value: email } = await Swal.fire({
-			title: "Kirim Ulang Email Kode Vote",
-			html: `<p class="text-sm text-gray-500 mb-2">Email akan dikirim dengan kode vote ke alamat email di bawah. Anda dapat mengubah email tujuan jika email asli tidak valid.</p>`,
-			input: "email",
-			inputLabel: "Email Tujuan",
-			inputValue: buyerEmail,
-			inputPlaceholder: "masukkan email tujuan",
-			showCancelButton: true,
-			confirmButtonText: "Kirim Email",
-			cancelButtonText: "Batal",
-			confirmButtonColor: "#dc2626",
-			inputValidator: (value) => {
-				if (!value) return "Email wajib diisi";
-				if (!isGmailEmail(value)) return GMAIL_ONLY_EMAIL_MESSAGE;
-				return null;
-			},
-		});
-
-		if (!email) return;
-
-		try {
-			const res = await api.post(`/voting/admin/resend-email/${purchaseId}`, { email });
-			Swal.fire({
-				title: "Berhasil!",
-				text: res.data.message,
-				icon: "success",
-				timer: 2000,
-				showConfirmButton: false,
-			});
-		} catch (err: any) {
-			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengirim email", "error");
 		}
 	};
 
@@ -758,7 +721,7 @@ const EventVoting: React.FC = () => {
 									</div>
 									<p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{formatNumber(purchaseSummary?.usedVotes || dashboard.totalVotes)}</p>
 									<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-										{purchaseSummary ? `${formatNumber(purchaseSummary.unusedVotes)} vote tersisa` : "Mode voting gratis"}
+										{purchaseSummary ? `${formatNumber(purchaseSummary.usedVotes)} vote sudah masuk` : "Mode voting gratis"}
 									</p>
 								</div>
 								<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
@@ -1691,22 +1654,12 @@ const EventVoting: React.FC = () => {
 										</div>
 										<div className="text-right">
 											<p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(p.totalAmount)}</p>
-											<p className="text-xs text-gray-500">{p.voteCount} vote ({p.usedVotes} terpakai)</p>
+											<p className="text-xs text-gray-500">{p.voteCount} vote ({p.usedVotes} masuk)</p>
 										</div>
 									</div>
 									<div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/40">
 										<span className="text-xs text-gray-500">{formatDate(p.createdAt)}</span>
 										<div className="flex gap-2 items-center">
-											{p.status === "PAID" && (
-												<button
-													onClick={() => handleResendVotingEmail(p.id, p.buyerEmail)}
-													title="Kirim Ulang Email Kode Vote"
-													className="flex items-center gap-1.5 text-xs px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
-												>
-													<EnvelopeIcon className="w-3.5 h-3.5" />
-													Kirim Ulang Email
-												</button>
-											)}
 											{p.status === "PENDING" && (
 												<span className="text-xs px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-lg">
 													Menunggu pembayaran via Midtrans

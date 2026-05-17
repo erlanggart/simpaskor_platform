@@ -12,9 +12,9 @@ import {
 	createSnapTransaction,
 	resolvePaymentStatus,
 } from "../lib/midtrans";
-import { sendVotingPurchaseEmail } from "../lib/email";
 import { uploadNomineePhoto } from "../middleware/upload";
 import { recordVotingRevenueShare } from "../lib/revenueLedger";
+import { applyPaidVotingPurchaseVotes } from "../lib/votingAutoApply";
 
 const router = Router();
 
@@ -112,6 +112,40 @@ const getVotingPurchasePaymentMessage = (status: string | undefined | null): str
 	return "Kode pembelian tidak valid atau belum dibayar";
 };
 
+const validatePaidVotingTarget = async (eventId: string, categoryId: unknown, nomineeId: unknown) => {
+	if (typeof categoryId !== "string" || typeof nomineeId !== "string" || !categoryId || !nomineeId) {
+		throw new Error("Nominee wajib dipilih sebelum membeli vote");
+	}
+
+	const category = await prisma.votingCategory.findUnique({
+		where: { id: categoryId },
+		include: { config: true },
+	});
+
+	if (!category || category.config.eventId !== eventId || !category.isActive || !category.config.enabled || !category.config.isPaid) {
+		throw new Error("Kategori voting tidak tersedia");
+	}
+
+	const now = new Date();
+	if (category.config.startDate && now < category.config.startDate) {
+		throw new Error("Voting belum dimulai");
+	}
+	if (category.config.endDate && now > category.config.endDate) {
+		throw new Error("Voting sudah ditutup");
+	}
+
+	const nominee = await prisma.votingNominee.findFirst({
+		where: { id: nomineeId, categoryId },
+		select: { id: true, nomineeName: true },
+	});
+
+	if (!nominee) {
+		throw new Error("Nominee tidak ditemukan dalam kategori ini");
+	}
+
+	return { category, nominee };
+};
+
 const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 	const purchase = await prisma.votingPurchase.findUnique({
 		where: { id: purchaseId },
@@ -135,6 +169,7 @@ const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 					paidAt: new Date(),
 				},
 			});
+			await applyPaidVotingPurchaseVotes(tx, purchase.id);
 			await recordVotingRevenueShare(tx, purchase.id);
 			return tx.votingPurchase.findUnique({
 				where: { id: purchase.id },
@@ -564,14 +599,15 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 // POST /api/voting/purchase - Purchase vote credits
 router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
-		const { eventId, buyerName, buyerEmail, buyerPhone, voteCount = 1 } = req.body;
+		const { eventId, categoryId, nomineeId, buyerName, buyerEmail, buyerPhone, voteCount = 1 } = req.body;
+		const requestedVoteCount = Number(voteCount);
 
 		if (!eventId || !buyerName || !buyerEmail) {
 			return res.status(400).json({ error: "Event, nama, dan email pembeli wajib diisi" });
 		}
 
-		if (voteCount < 1 || voteCount > 100) {
-			return res.status(400).json({ error: "Jumlah vote harus antara 1-100" });
+		if (!Number.isInteger(requestedVoteCount) || requestedVoteCount < 1) {
+			return res.status(400).json({ error: "Jumlah vote harus minimal 1" });
 		}
 
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -592,22 +628,42 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 			return res.status(400).json({ error: "Voting berbayar tidak tersedia untuk event ini" });
 		}
 
-		const purchaseCode = generatePurchaseCode();
-		const totalAmount = votingConfig.pricePerVote * voteCount;
-		const adminFee = calculateVotingAdminFee(totalAmount, voteCount);
+		let votingTarget: Awaited<ReturnType<typeof validatePaidVotingTarget>>;
+		try {
+			votingTarget = await validatePaidVotingTarget(resolvedEventId, categoryId, nomineeId);
+		} catch (targetError: any) {
+			return res.status(400).json({ error: targetError.message || "Nominee voting tidak valid" });
+		}
 
-		const purchase = await prisma.votingPurchase.create({
-			data: {
-				eventId: resolvedEventId,
-				buyerName,
-				buyerEmail,
-				buyerPhone: buyerPhone || null,
-				voteCount,
-				totalAmount,
-				purchaseCode,
-				status: totalAmount === 0 ? "PAID" : "PENDING",
-				paidAt: totalAmount === 0 ? new Date() : null,
-			},
+		const purchaseCode = generatePurchaseCode();
+		const totalAmount = votingConfig.pricePerVote * requestedVoteCount;
+		const adminFee = calculateVotingAdminFee(totalAmount, requestedVoteCount);
+
+		const voterIp = req.headers["x-forwarded-for"]?.toString().split(",")[0] || req.socket.remoteAddress || "";
+		const purchase = await prisma.$transaction(async (tx) => {
+			const createdPurchase = await tx.votingPurchase.create({
+				data: {
+					eventId: resolvedEventId,
+					buyerName,
+					buyerEmail,
+					buyerPhone: buyerPhone || null,
+					categoryId: votingTarget.category.id,
+					nomineeId: votingTarget.nominee.id,
+					voteCount: requestedVoteCount,
+					totalAmount,
+					purchaseCode,
+					status: totalAmount === 0 ? "PAID" : "PENDING",
+					paidAt: totalAmount === 0 ? new Date() : null,
+				},
+			});
+
+			if (totalAmount === 0) {
+				await applyPaidVotingPurchaseVotes(tx, createdPurchase.id, voterIp);
+			}
+
+			return tx.votingPurchase.findUniqueOrThrow({
+				where: { id: createdPurchase.id },
+			});
 		});
 
 		// Generate Midtrans Snap token for paid voting
@@ -627,7 +683,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 						{
 							id: resolvedEventId,
 							price: votingConfig.pricePerVote,
-							quantity: voteCount,
+							quantity: requestedVoteCount,
 							name: "Paket Vote",
 						},
 					],
@@ -644,8 +700,15 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 		}
 
 		res.status(201).json({
-			message: totalAmount === 0 ? "Vote berhasil didapatkan!" : "Pesanan vote berhasil dibuat!",
-			purchase: { ...purchase, snapToken, midtransOrderId, adminFee, paymentAmount: totalAmount + adminFee },
+			message: totalAmount === 0 ? "Vote berhasil masuk!" : "Pesanan vote berhasil dibuat!",
+			purchase: {
+				...purchase,
+				snapToken,
+				midtransOrderId,
+				adminFee,
+				paymentAmount: totalAmount + adminFee,
+				nomineeName: votingTarget.nominee.nomineeName,
+			},
 		});
 	} catch (error) {
 		console.error("Error purchasing votes:", error);
@@ -703,7 +766,7 @@ router.post("/code-status", optionalAuthenticate, async (req: AuthenticatedReque
 		});
 	} catch (error) {
 		console.error("Error checking vote code:", error);
-		res.status(500).json({ error: "Gagal memeriksa kode vote" });
+		res.status(500).json({ error: "Gagal memeriksa status pembelian vote" });
 	}
 });
 
@@ -754,10 +817,10 @@ router.get("/check/:purchaseCode", authenticate, async (req: AuthenticatedReques
 });
 
 // ==========================================
-// SEND VOTING CODE TO EMAIL
+// LEGACY VOTING CODE EMAIL ROUTES
 // ==========================================
 
-// POST /api/voting/confirm-payment - Sync voting purchase payment status and email the original buyer
+// POST /api/voting/confirm-payment - Sync voting purchase payment status and apply votes
 router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const { purchaseCode, email } = req.body;
@@ -802,21 +865,19 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 			});
 		}
 
-		await sendVotingPurchaseEmail({
-			to: purchase.buyerEmail,
-			buyerName: purchase.buyerName,
-			purchaseCode: purchase.purchaseCode,
-			eventTitle: purchase.event.title,
-			voteCount: purchase.voteCount,
-			totalAmount: purchase.totalAmount,
+		const voterIp = req.headers["x-forwarded-for"]?.toString().split(",")[0] || req.socket.remoteAddress || "";
+		const applyResult = await prisma.$transaction(async (tx) => {
+			return applyPaidVotingPurchaseVotes(tx, purchase.id, voterIp);
 		});
 
 		res.json({
 			status: purchase.status,
-			message: "Pembayaran vote terkonfirmasi",
-			purchaseCode: purchase.purchaseCode,
-			voteCount: purchase.voteCount,
-			usedVotes: purchase.usedVotes,
+			message: "Pembayaran vote terkonfirmasi dan vote berhasil masuk",
+			voteCount: applyResult.voteCount,
+			usedVotes: applyResult.usedVotes,
+			appliedVotes: applyResult.appliedVotes,
+			categoryId: applyResult.categoryId,
+			nomineeId: applyResult.nomineeId,
 		});
 	} catch (error: any) {
 		console.error("Error confirming voting payment:", error);
@@ -826,61 +887,7 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 
 // POST /api/voting/send-email - Send voting purchase code to email (requires auth)
 router.post("/send-email", authenticate, async (req: AuthenticatedRequest, res: Response) => {
-	try {
-		const { purchaseCode, email } = req.body;
-		const normalizedPurchaseCode = normalizePurchaseCode(purchaseCode);
-
-		if (!normalizedPurchaseCode || !email) {
-			return res.status(400).json({ error: "Kode pembelian dan email wajib diisi" });
-		}
-
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(email)) {
-			return res.status(400).json({ error: "Format email tidak valid" });
-		}
-
-		let purchase = await prisma.votingPurchase.findFirst({
-			where: buildVotingPurchaseCodeLookupWhere(normalizedPurchaseCode),
-			include: {
-				event: {
-					select: { title: true },
-				},
-			},
-		});
-
-		if (!purchase) {
-			return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
-		}
-
-		if (canRefreshVotingPurchasePaymentStatus(purchase)) {
-			try {
-				const refreshedPurchase = await refreshVotingPurchasePaymentStatus(purchase.id);
-				if (refreshedPurchase) purchase = refreshedPurchase;
-			} catch (midtransError) {
-				console.error("Error refreshing voting payment status before email:", midtransError);
-			}
-		}
-
-		if (!purchase || purchase.status !== "PAID") {
-			return res.status(400).json({
-				error: getVotingPurchasePaymentMessage(purchase?.status),
-			});
-		}
-
-		await sendVotingPurchaseEmail({
-			to: email,
-			buyerName: purchase.buyerName,
-			purchaseCode: purchase.purchaseCode,
-			eventTitle: purchase.event.title,
-			voteCount: purchase.voteCount,
-			totalAmount: purchase.totalAmount,
-		});
-
-		res.json({ message: "Kode vote berhasil dikirim ke email" });
-	} catch (error: any) {
-		console.error("Error sending voting email:", error);
-		res.status(500).json({ error: "Gagal mengirim email. Pastikan konfigurasi SMTP sudah benar." });
-	}
+	res.status(410).json({ error: "Kode vote tidak lagi dikirim melalui email. Vote otomatis masuk setelah pembayaran berhasil." });
 });
 
 // ==========================================
@@ -1674,57 +1681,7 @@ router.post(
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
 	async (req: AuthenticatedRequest, res: Response) => {
-		try {
-			const { email } = req.body;
-
-			let purchase = await prisma.votingPurchase.findUnique({
-				where: { id: req.params.purchaseId },
-				include: {
-					event: {
-						select: { title: true },
-					},
-				},
-			});
-
-			if (!purchase) {
-				return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
-			}
-
-			if (canRefreshVotingPurchasePaymentStatus(purchase)) {
-				try {
-					const refreshedPurchase = await refreshVotingPurchasePaymentStatus(purchase.id);
-					if (refreshedPurchase) purchase = refreshedPurchase;
-				} catch (midtransError) {
-					console.error("Error refreshing voting payment status before resend:", midtransError);
-				}
-			}
-
-			if (purchase.status !== "PAID") {
-				return res.status(400).json({ error: getVotingPurchasePaymentMessage(purchase.status) });
-			}
-
-			const targetEmail = email?.trim() || purchase.buyerEmail;
-			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-			if (!emailRegex.test(targetEmail)) {
-				return res.status(400).json({ error: "Format email tidak valid" });
-			}
-
-			await sendVotingPurchaseEmail({
-				to: targetEmail,
-				buyerName: purchase.buyerName,
-				purchaseCode: purchase.purchaseCode,
-				eventTitle: purchase.event.title,
-				voteCount: purchase.voteCount,
-				totalAmount: purchase.totalAmount,
-			});
-
-			console.log(`[Admin] Voting email resent to ${targetEmail} for purchase ${purchase.id} by admin ${req.user?.userId}`);
-
-			res.json({ message: `Email kode vote berhasil dikirim ke ${targetEmail}` });
-		} catch (error: any) {
-			console.error("Error resending voting email:", error);
-			res.status(500).json({ error: "Gagal mengirim email. Pastikan konfigurasi SMTP sudah benar." });
-		}
+		res.status(410).json({ error: "Kode vote tidak lagi digunakan. Vote otomatis masuk ke nominee saat pembayaran berhasil." });
 	}
 );
 

@@ -7,7 +7,7 @@ import {
 	MIDTRANS_CLIENT_KEY,
 	MIDTRANS_IS_PRODUCTION,
 } from "../lib/midtrans";
-import { sendTicketEmailFromServer, sendVotingPurchaseEmail } from "../lib/email";
+import { sendTicketEmailFromServer } from "../lib/email";
 import {
 	calculateRegistrationAdminFee,
 	calculateTicketAdminFee,
@@ -15,6 +15,7 @@ import {
 	sendVertinovaPaymentSuccessWebhook,
 } from "../lib/vertinovaFinanceWebhook";
 import { recordTicketRevenueShare, recordVotingRevenueShare } from "../lib/revenueLedger";
+import { applyPaidVotingPurchaseVotes } from "../lib/votingAutoApply";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -296,6 +297,7 @@ async function handleVotingPayment(
 					paidAt,
 				},
 			});
+			await applyPaidVotingPurchaseVotes(tx, purchase.id);
 			await recordVotingRevenueShare(tx, purchase.id);
 		});
 		void sendVertinovaPaymentSuccessWebhook({
@@ -304,21 +306,6 @@ async function handleVotingPayment(
 			paidAt: paidAt.toISOString(),
 			description: `Admin fee voting ${purchase.event.title} (${purchase.voteCount} suara)`,
 		});
-
-		// Send voting purchase code email to buyer
-		try {
-			await sendVotingPurchaseEmail({
-				to: purchase.buyerEmail,
-				buyerName: purchase.buyerName,
-				purchaseCode: purchase.purchaseCode,
-				eventTitle: purchase.event.title,
-				voteCount: purchase.voteCount,
-				totalAmount: purchase.totalAmount,
-			});
-			console.log(`[Email] Voting email sent to ${purchase.buyerEmail} for ${purchase.purchaseCode}`);
-		} catch (emailError) {
-			console.error(`[Email] Failed to send voting email to ${purchase.buyerEmail}:`, emailError);
-		}
 	} else if (result === "failed" || result === "expired") {
 		await prisma.votingPurchase.update({
 			where: { id: purchase.id },

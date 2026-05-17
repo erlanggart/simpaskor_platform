@@ -933,6 +933,8 @@ model VotingPurchase {
   buyerName       String               @map("buyer_name")
   buyerEmail      String               @map("buyer_email")
   buyerPhone      String?              @map("buyer_phone")
+  categoryId      String?              @map("category_id")
+  nomineeId       String?              @map("nominee_id")
   voteCount       Int                  @default(1) @map("vote_count")
   totalAmount     Float                @map("total_amount")
   purchaseCode    String               @unique @map("purchase_code")
@@ -949,6 +951,8 @@ model VotingPurchase {
   votes VotingVote[]
 
   @@index([eventId])
+  @@index([categoryId])
+  @@index([nomineeId])
   @@index([buyerEmail])
   @@index([purchaseCode])
   @@map("voting_purchases")

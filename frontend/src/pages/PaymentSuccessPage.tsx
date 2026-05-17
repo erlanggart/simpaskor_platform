@@ -56,7 +56,7 @@ const PaymentSuccessPage: React.FC = () => {
 				{/* Message */}
 				<p className="text-gray-500 dark:text-gray-400 mb-2">
 					{isSuccess && isTicket && "Tiket dan barcode telah dikirim ke email Anda."}
-					{isSuccess && isVoting && "Kode vote telah dikirim ke email Anda."}
+					{isSuccess && isVoting && "Vote berhasil masuk ke nominee pilihan Anda."}
 					{isSuccess && !isTicket && !isVoting && "Pembayaran Anda telah berhasil diproses."}
 					{isPending && "Pembayaran sedang diproses. Anda akan menerima email setelah pembayaran dikonfirmasi."}
 					{!isSuccess && !isPending && "Pembayaran tidak berhasil. Silakan coba lagi."}
@@ -72,7 +72,7 @@ const PaymentSuccessPage: React.FC = () => {
 				{isSuccess && (
 					<div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-6">
 						<p className="text-sm text-green-700 dark:text-green-400">
-							{isTicket ? "📧 Cek email Anda untuk barcode tiket. Tunjukkan QR code saat masuk venue." : "📧 Cek email Anda untuk kode vote. Gunakan kode tersebut di halaman E-Voting."}
+							{isTicket ? "📧 Cek email Anda untuk barcode tiket. Tunjukkan QR code saat masuk venue." : "Vote sudah otomatis tercatat di halaman E-Voting."}
 						</p>
 					</div>
 				)}
