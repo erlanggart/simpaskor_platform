@@ -895,6 +895,7 @@ model VotingNominee {
   nomineePhoto    String?        @map("nominee_photo")
   nomineeSubtitle String?        @map("nominee_subtitle") // e.g., school name, team name
   voteCount       Int            @default(0) @map("vote_count")
+  isActive        Boolean        @default(true) @map("is_active")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 

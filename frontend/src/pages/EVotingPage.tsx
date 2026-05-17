@@ -32,10 +32,16 @@ import VoteGuideCard from "../components/landing/VoteGuideCard";
 
 const VOTING_ADMIN_FEE_PER_VOTE = 500;
 const VOTING_MAX_ADMIN_FEE = 10000;
+const QRIS_MAX_TRANSACTION = 10_000_000;
 
 const calculateVotingAdminFee = (subtotal: number, voteCount: number) => {
 	if (subtotal <= 0) return 0;
 	return Math.min(VOTING_ADMIN_FEE_PER_VOTE * voteCount, VOTING_MAX_ADMIN_FEE);
+};
+
+const calculateMaxVoteCount = (pricePerVote: number) => {
+	if (!pricePerVote || pricePerVote <= 0) return Number.POSITIVE_INFINITY;
+	return Math.max(1, Math.floor((QRIS_MAX_TRANSACTION - VOTING_MAX_ADMIN_FEE) / pricePerVote));
 };
 
 const EVotingPage: React.FC = () => {
@@ -63,7 +69,17 @@ const EVotingPage: React.FC = () => {
 	const [purchasing, setPurchasing] = useState(false);
 
 	const [paidVoteTarget, setPaidVoteTarget] = useState<{ categoryId: string; nomineeId: string } | null>(null);
-	const normalizeVoteCount = (value: string) => Math.max(1, parseInt(value, 10) || 1);
+	const maxVoteCount = calculateMaxVoteCount(selectedEvent?.votingConfig?.pricePerVote || 0);
+	const normalizeVoteCount = (value: string) => {
+		const parsed = Math.max(1, parseInt(value, 10) || 1);
+		return Number.isFinite(maxVoteCount) ? Math.min(maxVoteCount, parsed) : parsed;
+	};
+
+	useEffect(() => {
+		if (Number.isFinite(maxVoteCount) && voteCount > maxVoteCount) {
+			setVoteCount(maxVoteCount);
+		}
+	}, [maxVoteCount, voteCount]);
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -838,10 +854,16 @@ const EVotingPage: React.FC = () => {
 										type="number"
 										min={1}
 										step={1}
+										max={Number.isFinite(maxVoteCount) ? maxVoteCount : undefined}
 										value={voteCount}
 										onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
 										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
 									/>
+									{Number.isFinite(maxVoteCount) && (
+										<p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+											Maksimal {maxVoteCount.toLocaleString("id-ID")} vote per pembelian (batas pembayaran QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
+										</p>
+									)}
 								</div>
 								<div className="bg-red-50/50 dark:bg-white/[0.03] rounded-lg p-3 text-sm border border-red-100/50 dark:border-white/[0.06]">
 									<div className="flex justify-between">

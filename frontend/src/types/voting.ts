@@ -42,6 +42,7 @@ export interface VotingNominee {
 	nomineePhoto: string | null;
 	nomineeSubtitle: string | null;
 	voteCount: number;
+	isActive?: boolean;
 	createdAt?: string;
 	updatedAt?: string;
 }

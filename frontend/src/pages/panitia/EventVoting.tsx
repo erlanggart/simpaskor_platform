@@ -17,6 +17,8 @@ import {
 	ClockIcon,
 	PencilSquareIcon,
 	ExclamationTriangleIcon,
+	EyeIcon,
+	EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -449,6 +451,22 @@ const EventVoting: React.FC = () => {
 			setNominees((prev) => prev.filter((n) => n.id !== nomineeId));
 		} catch (err: any) {
 			Swal.fire("Error", err.response?.data?.error || "Gagal menghapus nominee", "error");
+		}
+	};
+
+	const handleToggleNomineeActive = async (nominee: VotingNominee) => {
+		const nextActive = !(nominee.isActive ?? true);
+		try {
+			const res = await api.patch(`/voting/admin/nominees/${nominee.id}/active`, { isActive: nextActive });
+			setNominees((prev) => prev.map((n) => (n.id === nominee.id ? { ...n, ...res.data } : n)));
+			Swal.fire({
+				title: nextActive ? "Nominee Diaktifkan" : "Nominee Dinonaktifkan",
+				icon: "success",
+				timer: 1500,
+				showConfirmButton: false,
+			});
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal mengubah status nominee", "error");
 		}
 	};
 
@@ -1468,7 +1486,7 @@ const EventVoting: React.FC = () => {
 																</div>
 															) : (
 																/* ---- Normal Nominee Row ---- */
-																<div className="flex items-center justify-between py-2 px-3">
+																<div className={`flex items-center justify-between py-2 px-3 ${nominee.isActive === false ? "opacity-60" : ""}`}>
 																	<div className="flex items-center gap-3 min-w-0">
 																		<span className="text-sm font-semibold text-gray-400 w-5 text-right">{idx + 1}</span>
 																		{nominee.nomineePhoto ? (
@@ -1479,7 +1497,15 @@ const EventVoting: React.FC = () => {
 																			</div>
 																		)}
 																		<div className="min-w-0">
-																			<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{nominee.nomineeName}</p>
+																			<div className="flex items-center gap-2">
+																				<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{nominee.nomineeName}</p>
+																				{nominee.isActive === false && (
+																					<span className="inline-flex items-center gap-1 rounded-full bg-gray-200 dark:bg-gray-700 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-300">
+																						<EyeSlashIcon className="w-3 h-3" />
+																						Nonaktif
+																					</span>
+																				)}
+																			</div>
 																			{nominee.nomineeSubtitle && (
 																				<p className="text-xs text-gray-500 dark:text-gray-400 truncate">{nominee.nomineeSubtitle}</p>
 																			)}
@@ -1502,11 +1528,21 @@ const EventVoting: React.FC = () => {
 																			<PencilSquareIcon className="w-3.5 h-3.5" />
 																		</button>
 																		<button
-																			onClick={() => handleDeleteNominee(nominee.id)}
-																			className="p-1 text-gray-400 hover:text-red-600 rounded"
+																			onClick={() => handleToggleNomineeActive(nominee)}
+																			className={`p-1 rounded ${nominee.isActive === false ? "text-emerald-500 hover:text-emerald-600" : "text-gray-400 hover:text-amber-600"}`}
+																			title={nominee.isActive === false ? "Aktifkan nominee" : "Nonaktifkan nominee"}
 																		>
-																			<TrashIcon className="w-3.5 h-3.5" />
+																			{nominee.isActive === false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
 																		</button>
+																		{!config.enabled && (
+																			<button
+																				onClick={() => handleDeleteNominee(nominee.id)}
+																				className="p-1 text-gray-400 hover:text-red-600 rounded"
+																				title="Hapus nominee"
+																			>
+																				<TrashIcon className="w-3.5 h-3.5" />
+																			</button>
+																		)}
 																	</div>
 																</div>
 															)}

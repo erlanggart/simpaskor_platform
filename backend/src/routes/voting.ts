@@ -22,6 +22,7 @@ const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
 const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 const VOTING_ADMIN_FEE_PER_VOTE = 500;
 const VOTING_MAX_ADMIN_FEE = 10000;
+const QRIS_MAX_TRANSACTION = 10_000_000;
 const REVENUE_SHARE_VOTING_TIERS = ["VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 
 const requiresVotingRevenueShareAgreement = (event: { packageTier?: string | null; platformSharePercent?: number | null }) =>
@@ -136,11 +137,15 @@ const validatePaidVotingTarget = async (eventId: string, categoryId: unknown, no
 
 	const nominee = await prisma.votingNominee.findFirst({
 		where: { id: nomineeId, categoryId },
-		select: { id: true, nomineeName: true },
+		select: { id: true, nomineeName: true, isActive: true },
 	});
 
 	if (!nominee) {
 		throw new Error("Nominee tidak ditemukan dalam kategori ini");
+	}
+
+	if (!nominee.isActive) {
+		throw new Error("Nominee sedang dinonaktifkan oleh panitia");
 	}
 
 	return { category, nominee };
@@ -353,6 +358,7 @@ router.get("/events/:eventId", async (req: AuthenticatedRequest, res: Response) 
 								mode: true,
 								maxVotesPerVoter: true,
 								nominees: {
+									where: { isActive: true },
 									orderBy: { voteCount: "desc" },
 									select: {
 										id: true,
@@ -418,12 +424,15 @@ router.post("/vote", optionalAuthenticate, async (req: AuthenticatedRequest, res
 			return res.status(400).json({ error: "Voting ini berbayar. Silakan beli paket vote terlebih dahulu." });
 		}
 
-		// Check nominee belongs to category
+		// Check nominee belongs to category and is active
 		const nominee = await prisma.votingNominee.findFirst({
 			where: { id: nomineeId, categoryId },
 		});
 		if (!nominee) {
 			return res.status(404).json({ error: "Nominee tidak ditemukan dalam kategori ini" });
+		}
+		if (!nominee.isActive) {
+			return res.status(400).json({ error: "Nominee sedang dinonaktifkan oleh panitia" });
 		}
 
 		// Check max votes per voter (by email or IP)
@@ -528,12 +537,15 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 			return res.status(400).json({ error: "Kode pembelian tidak valid untuk event ini" });
 		}
 
-		// Check nominee belongs to category
+		// Check nominee belongs to category and is active
 		const nominee = await prisma.votingNominee.findFirst({
 			where: { id: nomineeId, categoryId },
 		});
 		if (!nominee) {
 			return res.status(404).json({ error: "Nominee tidak ditemukan dalam kategori ini" });
+		}
+		if (!nominee.isActive) {
+			return res.status(400).json({ error: "Nominee sedang dinonaktifkan oleh panitia" });
 		}
 
 		const voterIp = req.headers["x-forwarded-for"]?.toString().split(",")[0] || req.socket.remoteAddress || "";
@@ -638,6 +650,18 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 		const purchaseCode = generatePurchaseCode();
 		const totalAmount = votingConfig.pricePerVote * requestedVoteCount;
 		const adminFee = calculateVotingAdminFee(totalAmount, requestedVoteCount);
+		const paymentAmount = totalAmount + adminFee;
+
+		if (paymentAmount > QRIS_MAX_TRANSACTION) {
+			const maxVotes = votingConfig.pricePerVote > 0
+				? Math.max(1, Math.floor((QRIS_MAX_TRANSACTION - VOTING_MAX_ADMIN_FEE) / votingConfig.pricePerVote))
+				: 0;
+			return res.status(400).json({
+				error: `Maksimal pembayaran QRIS Rp ${QRIS_MAX_TRANSACTION.toLocaleString("id-ID")} per transaksi. Untuk event ini, jumlah vote maksimal ${maxVotes.toLocaleString("id-ID")} per pembelian.`,
+				maxVoteCount: maxVotes,
+				maxPaymentAmount: QRIS_MAX_TRANSACTION,
+			});
+		}
 
 		const voterIp = req.headers["x-forwarded-for"]?.toString().split(",")[0] || req.socket.remoteAddress || "";
 		const purchase = await prisma.$transaction(async (tx) => {
@@ -1387,6 +1411,21 @@ router.delete(
 	authorize("SUPERADMIN", "PANITIA"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
+			const nominee = await prisma.votingNominee.findUnique({
+				where: { id: req.params.nomineeId },
+				include: { category: { include: { config: true } } },
+			});
+
+			if (!nominee) {
+				return res.status(404).json({ error: "Nominee tidak ditemukan" });
+			}
+
+			if (nominee.category.config.enabled) {
+				return res.status(400).json({
+					error: "Nominee tidak dapat dihapus setelah voting dipublikasikan. Nonaktifkan nominee atau edit data jika perlu.",
+				});
+			}
+
 			await prisma.votingNominee.delete({
 				where: { id: req.params.nomineeId },
 			});
@@ -1395,6 +1434,31 @@ router.delete(
 		} catch (error) {
 			console.error("Error deleting nominee:", error);
 			res.status(500).json({ error: "Gagal menghapus nominee" });
+		}
+	}
+);
+
+// PATCH /api/voting/admin/nominees/:nomineeId/active - Toggle nominee active state
+router.patch(
+	"/admin/nominees/:nomineeId/active",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { isActive } = req.body;
+			if (typeof isActive !== "boolean") {
+				return res.status(400).json({ error: "isActive wajib boolean" });
+			}
+
+			const nominee = await prisma.votingNominee.update({
+				where: { id: req.params.nomineeId },
+				data: { isActive },
+			});
+
+			res.json(nominee);
+		} catch (error) {
+			console.error("Error toggling nominee active state:", error);
+			res.status(500).json({ error: "Gagal mengubah status nominee" });
 		}
 	}
 );
