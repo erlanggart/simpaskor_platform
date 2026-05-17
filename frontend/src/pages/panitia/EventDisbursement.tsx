@@ -39,6 +39,8 @@ interface Summary {
 	votingGrossRevenue: number;
 	platformShare: number;
 	panitiaShare: number;
+	lockedPlatformShare: number;
+	activePlatformShare: number;
 	platformShareRate: number;
 	panitiaShareRate: number;
 	totalDisbursed: number;
@@ -243,9 +245,9 @@ const EventDisbursement: React.FC = () => {
 						</div>
 					</div>
 					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
-						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Simpaskor {formatPercent(summary.platformShareRate)}</p>
-						<p className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(summary.platformShare)}</p>
-						<p className="mt-1 text-[10px] text-gray-400">Dipisahkan dari transaksi tiket dan voting</p>
+						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Simpaskor Aktif {formatPercent(summary.platformShareRate)}</p>
+						<p className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(summary.activePlatformShare)}</p>
+						<p className="mt-1 text-[10px] text-gray-400">Dikunci: {formatCurrency(summary.lockedPlatformShare)} dari total {formatCurrency(summary.platformShare)}</p>
 					</div>
 					<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5">
 						<p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Hak Panitia {formatPercent(summary.panitiaShareRate)}</p>

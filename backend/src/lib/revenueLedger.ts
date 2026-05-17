@@ -21,6 +21,7 @@ type SummaryRow = {
 
 type AmountRow = {
 	amount: number;
+	platformAmount?: number;
 };
 
 type PaidPurchaseRow = {
@@ -361,9 +362,18 @@ export async function getEventRevenueLedgerSummary(tx: LedgerClient, eventId: st
 	`;
 
 	const withdrawn = await tx.$queryRaw<AmountRow[]>`
-		SELECT COALESCE(SUM(wi."amount"), 0)::double precision AS "amount"
+		SELECT
+			COALESCE(SUM(wi."amount"), 0)::double precision AS "amount",
+			COALESCE(SUM(
+				CASE
+					WHEN rs."panitia_amount" > 0
+						THEN ROUND(rs."platform_amount" * (wi."amount" / rs."panitia_amount"))
+					ELSE rs."platform_amount"
+				END
+			), 0)::double precision AS "platformAmount"
 		FROM "withdrawal_items" wi
 		INNER JOIN "disbursements" d ON d."id" = wi."withdrawal_id"
+		INNER JOIN "revenue_shares" rs ON rs."id" = wi."revenue_share_id"
 		WHERE d."event_id" = ${eventId}
 			AND d."status" IN ('APPROVED', 'TRANSFERRED')
 	`;
@@ -379,6 +389,7 @@ export async function getEventRevenueLedgerSummary(tx: LedgerClient, eventId: st
 	const grossRevenue = toNumber(row?.grossRevenue);
 	const platformShare = toNumber(row?.platformShare);
 	const panitiaShare = toNumber(row?.panitiaShare);
+	const lockedPlatformShare = toNumber(withdrawn[0]?.platformAmount);
 
 	return {
 		grossRevenue,
@@ -391,6 +402,8 @@ export async function getEventRevenueLedgerSummary(tx: LedgerClient, eventId: st
 		totalWithdrawn: toNumber(withdrawn[0]?.amount),
 		totalPending: toNumber(pending[0]?.amount),
 		activeBalance: Math.max(0, toNumber(row?.activeBalance)),
+		lockedPlatformShare,
+		activePlatformShare: Math.max(0, platformShare - lockedPlatformShare),
 		platformShareRate: grossRevenue > 0 ? platformShare / grossRevenue : 0,
 		panitiaShareRate: grossRevenue > 0 ? panitiaShare / grossRevenue : 0,
 	};

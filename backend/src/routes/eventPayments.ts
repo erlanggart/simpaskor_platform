@@ -594,6 +594,8 @@ router.get("/admin/packages", authenticate, authorize("SUPERADMIN"), async (req:
 					votingGrossRevenue: summary.votingGrossRevenue,
 					platformShare: summary.platformShare,
 					panitiaShare: summary.panitiaShare,
+					lockedPlatformShare: summary.lockedPlatformShare,
+					activePlatformShare: summary.activePlatformShare,
 					platformShareRate: summary.platformShareRate,
 					panitiaShareRate: summary.panitiaShareRate,
 					activeBalance: summary.activeBalance,

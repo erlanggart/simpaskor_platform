@@ -32,6 +32,8 @@ interface DisbursementItem {
 		votingGrossRevenue: number;
 		platformShare: number;
 		panitiaShare: number;
+		lockedPlatformShare: number;
+		activePlatformShare: number;
 		totalWithdrawn: number;
 		totalPending: number;
 		activeBalance: number;
@@ -184,32 +186,55 @@ const DisbursementManagement: React.FC = () => {
 	const renderEventBalance = (item: DisbursementItem) => {
 		if (item.kind !== "EVENT" || !item.eventBalance) return null;
 		const balance = item.eventBalance;
+		const metrics = [
+			{
+				label: "Pemasukan",
+				value: balance.grossRevenue,
+				tone: "text-gray-900 dark:text-white",
+				note: `Tiket ${formatCurrency(balance.ticketGrossRevenue)} - Vote ${formatCurrency(balance.votingGrossRevenue)}`,
+			},
+			{
+				label: "Panitia Aktif",
+				value: balance.activeBalance,
+				tone: "text-blue-600 dark:text-blue-400",
+				note: `Total hak ${formatCurrency(balance.panitiaShare)}`,
+			},
+			{
+				label: "SIMPASKOR Aktif",
+				value: balance.activePlatformShare,
+				tone: "text-red-600 dark:text-red-400",
+				note: `Total hak ${formatCurrency(balance.platformShare)}`,
+			},
+			{
+				label: "Panitia Dikunci",
+				value: balance.totalWithdrawn,
+				tone: "text-green-600 dark:text-green-400",
+				note: `Menunggu ${formatCurrency(balance.totalPending)}`,
+			},
+			{
+				label: "SIMPASKOR Dikunci",
+				value: balance.lockedPlatformShare,
+				tone: "text-green-600 dark:text-green-400",
+				note: "Ikut periode cair",
+			},
+		];
 
 		return (
-			<div className="bg-slate-50 dark:bg-gray-900/40 border border-slate-200 dark:border-gray-700 rounded-lg p-3 mb-3">
-				<div className="flex items-center justify-between gap-3 mb-2">
-					<p className="text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">Saldo Event</p>
-					<p className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(balance.activeBalance)}</p>
+			<div className="mb-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-gray-700 dark:bg-gray-900/30">
+				<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+					<p className="text-xs font-semibold uppercase text-slate-500 dark:text-gray-400">Saldo Event</p>
+					<p className="rounded-full bg-blue-50 px-3 py-1 text-sm font-black text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+						Aktif {formatCurrency(balance.activeBalance)}
+					</p>
 				</div>
-				<div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-					<div>
-						<p className="text-xs text-gray-400">Pemasukan</p>
-						<p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(balance.grossRevenue)}</p>
-						<p className="text-[11px] text-gray-400">Tiket {formatCurrency(balance.ticketGrossRevenue)} - Vote {formatCurrency(balance.votingGrossRevenue)}</p>
-					</div>
-					<div>
-						<p className="text-xs text-gray-400">Hak Panitia</p>
-						<p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(balance.panitiaShare)}</p>
-					</div>
-					<div>
-						<p className="text-xs text-gray-400">SIMPASKOR</p>
-						<p className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(balance.platformShare)}</p>
-					</div>
-					<div>
-						<p className="text-xs text-gray-400">Sudah Dikunci</p>
-						<p className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(balance.totalWithdrawn)}</p>
-						<p className="text-[11px] text-gray-400">Menunggu {formatCurrency(balance.totalPending)}</p>
-					</div>
+				<div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+					{metrics.map((metric) => (
+						<div key={metric.label} className="min-w-0 rounded-md bg-white px-3 py-2 shadow-sm ring-1 ring-slate-100 dark:bg-gray-800/70 dark:ring-gray-700">
+							<p className="truncate text-[11px] font-medium text-gray-400">{metric.label}</p>
+							<p className={`truncate text-sm font-bold ${metric.tone}`}>{formatCurrency(metric.value)}</p>
+							<p className="truncate text-[11px] text-gray-400">{metric.note}</p>
+						</div>
+					))}
 				</div>
 			</div>
 		);
@@ -301,50 +326,71 @@ const DisbursementManagement: React.FC = () => {
 					<p className="text-gray-500 dark:text-gray-400">Belum ada pengajuan pencairan</p>
 				</div>
 			) : (
-				<div className="space-y-4">
+				<div className="space-y-3">
 					{disbursements.map((d) => (
-						<div key={d.id} className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden">
-							{/* Header */}
-							<div className="p-5">
-								<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-									<div>
-										<h3 className="font-semibold text-gray-900 dark:text-white text-lg">
+						<div key={d.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800/70">
+							<div className="p-4">
+								<div className="mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+									<div className="min-w-0">
+										<h3 className="text-lg font-bold text-gray-900 dark:text-white">
 											{formatCurrency(d.amount)}
 										</h3>
-										<p className="text-sm text-gray-500 dark:text-gray-400">
+										<p className="truncate text-sm font-medium text-gray-600 dark:text-gray-300">
 											{d.kind === "MITRA" ? "Penarikan Komisi Mitra" : d.event?.title}
 										</p>
-										<p className="text-xs text-gray-400 mt-0.5">
-											Diajukan oleh {d.requestedBy.name} ({d.requestedBy.email}) · {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+										<p className="mt-0.5 truncate text-xs text-gray-400">
+											Diajukan oleh {d.requestedBy.name} ({d.requestedBy.email}) - {new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
 										</p>
-								{d.kind === "MITRA" && d.mitraProfile && (
-									<p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">
-										Mitra: {d.mitraProfile.user.name} - Kode {d.mitraProfile.referralCode}
-									</p>
-								)}
+										{d.kind === "MITRA" && d.mitraProfile && (
+											<p className="mt-1 truncate text-xs font-semibold text-red-600 dark:text-red-400">
+												Mitra: {d.mitraProfile.user.name} - Kode {d.mitraProfile.referralCode}
+											</p>
+										)}
 									</div>
-									<div className="flex items-center gap-2">
+									<div className="flex flex-wrap items-center gap-2 lg:justify-end">
 										{getStatusBadge(d.status)}
+										{d.status === "PENDING" && (
+											<button
+												onClick={() => handleApprove(d)}
+												className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+											>
+												Setujui
+											</button>
+										)}
+										{(d.status === "PENDING" || d.status === "APPROVED") && (
+											<>
+												<button
+													onClick={() => handleTransfer(d)}
+													className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+												>
+													Transfer
+												</button>
+												<button
+													onClick={() => handleReject(d)}
+													className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700"
+												>
+													Tolak
+												</button>
+											</>
+										)}
 									</div>
 								</div>
 
 								{renderEventBalance(d)}
 
-								{/* Bank Details */}
-								<div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 mb-3">
-									<p className="text-xs text-gray-400 mb-1 font-medium">Detail Rekening</p>
-									<div className="grid grid-cols-3 gap-2 text-sm">
-										<div>
-											<p className="text-xs text-gray-400">Bank</p>
-											<p className="font-semibold text-gray-900 dark:text-white">{d.bankName}</p>
+								<div className="mb-3 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-700/30">
+									<div className="grid gap-2 text-sm sm:grid-cols-3">
+										<div className="min-w-0">
+											<p className="text-[11px] font-medium text-gray-400">Bank</p>
+											<p className="truncate font-semibold text-gray-900 dark:text-white">{d.bankName}</p>
 										</div>
-										<div>
-											<p className="text-xs text-gray-400">No. Rekening</p>
-											<p className="font-semibold text-gray-900 dark:text-white font-mono">{d.accountNumber}</p>
+										<div className="min-w-0">
+											<p className="text-[11px] font-medium text-gray-400">No. Rekening</p>
+											<p className="truncate font-mono font-semibold text-gray-900 dark:text-white">{d.accountNumber}</p>
 										</div>
-										<div>
-											<p className="text-xs text-gray-400">Atas Nama</p>
-											<p className="font-semibold text-gray-900 dark:text-white">{d.accountHolder}</p>
+										<div className="min-w-0">
+											<p className="text-[11px] font-medium text-gray-400">Atas Nama</p>
+											<p className="truncate font-semibold text-gray-900 dark:text-white">{d.accountHolder}</p>
 										</div>
 									</div>
 								</div>
@@ -373,31 +419,6 @@ const DisbursementManagement: React.FC = () => {
 									</p>
 								)}
 
-								{/* Action Buttons */}
-								{(d.status === "PENDING" || d.status === "APPROVED") && (
-									<div className="flex gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-										{d.status === "PENDING" && (
-											<button
-												onClick={() => handleApprove(d)}
-												className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-											>
-												Setujui
-											</button>
-										)}
-										<button
-											onClick={() => handleTransfer(d)}
-											className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-										>
-											Tandai Ditransfer
-										</button>
-										<button
-											onClick={() => handleReject(d)}
-											className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-										>
-											Tolak
-										</button>
-									</div>
-								)}
 							</div>
 						</div>
 					))}
