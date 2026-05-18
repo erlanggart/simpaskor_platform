@@ -8,6 +8,7 @@ import {
 	PlusIcon,
 	TrashIcon,
 	ArrowPathIcon,
+	ArrowDownTrayIcon,
 	UserGroupIcon,
 	UserIcon,
 	LockClosedIcon,
@@ -23,6 +24,7 @@ import {
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import { config as appConfig } from "../../utils/config";
+import { exportPurchaseReportToPdf } from "../../utils/purchasePdfExport";
 import {
 	EventVotingConfig,
 	VotingCategory,
@@ -129,6 +131,7 @@ const EventVoting: React.FC = () => {
 	const [activeTab, setActiveTab] = useState<"dashboard" | "config" | "categories" | "results" | "purchases">("dashboard");
 	const [loading, setLoading] = useState(true);
 	const [eventId, setEventId] = useState<string>("");
+	const [eventTitle, setEventTitle] = useState<string>("");
 
 	// Config state
 	const [config, setConfig] = useState<Partial<EventVotingConfig>>({
@@ -193,6 +196,7 @@ const EventVoting: React.FC = () => {
 	const [statusFilter, setStatusFilter] = useState("");
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
+	const [exportingPurchases, setExportingPurchases] = useState(false);
 
 	// Fetch event ID from slug
 	useEffect(() => {
@@ -200,8 +204,12 @@ const EventVoting: React.FC = () => {
 			try {
 				const res = await api.get(`/events/${eventSlug}`);
 				setEventId(res.data.id);
+				setEventTitle(res.data.title || eventSlug || "Event");
 			} catch {
-				if (eventSlug) setEventId(eventSlug);
+				if (eventSlug) {
+					setEventId(eventSlug);
+					setEventTitle(eventSlug);
+				}
 			}
 		};
 		if (eventSlug) fetchEvent();
@@ -284,6 +292,79 @@ const EventVoting: React.FC = () => {
 			console.error("Error fetching purchases");
 		} finally {
 			setPurchasesLoading(false);
+		}
+	};
+
+	const fetchAllVotePurchases = async () => {
+		const allPurchases: VotingPurchase[] = [];
+		let currentPage = 1;
+		let pageCount = 1;
+
+		do {
+			const params: any = { page: currentPage, limit: 50 };
+			if (search.trim()) params.search = search.trim();
+			if (statusFilter) params.status = statusFilter;
+
+			const res = await api.get(`/voting/admin/event/${eventId}/purchases`, { params });
+			allPurchases.push(...(res.data.data || []));
+			pageCount = res.data.totalPages || 1;
+			currentPage += 1;
+		} while (currentPage <= pageCount);
+
+		return allPurchases;
+	};
+
+	const handleExportVotePurchasesPdf = async () => {
+		if (!eventId || exportingPurchases) return;
+
+		try {
+			setExportingPurchases(true);
+			const allPurchases = await fetchAllVotePurchases();
+
+			if (allPurchases.length === 0) {
+				Swal.fire("Tidak Ada Data", "Belum ada pembelian vote untuk diekspor.", "info");
+				return;
+			}
+
+			const paidPurchases = allPurchases.filter((purchase) => purchase.status === "PAID");
+			const totalVotes = allPurchases.reduce((sum, purchase) => sum + (purchase.voteCount || 0), 0);
+			const usedVotes = allPurchases.reduce((sum, purchase) => sum + (purchase.usedVotes || 0), 0);
+			const totalRevenue = paidPurchases.reduce((sum, purchase) => sum + (purchase.totalAmount || 0), 0);
+			const filterLabel = [
+				statusFilter ? `Status: ${statusFilter}` : "Semua status",
+				search.trim() ? `Pencarian: ${search.trim()}` : null,
+			].filter(Boolean).join(" | ");
+
+			exportPurchaseReportToPdf({
+				title: "Laporan Pembelian Vote",
+				subtitle: `${eventTitle || "Event"} - ${filterLabel}`,
+				fileName: `pembelian-vote-${eventTitle || eventId}`,
+				summaryRows: [
+					["Total Transaksi", allPurchases.length],
+					["Total Kredit Vote", totalVotes],
+					["Vote Masuk", usedVotes],
+					["Pendapatan PAID", formatCurrency(totalRevenue)],
+				],
+				head: ["No", "Kode", "Pembeli", "Email", "No. HP", "Vote", "Masuk", "Sisa", "Total", "Status", "Dibuat", "Dibayar"],
+				body: allPurchases.map((purchase, index) => [
+					index + 1,
+					purchase.purchaseCode,
+					purchase.buyerName,
+					purchase.buyerEmail,
+					purchase.buyerPhone || "-",
+					purchase.voteCount,
+					purchase.usedVotes,
+					Math.max(0, purchase.voteCount - purchase.usedVotes),
+					purchase.totalAmount === 0 ? "GRATIS" : formatCurrency(purchase.totalAmount),
+					purchase.status,
+					formatDate(purchase.createdAt || null),
+					formatDate(purchase.paidAt),
+				]),
+			});
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengekspor data pembelian vote", "error");
+		} finally {
+			setExportingPurchases(false);
 		}
 	};
 
@@ -695,14 +776,24 @@ const EventVoting: React.FC = () => {
 							<h2 className="text-lg font-semibold text-gray-900 dark:text-white">Dashboard Voting</h2>
 							<p className="text-sm text-gray-500 dark:text-gray-400">Pantau performa voting, kandidat, dan pembelian vote dalam satu layar.</p>
 						</div>
-						<button
-							onClick={fetchDashboard}
-							disabled={dashboardLoading}
-							className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-						>
-							<ArrowPathIcon className={`w-4 h-4 ${dashboardLoading ? "animate-spin" : ""}`} />
-							Refresh
-						</button>
+						<div className="flex flex-col sm:flex-row gap-2">
+							<button
+								onClick={handleExportVotePurchasesPdf}
+								disabled={exportingPurchases || !eventId}
+								className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+							>
+								<ArrowDownTrayIcon className="w-4 h-4" />
+								{exportingPurchases ? "Mengekspor..." : "Ekspor Pembelian PDF"}
+							</button>
+							<button
+								onClick={fetchDashboard}
+								disabled={dashboardLoading}
+								className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+							>
+								<ArrowPathIcon className={`w-4 h-4 ${dashboardLoading ? "animate-spin" : ""}`} />
+								Refresh
+							</button>
+						</div>
 					</div>
 
 					{dashboardLoading && !dashboard ? (
@@ -1664,6 +1755,14 @@ const EventVoting: React.FC = () => {
 							<option value="CANCELLED">Cancelled</option>
 							<option value="EXPIRED">Expired</option>
 						</select>
+						<button
+							onClick={handleExportVotePurchasesPdf}
+							disabled={exportingPurchases || !eventId}
+							className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							<ArrowDownTrayIcon className="h-4 w-4" />
+							{exportingPurchases ? "Mengekspor..." : "Ekspor PDF"}
+						</button>
 					</div>
 
 					{purchasesLoading ? (

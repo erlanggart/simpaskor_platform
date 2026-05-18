@@ -14,6 +14,7 @@ import {
 	LockOpenIcon,
 	LockClosedIcon,
 	ArrowPathIcon,
+	ArrowDownTrayIcon,
 	EnvelopeIcon,
 	ChartBarIcon,
 	UserGroupIcon,
@@ -28,6 +29,7 @@ import { api } from "../../utils/api";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy";
 import { config as appConfig } from "../../utils/config";
 import { EventTicketConfig, TicketPurchase, TicketTeam } from "../../types/ticket";
+import { exportPurchaseReportToPdf } from "../../utils/purchasePdfExport";
 
 const TICKET_REVENUE_SHARE_TIERS = ["TICKETING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 
@@ -36,6 +38,7 @@ const EventTicketing: React.FC = () => {
 	const [activeTab, setActiveTab] = useState<"dashboard" | "teams" | "config" | "purchases" | "scan">("dashboard");
 	const [loading, setLoading] = useState(true);
 	const [eventId, setEventId] = useState<string>("");
+	const [eventTitle, setEventTitle] = useState<string>("");
 
 	// Config state
 	const [config, setConfig] = useState<EventTicketConfig>({
@@ -81,6 +84,7 @@ const EventTicketing: React.FC = () => {
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
 	const [paidUsedCount, setPaidUsedCount] = useState(0);
+	const [exportingPurchases, setExportingPurchases] = useState(false);
 
 	// Scanner state
 	const [scanning, setScanning] = useState(false);
@@ -151,9 +155,13 @@ const EventTicketing: React.FC = () => {
 			try {
 				const res = await api.get(`/events/${eventSlug}`);
 				setEventId(res.data.id);
+				setEventTitle(res.data.title || eventSlug || "Event");
 			} catch {
 				// Try direct ID
-				if (eventSlug) setEventId(eventSlug);
+				if (eventSlug) {
+					setEventId(eventSlug);
+					setEventTitle(eventSlug);
+				}
 			}
 		};
 		if (eventSlug) fetchEvent();
@@ -433,6 +441,88 @@ const EventTicketing: React.FC = () => {
 			console.error("Error fetching purchases");
 		} finally {
 			setPurchasesLoading(false);
+		}
+	};
+
+	const fetchAllTicketPurchases = async () => {
+		const allPurchases: TicketPurchase[] = [];
+		let currentPage = 1;
+		let pageCount = 1;
+
+		do {
+			const params: any = { page: currentPage, limit: 50 };
+			if (search.trim()) params.search = search.trim();
+			if (statusFilter) params.status = statusFilter;
+
+			const res = await api.get(`/tickets/admin/event/${eventId}/purchases`, { params });
+			allPurchases.push(...(res.data.data || []));
+			pageCount = res.data.totalPages || 1;
+			currentPage += 1;
+		} while (currentPage <= pageCount);
+
+		return allPurchases;
+	};
+
+	const getPurchaseTeamSummary = (purchase: TicketPurchase) => {
+		const teamNames = Array.from(
+			new Set(
+				(purchase.attendees || [])
+					.map((att) => att.ticketTeam?.teamName || "Belum dipilih")
+					.filter(Boolean)
+			)
+		);
+		return teamNames.length > 0 ? teamNames.join(", ") : "Belum dipilih";
+	};
+
+	const handleExportTicketPurchasesPdf = async () => {
+		if (!eventId || exportingPurchases) return;
+
+		try {
+			setExportingPurchases(true);
+			const allPurchases = await fetchAllTicketPurchases();
+
+			if (allPurchases.length === 0) {
+				Swal.fire("Tidak Ada Data", "Belum ada pembelian tiket untuk diekspor.", "info");
+				return;
+			}
+
+			const paidOrUsedPurchases = allPurchases.filter((purchase) => ["PAID", "USED"].includes(purchase.status));
+			const totalTickets = allPurchases.reduce((sum, purchase) => sum + (purchase.quantity || 0), 0);
+			const totalRevenue = paidOrUsedPurchases.reduce((sum, purchase) => sum + (purchase.totalAmount || 0), 0);
+			const filterLabel = [
+				statusFilter ? `Status: ${statusFilter}` : "Semua status",
+				search.trim() ? `Pencarian: ${search.trim()}` : null,
+			].filter(Boolean).join(" | ");
+
+			exportPurchaseReportToPdf({
+				title: "Laporan Pembelian Tiket",
+				subtitle: `${eventTitle || "Event"} - ${filterLabel}`,
+				fileName: `pembelian-tiket-${eventTitle || eventId}`,
+				summaryRows: [
+					["Total Transaksi", allPurchases.length],
+					["Total Tiket", totalTickets],
+					["Pendapatan PAID/USED", formatCurrency(totalRevenue)],
+				],
+				head: ["No", "Kode", "Pembeli", "Email", "No. HP", "Pasukan", "Qty", "Total", "Status", "Dibuat", "Dibayar", "Dipakai"],
+				body: allPurchases.map((purchase, index) => [
+					index + 1,
+					purchase.ticketCode,
+					purchase.buyerName,
+					purchase.buyerEmail,
+					purchase.buyerPhone || "-",
+					getPurchaseTeamSummary(purchase),
+					purchase.quantity,
+					purchase.totalAmount === 0 ? "GRATIS" : formatCurrency(purchase.totalAmount),
+					purchase.status,
+					formatDate(purchase.createdAt || null),
+					formatDate(purchase.paidAt),
+					formatDate(purchase.usedAt),
+				]),
+			});
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengekspor data pembelian tiket", "error");
+		} finally {
+			setExportingPurchases(false);
 		}
 	};
 
@@ -932,6 +1022,16 @@ const EventTicketing: React.FC = () => {
 			{/* Dashboard Tab */}
 			{activeTab === "dashboard" && (
 				<div className="space-y-6">
+					<div className="flex justify-end">
+						<button
+							onClick={handleExportTicketPurchasesPdf}
+							disabled={exportingPurchases || !eventId}
+							className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							<ArrowDownTrayIcon className="h-4 w-4" />
+							{exportingPurchases ? "Mengekspor..." : "Ekspor Pembelian PDF"}
+						</button>
+					</div>
 					{dashboardLoading ? (
 						<div className="flex justify-center py-12">
 							<ArrowPathIcon className="w-8 h-8 text-gray-400 animate-spin" />
@@ -1481,6 +1581,14 @@ const EventTicketing: React.FC = () => {
 							<option value="CANCELLED">Dibatalkan</option>
 							<option value="EXPIRED">Kedaluwarsa</option>
 						</select>
+						<button
+							onClick={handleExportTicketPurchasesPdf}
+							disabled={exportingPurchases || !eventId}
+							className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							<ArrowDownTrayIcon className="h-4 w-4" />
+							{exportingPurchases ? "Mengekspor..." : "Ekspor PDF"}
+						</button>
 					</div>
 
 					{/* Purchases Table */}
