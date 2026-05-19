@@ -302,15 +302,17 @@ const EventVoting: React.FC = () => {
 		}
 	};
 
-	const fetchAllVotePurchases = async () => {
+	const fetchAllVotePurchases = async (options: { includeCurrentFilters?: boolean } = { includeCurrentFilters: true }) => {
 		const allPurchases: VotingPurchase[] = [];
 		let currentPage = 1;
 		let pageCount = 1;
 
 		do {
 			const params: any = { page: currentPage, limit: 50 };
-			if (search.trim()) params.search = search.trim();
-			if (statusFilter) params.status = statusFilter;
+			if (options.includeCurrentFilters !== false) {
+				if (search.trim()) params.search = search.trim();
+				if (statusFilter) params.status = statusFilter;
+			}
 
 			const res = await api.get(`/voting/admin/event/${eventId}/purchases`, { params });
 			allPurchases.push(...(res.data.data || []));
@@ -702,10 +704,15 @@ const EventVoting: React.FC = () => {
 			return;
 		}
 
-		const ExcelJSModule = await import("exceljs");
-		const workbook = new ExcelJSModule.default.Workbook();
-		workbook.creator = "Simpaskor";
-		workbook.created = new Date();
+		try {
+			setExportingPurchases(true);
+			const [ExcelJSModule, allPurchases] = await Promise.all([
+				import("exceljs"),
+				dashboard.isPaid ? fetchAllVotePurchases({ includeCurrentFilters: false }) : Promise.resolve([] as VotingPurchase[]),
+			]);
+			const workbook = new ExcelJSModule.default.Workbook();
+			workbook.creator = "Simpaskor";
+			workbook.created = new Date();
 
 		const worksheet = workbook.addWorksheet("Dashboard Voting");
 		const summary = dashboard.purchaseSummary;
@@ -851,9 +858,92 @@ const EventVoting: React.FC = () => {
 		if (dashboard.dailyTrend.length === 0) worksheet.addRow(["-", "-", 0]);
 		styleDataRows(trendStartRow, trendStartRow + Math.max(0, dashboard.dailyTrend.length - 1));
 
-		worksheet.views = [{ state: "frozen", ySplit: 2 }];
-		const filename = `dashboard-voting-${sanitizeFilename(eventSlug || eventId || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-		await saveWorkbook(workbook, filename);
+			worksheet.views = [{ state: "frozen", ySplit: 2 }];
+
+			const purchaseWorksheet = workbook.addWorksheet("Data Pembelian");
+			purchaseWorksheet.columns = [
+				{ key: "no", width: 6 },
+				{ key: "purchaseCode", width: 22 },
+				{ key: "buyerName", width: 28 },
+				{ key: "buyerEmail", width: 32 },
+				{ key: "buyerPhone", width: 18 },
+				{ key: "midtransOrderId", width: 28 },
+				{ key: "voteCount", width: 12 },
+				{ key: "usedVotes", width: 12 },
+				{ key: "remainingVotes", width: 12 },
+				{ key: "totalAmount", width: 16 },
+				{ key: "status", width: 14 },
+				{ key: "createdAt", width: 22 },
+				{ key: "paidAt", width: 22 },
+			];
+			purchaseWorksheet.addRow([
+				"No",
+				"Kode Pembelian",
+				"Nama Pembeli",
+				"Email",
+				"No. HP",
+				"Order ID Midtrans",
+				"Vote Dibeli",
+				"Vote Masuk",
+				"Sisa Vote",
+				"Total Bayar",
+				"Status",
+				"Tanggal Dibuat",
+				"Tanggal Dibayar",
+			]);
+			purchaseWorksheet.getRow(1).eachCell((cell) => {
+				cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+				cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF047857" } };
+				cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+				cell.border = {
+					top: { style: "thin" },
+					left: { style: "thin" },
+					bottom: { style: "thin" },
+					right: { style: "thin" },
+				};
+			});
+
+			allPurchases.forEach((purchase, index) => {
+				const row = purchaseWorksheet.addRow([
+					index + 1,
+					purchase.purchaseCode,
+					purchase.buyerName,
+					purchase.buyerEmail,
+					purchase.buyerPhone || "-",
+					purchase.midtransOrderId || "-",
+					purchase.voteCount,
+					purchase.usedVotes,
+					Math.max(0, purchase.voteCount - purchase.usedVotes),
+					purchase.totalAmount,
+					purchase.status,
+					formatDate(purchase.createdAt || null),
+					formatDate(purchase.paidAt),
+				]);
+				row.eachCell((cell) => {
+					cell.alignment = { vertical: "middle", wrapText: true };
+					cell.border = {
+						top: { style: "thin", color: { argb: "FFE5E7EB" } },
+						left: { style: "thin", color: { argb: "FFE5E7EB" } },
+						bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+						right: { style: "thin", color: { argb: "FFE5E7EB" } },
+					};
+				});
+				row.getCell(10).numFmt = '"Rp" #,##0';
+			});
+
+			if (allPurchases.length === 0) {
+				purchaseWorksheet.addRow(["-", "Belum ada data pembelian vote", "-", "-", "-", "-", 0, 0, 0, 0, "-", "-", "-"]);
+			}
+			purchaseWorksheet.views = [{ state: "frozen", ySplit: 1 }];
+			purchaseWorksheet.autoFilter = "A1:M1";
+
+			const filename = `dashboard-voting-${sanitizeFilename(eventSlug || eventId || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+			await saveWorkbook(workbook, filename);
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengekspor dashboard voting ke Excel", "error");
+		} finally {
+			setExportingPurchases(false);
+		}
 	};
 
 	const getNomineePhotoUrl = (photo: string | null) => {

@@ -70,6 +70,7 @@ export interface VotingPurchase {
 	totalAmount: number;
 	purchaseCode: string;
 	status: VotingPurchaseStatus;
+	midtransOrderId: string | null;
 	paidAt: string | null;
 	usedVotes: number;
 	createdAt: string;
