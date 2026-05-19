@@ -1021,6 +1021,30 @@ model EventPayment {
   @@map("event_payments")
 }
 
+model AdminFeeTransaction {
+  id              String   @id @default(uuid())
+  source          String
+  sourceId        String?  @map("source_id")
+  eventId         String?  @map("event_id")
+  eventTitle      String?  @map("event_title")
+  eventSlug       String?  @map("event_slug")
+  midtransOrderId String   @unique @map("midtrans_order_id")
+  baseAmount      Float    @map("base_amount")
+  adminFee        Float    @map("admin_fee")
+  quantity        Int?
+  voteCount       Int?     @map("vote_count")
+  status          String   @default("PAID")
+  paymentType     String?  @map("payment_type")
+  paidAt          DateTime @map("paid_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([source])
+  @@index([eventId])
+  @@index([paidAt])
+  @@map("admin_fee_transactions")
+}
+
 // ===== Guide System =====
 
 enum GuideRole {

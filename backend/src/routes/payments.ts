@@ -16,6 +16,7 @@ import {
 } from "../lib/vertinovaFinanceWebhook";
 import { recordTicketRevenueShare, recordVotingRevenueShare } from "../lib/revenueLedger";
 import { applyPaidVotingPurchaseVotes } from "../lib/votingAutoApply";
+import { recordAdminFeeTransaction } from "../lib/adminFeeLedger";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -160,6 +161,7 @@ async function handleTicketPayment(
 			event: {
 				select: {
 					title: true,
+					slug: true,
 					startDate: true,
 					venue: true,
 					city: true,
@@ -174,8 +176,29 @@ async function handleTicketPayment(
 		return;
 	}
 
+	const recordTicketAdminFee = async (paidAt: Date) => {
+		const adminFee = calculateTicketAdminFee(ticket.quantity);
+		await recordAdminFeeTransaction({
+			source: "ticket",
+			sourceId: ticket.id,
+			eventId: ticket.eventId,
+			eventTitle: ticket.event.title,
+			eventSlug: ticket.event.slug,
+			midtransOrderId,
+			baseAmount: ticket.totalAmount,
+			adminFee,
+			quantity: ticket.quantity,
+			paymentType,
+			paidAt,
+		});
+		return adminFee;
+	};
+
 	// Idempotency guard: skip if already in terminal state
 	if (ticket.status === "PAID" || ticket.status === "USED" || ticket.status === "CANCELLED" || ticket.status === "EXPIRED") {
+		if ((ticket.status === "PAID" || ticket.status === "USED") && ticket.paidAt) {
+			await recordTicketAdminFee(ticket.paidAt);
+		}
 		console.log(`[Midtrans] Ticket ${midtransOrderId} already ${ticket.status}, skipping`);
 		return;
 	}
@@ -201,9 +224,10 @@ async function handleTicketPayment(
 			// soldCount was already incremented atomically during purchase — no need to increment again
 		});
 
+		const adminFee = await recordTicketAdminFee(paidAt);
 		void sendVertinovaPaymentSuccessWebhook({
 			orderId: midtransOrderId,
-			amount: calculateTicketAdminFee(ticket.quantity),
+			amount: adminFee,
 			paidAt: paidAt.toISOString(),
 			description: `Admin fee tiket ${ticket.event.title} (${ticket.quantity} tiket)`,
 		});
@@ -266,7 +290,7 @@ async function handleVotingPayment(
 		where: { midtransOrderId },
 		include: {
 			event: {
-				select: { title: true },
+				select: { title: true, slug: true },
 			},
 		},
 	});
@@ -275,9 +299,30 @@ async function handleVotingPayment(
 		return;
 	}
 
+	const recordVotingAdminFee = async (paidAt: Date) => {
+		const adminFee = calculateVotingAdminFee(purchase.totalAmount, purchase.voteCount);
+		await recordAdminFeeTransaction({
+			source: "voting",
+			sourceId: purchase.id,
+			eventId: purchase.eventId,
+			eventTitle: purchase.event.title,
+			eventSlug: purchase.event.slug,
+			midtransOrderId,
+			baseAmount: purchase.totalAmount,
+			adminFee,
+			voteCount: purchase.voteCount,
+			paymentType,
+			paidAt,
+		});
+		return adminFee;
+	};
+
 	// Idempotency guard: allow a late success notification to recover old purchases
 	// that were previously marked expired/cancelled before Midtrans confirmed them.
 	if (purchase.status === "PAID") {
+		if (purchase.paidAt) {
+			await recordVotingAdminFee(purchase.paidAt);
+		}
 		console.log(`[Midtrans] Voting ${midtransOrderId} already ${purchase.status}, skipping`);
 		return;
 	}
@@ -300,9 +345,10 @@ async function handleVotingPayment(
 			await applyPaidVotingPurchaseVotes(tx, purchase.id);
 			await recordVotingRevenueShare(tx, purchase.id);
 		});
+		const adminFee = await recordVotingAdminFee(paidAt);
 		void sendVertinovaPaymentSuccessWebhook({
 			orderId: midtransOrderId,
-			amount: calculateVotingAdminFee(purchase.totalAmount, purchase.voteCount),
+			amount: adminFee,
 			paidAt: paidAt.toISOString(),
 			description: `Admin fee voting ${purchase.event.title} (${purchase.voteCount} suara)`,
 		});
@@ -324,15 +370,35 @@ async function handleRegistrationPayment(
 ) {
 	const payment = await prisma.registrationPayment.findUnique({
 		where: { midtransOrderId },
-		include: { participation: { include: { event: { select: { title: true } } } } },
+		include: { participation: { include: { event: { select: { title: true, slug: true } } } } },
 	});
 	if (!payment) {
 		console.warn(`[Midtrans] Registration payment not found: ${midtransOrderId}`);
 		return;
 	}
 
+	const recordRegistrationAdminFee = async (paidAt: Date) => {
+		const adminFee = calculateRegistrationAdminFee();
+		await recordAdminFeeTransaction({
+			source: "registration",
+			sourceId: payment.id,
+			eventId: payment.eventId,
+			eventTitle: payment.participation.event.title,
+			eventSlug: payment.participation.event.slug,
+			midtransOrderId,
+			baseAmount: payment.amount,
+			adminFee,
+			paymentType,
+			paidAt,
+		});
+		return adminFee;
+	};
+
 	// Idempotency guard: skip if already in terminal state
 	if (payment.status === "PAID" || payment.status === "CANCELLED" || payment.status === "EXPIRED") {
+		if (payment.status === "PAID" && payment.paidAt) {
+			await recordRegistrationAdminFee(payment.paidAt);
+		}
 		console.log(`[Midtrans] Registration ${midtransOrderId} already ${payment.status}, skipping`);
 		return;
 	}
@@ -355,9 +421,10 @@ async function handleRegistrationPayment(
 				data: { status: "REGISTERED" },
 			});
 		});
+		const adminFee = await recordRegistrationAdminFee(paidAt);
 		void sendVertinovaPaymentSuccessWebhook({
 			orderId: midtransOrderId,
-			amount: calculateRegistrationAdminFee(),
+			amount: adminFee,
 			paidAt: paidAt.toISOString(),
 			description: `Admin fee pendaftaran ${payment.participation.event.title}`,
 		});

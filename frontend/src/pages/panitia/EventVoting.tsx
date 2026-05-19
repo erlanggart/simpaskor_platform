@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
+import type ExcelJS from "exceljs";
 import {
 	Cog6ToothIcon,
 	ListBulletIcon,
@@ -185,7 +186,13 @@ const EventVoting: React.FC = () => {
 	const editNomineePhotoInputRef = useRef<HTMLInputElement>(null);
 
 	// Results state
-	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean }>({ categories: [], totalVotes: 0, pricePerVote: 0, isPaid: false });
+	const [results, setResults] = useState<{ categories: any[]; totalVotes: number; pricePerVote: number; isPaid: boolean; purchaseRevenue: number }>({
+		categories: [],
+		totalVotes: 0,
+		pricePerVote: 0,
+		isPaid: false,
+		purchaseRevenue: 0,
+	});
 	const [dashboard, setDashboard] = useState<VotingDashboard | null>(null);
 	const [dashboardLoading, setDashboardLoading] = useState(false);
 
@@ -674,6 +681,181 @@ const EventVoting: React.FC = () => {
 		return new Intl.NumberFormat("id-ID").format(amount);
 	};
 
+	const saveWorkbook = async (workbook: ExcelJS.Workbook, filename: string) => {
+		const buffer = await workbook.xlsx.writeBuffer();
+		const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = filename;
+		link.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const sanitizeFilename = (value: string) => {
+		return value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+	};
+
+	const exportDashboardToExcel = async () => {
+		if (!dashboard) {
+			Swal.fire("Dashboard belum siap", "Muat dashboard terlebih dahulu sebelum ekspor Excel.", "info");
+			return;
+		}
+
+		const ExcelJSModule = await import("exceljs");
+		const workbook = new ExcelJSModule.default.Workbook();
+		workbook.creator = "Simpaskor";
+		workbook.created = new Date();
+
+		const worksheet = workbook.addWorksheet("Dashboard Voting");
+		const summary = dashboard.purchaseSummary;
+		const title = "Dashboard Voting";
+		const exportedAt = new Date().toLocaleString("id-ID", { timeZone: INDONESIA_TIME_ZONE });
+
+		worksheet.columns = [
+			{ key: "a", width: 24 },
+			{ key: "b", width: 28 },
+			{ key: "c", width: 24 },
+			{ key: "d", width: 24 },
+			{ key: "e", width: 24 },
+		];
+
+		worksheet.mergeCells("A1:E1");
+		worksheet.getCell("A1").value = title;
+		worksheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
+		worksheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
+		worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+		worksheet.getRow(1).height = 28;
+
+		worksheet.mergeCells("A2:E2");
+		worksheet.getCell("A2").value = `Diekspor: ${exportedAt}`;
+		worksheet.getCell("A2").font = { italic: true, color: { argb: "FF6B7280" } };
+		worksheet.getCell("A2").alignment = { horizontal: "center" };
+
+		const addSectionTitle = (rowNumber: number, label: string) => {
+			worksheet.mergeCells(rowNumber, 1, rowNumber, 5);
+			const cell = worksheet.getCell(rowNumber, 1);
+			cell.value = label;
+			cell.font = { bold: true, color: { argb: "FF111827" } };
+			cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFF6FF" } };
+			cell.alignment = { vertical: "middle" };
+		};
+
+		const styleHeaderRow = (rowNumber: number) => {
+			const row = worksheet.getRow(rowNumber);
+			row.eachCell((cell) => {
+				cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+				cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF374151" } };
+				cell.alignment = { horizontal: "center", vertical: "middle" };
+				cell.border = {
+					top: { style: "thin" },
+					left: { style: "thin" },
+					bottom: { style: "thin" },
+					right: { style: "thin" },
+				};
+			});
+		};
+
+		const styleDataRows = (startRow: number, endRow: number) => {
+			for (let rowNumber = startRow; rowNumber <= endRow; rowNumber += 1) {
+				const row = worksheet.getRow(rowNumber);
+				row.eachCell((cell) => {
+					cell.alignment = { vertical: "middle", wrapText: true };
+					cell.border = {
+						top: { style: "thin", color: { argb: "FFE5E7EB" } },
+						left: { style: "thin", color: { argb: "FFE5E7EB" } },
+						bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+						right: { style: "thin", color: { argb: "FFE5E7EB" } },
+					};
+				});
+			}
+		};
+
+		let rowNumber = 4;
+		addSectionTitle(rowNumber, "Ringkasan");
+		rowNumber += 1;
+		worksheet.addRow(["Metrik", "Nilai", "Keterangan"]);
+		styleHeaderRow(rowNumber);
+		rowNumber += 1;
+		const summaryStartRow = rowNumber;
+		[
+			["Total Vote", dashboard.totalVotes, `${dashboard.categoryCount} kategori aktif`],
+			["Nominee", dashboard.nomineeCount, "Terdaftar di semua kategori"],
+			["Vote Terpakai", summary?.usedVotes || dashboard.totalVotes, summary ? `${summary.unusedVotes} vote tersisa` : "Mode voting gratis"],
+			["Pendapatan Vote", summary?.revenue || 0, dashboard.isPaid ? `${summary?.conversionRate || 0}% transaksi paid` : "Tidak berbayar"],
+		].forEach((row) => worksheet.addRow(row));
+		styleDataRows(summaryStartRow, rowNumber + 3);
+		worksheet.getCell(`B${summaryStartRow + 3}`).numFmt = '"Rp" #,##0';
+		rowNumber += 5;
+
+		addSectionTitle(rowNumber, "Status Pembelian");
+		rowNumber += 1;
+		worksheet.addRow(["Status", "Jumlah Transaksi", "Keterangan"]);
+		styleHeaderRow(rowNumber);
+		rowNumber += 1;
+		const statusStartRow = rowNumber;
+		if (summary) {
+			[
+				["PAID", summary.paid, "Pembayaran berhasil"],
+				["PENDING", summary.pending, "Menunggu pembayaran"],
+				["CANCELLED", summary.cancelled, "Dibatalkan"],
+				["EXPIRED", summary.expired, "Kedaluwarsa"],
+			].forEach((row) => worksheet.addRow(row));
+			styleDataRows(statusStartRow, rowNumber + 3);
+			rowNumber += 5;
+		} else {
+			worksheet.addRow(["-", 0, "Voting gratis"]);
+			styleDataRows(statusStartRow, statusStartRow);
+			rowNumber += 2;
+		}
+
+		addSectionTitle(rowNumber, "Performa Kategori");
+		rowNumber += 1;
+		worksheet.addRow(["Kategori", "Total Vote", "Jumlah Nominee", "Nominee Unggul", "Vote Nominee Unggul"]);
+		styleHeaderRow(rowNumber);
+		rowNumber += 1;
+		const categoryStartRow = rowNumber;
+		dashboard.categoryBreakdown.forEach((cat) => {
+			worksheet.addRow([
+				cat.title,
+				cat.votes,
+				cat.nomineeCount,
+				cat.leadingNominee?.name || "-",
+				cat.leadingNominee?.votes ?? 0,
+			]);
+		});
+		if (dashboard.categoryBreakdown.length === 0) worksheet.addRow(["Belum ada kategori", 0, 0, "-", 0]);
+		styleDataRows(categoryStartRow, categoryStartRow + Math.max(0, dashboard.categoryBreakdown.length - 1));
+		rowNumber += Math.max(1, dashboard.categoryBreakdown.length) + 1;
+
+		addSectionTitle(rowNumber, "Leaderboard Nominee");
+		rowNumber += 1;
+		worksheet.addRow(["Peringkat", "Nominee", "Kategori", "Subtitle", "Vote"]);
+		styleHeaderRow(rowNumber);
+		rowNumber += 1;
+		const nomineeStartRow = rowNumber;
+		dashboard.topNominees.forEach((nominee, index) => {
+			worksheet.addRow([index + 1, nominee.name, nominee.categoryTitle, nominee.subtitle || "-", nominee.votes]);
+		});
+		if (dashboard.topNominees.length === 0) worksheet.addRow(["-", "Belum ada nominee", "-", "-", 0]);
+		styleDataRows(nomineeStartRow, nomineeStartRow + Math.max(0, dashboard.topNominees.length - 1));
+		rowNumber += Math.max(1, dashboard.topNominees.length) + 1;
+
+		addSectionTitle(rowNumber, "Tren Vote 7 Hari");
+		rowNumber += 1;
+		worksheet.addRow(["Tanggal", "Label", "Vote"]);
+		styleHeaderRow(rowNumber);
+		rowNumber += 1;
+		const trendStartRow = rowNumber;
+		dashboard.dailyTrend.forEach((item) => worksheet.addRow([item.date, item.label, item.votes]));
+		if (dashboard.dailyTrend.length === 0) worksheet.addRow(["-", "-", 0]);
+		styleDataRows(trendStartRow, trendStartRow + Math.max(0, dashboard.dailyTrend.length - 1));
+
+		worksheet.views = [{ state: "frozen", ySplit: 2 }];
+		const filename = `dashboard-voting-${sanitizeFilename(eventSlug || eventId || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+		await saveWorkbook(workbook, filename);
+	};
+
 	const getNomineePhotoUrl = (photo: string | null) => {
 		if (!photo) return null;
 		return photo.startsWith("http") ? photo : appConfig.api.backendUrl + photo;
@@ -784,6 +966,14 @@ const EventVoting: React.FC = () => {
 							>
 								<ArrowDownTrayIcon className="w-4 h-4" />
 								{exportingPurchases ? "Mengekspor..." : "Ekspor Pembelian PDF"}
+							</button>
+							<button
+								onClick={exportDashboardToExcel}
+								disabled={!dashboard || dashboardLoading}
+								className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+							>
+								<ArrowDownTrayIcon className="w-4 h-4" />
+								Ekspor Excel
 							</button>
 							<button
 								onClick={fetchDashboard}
@@ -1658,7 +1848,7 @@ const EventVoting: React.FC = () => {
 						<div className="flex items-center gap-4">
 							{results.isPaid && (
 								<span className="text-sm text-green-600 dark:text-green-400 font-medium">
-									Total Pendapatan: {formatCurrency(results.totalVotes * results.pricePerVote)}
+									Total Pendapatan: {formatCurrency(results.purchaseRevenue)}
 								</span>
 							)}
 							<span className="text-sm text-gray-500 dark:text-gray-400">Total: {results.totalVotes} vote</span>

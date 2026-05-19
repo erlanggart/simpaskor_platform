@@ -1,19 +1,16 @@
 import { Router, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
+import {
+	calculateRegistrationAdminFee,
+	calculateTicketAdminFee,
+	calculateVotingAdminFee,
+} from "../lib/adminFeeLedger";
 
 const router = Router();
 
-const TICKET_ADMIN_FEE_PER_TICKET = 2000;
-const REGISTRATION_ADMIN_FEE = 5000;
-const VOTING_ADMIN_FEE_PER_VOTE = 500;
-const VOTING_MAX_ADMIN_FEE = 10000;
 const EXTERNAL_FINANCE_API_KEY = "simpaskor-admin-fee-2026-7d4f6c9b2a8e41f0b5c3d9e7a1f8b6c4";
-
-const calculateVotingAdminFee = (totalAmount: number, voteCount: number): number => {
-	if (totalAmount <= 0) return 0;
-	return Math.min(VOTING_ADMIN_FEE_PER_VOTE * voteCount, VOTING_MAX_ADMIN_FEE);
-};
 
 const getExternalApiKey = (req: Request): string => {
 	const apiKeyHeader = req.headers["x-api-key"];
@@ -75,6 +72,22 @@ const buildPaidAtFilter = (from: Date | null, to: Date | null) => {
 
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 
+type AdminFeeLedgerRow = {
+	source: string;
+	sourceId: string | null;
+	eventId: string | null;
+	eventTitle: string | null;
+	eventSlug: string | null;
+	midtransOrderId: string;
+	baseAmount: number;
+	adminFee: number;
+	quantity: number | null;
+	voteCount: number | null;
+	status: string;
+	paymentType: string | null;
+	paidAt: Date;
+};
+
 // GET /api/external/admin-fees
 router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res: Response) => {
 	try {
@@ -85,6 +98,37 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 		const paidAtFilter = buildPaidAtFilter(from, to);
 		const eventFilter = eventId ? { eventId } : {};
 
+		const ledgerWhere = Prisma.sql`
+			"status" = 'PAID'
+			${eventId ? Prisma.sql`AND "event_id" = ${eventId}` : Prisma.empty}
+			${from ? Prisma.sql`AND "paid_at" >= ${from}` : Prisma.empty}
+			${to ? Prisma.sql`AND "paid_at" <= ${to}` : Prisma.empty}
+		`;
+		const ledgerTransactions = await prisma.$queryRaw<AdminFeeLedgerRow[]>`
+			SELECT
+				"source",
+				"source_id" AS "sourceId",
+				"event_id" AS "eventId",
+				"event_title" AS "eventTitle",
+				"event_slug" AS "eventSlug",
+				"midtrans_order_id" AS "midtransOrderId",
+				"base_amount" AS "baseAmount",
+				"admin_fee" AS "adminFee",
+				"quantity",
+				"vote_count" AS "voteCount",
+				"status",
+				"payment_type" AS "paymentType",
+				"paid_at" AS "paidAt"
+			FROM "admin_fee_transactions"
+			WHERE ${ledgerWhere}
+			ORDER BY "paid_at" ASC
+		`;
+		const loggedOrderIds = ledgerTransactions.map((transaction) => transaction.midtransOrderId);
+		const midtransOrderFilter: any = { not: null };
+		if (loggedOrderIds.length > 0) {
+			midtransOrderFilter.notIn = loggedOrderIds;
+		}
+
 		const [ticketPurchases, votingPurchases, registrationPayments] = await Promise.all([
 			prisma.ticketPurchase.findMany({
 				where: {
@@ -92,7 +136,7 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 					...paidAtFilter,
 					status: { in: ["PAID", "USED"] },
 					totalAmount: { gt: 0 },
-					midtransOrderId: { not: null },
+					midtransOrderId: midtransOrderFilter,
 				},
 				select: {
 					id: true,
@@ -111,7 +155,7 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 					...paidAtFilter,
 					status: "PAID",
 					totalAmount: { gt: 0 },
-					midtransOrderId: { not: null },
+					midtransOrderId: midtransOrderFilter,
 				},
 				select: {
 					id: true,
@@ -130,7 +174,7 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 					...paidAtFilter,
 					status: "PAID",
 					amount: { gt: 0 },
-					OR: [{ paymentMethod: "MIDTRANS" }, { midtransOrderId: { not: null } }],
+					midtransOrderId: midtransOrderFilter,
 				},
 				select: {
 					id: true,
@@ -144,6 +188,22 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 			}),
 		]);
 
+		const ledgerDetails = ledgerTransactions.map((transaction) => ({
+			source: transaction.source,
+			id: transaction.sourceId,
+			eventId: transaction.eventId,
+			eventTitle: transaction.eventTitle,
+			eventSlug: transaction.eventSlug,
+			baseAmount: transaction.baseAmount,
+			adminFee: transaction.adminFee,
+			quantity: transaction.quantity,
+			voteCount: transaction.voteCount,
+			status: transaction.status,
+			paidAt: transaction.paidAt,
+			midtransOrderId: transaction.midtransOrderId,
+			paymentType: transaction.paymentType,
+		}));
+
 		const ticketDetails = ticketPurchases.map((purchase) => ({
 			source: "ticket",
 			id: purchase.id,
@@ -151,11 +211,13 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 			eventTitle: purchase.event.title,
 			eventSlug: purchase.event.slug,
 			baseAmount: purchase.totalAmount,
-			adminFee: TICKET_ADMIN_FEE_PER_TICKET * purchase.quantity,
+			adminFee: calculateTicketAdminFee(purchase.quantity),
 			quantity: purchase.quantity,
+			voteCount: null,
 			status: purchase.status,
 			paidAt: purchase.paidAt,
 			midtransOrderId: purchase.midtransOrderId,
+			paymentType: null,
 		}));
 
 		const votingDetails = votingPurchases.map((purchase) => ({
@@ -166,10 +228,12 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 			eventSlug: purchase.event.slug,
 			baseAmount: purchase.totalAmount,
 			adminFee: calculateVotingAdminFee(purchase.totalAmount, purchase.voteCount),
+			quantity: null,
 			voteCount: purchase.voteCount,
 			status: purchase.status,
 			paidAt: purchase.paidAt,
 			midtransOrderId: purchase.midtransOrderId,
+			paymentType: null,
 		}));
 
 		const registrationDetails = registrationPayments.map((payment) => ({
@@ -179,19 +243,23 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 			eventTitle: payment.participation.event.title,
 			eventSlug: payment.participation.event.slug,
 			baseAmount: payment.amount,
-			adminFee: REGISTRATION_ADMIN_FEE,
+			adminFee: calculateRegistrationAdminFee(),
+			quantity: null,
+			voteCount: null,
 			status: payment.status,
 			paidAt: payment.paidAt,
 			midtransOrderId: payment.midtransOrderId,
+			paymentType: null,
 		}));
 
-		const ticketAdminFee = sum(ticketDetails.map((item) => item.adminFee));
-		const votingAdminFee = sum(votingDetails.map((item) => item.adminFee));
-		const registrationAdminFee = sum(registrationDetails.map((item) => item.adminFee));
+		const allDetails = [...ledgerDetails, ...ticketDetails, ...votingDetails, ...registrationDetails];
+		const ticketAdminFee = sum(allDetails.filter((item) => item.source === "ticket").map((item) => item.adminFee));
+		const votingAdminFee = sum(allDetails.filter((item) => item.source === "voting").map((item) => item.adminFee));
+		const registrationAdminFee = sum(allDetails.filter((item) => item.source === "registration").map((item) => item.adminFee));
 		const detailsBySource = {
-			tickets: ticketDetails,
-			voting: votingDetails,
-			registrations: registrationDetails,
+			tickets: allDetails.filter((item) => item.source === "ticket"),
+			voting: allDetails.filter((item) => item.source === "voting"),
+			registrations: allDetails.filter((item) => item.source === "registration"),
 		};
 
 		res.json({
@@ -209,14 +277,14 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 				qrisFee: 0,
 			},
 			counts: {
-				tickets: ticketDetails.length,
-				voting: votingDetails.length,
-				registrations: registrationDetails.length,
+				tickets: detailsBySource.tickets.length,
+				voting: detailsBySource.voting.length,
+				registrations: detailsBySource.registrations.length,
 			},
 			...(includeDetails
 				? {
 						details: detailsBySource,
-						data: [...ticketDetails, ...votingDetails, ...registrationDetails],
+						data: allDetails,
 				  }
 				: {}),
 		});

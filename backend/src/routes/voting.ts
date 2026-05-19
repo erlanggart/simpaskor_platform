@@ -1495,16 +1495,23 @@ router.get(
 			});
 
 			if (!config) {
-				return res.json({ categories: [], totalVotes: 0 });
+				return res.json({ categories: [], totalVotes: 0, purchaseRevenue: 0 });
 			}
 
 			const totalVotes = config.categories.reduce((sum, cat) => sum + cat._count.votes, 0);
+			const purchaseRevenue = config.isPaid
+				? await prisma.votingPurchase.aggregate({
+						where: { eventId, status: "PAID" },
+						_sum: { totalAmount: true },
+					})
+				: null;
 
 			res.json({
 				categories: config.categories,
 				totalVotes,
 				pricePerVote: config.pricePerVote,
 				isPaid: config.isPaid,
+				purchaseRevenue: purchaseRevenue?._sum.totalAmount ?? 0,
 			});
 		} catch (error) {
 			console.error("Error fetching voting results:", error);
