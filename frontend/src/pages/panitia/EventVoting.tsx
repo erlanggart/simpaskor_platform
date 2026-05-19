@@ -40,6 +40,19 @@ const INDONESIA_UTC_OFFSET_MINUTES = 7 * 60;
 const DATETIME_LOCAL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 const VOTING_REVENUE_SHARE_TIERS = ["VOTING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 
+type VotingPurchaseSummary = {
+	total: number;
+	paid: number;
+	pending: number;
+	cancelled: number;
+	expired: number;
+	revenue: number;
+	voteCredits: number;
+	usedVotes: number;
+	unusedVotes: number;
+	conversionRate: number;
+};
+
 type VotingDashboard = {
 	enabled: boolean;
 	isPaid: boolean;
@@ -63,18 +76,7 @@ type VotingDashboard = {
 		nomineeCount: number;
 		leadingNominee: { id: string; name: string; votes: number } | null;
 	}>;
-	purchaseSummary: {
-		total: number;
-		paid: number;
-		pending: number;
-		cancelled: number;
-		expired: number;
-		revenue: number;
-		voteCredits: number;
-		usedVotes: number;
-		unusedVotes: number;
-		conversionRate: number;
-	} | null;
+	purchaseSummary: VotingPurchaseSummary | null;
 	dailyTrend: Array<{ date: string; label: string; votes: number }>;
 };
 
@@ -125,6 +127,43 @@ const toIndonesiaDateTimeIso = (value: string | null | undefined) => {
 
 	const parsed = new Date(value);
 	return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const buildPurchaseSummary = (allPurchases: VotingPurchase[]): VotingPurchaseSummary => {
+	const summary = allPurchases.reduce<VotingPurchaseSummary>(
+		(acc, purchase) => {
+			acc.total += 1;
+			if (purchase.status === "PAID") {
+				acc.paid += 1;
+				acc.revenue += purchase.totalAmount || 0;
+				acc.voteCredits += purchase.voteCount || 0;
+				acc.usedVotes += purchase.usedVotes || 0;
+			} else if (purchase.status === "PENDING") {
+				acc.pending += 1;
+			} else if (purchase.status === "CANCELLED") {
+				acc.cancelled += 1;
+			} else if (purchase.status === "EXPIRED") {
+				acc.expired += 1;
+			}
+			return acc;
+		},
+		{
+			total: 0,
+			paid: 0,
+			pending: 0,
+			cancelled: 0,
+			expired: 0,
+			revenue: 0,
+			voteCredits: 0,
+			usedVotes: 0,
+			unusedVotes: 0,
+			conversionRate: 0,
+		}
+	);
+
+	summary.unusedVotes = Math.max(0, summary.voteCredits - summary.usedVotes);
+	summary.conversionRate = summary.total > 0 ? Math.round((summary.paid / summary.total) * 100) : 0;
+	return summary;
 };
 
 const EventVoting: React.FC = () => {
@@ -203,6 +242,7 @@ const EventVoting: React.FC = () => {
 	const [statusFilter, setStatusFilter] = useState("");
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
+	const [purchaseListSummary, setPurchaseListSummary] = useState<VotingPurchaseSummary | null>(null);
 	const [exportingPurchases, setExportingPurchases] = useState(false);
 
 	// Fetch event ID from slug
@@ -295,6 +335,7 @@ const EventVoting: React.FC = () => {
 			const res = await api.get(`/voting/admin/event/${eventId}/purchases`, { params });
 			setPurchases(res.data.data);
 			setTotalPages(res.data.totalPages);
+			setPurchaseListSummary(res.data.summary || null);
 		} catch {
 			console.error("Error fetching purchases");
 		} finally {
@@ -715,7 +756,7 @@ const EventVoting: React.FC = () => {
 			workbook.created = new Date();
 
 		const worksheet = workbook.addWorksheet("Dashboard Voting");
-		const summary = dashboard.purchaseSummary;
+		const summary = dashboard.isPaid ? buildPurchaseSummary(allPurchases) : dashboard.purchaseSummary;
 		const title = "Dashboard Voting";
 		const exportedAt = new Date().toLocaleString("id-ID", { timeZone: INDONESIA_TIME_ZONE });
 
@@ -789,7 +830,7 @@ const EventVoting: React.FC = () => {
 			["Total Vote", dashboard.totalVotes, `${dashboard.categoryCount} kategori aktif`],
 			["Nominee", dashboard.nomineeCount, "Terdaftar di semua kategori"],
 			["Vote Terpakai", summary?.usedVotes || dashboard.totalVotes, summary ? `${summary.unusedVotes} vote tersisa` : "Mode voting gratis"],
-			["Pendapatan Vote", summary?.revenue || 0, dashboard.isPaid ? `${summary?.conversionRate || 0}% transaksi paid` : "Tidak berbayar"],
+			["Pendapatan Vote", summary?.revenue || 0, dashboard.isPaid ? `Subtotal vote dari ${summary?.paid || 0} transaksi paid` : "Tidak berbayar"],
 		].forEach((row) => worksheet.addRow(row));
 		styleDataRows(summaryStartRow, rowNumber + 3);
 		worksheet.getCell(`B${summaryStartRow + 3}`).numFmt = '"Rp" #,##0';
@@ -886,7 +927,7 @@ const EventVoting: React.FC = () => {
 				"Vote Dibeli",
 				"Vote Masuk",
 				"Sisa Vote",
-				"Total Bayar",
+				"Subtotal Vote",
 				"Status",
 				"Tanggal Dibuat",
 				"Tanggal Dibayar",
@@ -2045,6 +2086,26 @@ const EventVoting: React.FC = () => {
 						</button>
 					</div>
 
+					{purchaseListSummary && (
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+							<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+								<p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Pendapatan Vote</p>
+								<p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(purchaseListSummary.revenue)}</p>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{purchaseListSummary.paid} transaksi paid</p>
+							</div>
+							<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+								<p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Vote Terjual</p>
+								<p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(purchaseListSummary.voteCredits)}</p>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatNumber(purchaseListSummary.usedVotes)} vote masuk</p>
+							</div>
+							<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+								<p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Total Pembelian</p>
+								<p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(purchaseListSummary.total)}</p>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{purchaseListSummary.conversionRate}% paid</p>
+							</div>
+						</div>
+					)}
+
 					{purchasesLoading ? (
 						<div className="flex justify-center py-8">
 							<div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
@@ -2069,7 +2130,7 @@ const EventVoting: React.FC = () => {
 										</div>
 										<div className="text-right">
 											<p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(p.totalAmount)}</p>
-											<p className="text-xs text-gray-500">{p.voteCount} vote ({p.usedVotes} masuk)</p>
+											<p className="text-xs text-gray-500">Subtotal vote - {p.voteCount} vote ({p.usedVotes} masuk)</p>
 										</div>
 									</div>
 									<div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/40">

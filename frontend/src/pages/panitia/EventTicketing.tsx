@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
+import type ExcelJS from "exceljs";
 import {
 	TicketIcon,
 	MagnifyingGlassIcon,
@@ -32,6 +33,51 @@ import { EventTicketConfig, TicketPurchase, TicketTeam } from "../../types/ticke
 import { exportPurchaseReportToPdf } from "../../utils/purchasePdfExport";
 
 const TICKET_REVENUE_SHARE_TIERS = ["TICKETING", "TICKETING_VOTING", "BRONZE", "GOLD"];
+const INDONESIA_TIME_ZONE = "Asia/Jakarta";
+
+type TicketPurchaseSummary = {
+	total: number;
+	paidUsed: number;
+	pending: number;
+	cancelled: number;
+	expired: number;
+	revenue: number;
+	tickets: number;
+	conversionRate: number;
+};
+
+const buildTicketPurchaseSummary = (allPurchases: TicketPurchase[]): TicketPurchaseSummary => {
+	const summary = allPurchases.reduce<TicketPurchaseSummary>(
+		(acc, purchase) => {
+			acc.total += 1;
+			if (purchase.status === "PAID" || purchase.status === "USED") {
+				acc.paidUsed += 1;
+				acc.revenue += purchase.totalAmount || 0;
+				acc.tickets += purchase.quantity || 0;
+			} else if (purchase.status === "PENDING") {
+				acc.pending += 1;
+			} else if (purchase.status === "CANCELLED") {
+				acc.cancelled += 1;
+			} else if (purchase.status === "EXPIRED") {
+				acc.expired += 1;
+			}
+			return acc;
+		},
+		{
+			total: 0,
+			paidUsed: 0,
+			pending: 0,
+			cancelled: 0,
+			expired: 0,
+			revenue: 0,
+			tickets: 0,
+			conversionRate: 0,
+		}
+	);
+
+	summary.conversionRate = summary.total > 0 ? Math.round((summary.paidUsed / summary.total) * 100) : 0;
+	return summary;
+};
 
 const EventTicketing: React.FC = () => {
 	const { eventSlug } = useParams();
@@ -84,6 +130,7 @@ const EventTicketing: React.FC = () => {
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
 	const [paidUsedCount, setPaidUsedCount] = useState(0);
+	const [purchaseListSummary, setPurchaseListSummary] = useState<TicketPurchaseSummary | null>(null);
 	const [exportingPurchases, setExportingPurchases] = useState(false);
 
 	// Scanner state
@@ -437,6 +484,7 @@ const EventTicketing: React.FC = () => {
 			setPurchases(res.data.data);
 			setTotalPages(res.data.totalPages);
 			if (res.data.paidUsedCount !== undefined) setPaidUsedCount(res.data.paidUsedCount);
+			setPurchaseListSummary(res.data.summary || null);
 		} catch {
 			console.error("Error fetching purchases");
 		} finally {
@@ -444,15 +492,17 @@ const EventTicketing: React.FC = () => {
 		}
 	};
 
-	const fetchAllTicketPurchases = async () => {
+	const fetchAllTicketPurchases = async (options: { includeCurrentFilters?: boolean } = { includeCurrentFilters: true }) => {
 		const allPurchases: TicketPurchase[] = [];
 		let currentPage = 1;
 		let pageCount = 1;
 
 		do {
 			const params: any = { page: currentPage, limit: 50 };
-			if (search.trim()) params.search = search.trim();
-			if (statusFilter) params.status = statusFilter;
+			if (options.includeCurrentFilters !== false) {
+				if (search.trim()) params.search = search.trim();
+				if (statusFilter) params.status = statusFilter;
+			}
 
 			const res = await api.get(`/tickets/admin/event/${eventId}/purchases`, { params });
 			allPurchases.push(...(res.data.data || []));
@@ -501,9 +551,9 @@ const EventTicketing: React.FC = () => {
 				summaryRows: [
 					["Total Transaksi", allPurchases.length],
 					["Total Tiket", totalTickets],
-					["Pendapatan PAID/USED", formatCurrency(totalRevenue)],
+					["Pendapatan Tiket PAID/USED", formatCurrency(totalRevenue)],
 				],
-				head: ["No", "Kode", "Pembeli", "Email", "No. HP", "Pasukan", "Qty", "Total", "Status", "Dibuat", "Dibayar", "Dipakai"],
+				head: ["No", "Kode", "Pembeli", "Email", "No. HP", "Pasukan", "Qty", "Subtotal", "Status", "Dibuat", "Dibayar", "Dipakai"],
 				body: allPurchases.map((purchase, index) => [
 					index + 1,
 					purchase.ticketCode,
@@ -521,6 +571,180 @@ const EventTicketing: React.FC = () => {
 			});
 		} catch (err: any) {
 			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengekspor data pembelian tiket", "error");
+		} finally {
+			setExportingPurchases(false);
+		}
+	};
+
+	const exportDashboardToExcel = async () => {
+		try {
+			setExportingPurchases(true);
+			const [ExcelJSModule, allPurchases, dashboardRes] = await Promise.all([
+				import("exceljs"),
+				fetchAllTicketPurchases({ includeCurrentFilters: false }),
+				dashboard ? Promise.resolve({ data: dashboard }) : api.get(`/tickets/admin/event/${eventId}/dashboard`),
+			]);
+			const dashboardData = dashboardRes.data;
+			if (!dashboard) setDashboard(dashboardData);
+			const workbook = new ExcelJSModule.default.Workbook();
+			workbook.creator = "Simpaskor";
+			workbook.created = new Date();
+
+			const summary = buildTicketPurchaseSummary(allPurchases);
+			const exportedAt = new Date().toLocaleString("id-ID", { timeZone: INDONESIA_TIME_ZONE });
+
+			const styleHeaderRow = (worksheet: ExcelJS.Worksheet, rowNumber: number, color = "FF374151") => {
+				worksheet.getRow(rowNumber).eachCell((cell) => {
+					cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+					cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };
+					cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+					cell.border = {
+						top: { style: "thin" },
+						left: { style: "thin" },
+						bottom: { style: "thin" },
+						right: { style: "thin" },
+					};
+				});
+			};
+
+			const styleDataRows = (worksheet: ExcelJS.Worksheet, startRow: number, endRow: number) => {
+				for (let rowNumber = startRow; rowNumber <= endRow; rowNumber += 1) {
+					worksheet.getRow(rowNumber).eachCell((cell) => {
+						cell.alignment = { vertical: "middle", wrapText: true };
+						cell.border = {
+							top: { style: "thin", color: { argb: "FFE5E7EB" } },
+							left: { style: "thin", color: { argb: "FFE5E7EB" } },
+							bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+							right: { style: "thin", color: { argb: "FFE5E7EB" } },
+						};
+					});
+				}
+			};
+
+			const dashboardWorksheet = workbook.addWorksheet("Dashboard Tiket");
+			dashboardWorksheet.columns = [
+				{ key: "a", width: 28 },
+				{ key: "b", width: 24 },
+				{ key: "c", width: 28 },
+				{ key: "d", width: 24 },
+				{ key: "e", width: 24 },
+			];
+			dashboardWorksheet.mergeCells("A1:E1");
+			dashboardWorksheet.getCell("A1").value = "Dashboard Tiket";
+			dashboardWorksheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
+			dashboardWorksheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } };
+			dashboardWorksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+			dashboardWorksheet.getRow(1).height = 28;
+			dashboardWorksheet.mergeCells("A2:E2");
+			dashboardWorksheet.getCell("A2").value = `Diekspor: ${exportedAt}`;
+			dashboardWorksheet.getCell("A2").font = { italic: true, color: { argb: "FF6B7280" } };
+			dashboardWorksheet.getCell("A2").alignment = { horizontal: "center" };
+
+			let rowNumber = 4;
+			dashboardWorksheet.addRow(["Metrik", "Nilai", "Keterangan"]);
+			styleHeaderRow(dashboardWorksheet, rowNumber);
+			rowNumber += 1;
+			const summaryStartRow = rowNumber;
+			[
+				["Total Pendapatan", summary.revenue, `Subtotal tiket dari ${summary.paidUsed} transaksi PAID/USED`],
+				["Tiket Terjual", summary.tickets, "Status PAID/USED"],
+				["Total Transaksi", summary.total, `${summary.conversionRate}% PAID/USED`],
+				["Check-in", dashboardData.summary.checkedIn, "Tiket yang sudah digunakan"],
+				["Kuota", dashboardData.summary.quota, `${dashboardData.summary.remaining} tiket tersisa`],
+				["Harga Tiket", dashboardData.summary.price, dashboardData.summary.price === 0 ? "Gratis" : "Per tiket"],
+			].forEach((row) => dashboardWorksheet.addRow(row));
+			styleDataRows(dashboardWorksheet, summaryStartRow, summaryStartRow + 5);
+			dashboardWorksheet.getCell(`B${summaryStartRow}`).numFmt = '"Rp" #,##0';
+			dashboardWorksheet.getCell(`B${summaryStartRow + 5}`).numFmt = '"Rp" #,##0';
+			rowNumber += 7;
+
+			dashboardWorksheet.addRow(["Status", "Jumlah Transaksi", "Tiket", "Pendapatan"]);
+			styleHeaderRow(dashboardWorksheet, rowNumber);
+			rowNumber += 1;
+			const statusStartRow = rowNumber;
+			[
+				["PAID", dashboardData.breakdown.paid.count, dashboardData.breakdown.paid.tickets, dashboardData.breakdown.paid.revenue],
+				["USED", dashboardData.breakdown.used.count, dashboardData.breakdown.used.tickets, dashboardData.breakdown.used.revenue],
+				["PENDING", dashboardData.breakdown.pending, 0, 0],
+				["CANCELLED", dashboardData.breakdown.cancelled, 0, 0],
+				["EXPIRED", dashboardData.breakdown.expired, 0, 0],
+			].forEach((row) => dashboardWorksheet.addRow(row));
+			styleDataRows(dashboardWorksheet, statusStartRow, statusStartRow + 4);
+			for (let row = statusStartRow; row <= statusStartRow + 4; row += 1) {
+				dashboardWorksheet.getCell(`D${row}`).numFmt = '"Rp" #,##0';
+			}
+			rowNumber += 6;
+
+			dashboardWorksheet.addRow(["Tanggal", "Transaksi", "Tiket", "Pendapatan"]);
+			styleHeaderRow(dashboardWorksheet, rowNumber);
+			rowNumber += 1;
+			const dailyStartRow = rowNumber;
+			dashboardData.dailySales.forEach((item: { date: string; count: number; tickets?: number; revenue: number }) => dashboardWorksheet.addRow([item.date, item.count, item.tickets || 0, item.revenue]));
+			if (dashboardData.dailySales.length === 0) dashboardWorksheet.addRow(["-", 0, 0, 0]);
+			styleDataRows(dashboardWorksheet, dailyStartRow, dailyStartRow + Math.max(0, dashboardData.dailySales.length - 1));
+			for (let row = dailyStartRow; row <= dailyStartRow + Math.max(0, dashboardData.dailySales.length - 1); row += 1) {
+				dashboardWorksheet.getCell(`D${row}`).numFmt = '"Rp" #,##0';
+			}
+			dashboardWorksheet.views = [{ state: "frozen", ySplit: 2 }];
+
+			const purchaseWorksheet = workbook.addWorksheet("Data Pembelian");
+			purchaseWorksheet.columns = [
+				{ key: "no", width: 6 },
+				{ key: "ticketCode", width: 22 },
+				{ key: "buyerName", width: 28 },
+				{ key: "buyerEmail", width: 32 },
+				{ key: "buyerPhone", width: 18 },
+				{ key: "team", width: 30 },
+				{ key: "quantity", width: 10 },
+				{ key: "totalAmount", width: 16 },
+				{ key: "status", width: 14 },
+				{ key: "createdAt", width: 22 },
+				{ key: "paidAt", width: 22 },
+				{ key: "usedAt", width: 22 },
+			];
+			purchaseWorksheet.addRow([
+				"No",
+				"Kode Tiket",
+				"Nama Pembeli",
+				"Email",
+				"No. HP",
+				"Pasukan",
+				"Qty",
+				"Subtotal Tiket",
+				"Status",
+				"Tanggal Dibuat",
+				"Tanggal Dibayar",
+				"Tanggal Digunakan",
+			]);
+			styleHeaderRow(purchaseWorksheet, 1, "FF047857");
+			allPurchases.forEach((purchase, index) => {
+				const row = purchaseWorksheet.addRow([
+					index + 1,
+					purchase.ticketCode,
+					purchase.buyerName,
+					purchase.buyerEmail,
+					purchase.buyerPhone || "-",
+					getPurchaseTeamSummary(purchase),
+					purchase.quantity,
+					purchase.totalAmount,
+					purchase.status,
+					formatDate(purchase.createdAt || null),
+					formatDate(purchase.paidAt),
+					formatDate(purchase.usedAt),
+				]);
+				row.getCell(8).numFmt = '"Rp" #,##0';
+			});
+			if (allPurchases.length === 0) {
+				purchaseWorksheet.addRow(["-", "Belum ada data pembelian tiket", "-", "-", "-", "-", 0, 0, "-", "-", "-", "-"]);
+			}
+			styleDataRows(purchaseWorksheet, 2, Math.max(2, allPurchases.length + 1));
+			purchaseWorksheet.views = [{ state: "frozen", ySplit: 1 }];
+			purchaseWorksheet.autoFilter = "A1:L1";
+
+			const filename = `dashboard-tiket-${sanitizeFilename(eventSlug || eventId || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+			await saveWorkbook(workbook, filename);
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengekspor dashboard tiket ke Excel", "error");
 		} finally {
 			setExportingPurchases(false);
 		}
@@ -849,6 +1073,25 @@ const EventTicketing: React.FC = () => {
 		}).format(amount);
 	};
 
+	const formatNumber = (amount: number) => {
+		return new Intl.NumberFormat("id-ID").format(amount);
+	};
+
+	const saveWorkbook = async (workbook: ExcelJS.Workbook, filename: string) => {
+		const buffer = await workbook.xlsx.writeBuffer();
+		const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = filename;
+		link.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const sanitizeFilename = (value: string) => {
+		return value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+	};
+
 	const getMediaUrl = (url: string | null) => {
 		if (!url) return "";
 		return url.startsWith("http") ? url : `${appConfig.api.backendUrl}${url}`;
@@ -1022,7 +1265,15 @@ const EventTicketing: React.FC = () => {
 			{/* Dashboard Tab */}
 			{activeTab === "dashboard" && (
 				<div className="space-y-6">
-					<div className="flex justify-end">
+					<div className="flex flex-wrap justify-end gap-2">
+						<button
+							onClick={exportDashboardToExcel}
+							disabled={exportingPurchases || !eventId}
+							className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							<ArrowDownTrayIcon className="h-4 w-4" />
+							{exportingPurchases ? "Mengekspor..." : "Ekspor Excel"}
+						</button>
 						<button
 							onClick={handleExportTicketPurchasesPdf}
 							disabled={exportingPurchases || !eventId}
@@ -1589,7 +1840,35 @@ const EventTicketing: React.FC = () => {
 							<ArrowDownTrayIcon className="h-4 w-4" />
 							{exportingPurchases ? "Mengekspor..." : "Ekspor PDF"}
 						</button>
+						<button
+							onClick={exportDashboardToExcel}
+							disabled={exportingPurchases || !eventId}
+							className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							<ArrowDownTrayIcon className="h-4 w-4" />
+							{exportingPurchases ? "Mengekspor..." : "Ekspor Excel"}
+						</button>
 					</div>
+
+					{purchaseListSummary && (
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+							<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+								<p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Pendapatan Tiket</p>
+								<p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(purchaseListSummary.revenue)}</p>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{purchaseListSummary.paidUsed} transaksi PAID/USED</p>
+							</div>
+							<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+								<p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Tiket Terjual</p>
+								<p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(purchaseListSummary.tickets)}</p>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Status PAID/USED</p>
+							</div>
+							<div className="rounded-xl border border-gray-200/60 dark:border-gray-700/40 bg-white/90 dark:bg-gray-800/60 p-4">
+								<p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Total Pembelian</p>
+								<p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(purchaseListSummary.total)}</p>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{purchaseListSummary.conversionRate}% PAID/USED</p>
+							</div>
+						</div>
+					)}
 
 					{/* Purchases Table */}
 					{purchasesLoading ? (
@@ -1620,7 +1899,7 @@ const EventTicketing: React.FC = () => {
 												Jumlah
 											</th>
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-												Total
+												Subtotal
 											</th>
 											<th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
 												Status
@@ -1679,6 +1958,7 @@ const EventTicketing: React.FC = () => {
 												</td>
 												<td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
 													{purchase.totalAmount === 0 ? "GRATIS" : formatCurrency(purchase.totalAmount)}
+													<p className="text-xs text-gray-500 dark:text-gray-400">Subtotal tiket</p>
 												</td>
 												<td className="px-4 py-3">
 													<div className="flex items-center gap-2">

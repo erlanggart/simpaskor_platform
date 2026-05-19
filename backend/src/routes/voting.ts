@@ -1720,7 +1720,7 @@ router.get(
 				];
 			}
 
-			const [purchases, total] = await Promise.all([
+			const [purchases, total, allPurchases] = await Promise.all([
 				prisma.votingPurchase.findMany({
 					where,
 					orderBy: { createdAt: "desc" },
@@ -1728,13 +1728,56 @@ router.get(
 					take: limitNum,
 				}),
 				prisma.votingPurchase.count({ where }),
+				prisma.votingPurchase.findMany({
+					where: { eventId },
+					select: {
+						status: true,
+						totalAmount: true,
+						voteCount: true,
+						usedVotes: true,
+					},
+				}),
 			]);
+
+			const summary = allPurchases.reduce(
+				(acc, purchase) => {
+					acc.total += 1;
+					if (purchase.status === "PAID") {
+						acc.paid += 1;
+						acc.revenue += purchase.totalAmount;
+						acc.voteCredits += purchase.voteCount;
+						acc.usedVotes += purchase.usedVotes;
+					} else if (purchase.status === "PENDING") {
+						acc.pending += 1;
+					} else if (purchase.status === "CANCELLED") {
+						acc.cancelled += 1;
+					} else if (purchase.status === "EXPIRED") {
+						acc.expired += 1;
+					}
+					return acc;
+				},
+				{
+					total: 0,
+					paid: 0,
+					pending: 0,
+					cancelled: 0,
+					expired: 0,
+					revenue: 0,
+					voteCredits: 0,
+					usedVotes: 0,
+					unusedVotes: 0,
+					conversionRate: 0,
+				}
+			);
+			summary.unusedVotes = Math.max(0, summary.voteCredits - summary.usedVotes);
+			summary.conversionRate = summary.total > 0 ? Math.round((summary.paid / summary.total) * 100) : 0;
 
 			res.json({
 				data: purchases,
 				total,
 				page: pageNum,
 				totalPages: Math.ceil(total / limitNum),
+				summary,
 			});
 		} catch (error) {
 			console.error("Error fetching vote purchases:", error);

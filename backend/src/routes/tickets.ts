@@ -1109,7 +1109,7 @@ router.get(
 				];
 			}
 
-			const [purchases, total] = await Promise.all([
+			const [purchases, total, allPurchases] = await Promise.all([
 				prisma.ticketPurchase.findMany({
 					where,
 					orderBy: { createdAt: "desc" },
@@ -1118,6 +1118,14 @@ router.get(
 					include: { attendees: { include: { ticketTeam: true } } },
 				}),
 				prisma.ticketPurchase.count({ where }),
+				prisma.ticketPurchase.findMany({
+					where: { eventId },
+					select: {
+						status: true,
+						totalAmount: true,
+						quantity: true,
+					},
+				}),
 			]);
 
 			// Also compute count of PAID/USED purchases (for badge) and total tickets sold
@@ -1131,6 +1139,35 @@ router.get(
 				}),
 			]);
 
+			const summary = allPurchases.reduce(
+				(acc, purchase) => {
+					acc.total += 1;
+					if (purchase.status === "PAID" || purchase.status === "USED") {
+						acc.paidUsed += 1;
+						acc.revenue += purchase.totalAmount;
+						acc.tickets += purchase.quantity;
+					} else if (purchase.status === "PENDING") {
+						acc.pending += 1;
+					} else if (purchase.status === "CANCELLED") {
+						acc.cancelled += 1;
+					} else if (purchase.status === "EXPIRED") {
+						acc.expired += 1;
+					}
+					return acc;
+				},
+				{
+					total: 0,
+					paidUsed: 0,
+					pending: 0,
+					cancelled: 0,
+					expired: 0,
+					revenue: 0,
+					tickets: 0,
+					conversionRate: 0,
+				}
+			);
+			summary.conversionRate = summary.total > 0 ? Math.round((summary.paidUsed / summary.total) * 100) : 0;
+
 			res.json({
 				data: purchases,
 				total,
@@ -1138,6 +1175,7 @@ router.get(
 				totalTicketsSold: ticketsSold._sum.quantity ?? 0,
 				page: pageNum,
 				totalPages: Math.ceil(total / limitNum),
+				summary,
 			});
 		} catch (error) {
 			console.error("Error fetching ticket purchases:", error);
