@@ -5,8 +5,15 @@ export {
 	calculateVotingAdminFee,
 } from "./adminFeeLedger";
 
-const VERTINOVA_FINANCE_WEBHOOK_URL = "https://vertinova.id/api/finance/webhooks/simpaskor";
-const VERTINOVA_FINANCE_API_KEY = "simpaskor-admin-fee-2026-7d4f6c9b2a8e41f0b5c3d9e7a1f8b6c4";
+const FALLBACK_VERTINOVA_FINANCE_WEBHOOK_URL = "https://vertinova.id/api/finance/webhooks/simpaskor";
+const FALLBACK_VERTINOVA_FINANCE_API_KEY = "simpaskor-admin-fee-2026-7d4f6c9b2a8e41f0b5c3d9e7a1f8b6c4";
+
+const VERTINOVA_FINANCE_WEBHOOK_URL =
+	process.env.VERTINOVA_FINANCE_WEBHOOK_URL?.trim() || FALLBACK_VERTINOVA_FINANCE_WEBHOOK_URL;
+const VERTINOVA_FINANCE_API_KEY =
+	process.env.VERTINOVA_FINANCE_API_KEY?.trim() ||
+	process.env.EXTERNAL_FINANCE_API_KEY?.trim() ||
+	FALLBACK_VERTINOVA_FINANCE_API_KEY;
 
 type VertinovaPaymentSuccessPayload = {
 	orderId: string;

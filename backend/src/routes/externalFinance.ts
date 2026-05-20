@@ -2,15 +2,16 @@ import { Router, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import {
-	calculateRegistrationAdminFee,
-	calculateTicketAdminFee,
-	calculateVotingAdminFee,
-} from "../lib/adminFeeLedger";
+import { reconcileAdminFeeLedger } from "../lib/adminFeeLedger";
 
 const router = Router();
 
-const EXTERNAL_FINANCE_API_KEY = "simpaskor-admin-fee-2026-7d4f6c9b2a8e41f0b5c3d9e7a1f8b6c4";
+// Fallback retained for backward compatibility with deployments that have not
+// yet rotated the key into env. New environments should set EXTERNAL_FINANCE_API_KEY.
+const FALLBACK_EXTERNAL_FINANCE_API_KEY =
+	"simpaskor-admin-fee-2026-7d4f6c9b2a8e41f0b5c3d9e7a1f8b6c4";
+const EXTERNAL_FINANCE_API_KEY =
+	process.env.EXTERNAL_FINANCE_API_KEY?.trim() || FALLBACK_EXTERNAL_FINANCE_API_KEY;
 
 const getExternalApiKey = (req: Request): string => {
 	const apiKeyHeader = req.headers["x-api-key"];
@@ -59,18 +60,8 @@ const parseDateQuery = (value: unknown, fieldName: string): Date | null => {
 	return parsed;
 };
 
-const buildPaidAtFilter = (from: Date | null, to: Date | null) => {
-	if (!from && !to) return {};
-
-	return {
-		paidAt: {
-			...(from ? { gte: from } : {}),
-			...(to ? { lte: to } : {}),
-		},
-	};
-};
-
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+const toNumber = (value: unknown) => (value === null || value === undefined ? 0 : Number(value) || 0);
 
 type AdminFeeLedgerRow = {
 	source: string;
@@ -88,15 +79,52 @@ type AdminFeeLedgerRow = {
 	paidAt: Date;
 };
 
+type RevenueShareRow = {
+	id: string;
+	transactionId: string;
+	eventId: string;
+	eventTitle: string | null;
+	eventSlug: string | null;
+	packageTier: string | null;
+	sourceType: "TICKET" | "VOTING";
+	sourceCode: string | null;
+	grossAmount: number;
+	platformAmount: number;
+	panitiaAmount: number;
+	platformSharePercent: number;
+	panitiaSharePercent: number;
+	withdrawnPanitiaAmount: number;
+	status: string;
+	paidAt: Date;
+};
+
+type PackagePaymentRow = {
+	id: string;
+	eventId: string;
+	eventTitle: string | null;
+	eventSlug: string | null;
+	userId: string;
+	packageTier: string;
+	amount: number;
+	paymentType: string | null;
+	midtransOrderId: string | null;
+	paidAt: Date;
+};
+
+// =============================================================================
 // GET /api/external/admin-fees
+// Lifetime admin fee revenue (Simpaskor's per-transaction service fee).
+// Reconciles the ledger on every read so totals stay authoritative even when
+// older PAID rows were never recorded at payment time.
+// =============================================================================
 router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res: Response) => {
 	try {
 		const from = parseDateQuery(req.query.from, "from");
 		const to = parseDateQuery(req.query.to, "to");
 		const eventId = typeof req.query.eventId === "string" ? req.query.eventId.trim() : "";
 		const includeDetails = req.query.includeDetails === "true";
-		const paidAtFilter = buildPaidAtFilter(from, to);
-		const eventFilter = eventId ? { eventId } : {};
+
+		await reconcileAdminFeeLedger();
 
 		const ledgerWhere = Prisma.sql`
 			"status" = 'PAID'
@@ -104,6 +132,7 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 			${from ? Prisma.sql`AND "paid_at" >= ${from}` : Prisma.empty}
 			${to ? Prisma.sql`AND "paid_at" <= ${to}` : Prisma.empty}
 		`;
+
 		const ledgerTransactions = await prisma.$queryRaw<AdminFeeLedgerRow[]>`
 			SELECT
 				"source",
@@ -112,8 +141,8 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 				"event_title" AS "eventTitle",
 				"event_slug" AS "eventSlug",
 				"midtrans_order_id" AS "midtransOrderId",
-				"base_amount" AS "baseAmount",
-				"admin_fee" AS "adminFee",
+				"base_amount"::double precision AS "baseAmount",
+				"admin_fee"::double precision AS "adminFee",
 				"quantity",
 				"vote_count" AS "voteCount",
 				"status",
@@ -123,143 +152,31 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 			WHERE ${ledgerWhere}
 			ORDER BY "paid_at" ASC
 		`;
-		const loggedOrderIds = ledgerTransactions.map((transaction) => transaction.midtransOrderId);
-		const midtransOrderFilter: any = { not: null };
-		if (loggedOrderIds.length > 0) {
-			midtransOrderFilter.notIn = loggedOrderIds;
-		}
 
-		const [ticketPurchases, votingPurchases, registrationPayments] = await Promise.all([
-			prisma.ticketPurchase.findMany({
-				where: {
-					...eventFilter,
-					...paidAtFilter,
-					status: { in: ["PAID", "USED"] },
-					totalAmount: { gt: 0 },
-					midtransOrderId: midtransOrderFilter,
-				},
-				select: {
-					id: true,
-					eventId: true,
-					quantity: true,
-					totalAmount: true,
-					status: true,
-					paidAt: true,
-					midtransOrderId: true,
-					event: { select: { title: true, slug: true } },
-				},
-			}),
-			prisma.votingPurchase.findMany({
-				where: {
-					...eventFilter,
-					...paidAtFilter,
-					status: "PAID",
-					totalAmount: { gt: 0 },
-					midtransOrderId: midtransOrderFilter,
-				},
-				select: {
-					id: true,
-					eventId: true,
-					voteCount: true,
-					totalAmount: true,
-					status: true,
-					paidAt: true,
-					midtransOrderId: true,
-					event: { select: { title: true, slug: true } },
-				},
-			}),
-			prisma.registrationPayment.findMany({
-				where: {
-					...eventFilter,
-					...paidAtFilter,
-					status: "PAID",
-					amount: { gt: 0 },
-					midtransOrderId: midtransOrderFilter,
-				},
-				select: {
-					id: true,
-					eventId: true,
-					amount: true,
-					status: true,
-					paidAt: true,
-					midtransOrderId: true,
-					participation: { select: { event: { select: { title: true, slug: true } } } },
-				},
-			}),
-		]);
-
-		const ledgerDetails = ledgerTransactions.map((transaction) => ({
-			source: transaction.source,
-			id: transaction.sourceId,
-			eventId: transaction.eventId,
-			eventTitle: transaction.eventTitle,
-			eventSlug: transaction.eventSlug,
-			baseAmount: transaction.baseAmount,
-			adminFee: transaction.adminFee,
-			quantity: transaction.quantity,
-			voteCount: transaction.voteCount,
-			status: transaction.status,
-			paidAt: transaction.paidAt,
-			midtransOrderId: transaction.midtransOrderId,
-			paymentType: transaction.paymentType,
+		const details = ledgerTransactions.map((tx) => ({
+			source: tx.source,
+			id: tx.sourceId,
+			eventId: tx.eventId,
+			eventTitle: tx.eventTitle,
+			eventSlug: tx.eventSlug,
+			baseAmount: toNumber(tx.baseAmount),
+			adminFee: toNumber(tx.adminFee),
+			quantity: tx.quantity,
+			voteCount: tx.voteCount,
+			status: tx.status,
+			paidAt: tx.paidAt,
+			midtransOrderId: tx.midtransOrderId,
+			paymentType: tx.paymentType,
 		}));
 
-		const ticketDetails = ticketPurchases.map((purchase) => ({
-			source: "ticket",
-			id: purchase.id,
-			eventId: purchase.eventId,
-			eventTitle: purchase.event.title,
-			eventSlug: purchase.event.slug,
-			baseAmount: purchase.totalAmount,
-			adminFee: calculateTicketAdminFee(purchase.quantity),
-			quantity: purchase.quantity,
-			voteCount: null,
-			status: purchase.status,
-			paidAt: purchase.paidAt,
-			midtransOrderId: purchase.midtransOrderId,
-			paymentType: null,
-		}));
+		const ticketAdminFee = sum(details.filter((d) => d.source === "ticket").map((d) => d.adminFee));
+		const votingAdminFee = sum(details.filter((d) => d.source === "voting").map((d) => d.adminFee));
+		const registrationAdminFee = sum(details.filter((d) => d.source === "registration").map((d) => d.adminFee));
 
-		const votingDetails = votingPurchases.map((purchase) => ({
-			source: "voting",
-			id: purchase.id,
-			eventId: purchase.eventId,
-			eventTitle: purchase.event.title,
-			eventSlug: purchase.event.slug,
-			baseAmount: purchase.totalAmount,
-			adminFee: calculateVotingAdminFee(purchase.totalAmount, purchase.voteCount),
-			quantity: null,
-			voteCount: purchase.voteCount,
-			status: purchase.status,
-			paidAt: purchase.paidAt,
-			midtransOrderId: purchase.midtransOrderId,
-			paymentType: null,
-		}));
-
-		const registrationDetails = registrationPayments.map((payment) => ({
-			source: "registration",
-			id: payment.id,
-			eventId: payment.eventId,
-			eventTitle: payment.participation.event.title,
-			eventSlug: payment.participation.event.slug,
-			baseAmount: payment.amount,
-			adminFee: calculateRegistrationAdminFee(),
-			quantity: null,
-			voteCount: null,
-			status: payment.status,
-			paidAt: payment.paidAt,
-			midtransOrderId: payment.midtransOrderId,
-			paymentType: null,
-		}));
-
-		const allDetails = [...ledgerDetails, ...ticketDetails, ...votingDetails, ...registrationDetails];
-		const ticketAdminFee = sum(allDetails.filter((item) => item.source === "ticket").map((item) => item.adminFee));
-		const votingAdminFee = sum(allDetails.filter((item) => item.source === "voting").map((item) => item.adminFee));
-		const registrationAdminFee = sum(allDetails.filter((item) => item.source === "registration").map((item) => item.adminFee));
 		const detailsBySource = {
-			tickets: allDetails.filter((item) => item.source === "ticket"),
-			voting: allDetails.filter((item) => item.source === "voting"),
-			registrations: allDetails.filter((item) => item.source === "registration"),
+			tickets: details.filter((d) => d.source === "ticket"),
+			voting: details.filter((d) => d.source === "voting"),
+			registrations: details.filter((d) => d.source === "registration"),
 		};
 
 		res.json({
@@ -284,7 +201,7 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 			...(includeDetails
 				? {
 						details: detailsBySource,
-						data: allDetails,
+						data: details,
 				  }
 				: {}),
 		});
@@ -295,6 +212,332 @@ router.get("/admin-fees", requireExternalFinanceApiKey, async (req: Request, res
 
 		console.error("Error fetching external admin fee revenue:", error);
 		res.status(500).json({ error: "Gagal mengambil data pemasukan admin fee" });
+	}
+});
+
+// =============================================================================
+// GET /api/external/platform-revenue
+// Simpaskor's revenue from event packages:
+//   - Revenue share (platform cut) of ticket & voting sales on revenue-share tiers
+//   - Upfront package payments (BRONZE / GOLD)
+// =============================================================================
+router.get("/platform-revenue", requireExternalFinanceApiKey, async (req: Request, res: Response) => {
+	try {
+		const from = parseDateQuery(req.query.from, "from");
+		const to = parseDateQuery(req.query.to, "to");
+		const eventId = typeof req.query.eventId === "string" ? req.query.eventId.trim() : "";
+		const includeDetails = req.query.includeDetails === "true";
+
+		const revenueShareWhere = Prisma.sql`
+			t."status" = 'PAID'
+			AND rs."status" <> 'CANCELLED'
+			${eventId ? Prisma.sql`AND rs."event_id" = ${eventId}` : Prisma.empty}
+			${from ? Prisma.sql`AND t."paid_at" >= ${from}` : Prisma.empty}
+			${to ? Prisma.sql`AND t."paid_at" <= ${to}` : Prisma.empty}
+		`;
+
+		const revenueShares = await prisma.$queryRaw<RevenueShareRow[]>`
+			SELECT
+				rs."id",
+				rs."transaction_id" AS "transactionId",
+				rs."event_id" AS "eventId",
+				e."title" AS "eventTitle",
+				e."slug" AS "eventSlug",
+				e."package_tier"::text AS "packageTier",
+				t."source_type"::text AS "sourceType",
+				t."source_code" AS "sourceCode",
+				rs."gross_amount"::double precision AS "grossAmount",
+				rs."platform_amount"::double precision AS "platformAmount",
+				rs."panitia_amount"::double precision AS "panitiaAmount",
+				rs."platform_share_percent"::double precision AS "platformSharePercent",
+				rs."panitia_share_percent"::double precision AS "panitiaSharePercent",
+				rs."withdrawn_panitia_amount"::double precision AS "withdrawnPanitiaAmount",
+				rs."status"::text AS "status",
+				t."paid_at" AS "paidAt"
+			FROM "revenue_shares" rs
+			INNER JOIN "transactions" t ON t."id" = rs."transaction_id"
+			INNER JOIN "events" e ON e."id" = rs."event_id"
+			WHERE ${revenueShareWhere}
+			ORDER BY t."paid_at" ASC
+		`;
+
+		const eventPaymentWhere: any = {
+			status: "PAID",
+			amount: { gt: 0 },
+			...(eventId ? { eventId } : {}),
+			...(from || to
+				? {
+						paidAt: {
+							...(from ? { gte: from } : {}),
+							...(to ? { lte: to } : {}),
+						},
+				  }
+				: {}),
+		};
+
+		const packagePaymentsRaw = await prisma.eventPayment.findMany({
+			where: eventPaymentWhere,
+			select: {
+				id: true,
+				eventId: true,
+				userId: true,
+				packageTier: true,
+				amount: true,
+				paymentType: true,
+				midtransOrderId: true,
+				paidAt: true,
+				event: { select: { title: true, slug: true } },
+			},
+			orderBy: { paidAt: "asc" },
+		});
+
+		const packagePayments: PackagePaymentRow[] = packagePaymentsRaw.map((p) => ({
+			id: p.id,
+			eventId: p.eventId,
+			eventTitle: p.event.title,
+			eventSlug: p.event.slug,
+			userId: p.userId,
+			packageTier: p.packageTier,
+			amount: toNumber(p.amount),
+			paymentType: p.paymentType,
+			midtransOrderId: p.midtransOrderId,
+			paidAt: p.paidAt!,
+		}));
+
+		const revenueShareDetails = revenueShares.map((rs) => ({
+			id: rs.id,
+			transactionId: rs.transactionId,
+			eventId: rs.eventId,
+			eventTitle: rs.eventTitle,
+			eventSlug: rs.eventSlug,
+			packageTier: rs.packageTier,
+			sourceType: rs.sourceType,
+			sourceCode: rs.sourceCode,
+			grossAmount: toNumber(rs.grossAmount),
+			platformAmount: toNumber(rs.platformAmount),
+			panitiaAmount: toNumber(rs.panitiaAmount),
+			platformSharePercent: toNumber(rs.platformSharePercent),
+			panitiaSharePercent: toNumber(rs.panitiaSharePercent),
+			withdrawnPanitiaAmount: toNumber(rs.withdrawnPanitiaAmount),
+			status: rs.status,
+			paidAt: rs.paidAt,
+		}));
+
+		const ticketShares = revenueShareDetails.filter((r) => r.sourceType === "TICKET");
+		const votingShares = revenueShareDetails.filter((r) => r.sourceType === "VOTING");
+
+		const platformShareFromTickets = sum(ticketShares.map((r) => r.platformAmount));
+		const platformShareFromVoting = sum(votingShares.map((r) => r.platformAmount));
+		const grossRevenueFromTickets = sum(ticketShares.map((r) => r.grossAmount));
+		const grossRevenueFromVoting = sum(votingShares.map((r) => r.grossAmount));
+		const panitiaShareFromTickets = sum(ticketShares.map((r) => r.panitiaAmount));
+		const panitiaShareFromVoting = sum(votingShares.map((r) => r.panitiaAmount));
+
+		const totalPackagePayments = sum(packagePayments.map((p) => p.amount));
+		const packageTotalsByTier: Record<string, number> = {};
+		packagePayments.forEach((p) => {
+			packageTotalsByTier[p.packageTier] = (packageTotalsByTier[p.packageTier] || 0) + p.amount;
+		});
+
+		const totalPlatformShare = platformShareFromTickets + platformShareFromVoting;
+		const totalPlatformRevenue = totalPlatformShare + totalPackagePayments;
+
+		res.json({
+			currency: "IDR",
+			filters: {
+				from: from?.toISOString() || null,
+				to: to?.toISOString() || null,
+				eventId: eventId || null,
+			},
+			summary: {
+				totalPlatformRevenue,
+				totalPlatformShare,
+				platformShareFromTickets,
+				platformShareFromVoting,
+				totalPackagePayments,
+				packageTotalsByTier,
+				grossRevenue: {
+					tickets: grossRevenueFromTickets,
+					voting: grossRevenueFromVoting,
+					total: grossRevenueFromTickets + grossRevenueFromVoting,
+				},
+				panitiaShare: {
+					tickets: panitiaShareFromTickets,
+					voting: panitiaShareFromVoting,
+					total: panitiaShareFromTickets + panitiaShareFromVoting,
+				},
+			},
+			counts: {
+				revenueShares: revenueShareDetails.length,
+				ticketShares: ticketShares.length,
+				votingShares: votingShares.length,
+				packagePayments: packagePayments.length,
+			},
+			...(includeDetails
+				? {
+						details: {
+							revenueShares: revenueShareDetails,
+							packagePayments,
+						},
+				  }
+				: {}),
+		});
+	} catch (error: any) {
+		if (error.message?.includes("tanggal")) {
+			return res.status(400).json({ error: error.message });
+		}
+
+		console.error("Error fetching platform revenue:", error);
+		res.status(500).json({ error: "Gagal mengambil data pendapatan platform" });
+	}
+});
+
+// =============================================================================
+// GET /api/external/summary
+// One-shot lifetime summary that combines admin fees + platform revenue share +
+// package payments. Convenient for dashboards that just want the total balance.
+// =============================================================================
+router.get("/summary", requireExternalFinanceApiKey, async (req: Request, res: Response) => {
+	try {
+		const from = parseDateQuery(req.query.from, "from");
+		const to = parseDateQuery(req.query.to, "to");
+		const eventId = typeof req.query.eventId === "string" ? req.query.eventId.trim() : "";
+
+		await reconcileAdminFeeLedger();
+
+		const adminFeeWhere = Prisma.sql`
+			"status" = 'PAID'
+			${eventId ? Prisma.sql`AND "event_id" = ${eventId}` : Prisma.empty}
+			${from ? Prisma.sql`AND "paid_at" >= ${from}` : Prisma.empty}
+			${to ? Prisma.sql`AND "paid_at" <= ${to}` : Prisma.empty}
+		`;
+
+		const adminFeeTotals = await prisma.$queryRaw<
+			{ source: string; total: number; count: number }[]
+		>`
+			SELECT
+				"source",
+				COALESCE(SUM("admin_fee"), 0)::double precision AS "total",
+				COUNT(*)::int AS "count"
+			FROM "admin_fee_transactions"
+			WHERE ${adminFeeWhere}
+			GROUP BY "source"
+		`;
+
+		const revenueShareWhere = Prisma.sql`
+			t."status" = 'PAID'
+			AND rs."status" <> 'CANCELLED'
+			${eventId ? Prisma.sql`AND rs."event_id" = ${eventId}` : Prisma.empty}
+			${from ? Prisma.sql`AND t."paid_at" >= ${from}` : Prisma.empty}
+			${to ? Prisma.sql`AND t."paid_at" <= ${to}` : Prisma.empty}
+		`;
+
+		const revenueShareTotals = await prisma.$queryRaw<
+			{ sourceType: string; platformAmount: number; grossAmount: number; count: number }[]
+		>`
+			SELECT
+				t."source_type"::text AS "sourceType",
+				COALESCE(SUM(rs."platform_amount"), 0)::double precision AS "platformAmount",
+				COALESCE(SUM(rs."gross_amount"), 0)::double precision AS "grossAmount",
+				COUNT(*)::int AS "count"
+			FROM "revenue_shares" rs
+			INNER JOIN "transactions" t ON t."id" = rs."transaction_id"
+			WHERE ${revenueShareWhere}
+			GROUP BY t."source_type"
+		`;
+
+		const eventPaymentWhere: any = {
+			status: "PAID",
+			amount: { gt: 0 },
+			...(eventId ? { eventId } : {}),
+			...(from || to
+				? {
+						paidAt: {
+							...(from ? { gte: from } : {}),
+							...(to ? { lte: to } : {}),
+						},
+				  }
+				: {}),
+		};
+
+		const packageTotals = await prisma.eventPayment.groupBy({
+			by: ["packageTier"],
+			where: eventPaymentWhere,
+			_sum: { amount: true },
+			_count: true,
+		});
+
+		const findAdminFee = (source: string) =>
+			toNumber(adminFeeTotals.find((row) => row.source === source)?.total);
+		const findRevenueShare = (sourceType: string) =>
+			revenueShareTotals.find((row) => row.sourceType === sourceType);
+
+		const ticketAdminFee = findAdminFee("ticket");
+		const votingAdminFee = findAdminFee("voting");
+		const registrationAdminFee = findAdminFee("registration");
+		const totalAdminFee = ticketAdminFee + votingAdminFee + registrationAdminFee;
+
+		const ticketShare = findRevenueShare("TICKET");
+		const votingShare = findRevenueShare("VOTING");
+		const platformShareFromTickets = toNumber(ticketShare?.platformAmount);
+		const platformShareFromVoting = toNumber(votingShare?.platformAmount);
+		const totalPlatformShare = platformShareFromTickets + platformShareFromVoting;
+
+		const packageTotalsByTier: Record<string, number> = {};
+		let totalPackagePayments = 0;
+		packageTotals.forEach((row) => {
+			const amount = toNumber(row._sum.amount);
+			packageTotalsByTier[row.packageTier] = amount;
+			totalPackagePayments += amount;
+		});
+
+		const totalSimpaskorBalance = totalAdminFee + totalPlatformShare + totalPackagePayments;
+
+		res.json({
+			currency: "IDR",
+			filters: {
+				from: from?.toISOString() || null,
+				to: to?.toISOString() || null,
+				eventId: eventId || null,
+			},
+			summary: {
+				totalSimpaskorBalance,
+				adminFee: {
+					total: totalAdminFee,
+					ticket: ticketAdminFee,
+					voting: votingAdminFee,
+					registration: registrationAdminFee,
+				},
+				platformShare: {
+					total: totalPlatformShare,
+					fromTickets: platformShareFromTickets,
+					fromVoting: platformShareFromVoting,
+					ticketGrossRevenue: toNumber(ticketShare?.grossAmount),
+					votingGrossRevenue: toNumber(votingShare?.grossAmount),
+				},
+				packagePayments: {
+					total: totalPackagePayments,
+					byTier: packageTotalsByTier,
+				},
+			},
+			counts: {
+				ticketAdminFee: toNumber(adminFeeTotals.find((row) => row.source === "ticket")?.count),
+				votingAdminFee: toNumber(adminFeeTotals.find((row) => row.source === "voting")?.count),
+				registrationAdminFee: toNumber(
+					adminFeeTotals.find((row) => row.source === "registration")?.count
+				),
+				ticketRevenueShares: toNumber(ticketShare?.count),
+				votingRevenueShares: toNumber(votingShare?.count),
+				packagePayments: packageTotals.reduce((acc, row) => acc + toNumber(row._count), 0),
+			},
+		});
+	} catch (error: any) {
+		if (error.message?.includes("tanggal")) {
+			return res.status(400).json({ error: error.message });
+		}
+
+		console.error("Error fetching external finance summary:", error);
+		res.status(500).json({ error: "Gagal mengambil ringkasan pendapatan" });
 	}
 });
 
