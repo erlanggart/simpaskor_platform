@@ -492,6 +492,7 @@ const EventParticipantManagement: React.FC = () => {
 			setDownloadingMediaZip(true);
 			const response = await api.get(`/registrations/event/${event.id}/media-zip`, {
 				responseType: "blob",
+				timeout: 120000,
 			});
 			const blob = new Blob([response.data], { type: "application/zip" });
 			const url = URL.createObjectURL(blob);

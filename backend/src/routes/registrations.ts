@@ -253,6 +253,7 @@ router.get(
 	requirePanitia,
 	async (req: AuthenticatedRequest, res) => {
 		try {
+			res.setTimeout(120000);
 			const userId = req.user!.userId;
 			const userRole = req.user!.role;
 			const { eventId } = req.params;
@@ -288,6 +289,7 @@ router.get(
 					},
 					groups: {
 						select: {
+							id: true,
 							groupName: true,
 							memberData: true,
 							schoolCategory: {
@@ -319,9 +321,10 @@ router.get(
 					});
 				}
 
-				for (const group of registration.groups) {
+				registration.groups.forEach((group, groupIndex) => {
 					const teamSegment = sanitizeZipSegment(group.groupName);
 					const categorySegment = sanitizeZipSegment(group.schoolCategory?.name);
+					const pasukanSegment = `${String(groupIndex + 1).padStart(2, "0")}-${teamSegment}-${group.id.slice(0, 8)}`;
 					let members: Array<{ name?: string; role?: string; photo?: string | null }> = [];
 
 					if (group.memberData) {
@@ -340,14 +343,14 @@ router.get(
 						if (!photoPath) return;
 
 						const ext = path.extname(photoPath) || ".jpg";
-						const memberName = sanitizeZipSegment(member.name || `personil-${index + 1}`);
 						const role = sanitizeZipSegment(member.role || "PERSONIL");
+						const memberName = sanitizeZipSegment(`${String(index + 1).padStart(2, "0")}-${member.name || "personil"}`);
 						entries.push({
-							name: `foto-personil/${schoolSegment}/${categorySegment}/${teamSegment}/${role}-${memberName}${ext}`,
+							name: `foto-pasukan/${schoolSegment}/${categorySegment}/${pasukanSegment}/${role}/${memberName}${ext}`,
 							path: photoPath,
 						});
 					});
-				}
+				});
 			}
 
 			if (entries.length === 0) {
