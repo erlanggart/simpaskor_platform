@@ -802,110 +802,122 @@ const EVotingPage: React.FC = () => {
 
 					{/* Purchase votes modal */}
 					{showPurchaseModal && (
-						<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}>
-							<div className="bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-2xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Beli Paket Vote</h3>
-								{selectedPaidNominee && (
-									<div className="rounded-xl border border-red-100/70 bg-red-50/70 px-4 py-3 dark:border-red-500/20 dark:bg-red-500/10">
-										<p className="text-xs font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-300">Nominee Pilihan</p>
-										<p className="mt-1 font-semibold text-gray-900 dark:text-white">{selectedPaidNominee.nomineeName}</p>
-										{selectedPaidNominee.nomineeSubtitle && (
-											<p className="text-xs text-gray-500 dark:text-gray-400">{selectedPaidNominee.nomineeSubtitle}</p>
+						<div
+							className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-black/50 px-4 pt-[calc(1rem_+_env(safe-area-inset-top))] pb-[calc(6.5rem_+_env(safe-area-inset-bottom))] sm:py-6"
+							onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
+						>
+							<div className="flex min-h-full items-start justify-center sm:items-center">
+								<div
+									className="flex w-full max-w-md max-h-[calc(100dvh_-_8.5rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-white/[0.06] dark:bg-gray-950/95 sm:max-h-[calc(100dvh_-_3rem)]"
+									onClick={(e) => e.stopPropagation()}
+								>
+									<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5 sm:p-6">
+										<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Beli Paket Vote</h3>
+										{selectedPaidNominee && (
+											<div className="rounded-xl border border-red-100/70 bg-red-50/70 px-4 py-3 dark:border-red-500/20 dark:bg-red-500/10">
+												<p className="text-xs font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-300">Nominee Pilihan</p>
+												<p className="mt-1 font-semibold text-gray-900 dark:text-white">{selectedPaidNominee.nomineeName}</p>
+												{selectedPaidNominee.nomineeSubtitle && (
+													<p className="text-xs text-gray-500 dark:text-gray-400">{selectedPaidNominee.nomineeSubtitle}</p>
+												)}
+											</div>
 										)}
-									</div>
-								)}
 
-								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<LuUser className="w-4 h-4 inline mr-1" /> Nama *
-									</label>
-									<input
-										type="text"
-										value={buyerName}
-										onChange={(e) => setBuyerName(e.target.value)}
-										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-									/>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<LuMail className="w-4 h-4 inline mr-1" /> Email *
-									</label>
-									<input
-										type="email"
-										value={buyerEmail}
-										onChange={(e) => setBuyerEmail(e.target.value)}
-										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-									/>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-										<LuPhone className="w-4 h-4 inline mr-1" /> Telepon
-									</label>
-									<input
-										type="tel"
-										value={buyerPhone}
-										onChange={(e) => setBuyerPhone(e.target.value)}
-										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-									/>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah Vote</label>
-									<input
-										type="number"
-										min={1}
-										step={1}
-										max={Number.isFinite(maxVoteCount) ? maxVoteCount : undefined}
-										value={voteCount}
-										onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
-										className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-									/>
-									{Number.isFinite(maxVoteCount) && (
-										<p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-											Maksimal {maxVoteCount.toLocaleString("id-ID")} vote per pembelian (batas pembayaran QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
-										</p>
-									)}
-								</div>
-								<div className="bg-red-50/50 dark:bg-white/[0.03] rounded-lg p-3 text-sm border border-red-100/50 dark:border-white/[0.06]">
-									<div className="flex justify-between">
-										<span className="text-gray-600 dark:text-gray-400">Harga/vote</span>
-										<span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedEvent.votingConfig?.pricePerVote || 0)}</span>
+										<div>
+											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+												<LuUser className="w-4 h-4 inline mr-1" /> Nama *
+											</label>
+											<input
+												type="text"
+												value={buyerName}
+												onChange={(e) => setBuyerName(e.target.value)}
+												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
+											/>
+										</div>
+										<div>
+											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+												<LuMail className="w-4 h-4 inline mr-1" /> Email *
+											</label>
+											<input
+												type="email"
+												value={buyerEmail}
+												onChange={(e) => setBuyerEmail(e.target.value)}
+												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
+											/>
+										</div>
+										<div>
+											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+												<LuPhone className="w-4 h-4 inline mr-1" /> Telepon
+											</label>
+											<input
+												type="tel"
+												value={buyerPhone}
+												onChange={(e) => setBuyerPhone(e.target.value)}
+												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
+											/>
+										</div>
+										<div>
+											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah Vote</label>
+											<input
+												type="number"
+												min={1}
+												step={1}
+												max={Number.isFinite(maxVoteCount) ? maxVoteCount : undefined}
+												value={voteCount}
+												onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
+												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
+											/>
+											{Number.isFinite(maxVoteCount) && (
+												<p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+													Maksimal {maxVoteCount.toLocaleString("id-ID")} vote per pembelian (batas pembayaran QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
+												</p>
+											)}
+										</div>
+										<div className="bg-red-50/50 dark:bg-white/[0.03] rounded-lg p-3 text-sm border border-red-100/50 dark:border-white/[0.06]">
+											<div className="flex justify-between">
+												<span className="text-gray-600 dark:text-gray-400">Harga/vote</span>
+												<span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedEvent.votingConfig?.pricePerVote || 0)}</span>
+											</div>
+											<div className="flex justify-between mt-1">
+												<span className="text-gray-600 dark:text-gray-400">Subtotal vote</span>
+												<span className="font-medium text-gray-900 dark:text-white">
+													{formatCurrency(votingOrderSummary.subtotal)}
+												</span>
+											</div>
+											<div className="flex justify-between mt-1">
+												<span className="text-gray-600 dark:text-gray-400">Biaya admin</span>
+												<span className="font-medium text-gray-900 dark:text-white">
+													{formatCurrency(votingOrderSummary.adminFee)}
+												</span>
+											</div>
+											<div className="flex justify-between font-semibold mt-1">
+												<span className="text-gray-900 dark:text-white">Total sebelum QRIS</span>
+												<span className="text-red-600 dark:text-red-400">
+													{formatCurrency(votingOrderSummary.totalBeforeQris)}
+												</span>
+											</div>
+											<p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+												Biaya layanan QRIS dari payment gateway dapat ditambahkan di halaman pembayaran.
+											</p>
+										</div>
 									</div>
-									<div className="flex justify-between mt-1">
-										<span className="text-gray-600 dark:text-gray-400">Subtotal vote</span>
-										<span className="font-medium text-gray-900 dark:text-white">
-											{formatCurrency(votingOrderSummary.subtotal)}
-										</span>
+									<div className="shrink-0 border-t border-gray-200/70 bg-white/95 p-4 dark:border-white/[0.08] dark:bg-gray-950/95">
+										<div className="flex gap-3">
+											<button
+												onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
+												className="flex-1 px-4 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-lg"
+											>
+												Batal
+											</button>
+											<button
+												onClick={handlePurchaseVotes}
+												disabled={purchasing}
+												className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
+											>
+												{purchasing ? "Memproses..." : "Beli Vote"}
+											</button>
+										</div>
 									</div>
-									<div className="flex justify-between mt-1">
-										<span className="text-gray-600 dark:text-gray-400">Biaya admin</span>
-										<span className="font-medium text-gray-900 dark:text-white">
-											{formatCurrency(votingOrderSummary.adminFee)}
-										</span>
-									</div>
-									<div className="flex justify-between font-semibold mt-1">
-										<span className="text-gray-900 dark:text-white">Total sebelum QRIS</span>
-										<span className="text-red-600 dark:text-red-400">
-											{formatCurrency(votingOrderSummary.totalBeforeQris)}
-										</span>
-									</div>
-									<p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-										Biaya layanan QRIS dari payment gateway dapat ditambahkan di halaman pembayaran.
-									</p>
-								</div>
-								<div className="flex gap-3">
-									<button
-										onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
-										className="flex-1 px-4 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-lg"
-									>
-										Batal
-									</button>
-									<button
-										onClick={handlePurchaseVotes}
-										disabled={purchasing}
-										className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
-									>
-										{purchasing ? "Memproses..." : "Beli Vote"}
-									</button>
 								</div>
 							</div>
 						</div>

@@ -938,6 +938,10 @@ router.get(
 				if (event.createdById !== user.userId) {
 					return res.status(403).json({ error: "Anda tidak memiliki akses ke event ini" });
 				}
+
+				if (event.status === "COMPLETED") {
+					return res.status(403).json({ error: "Rekap nilai event selesai tidak dapat diakses oleh panitia" });
+				}
 			}
 
 			// Get all confirmed juries for this event

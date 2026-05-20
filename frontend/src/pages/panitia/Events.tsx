@@ -98,6 +98,7 @@ const PanitiaEvents: React.FC = () => {
 				id: event.id,
 				packageTier: event.packageTier,
 				paymentStatus: event.paymentStatus,
+				status: event.status,
 			})
 		);
 
@@ -285,7 +286,7 @@ const PanitiaEvents: React.FC = () => {
 											}`}
 										>
 											<ArrowRightOnRectangleIcon className="w-3.5 h-3.5" />
-											<span className="hidden sm:inline">Kelola</span>
+											<span className="hidden sm:inline">{event.status === "COMPLETED" ? "Arsip" : "Kelola"}</span>
 											<LuChevronRight className="w-3 h-3 sm:hidden" />
 										</button>
 									</div>

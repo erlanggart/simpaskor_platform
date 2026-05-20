@@ -200,6 +200,18 @@ const ManageEvent: React.FC = () => {
 			}
 
 			setEvent(eventRes.data);
+			localStorage.setItem(
+				"panitia_active_event",
+				JSON.stringify({
+					slug: eventRes.data.slug || slug,
+					title: eventRes.data.title,
+					id: eventRes.data.id,
+					packageTier: eventRes.data.packageTier,
+					paymentStatus: eventRes.data.paymentStatus,
+					status: eventRes.data.status,
+				})
+			);
+			window.dispatchEvent(new Event("panitia-active-event-updated"));
 			setParticipantsSummary(participantsRes.data || []);
 		} catch (error) {
 			console.error("Error fetching event details:", error);

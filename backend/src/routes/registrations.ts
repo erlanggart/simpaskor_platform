@@ -1,4 +1,6 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
 import { authenticate, AuthenticatedRequest, requirePanitia } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { z } from "zod";
@@ -12,6 +14,133 @@ import {
 } from "../lib/midtrans";
 
 const router = express.Router();
+
+const UPLOADS_ROOT = path.resolve(__dirname, "../../uploads");
+
+const crcTable = new Uint32Array(256);
+for (let i = 0; i < 256; i += 1) {
+	let c = i;
+	for (let k = 0; k < 8; k += 1) {
+		c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+	}
+	crcTable[i] = c >>> 0;
+}
+
+const crc32 = (buffer: Buffer) => {
+	let crc = 0xffffffff;
+	for (let i = 0; i < buffer.length; i += 1) {
+		crc = crcTable[(crc ^ buffer[i]!) & 0xff]! ^ (crc >>> 8);
+	}
+	return (crc ^ 0xffffffff) >>> 0;
+};
+
+const getDosDateTime = (date: Date) => {
+	const year = Math.max(1980, date.getFullYear());
+	const dosTime = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+	const dosDate = ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+	return { dosTime, dosDate };
+};
+
+const sanitizeZipSegment = (value: string | null | undefined) => {
+	const sanitized = (value || "tanpa-nama")
+		.normalize("NFKD")
+		.replace(/[^\w\s.-]/g, "")
+		.trim()
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-");
+
+	return sanitized || "tanpa-nama";
+};
+
+const resolveUploadedFile = (url: string | null | undefined) => {
+	if (!url || url.startsWith("http://") || url.startsWith("https://")) return null;
+
+	const cleanPath = url.split("?")[0]!.replace(/\\/g, "/");
+	if (!cleanPath.startsWith("/uploads/")) return null;
+
+	const relativePath = cleanPath.replace(/^\/uploads\//, "");
+	const absolutePath = path.resolve(UPLOADS_ROOT, relativePath);
+	if (!absolutePath.startsWith(UPLOADS_ROOT + path.sep)) return null;
+	if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) return null;
+
+	return absolutePath;
+};
+
+interface ZipEntryInput {
+	name: string;
+	path: string;
+}
+
+const buildZipBuffer = (entries: ZipEntryInput[]) => {
+	const fileParts: Buffer[] = [];
+	const centralParts: Buffer[] = [];
+	const usedNames = new Map<string, number>();
+	let offset = 0;
+
+	for (const entry of entries) {
+		const data = fs.readFileSync(entry.path);
+		const stat = fs.statSync(entry.path);
+		const { dosTime, dosDate } = getDosDateTime(stat.mtime);
+		const checksum = crc32(data);
+		const parsedName = path.posix.parse(entry.name.replace(/\\/g, "/"));
+		const baseName = `${parsedName.dir ? `${parsedName.dir}/` : ""}${parsedName.name}`;
+		const ext = parsedName.ext;
+		const seen = usedNames.get(entry.name) || 0;
+		usedNames.set(entry.name, seen + 1);
+		const uniqueName = seen === 0 ? entry.name : `${baseName}-${seen + 1}${ext}`;
+		const filename = Buffer.from(uniqueName, "utf8");
+
+		const localHeader = Buffer.alloc(30);
+		localHeader.writeUInt32LE(0x04034b50, 0);
+		localHeader.writeUInt16LE(20, 4);
+		localHeader.writeUInt16LE(0, 6);
+		localHeader.writeUInt16LE(0, 8);
+		localHeader.writeUInt16LE(dosTime, 10);
+		localHeader.writeUInt16LE(dosDate, 12);
+		localHeader.writeUInt32LE(checksum, 14);
+		localHeader.writeUInt32LE(data.length, 18);
+		localHeader.writeUInt32LE(data.length, 22);
+		localHeader.writeUInt16LE(filename.length, 26);
+		localHeader.writeUInt16LE(0, 28);
+
+		fileParts.push(localHeader, filename, data);
+
+		const centralHeader = Buffer.alloc(46);
+		centralHeader.writeUInt32LE(0x02014b50, 0);
+		centralHeader.writeUInt16LE(20, 4);
+		centralHeader.writeUInt16LE(20, 6);
+		centralHeader.writeUInt16LE(0, 8);
+		centralHeader.writeUInt16LE(0, 10);
+		centralHeader.writeUInt16LE(dosTime, 12);
+		centralHeader.writeUInt16LE(dosDate, 14);
+		centralHeader.writeUInt32LE(checksum, 16);
+		centralHeader.writeUInt32LE(data.length, 20);
+		centralHeader.writeUInt32LE(data.length, 24);
+		centralHeader.writeUInt16LE(filename.length, 28);
+		centralHeader.writeUInt16LE(0, 30);
+		centralHeader.writeUInt16LE(0, 32);
+		centralHeader.writeUInt16LE(0, 34);
+		centralHeader.writeUInt16LE(0, 36);
+		centralHeader.writeUInt32LE(0, 38);
+		centralHeader.writeUInt32LE(offset, 42);
+		centralParts.push(centralHeader, filename);
+
+		offset += localHeader.length + filename.length + data.length;
+	}
+
+	const centralDirectory = Buffer.concat(centralParts);
+	const endHeader = Buffer.alloc(22);
+	endHeader.writeUInt32LE(0x06054b50, 0);
+	endHeader.writeUInt16LE(0, 4);
+	endHeader.writeUInt16LE(0, 6);
+	endHeader.writeUInt16LE(entries.length, 8);
+	endHeader.writeUInt16LE(entries.length, 10);
+	endHeader.writeUInt32LE(centralDirectory.length, 12);
+	endHeader.writeUInt32LE(offset, 16);
+	endHeader.writeUInt16LE(0, 20);
+
+	return Buffer.concat([...fileParts, centralDirectory, endHeader]);
+};
 
 // Validation schema for group
 const groupSchema = z.object({
@@ -113,6 +242,128 @@ router.get(
 		} catch (error) {
 			console.error("Error fetching event registrations:", error);
 			res.status(500).json({ error: "Failed to fetch event registrations" });
+		}
+	}
+);
+
+// GET /api/registrations/event/:eventId/media-zip - Download participant photos and documents as ZIP
+router.get(
+	"/event/:eventId/media-zip",
+	authenticate,
+	requirePanitia,
+	async (req: AuthenticatedRequest, res) => {
+		try {
+			const userId = req.user!.userId;
+			const userRole = req.user!.role;
+			const { eventId } = req.params;
+
+			const eventWhereClause: any = { id: eventId };
+			if (userRole !== "SUPERADMIN") {
+				eventWhereClause.createdById = userId;
+			}
+
+			const event = await prisma.event.findFirst({
+				where: eventWhereClause,
+				select: { id: true, title: true },
+			});
+
+			if (!event) {
+				return res.status(404).json({ error: "Event not found or no access" });
+			}
+
+			const registrations = await prisma.eventParticipation.findMany({
+				where: { eventId },
+				select: {
+					id: true,
+					schoolName: true,
+					supportingDoc: true,
+					user: {
+						select: {
+							name: true,
+							email: true,
+							profile: {
+								select: { institution: true },
+							},
+						},
+					},
+					groups: {
+						select: {
+							groupName: true,
+							memberData: true,
+							schoolCategory: {
+								select: { name: true },
+							},
+						},
+						orderBy: [
+							{ orderNumber: "asc" },
+							{ createdAt: "asc" },
+						],
+					},
+				},
+				orderBy: { createdAt: "asc" },
+			});
+
+			const entries: ZipEntryInput[] = [];
+
+			for (const registration of registrations) {
+				const schoolSegment = sanitizeZipSegment(
+					registration.schoolName || registration.user.profile?.institution || registration.user.name
+				);
+
+				const supportingDocPath = resolveUploadedFile(registration.supportingDoc);
+				if (supportingDocPath) {
+					const ext = path.extname(supportingDocPath) || ".file";
+					entries.push({
+						name: `berkas-pendukung/${schoolSegment}/${sanitizeZipSegment(registration.user.name)}${ext}`,
+						path: supportingDocPath,
+					});
+				}
+
+				for (const group of registration.groups) {
+					const teamSegment = sanitizeZipSegment(group.groupName);
+					const categorySegment = sanitizeZipSegment(group.schoolCategory?.name);
+					let members: Array<{ name?: string; role?: string; photo?: string | null }> = [];
+
+					if (group.memberData) {
+						try {
+							const parsed = JSON.parse(group.memberData);
+							if (Array.isArray(parsed)) {
+								members = parsed;
+							}
+						} catch {
+							members = [];
+						}
+					}
+
+					members.forEach((member, index) => {
+						const photoPath = resolveUploadedFile(member.photo);
+						if (!photoPath) return;
+
+						const ext = path.extname(photoPath) || ".jpg";
+						const memberName = sanitizeZipSegment(member.name || `personil-${index + 1}`);
+						const role = sanitizeZipSegment(member.role || "PERSONIL");
+						entries.push({
+							name: `foto-personil/${schoolSegment}/${categorySegment}/${teamSegment}/${role}-${memberName}${ext}`,
+							path: photoPath,
+						});
+					});
+				}
+			}
+
+			if (entries.length === 0) {
+				return res.status(404).json({ error: "Tidak ada foto atau berkas peserta untuk diunduh" });
+			}
+
+			const zipBuffer = buildZipBuffer(entries);
+			const filename = `${sanitizeZipSegment(event.title)}-foto-berkas-peserta.zip`;
+
+			res.setHeader("Content-Type", "application/zip");
+			res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+			res.setHeader("Content-Length", zipBuffer.length.toString());
+			return res.send(zipBuffer);
+		} catch (error) {
+			console.error("Error creating participant media ZIP:", error);
+			return res.status(500).json({ error: "Failed to create participant media ZIP" });
 		}
 	}
 );

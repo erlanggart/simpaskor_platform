@@ -86,6 +86,14 @@ export const DashboardLayout: React.FC = () => {
 	}, [user]);
 
 	useEffect(() => {
+		if (user?.role !== "PANITIA") return;
+
+		const handleActiveEventUpdated = () => checkActiveEvent();
+		window.addEventListener("panitia-active-event-updated", handleActiveEventUpdated);
+		return () => window.removeEventListener("panitia-active-event-updated", handleActiveEventUpdated);
+	}, [user]);
+
+	useEffect(() => {
 		if (user?.role === "JURI" && juryEventSlug) {
 			fetchJuryEvent(juryEventSlug);
 		} else if (user?.role === "JURI" && !juryEventSlug) {
@@ -195,6 +203,7 @@ export const DashboardLayout: React.FC = () => {
 				if (activeEvent && activeEvent.event) {
 					const slug = activeEvent.event.slug;
 					const tier = activeEvent.event.packageTier;
+					const isCompletedEvent = activeEvent.event.status === "COMPLETED";
 					const allPanitiaItems: MenuItem[] = [
 						{ name: "Peserta", icon: LuUsers, path: `/panitia/events/${slug}/peserta` },
 						{ name: "Juri", icon: LuScale, path: `/panitia/events/${slug}/juri` },
@@ -208,6 +217,7 @@ export const DashboardLayout: React.FC = () => {
 					];
 					// Filter menu items based on package tier features
 					const filteredItems = allPanitiaItems.filter(item => {
+						if (isCompletedEvent && item.name === "Rekap") return false;
 						const requiredFeature = MENU_FEATURE_MAP[item.name];
 						if (!requiredFeature) return true; // No feature requirement = always show
 						return hasFeature(tier, requiredFeature);

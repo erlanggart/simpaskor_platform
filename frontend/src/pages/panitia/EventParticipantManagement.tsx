@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
+import type ExcelJS from "exceljs";
 import {
 	UserGroupIcon,
 	CheckCircleIcon,
@@ -13,6 +14,7 @@ import {
 	ArrowsUpDownIcon,
 	HashtagIcon,
 	DocumentIcon,
+	ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import {
 	CheckCircleIcon as CheckCircleIconSolid,
@@ -89,6 +91,9 @@ interface Event {
 	contactPhone: string | null;
 	contactPersonName: string | null;
 	registrationFee: number | null;
+	status?: string;
+	packageTier?: string | null;
+	paymentStatus?: string | null;
 }
 
 // Helper to get image URL
@@ -140,6 +145,8 @@ const EventParticipantManagement: React.FC = () => {
 	const [activeSchoolCategoryId, setActiveSchoolCategoryId] = useState<string>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [processingId, setProcessingId] = useState<string | null>(null);
+	const [exportingParticipants, setExportingParticipants] = useState(false);
+	const [downloadingMediaZip, setDownloadingMediaZip] = useState(false);
 
 	useEffect(() => {
 		fetchEventAndRegistrations();
@@ -193,8 +200,18 @@ const EventParticipantManagement: React.FC = () => {
 			// Update localStorage with full event data
 			localStorage.setItem(
 				storageKey,
-				JSON.stringify({ slug: eventData.slug, title: eventData.title, id: eventData.id })
+				JSON.stringify({
+					slug: eventData.slug,
+					title: eventData.title,
+					id: eventData.id,
+					packageTier: eventData.packageTier,
+					paymentStatus: eventData.paymentStatus,
+					status: eventData.status,
+				})
 			);
+			if (!isAdminRoute) {
+				window.dispatchEvent(new Event("panitia-active-event-updated"));
+			}
 
 			// Fetch registrations
 			const registrationsResponse = await api.get(`/registrations/event/${eventData.id}`);
@@ -303,6 +320,195 @@ const EventParticipantManagement: React.FC = () => {
 			} finally {
 				setProcessingId(null);
 			}
+		}
+	};
+
+	const sanitizeFilename = (value: string) => {
+		return value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+	};
+
+	const saveWorkbook = async (workbook: ExcelJS.Workbook, filename: string) => {
+		const buffer = await workbook.xlsx.writeBuffer();
+		const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = filename;
+		link.click();
+		URL.revokeObjectURL(url);
+	};
+
+	const formatMembersByRole = (members: PersonMember[], role: string) => {
+		const names = members
+			.filter((member) => member.role === role)
+			.map((member) => member.name)
+			.filter(Boolean);
+
+		return names.length > 0 ? names.join(", ") : "-";
+	};
+
+	const handleExportParticipants = async () => {
+		try {
+			setExportingParticipants(true);
+			const ExcelJSModule = await import("exceljs");
+			const workbook = new ExcelJSModule.default.Workbook();
+			workbook.creator = "Simpaskor";
+			workbook.created = new Date();
+
+			const worksheet = workbook.addWorksheet("Data Peserta");
+			worksheet.columns = [
+				{ key: "no", width: 6 },
+				{ key: "registrationStatus", width: 22 },
+				{ key: "schoolName", width: 32 },
+				{ key: "registrantName", width: 28 },
+				{ key: "email", width: 32 },
+				{ key: "phone", width: 18 },
+				{ key: "category", width: 18 },
+				{ key: "teamName", width: 28 },
+				{ key: "orderNumber", width: 12 },
+				{ key: "teamMembers", width: 14 },
+				{ key: "danton", width: 28 },
+				{ key: "pasukan", width: 45 },
+				{ key: "cadangan", width: 35 },
+				{ key: "official", width: 35 },
+				{ key: "pelatih", width: 35 },
+				{ key: "notes", width: 32 },
+				{ key: "registeredAt", width: 22 },
+				{ key: "payment", width: 20 },
+			];
+
+			worksheet.addRow([
+				"No",
+				"Status Pendaftaran",
+				"Sekolah/Instansi",
+				"Nama Penanggung Jawab",
+				"Email",
+				"Telepon",
+				"Kategori",
+				"Nama Tim",
+				"No. Urut",
+				"Jumlah Personil",
+				"Danton",
+				"Pasukan",
+				"Cadangan",
+				"Official",
+				"Pelatih",
+				"Catatan",
+				"Tanggal Daftar",
+				"Pembayaran",
+			]);
+
+			worksheet.getRow(1).eachCell((cell) => {
+				cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+				cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } };
+				cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+				cell.border = {
+					top: { style: "thin" },
+					left: { style: "thin" },
+					bottom: { style: "thin" },
+					right: { style: "thin" },
+				};
+			});
+
+			let rowNumber = 1;
+			registrations.forEach((registration) => {
+				const groups = registration.groups.length > 0
+					? registration.groups
+					: [{
+						id: registration.id,
+						groupName: registration.teamName || registration.user.name,
+						teamMembers: 0,
+						memberData: null,
+						status: registration.status,
+						notes: registration.notes,
+						orderNumber: null,
+						schoolCategory: registration.schoolCategory || { id: "-", name: "-" },
+					}];
+
+				groups.forEach((group) => {
+					const members = parseMemberData(group.memberData);
+					const row = worksheet.addRow([
+						rowNumber,
+						registration.status,
+						registration.schoolName || registration.user.profile?.institution || "-",
+						registration.user.name,
+						registration.user.email,
+						registration.user.phone || "-",
+						group.schoolCategory?.name || registration.schoolCategory?.name || "-",
+						group.groupName,
+						group.orderNumber || "-",
+						members.length || group.teamMembers || "-",
+						formatMembersByRole(members, "DANTON"),
+						formatMembersByRole(members, "PASUKAN"),
+						formatMembersByRole(members, "CADANGAN"),
+						formatMembersByRole(members, "OFFICIAL"),
+						formatMembersByRole(members, "PELATIH"),
+						group.notes || registration.notes || "-",
+						formatDate(registration.createdAt),
+						registration.registrationPayment
+							? `${registration.registrationPayment.paymentMethod || "-"} / ${registration.registrationPayment.status}`
+							: "-",
+					]);
+
+					row.eachCell((cell) => {
+						cell.alignment = { vertical: "middle", wrapText: true };
+						cell.border = {
+							top: { style: "thin", color: { argb: "FFE5E7EB" } },
+							left: { style: "thin", color: { argb: "FFE5E7EB" } },
+							bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+							right: { style: "thin", color: { argb: "FFE5E7EB" } },
+						};
+					});
+
+					rowNumber += 1;
+				});
+			});
+
+			if (registrations.length === 0) {
+				worksheet.addRow(["-", "Belum ada data peserta"]);
+			}
+
+			worksheet.views = [{ state: "frozen", ySplit: 1 }];
+			worksheet.autoFilter = "A1:R1";
+
+			const filename = `data-peserta-${sanitizeFilename(event?.title || eventSlug || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+			await saveWorkbook(workbook, filename);
+		} catch (error: any) {
+			console.error("Error exporting participants:", error);
+			Swal.fire({
+				icon: "error",
+				title: "Gagal",
+				text: error?.response?.data?.error || "Gagal mengekspor data peserta",
+			});
+		} finally {
+			setExportingParticipants(false);
+		}
+	};
+
+	const handleDownloadMediaZip = async () => {
+		if (!event?.id) return;
+
+		try {
+			setDownloadingMediaZip(true);
+			const response = await api.get(`/registrations/event/${event.id}/media-zip`, {
+				responseType: "blob",
+			});
+			const blob = new Blob([response.data], { type: "application/zip" });
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = `${sanitizeFilename(event.title || eventSlug || "event")}-foto-berkas-peserta.zip`;
+			link.click();
+			URL.revokeObjectURL(url);
+		} catch (error: any) {
+			console.error("Error downloading participant media ZIP:", error);
+			Swal.fire({
+				icon: "error",
+				title: "Gagal",
+				text: error?.response?.data?.error || "Gagal mengunduh foto dan berkas peserta",
+			});
+		} finally {
+			setDownloadingMediaZip(false);
 		}
 	};
 
@@ -463,12 +669,36 @@ const EventParticipantManagement: React.FC = () => {
 						<ArrowLeftIcon className="h-4 w-4 mr-1" />
 						Kembali ke Event
 					</Link>
-					<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-						Manajemen Peserta
-					</h1>
-					<p className="mt-2 text-gray-600 dark:text-gray-400">
-						{event?.title}
-					</p>
+					<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+						<div>
+							<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+								Manajemen Peserta
+							</h1>
+							<p className="mt-2 text-gray-600 dark:text-gray-400">
+								{event?.title}
+							</p>
+						</div>
+						<div className="flex flex-col gap-2 sm:flex-row">
+							<button
+								type="button"
+								onClick={handleDownloadMediaZip}
+								disabled={downloadingMediaZip || !event?.id}
+								className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white/80 px-4 py-2.5 text-sm font-semibold text-red-600 shadow-sm transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-500/20 dark:bg-white/[0.03] dark:text-red-400 dark:hover:bg-red-500/10"
+							>
+								<ArrowDownTrayIcon className="h-4 w-4" />
+								{downloadingMediaZip ? "Menyiapkan ZIP..." : "Download Foto & Berkas"}
+							</button>
+							<button
+								type="button"
+								onClick={handleExportParticipants}
+								disabled={exportingParticipants}
+								className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-500/20 transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								<ArrowDownTrayIcon className="h-4 w-4" />
+								{exportingParticipants ? "Menyiapkan..." : "Download Peserta"}
+							</button>
+						</div>
+					</div>
 				</div>
 
 				{/* Stats */}
