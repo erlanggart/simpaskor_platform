@@ -338,13 +338,8 @@ const EventParticipantManagement: React.FC = () => {
 		URL.revokeObjectURL(url);
 	};
 
-	const formatMembersByRole = (members: PersonMember[], role: string) => {
-		const names = members
-			.filter((member) => member.role === role)
-			.map((member) => member.name)
-			.filter(Boolean);
-
-		return names.length > 0 ? names.join(", ") : "-";
+	const countMembersByRole = (members: PersonMember[], role: string) => {
+		return members.filter((member) => member.role === role).length;
 	};
 
 	const handleExportParticipants = async () => {
@@ -355,7 +350,33 @@ const EventParticipantManagement: React.FC = () => {
 			workbook.creator = "Simpaskor";
 			workbook.created = new Date();
 
-			const worksheet = workbook.addWorksheet("Data Peserta");
+			const styleHeaderRow = (worksheet: ExcelJS.Worksheet, rowNumber: number, color = "FFDC2626") => {
+				worksheet.getRow(rowNumber).eachCell((cell) => {
+					cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+					cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };
+					cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+					cell.border = {
+						top: { style: "thin" },
+						left: { style: "thin" },
+						bottom: { style: "thin" },
+						right: { style: "thin" },
+					};
+				});
+			};
+
+			const styleDataRow = (row: ExcelJS.Row) => {
+				row.eachCell((cell) => {
+					cell.alignment = { vertical: "middle", wrapText: true };
+					cell.border = {
+						top: { style: "thin", color: { argb: "FFE5E7EB" } },
+						left: { style: "thin", color: { argb: "FFE5E7EB" } },
+						bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+						right: { style: "thin", color: { argb: "FFE5E7EB" } },
+					};
+				});
+			};
+
+			const worksheet = workbook.addWorksheet("Data Tim");
 			worksheet.columns = [
 				{ key: "no", width: 6 },
 				{ key: "registrationStatus", width: 22 },
@@ -367,11 +388,11 @@ const EventParticipantManagement: React.FC = () => {
 				{ key: "teamName", width: 28 },
 				{ key: "orderNumber", width: 12 },
 				{ key: "teamMembers", width: 14 },
-				{ key: "danton", width: 28 },
-				{ key: "pasukan", width: 45 },
-				{ key: "cadangan", width: 35 },
-				{ key: "official", width: 35 },
-				{ key: "pelatih", width: 35 },
+				{ key: "dantonCount", width: 14 },
+				{ key: "pasukanCount", width: 14 },
+				{ key: "cadanganCount", width: 14 },
+				{ key: "officialCount", width: 14 },
+				{ key: "pelatihCount", width: 14 },
 				{ key: "notes", width: 32 },
 				{ key: "registeredAt", width: 22 },
 				{ key: "payment", width: 20 },
@@ -388,29 +409,48 @@ const EventParticipantManagement: React.FC = () => {
 				"Nama Tim",
 				"No. Urut",
 				"Jumlah Personil",
-				"Danton",
-				"Pasukan",
-				"Cadangan",
-				"Official",
-				"Pelatih",
+				"Jml Danton",
+				"Jml Pasukan",
+				"Jml Cadangan",
+				"Jml Official",
+				"Jml Pelatih",
 				"Catatan",
 				"Tanggal Daftar",
 				"Pembayaran",
 			]);
+			styleHeaderRow(worksheet, 1);
 
-			worksheet.getRow(1).eachCell((cell) => {
-				cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-				cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } };
-				cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-				cell.border = {
-					top: { style: "thin" },
-					left: { style: "thin" },
-					bottom: { style: "thin" },
-					right: { style: "thin" },
-				};
-			});
+			const personnelWorksheet = workbook.addWorksheet("Detail Personil");
+			personnelWorksheet.columns = [
+				{ key: "no", width: 6 },
+				{ key: "schoolName", width: 32 },
+				{ key: "category", width: 18 },
+				{ key: "teamName", width: 28 },
+				{ key: "orderNumber", width: 12 },
+				{ key: "role", width: 16 },
+				{ key: "memberNo", width: 12 },
+				{ key: "memberName", width: 32 },
+				{ key: "photo", width: 48 },
+				{ key: "registrantName", width: 28 },
+				{ key: "email", width: 32 },
+			];
+			personnelWorksheet.addRow([
+				"No",
+				"Sekolah/Instansi",
+				"Kategori",
+				"Nama Tim/Pasukan",
+				"No. Urut",
+				"Role",
+				"No Personil",
+				"Nama Personil",
+				"Foto",
+				"Penanggung Jawab",
+				"Email",
+			]);
+			styleHeaderRow(personnelWorksheet, 1, "FF047857");
 
 			let rowNumber = 1;
+			let personnelRowNumber = 1;
 			registrations.forEach((registration) => {
 				const groups = registration.groups.length > 0
 					? registration.groups
@@ -427,22 +467,24 @@ const EventParticipantManagement: React.FC = () => {
 
 				groups.forEach((group) => {
 					const members = parseMemberData(group.memberData);
+					const schoolName = registration.schoolName || registration.user.profile?.institution || "-";
+					const categoryName = group.schoolCategory?.name || registration.schoolCategory?.name || "-";
 					const row = worksheet.addRow([
 						rowNumber,
 						registration.status,
-						registration.schoolName || registration.user.profile?.institution || "-",
+						schoolName,
 						registration.user.name,
 						registration.user.email,
 						registration.user.phone || "-",
-						group.schoolCategory?.name || registration.schoolCategory?.name || "-",
+						categoryName,
 						group.groupName,
 						group.orderNumber || "-",
 						members.length || group.teamMembers || "-",
-						formatMembersByRole(members, "DANTON"),
-						formatMembersByRole(members, "PASUKAN"),
-						formatMembersByRole(members, "CADANGAN"),
-						formatMembersByRole(members, "OFFICIAL"),
-						formatMembersByRole(members, "PELATIH"),
+						countMembersByRole(members, "DANTON"),
+						countMembersByRole(members, "PASUKAN"),
+						countMembersByRole(members, "CADANGAN"),
+						countMembersByRole(members, "OFFICIAL"),
+						countMembersByRole(members, "PELATIH"),
 						group.notes || registration.notes || "-",
 						formatDate(registration.createdAt),
 						registration.registrationPayment
@@ -450,14 +492,24 @@ const EventParticipantManagement: React.FC = () => {
 							: "-",
 					]);
 
-					row.eachCell((cell) => {
-						cell.alignment = { vertical: "middle", wrapText: true };
-						cell.border = {
-							top: { style: "thin", color: { argb: "FFE5E7EB" } },
-							left: { style: "thin", color: { argb: "FFE5E7EB" } },
-							bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
-							right: { style: "thin", color: { argb: "FFE5E7EB" } },
-						};
+					styleDataRow(row);
+
+					members.forEach((member, memberIndex) => {
+						const detailRow = personnelWorksheet.addRow([
+							personnelRowNumber,
+							schoolName,
+							categoryName,
+							group.groupName,
+							group.orderNumber || "-",
+							member.role || "-",
+							memberIndex + 1,
+							member.name || "-",
+							member.photo || "-",
+							registration.user.name,
+							registration.user.email,
+						]);
+						styleDataRow(detailRow);
+						personnelRowNumber += 1;
 					});
 
 					rowNumber += 1;
@@ -466,10 +518,13 @@ const EventParticipantManagement: React.FC = () => {
 
 			if (registrations.length === 0) {
 				worksheet.addRow(["-", "Belum ada data peserta"]);
+				personnelWorksheet.addRow(["-", "Belum ada data personil"]);
 			}
 
 			worksheet.views = [{ state: "frozen", ySplit: 1 }];
 			worksheet.autoFilter = "A1:R1";
+			personnelWorksheet.views = [{ state: "frozen", ySplit: 1 }];
+			personnelWorksheet.autoFilter = "A1:K1";
 
 			const filename = `data-peserta-${sanitizeFilename(event?.title || eventSlug || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
 			await saveWorkbook(workbook, filename);
