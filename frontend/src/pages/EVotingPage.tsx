@@ -931,9 +931,9 @@ const EVotingPage: React.FC = () => {
 				<audio ref={arenaSound.register("vote")} preload="none" />
 				<audio ref={arenaSound.register("rankup")} preload="none" />
 
-				<main className="relative z-10 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-5 md:py-8">
+				<main className="arena-main-shell relative z-10 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-5 md:py-8">
 					{/* Top HUD strip: back + LIVE + sound */}
-					<div className="mb-5 flex items-center justify-between gap-3">
+					<div className="arena-top-strip mb-5 flex items-center justify-between gap-3">
 						<button
 							onClick={() => { setSelectedEvent(null); setSelectedCategoryId(null); setVotedNominees(new Set()); setPaidVoteTarget(null); setShowPurchaseModal(false); }}
 							className="arena-sound-toggle hover:!text-white"
@@ -961,7 +961,7 @@ const EVotingPage: React.FC = () => {
 					</div>
 
 					{/* Arena Hero */}
-					<section className="arena-hud arena-cut relative mb-6 overflow-hidden rounded-[1.5rem] p-4 sm:p-6 lg:p-7">
+					<section className="arena-hero arena-hud arena-cut relative mb-6 overflow-hidden rounded-[1.5rem] p-4 sm:p-6 lg:p-7">
 						<span className="arena-bracket tl" />
 						<span className="arena-bracket tr" />
 						<span className="arena-bracket bl" />
@@ -980,7 +980,7 @@ const EVotingPage: React.FC = () => {
 						<div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
 							<div className="flex flex-col justify-between">
 								<div>
-									<div className="mb-4 flex flex-wrap items-center gap-2">
+									<div className="arena-hero-badges mb-4 flex flex-wrap items-center gap-2">
 										<span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-cyan-100 arena-chrome">
 											<LuZap className="h-3.5 w-3.5" /> Grand Arena · {selectedEventBadge.label}
 										</span>
@@ -988,7 +988,7 @@ const EVotingPage: React.FC = () => {
 											<LuTicket className="h-3.5 w-3.5" /> {getVotingPriceLabel(selectedEvent)}
 										</span>
 									</div>
-									<h1 className="arena-numeric max-w-3xl text-3xl font-black leading-[1.05] text-white sm:text-4xl lg:text-[2.75rem]" style={{ textShadow: "0 0 28px rgba(0,229,255,0.18)" }}>
+									<h1 className="arena-hero-title arena-numeric max-w-3xl text-3xl font-black leading-[1.05] text-white sm:text-4xl lg:text-[2.75rem]" style={{ textShadow: "0 0 28px rgba(0,229,255,0.18)" }}>
 										{selectedEvent.title}
 									</h1>
 									{selectedEvent.description && (
@@ -1011,7 +1011,7 @@ const EVotingPage: React.FC = () => {
 							</div>
 
 							{/* KPI grid */}
-							<div className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-2 xl:grid-cols-3">
+							<div className="arena-hero-kpis grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-2 xl:grid-cols-3">
 								<div className="arena-kpi">
 									<div className="arena-kpi-label">Kategori</div>
 									<div className="arena-kpi-value">{selectedEvent.votingConfig?.categories.length || 0}</div>
@@ -1059,7 +1059,7 @@ const EVotingPage: React.FC = () => {
 
 					{/* Category header */}
 					{currentCategory && (
-						<div className="arena-hud mb-6 flex flex-col gap-4 rounded-2xl p-4 sm:p-5 sm:flex-row sm:items-end sm:justify-between">
+						<div className="arena-category-panel arena-hud mb-6 flex flex-col gap-4 rounded-2xl p-4 sm:p-5 sm:flex-row sm:items-end sm:justify-between">
 							<div>
 								<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.28em] text-cyan-300">Kategori Pertandingan</p>
 								<h2 className="arena-numeric mt-1 text-2xl font-black text-white">{currentCategory.title}</h2>

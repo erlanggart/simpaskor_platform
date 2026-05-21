@@ -2245,19 +2245,77 @@ html:not(.dark) .section-icon-glow-purple::before {
 }
 @media (max-width: 479px) {
 	.arena-podium {
-		grid-template-columns: repeat(3, minmax(142px, 1fr));
-		overflow-x: auto;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		overflow-x: visible;
 		overflow-y: visible;
-		padding: 1.6rem 0.15rem 0.6rem;
-		scroll-snap-type: x mandatory;
-		-webkit-overflow-scrolling: touch;
-		scrollbar-width: none;
-	}
-	.arena-podium::-webkit-scrollbar {
-		height: 0;
+		gap: 0.42rem;
+		padding: 1.25rem 0 0.25rem;
+		align-items: stretch;
 	}
 	.arena-podium-card {
-		scroll-snap-align: center;
+		border-radius: 0.82rem;
+		box-shadow: 0 16px 34px rgba(0, 0, 0, 0.42);
+	}
+	.arena-podium-card .relative.p-2 {
+		padding: 0.45rem;
+	}
+	.arena-podium-card .mb-2 {
+		margin-bottom: 0.35rem;
+	}
+	.arena-podium-rankbadge {
+		gap: 0.12rem;
+		padding: 0.18rem 0.38rem;
+		font-size: 0.58rem;
+		letter-spacing: 0;
+	}
+	.arena-podium-rankbadge svg {
+		width: 0.72rem;
+		height: 0.72rem;
+	}
+	.arena-podium-card .arena-numeric.text-\[10px\] {
+		font-size: 0.54rem;
+	}
+	.arena-podium-photo {
+		border-radius: 0.62rem;
+	}
+	.arena-podium-photo.h-36,
+	.arena-podium-photo.h-32 {
+		height: clamp(7.2rem, 32vw, 8.4rem);
+	}
+	.arena-podium-photo .absolute {
+		padding: 1.8rem 0.45rem 0.45rem;
+	}
+	.arena-podium-photo h3 {
+		font-size: 0.62rem !important;
+		line-height: 1.12;
+		white-space: normal;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+	.arena-podium-photo p {
+		font-size: 0.55rem !important;
+	}
+	.arena-podium-card .mt-3 {
+		margin-top: 0.45rem;
+	}
+	.arena-podium-plinth {
+		margin-top: 0.45rem;
+		border-radius: 0.55rem 0.55rem 0.2rem 0.2rem;
+		min-height: 2.2rem;
+		height: 2.2rem !important;
+	}
+	.arena-podium-plinth span {
+		font-size: 1.15rem;
+	}
+	.arena-podium-card .arena-vote-btn {
+		margin-top: 0.45rem;
+		width: 100%;
+		padding: 0.48rem 0.35rem;
+		font-size: 0.58rem;
+		letter-spacing: 0.08em;
+		white-space: nowrap;
 	}
 }
 @media (min-width: 480px) { .arena-podium { gap: 0.6rem; } }
@@ -2636,6 +2694,105 @@ html:not(.dark) .section-icon-glow-purple::before {
 	transition: color 180ms ease, border-color 180ms ease;
 }
 .arena-sound-toggle:hover { color: #fff; border-color: var(--neon-cyan-soft); }
+
+@media (max-width: 639px) {
+	.arena-main-shell {
+		padding-top: calc(4.25rem + env(safe-area-inset-top));
+		padding-inline: 0.6rem;
+	}
+	.arena-top-strip {
+		display: none;
+	}
+	.arena-hero {
+		border-radius: 1rem;
+		padding: 0.95rem;
+	}
+	.arena-cut {
+		clip-path: polygon(
+			12px 0,
+			100% 0,
+			100% calc(100% - 12px),
+			calc(100% - 12px) 100%,
+			0 100%,
+			0 12px
+		);
+	}
+	.arena-bracket {
+		width: 16px;
+		height: 16px;
+		border-width: 1px;
+	}
+	.arena-hero-badges {
+		margin-bottom: 0.65rem;
+		gap: 0.35rem;
+	}
+	.arena-hero-badges > span {
+		max-width: 100%;
+		padding: 0.25rem 0.48rem;
+		font-size: 0.52rem;
+		letter-spacing: 0.12em;
+	}
+	.arena-hero-title {
+		font-size: clamp(1.38rem, 7vw, 1.9rem) !important;
+		line-height: 1.12 !important;
+		letter-spacing: 0;
+		overflow-wrap: anywhere;
+	}
+	.arena-hero-title + p {
+		margin-top: 0.6rem;
+		font-size: 0.82rem;
+		line-height: 1.55;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+	}
+	.arena-hero .inline-flex {
+		min-width: 0;
+	}
+	.arena-hero .mt-4.flex {
+		margin-top: 0.75rem;
+		gap: 0.4rem;
+	}
+	.arena-hero .mt-4.flex span {
+		max-width: 100%;
+		font-size: 0.68rem;
+		padding: 0.25rem 0.55rem;
+	}
+	.arena-hero-kpis {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.55rem;
+	}
+	.arena-hero-kpis .arena-kpi:nth-child(3) {
+		grid-column: 1 / -1;
+	}
+	.arena-kpi {
+		border-radius: 0.8rem;
+		padding: 0.65rem 0.72rem;
+	}
+	.arena-kpi-label {
+		font-size: 0.54rem;
+		letter-spacing: 0.15em;
+	}
+	.arena-kpi-value {
+		font-size: clamp(1.15rem, 7vw, 1.55rem);
+	}
+	.arena-category-panel {
+		border-radius: 1rem;
+		padding: 0.95rem;
+		gap: 0.75rem;
+	}
+	.arena-category-panel h2 {
+		font-size: clamp(1.25rem, 6vw, 1.65rem);
+		line-height: 1.15;
+		overflow-wrap: anywhere;
+	}
+	.arena-category-panel p:not(.arena-chrome) {
+		font-size: 0.8rem;
+		line-height: 1.55;
+	}
+	.arena-category-panel .grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
 
 /* Live pulse dot. */
 .arena-live-dot {
