@@ -14,10 +14,8 @@ import {
 	LuCircleCheck,
 	LuClock,
 	LuCrown,
-	LuMail,
 	LuMapPin,
 	LuMedal,
-	LuPhone,
 	LuSearch,
 	LuSparkles,
 	LuThumbsUp,
@@ -31,7 +29,6 @@ import {
 	LuZap,
 } from "react-icons/lu";
 import Swal from "sweetalert2";
-import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
 import VoteGuideCard from "../components/landing/VoteGuideCard";
 
 // ---------------------------------------------------------------------------
@@ -128,17 +125,6 @@ const GIFTS: GiftDef[] = [
 	{ type: "bear", emoji: "🐻", label: "Beruang", votes: 20, tone: "is-bear" },
 	{ type: "soldier", emoji: "🪖", label: "Tentara", votes: 10, tone: "is-soldier" },
 ];
-const GIFT_CLIENT_COOLDOWN_MS = 1600;
-interface GiftFeedEntry {
-	id: string;
-	categoryId: string;
-	nomineeId: string;
-	nomineeName: string;
-	giftType: GiftType;
-	votes: number;
-	senderLabel: string;
-	ts: number;
-}
 
 /** Smooth integer ticker for KPI numbers — pure RAF, no dep. */
 const ArenaCounter: React.FC<{ value: number; duration?: number }> = ({ value, duration = 700 }) => {
@@ -262,10 +248,7 @@ const EVotingPage: React.FC = () => {
 		}, 1700);
 	}, []);
 
-	// ----- Gift voting state -----
-	const [giftTargetId, setGiftTargetId] = useState<string | null>(null);
-	const [giftCooldown, setGiftCooldown] = useState<Map<GiftType, number>>(new Map());
-	const [giftCombo, setGiftCombo] = useState<{ type: GiftType; count: number } | null>(null);
+	// ----- Gift effect state (animation-only; gifts are now paid presets) -----
 	const [flyingGifts, setFlyingGifts] = useState<Array<{ id: string; emoji: string; from: { x: number; y: number }; to: { x: number; y: number } }>>([]);
 	const [receivingAura, setReceivingAura] = useState<Map<string, GiftType>>(new Map());
 	const [bouncingNominee, setBouncingNominee] = useState<string | null>(null);
@@ -273,12 +256,8 @@ const EVotingPage: React.FC = () => {
 	const [lionShow, setLionShow] = useState<{ emoji: string; ts: number } | null>(null);
 	const [rocketShow, setRocketShow] = useState<number | null>(null);
 	const [shaking, setShaking] = useState(false);
-	const giftFeedSinceRef = useRef<number>(Date.now());
-	const giftSeenIdsRef = useRef<Set<string>>(new Set());
-	const giftComboTimerRef = useRef<number | null>(null);
 	const recentGiftsRef = useRef<Array<{ nomineeId: string; ts: number }>>([]);
 	const [trendingNomineeId, setTrendingNomineeId] = useState<string | null>(null);
-	const giftCardRefs = useRef<Map<GiftType, HTMLButtonElement | null>>(new Map());
 	const nomineeCardRefs = useRef<Map<string, HTMLElement | null>>(new Map());
 
 	/**
@@ -342,136 +321,9 @@ const EVotingPage: React.FC = () => {
 	 * Send a gift to the currently-selected target nominee. Optimistic UI:
 	 * bump local voteCount, fire effects, then call API. On failure, revert.
 	 */
-	const sendGift = useCallback(async (giftType: GiftType, sourceEl: HTMLElement | null) => {
-		if (!selectedEvent || !selectedCategoryId) return;
-		const targetId = giftTargetId;
-		if (!targetId) {
-			Swal.fire({ title: "Pilih Nominee Dulu", text: "Tap salah satu kontestan dulu untuk dijadikan target gift.", icon: "info", background: "#0a0d22", color: "#e6ecff" });
-			return;
-		}
-		const def = GIFTS.find((g) => g.type === giftType);
-		if (!def) return;
-		// Cooldown gate
-		const now = Date.now();
-		const cdEnds = giftCooldown.get(giftType) ?? 0;
-		if (now < cdEnds) return;
-		setGiftCooldown((prev) => new Map(prev).set(giftType, now + GIFT_CLIENT_COOLDOWN_MS));
-
-		// Combo: same gift within 2.5s = combo++
-		setGiftCombo((prev) => {
-			if (prev && prev.type === giftType) return { type: giftType, count: prev.count + 1 };
-			return { type: giftType, count: 1 };
-		});
-		if (giftComboTimerRef.current) window.clearTimeout(giftComboTimerRef.current);
-		giftComboTimerRef.current = window.setTimeout(() => setGiftCombo(null), 2500);
-
-		// Optimistic effect + ticker
-		playGiftEffect(targetId, giftType, sourceEl);
-		const targetNominee = selectedEvent.votingConfig?.categories
-			.find((c) => c.id === selectedCategoryId)
-			?.nominees?.find((n) => n.id === targetId);
-		if (targetNominee) {
-			myInterestRef.current.add(targetId);
-			pushTickerEntry(`${def.emoji} ${user?.name || "Anonim"} kirim ${def.label} (+${def.votes}) → ${targetNominee.nomineeName}`, "rankup");
-			arenaSound.play(def.type === "lion" ? "rankup" : "vote");
-		}
-
-		// Optimistic local vote bump
-		setSelectedEvent((cur) => {
-			if (!cur?.votingConfig) return cur;
-			return {
-				...cur,
-				votingConfig: {
-					...cur.votingConfig,
-					categories: cur.votingConfig.categories.map((cat) =>
-						cat.id === selectedCategoryId
-							? {
-								...cat,
-								nominees: cat.nominees?.map((n) =>
-									n.id === targetId ? { ...n, voteCount: n.voteCount + def.votes } : n
-								),
-							}
-							: cat
-					),
-				},
-			};
-		});
-
-		// API call (de-duped: backend also enforces cooldown).
-		try {
-			await api.post("/voting/gift", {
-				categoryId: selectedCategoryId,
-				nomineeId: targetId,
-				giftType,
-				senderName: user?.name || undefined,
-			}, { silent: true });
-		} catch (err: any) {
-			// On failure (e.g. 429 cooldown race), roll back the local bump.
-			const msg = err?.response?.data?.error;
-			if (err?.response?.status !== 429) {
-				Swal.fire({ title: "Gift gagal", text: msg || "Tidak dapat mengirim gift saat ini.", icon: "error", background: "#0a0d22", color: "#e6ecff" });
-			}
-			setSelectedEvent((cur) => {
-				if (!cur?.votingConfig) return cur;
-				return {
-					...cur,
-					votingConfig: {
-						...cur.votingConfig,
-						categories: cur.votingConfig.categories.map((cat) =>
-							cat.id === selectedCategoryId
-								? {
-									...cat,
-									nominees: cat.nominees?.map((n) =>
-										n.id === targetId ? { ...n, voteCount: Math.max(0, n.voteCount - def.votes) } : n
-									),
-								}
-								: cat
-						),
-					},
-				};
-			});
-		}
-	}, [selectedEvent, selectedCategoryId, giftTargetId, giftCooldown, playGiftEffect, pushTickerEntry, arenaSound, user]);
-
-	// Poll the gift feed every 4s while detail view is open. Apply effects for
-	// gifts sent by OTHER users so this feels like a live battle.
-	useEffect(() => {
-		if (!selectedEvent) return undefined;
-		const eventId = selectedEvent.id;
-		giftFeedSinceRef.current = Date.now();
-		giftSeenIdsRef.current = new Set();
-		const tick = async () => {
-			if (document.visibilityState !== "visible") return;
-			try {
-				const res = await api.get(`/voting/events/${eventId}/gift-feed`, {
-					params: { since: giftFeedSinceRef.current },
-					silent: true,
-				});
-				const entries: GiftFeedEntry[] = res.data?.entries ?? [];
-				if (entries.length === 0) return;
-				// Process oldest → newest so animations layer naturally.
-				const fresh = entries.filter((e) => !giftSeenIdsRef.current.has(e.id)).reverse();
-				for (const e of fresh) {
-					giftSeenIdsRef.current.add(e.id);
-					if (e.ts > giftFeedSinceRef.current) giftFeedSinceRef.current = e.ts;
-					playGiftEffect(e.nomineeId, e.giftType);
-					pushTickerEntry(`${GIFTS.find((g) => g.type === e.giftType)?.emoji ?? "🎁"} ${e.senderLabel} kirim ${e.votes} vote → ${e.nomineeName}`, "rankup");
-				}
-			} catch {
-				/* swallow — feed is best-effort */
-			}
-		};
-		void tick();
-		const id = window.setInterval(tick, 4_000);
-		return () => window.clearInterval(id);
-	}, [selectedEvent?.id, playGiftEffect, pushTickerEntry]);
-
 	// Reset target nominee + visual state when leaving the detail view.
 	useEffect(() => {
 		if (!selectedEvent) {
-			setGiftTargetId(null);
-			setGiftCooldown(new Map());
-			setGiftCombo(null);
 			setFlyingGifts([]);
 			setReceivingAura(new Map());
 			setBouncingNominee(null);
@@ -507,9 +359,9 @@ const EVotingPage: React.FC = () => {
 
 	// Purchase modal (for paid voting)
 	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-	const [buyerName, setBuyerName] = useState(user?.name || "");
-	const [buyerEmail, setBuyerEmail] = useState(user?.email || "");
-	const [buyerPhone, setBuyerPhone] = useState("");
+	const [buyerName, setBuyerName] = useState("");
+	const buyerEmail = "";
+	const buyerPhone = "";
 	const [voteCount, setVoteCount] = useState(1);
 	const [purchasing, setPurchasing] = useState(false);
 
@@ -557,13 +409,6 @@ const EVotingPage: React.FC = () => {
 	useEffect(() => {
 		fetchEvents();
 	}, [fetchEvents]);
-
-	useEffect(() => {
-		if (user) {
-			setBuyerName(user.name);
-			setBuyerEmail(user.email);
-		}
-	}, [user]);
 
 	const fetchEventDetail = async (eventId: string, opts: { silent?: boolean; pickFirstCategory?: boolean } = {}) => {
 		try {
@@ -774,18 +619,15 @@ const EVotingPage: React.FC = () => {
 	};
 
 	const handlePurchaseVotes = async () => {
-		if (!selectedEvent || !buyerName.trim() || !buyerEmail.trim()) {
-			Swal.fire("Error", "Nama dan email wajib diisi", "error");
+		if (!selectedEvent || !buyerName.trim()) {
+			Swal.fire("Error", "Nama wajib diisi", "error");
 			return;
 		}
 		if (!paidVoteTarget) {
 			Swal.fire("Pilih Nominee", "Pilih nominee yang ingin diberi vote terlebih dahulu", "warning");
 			return;
 		}
-		if (!isGmailEmail(buyerEmail)) {
-			Swal.fire("Error", `Email pembeli ${GMAIL_ONLY_EMAIL_MESSAGE}`, "error");
-			return;
-		}
+		// Email is optional and unrestricted — gifts/votes only need a name.
 
 		const targetCategory = selectedEvent.votingConfig?.categories.find((category) => category.id === paidVoteTarget.categoryId);
 		const targetNominee = targetCategory?.nominees?.find((nominee) => nominee.id === paidVoteTarget.nomineeId);
@@ -826,9 +668,19 @@ const EVotingPage: React.FC = () => {
 						const confirmedVoteCount = confirmRes.data.appliedVotes || confirmRes.data.voteCount || voteCount;
 						myInterestRef.current.add(targetNominee.id);
 						setPaidVoteTarget(null);
-						fireConfetti();
-						arenaSound.play("vote");
-						pushTickerEntry(`Boost ${confirmedVoteCount} vote → ${targetNominee.nomineeName}`, "rankup");
+						// Fire the matching gift signature animation if the vote count
+						// hits one of the preset gift values (Singa=100, Roket=50,
+						// Beruang=20, Tentara=10). Otherwise fall back to confetti.
+						const matchedGift = GIFTS.find((g) => g.votes === confirmedVoteCount);
+						if (matchedGift) {
+							playGiftEffect(targetNominee.id, matchedGift.type);
+							arenaSound.play(matchedGift.type === "lion" ? "rankup" : "vote");
+							pushTickerEntry(`${matchedGift.emoji} ${buyerName.trim() || "Anonim"} kirim ${matchedGift.label} (+${matchedGift.votes}) → ${targetNominee.nomineeName}`, "rankup");
+						} else {
+							fireConfetti();
+							arenaSound.play("vote");
+							pushTickerEntry(`Boost ${confirmedVoteCount} vote → ${targetNominee.nomineeName}`, "rankup");
+						}
 						Swal.fire({
 							title: "Vote Berhasil!",
 							html: `<div class="text-left space-y-2">
@@ -1255,7 +1107,7 @@ const EVotingPage: React.FC = () => {
 											<div
 												key={nominee.id}
 												ref={(el) => { nomineeCardRefs.current.set(nominee.id, el); }}
-												className={`arena-podium-card ${rankClass} ${orderClass} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${isVoted ? "ring-2 ring-emerald-400/70" : ""} ${giftTargetId === nominee.id ? "ring-2 ring-fuchsia-400/70" : ""} ${bouncingNominee === nominee.id ? "arena-bear-bounce" : ""}`}
+												className={`arena-podium-card ${rankClass} ${orderClass} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${isVoted ? "ring-2 ring-emerald-400/70" : ""} ${bouncingNominee === nominee.id ? "arena-bear-bounce" : ""}`}
 												style={{ animationDelay: `${podiumIdx * 110}ms` }}
 												onClick={() => openNomineePhotoPreview(nominee)}
 												onKeyDown={(event) => {
@@ -1274,15 +1126,6 @@ const EVotingPage: React.FC = () => {
 												{trendingNomineeId === nominee.id && (
 													<span className="absolute right-2 top-2 z-[3]"><span className="arena-trending">🔥 Trending</span></span>
 												)}
-												<button
-													type="button"
-													onClick={(e) => { e.stopPropagation(); setGiftTargetId(nominee.id); }}
-													className="absolute left-2 top-2 z-[3] inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-fuchsia-100 backdrop-blur transition-colors hover:bg-fuchsia-500/30"
-													aria-label={`Jadikan ${nominee.nomineeName} target gift`}
-													title="Set sebagai target gift"
-												>
-													🎁 {giftTargetId === nominee.id ? "Target" : "Pilih"}
-												</button>
 												{isFirst && (
 													<svg className="arena-crown" width="48" height="36" viewBox="0 0 48 36" fill="none" aria-hidden>
 														<defs>
@@ -1410,21 +1253,13 @@ const EVotingPage: React.FC = () => {
 														layout
 														transition={{ type: "spring", stiffness: 280, damping: 26 }}
 														ref={(el: HTMLLIElement | null) => { nomineeCardRefs.current.set(nominee.id, el); }}
-														className={`arena-row relative ${flashing ? "is-flash" : ""} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${giftTargetId === nominee.id ? "ring-2 ring-fuchsia-400/70" : ""} ${bouncingNominee === nominee.id ? "arena-bear-bounce" : ""}`}
+														className={`arena-row relative ${flashing ? "is-flash" : ""} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${bouncingNominee === nominee.id ? "arena-bear-bounce" : ""}`}
 														onClick={() => openNomineePhotoPreview(nominee)}
 													>
 														{receivingAura.get(nominee.id) && (
 															<span className={`arena-recv-aura ${GIFTS.find((g) => g.type === receivingAura.get(nominee.id))?.tone ?? ""}`} />
 														)}
 														{soldierPulseNominee === nominee.id && <span className="arena-soldier-pulse" />}
-														<button
-															type="button"
-															onClick={(e) => { e.stopPropagation(); setGiftTargetId(nominee.id); }}
-															className="absolute right-2 top-2 z-[3] inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-fuchsia-100 transition-colors hover:bg-fuchsia-500/30"
-															aria-label={`Jadikan ${nominee.nomineeName} target gift`}
-														>
-															🎁
-														</button>
 														<div className="arena-row-rank">#{rank}</div>
 														<div className="arena-row-avatar">
 															{nominee.nomineePhoto ? (
@@ -1440,7 +1275,7 @@ const EVotingPage: React.FC = () => {
 																</div>
 															)}
 														</div>
-														<div className="min-w-0">
+														<div className="arena-row-meta min-w-0">
 															<div className="flex items-center gap-2">
 																<h4 className="arena-row-name truncate">{nominee.nomineeName}</h4>
 																<AnimatePresence>
@@ -1544,79 +1379,6 @@ const EVotingPage: React.FC = () => {
 									</AnimatePresence>
 								</div>
 
-								{/* Gift Voting Dock — TikTok-style battle gifts. Persistent
-								    panel so user can spam-tap once a target is locked. */}
-								<div className="mt-4">
-									<div className="arena-gift-dock">
-										<div className="mb-2 flex items-center justify-between">
-											<div className="flex items-center gap-2">
-												<span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-sm shadow-lg shadow-fuchsia-500/40">🎁</span>
-												<div>
-													<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.24em] text-fuchsia-200">Gift Battle</p>
-													<p className="text-[10px] text-slate-500">Tap emoji → vote terbang ke target</p>
-												</div>
-											</div>
-										</div>
-
-										{(() => {
-											const target = sortedNominees.find((n) => n.id === giftTargetId);
-											return target ? (
-												<div className="arena-gift-target">
-													<div className="arena-row-avatar" style={{ width: 36, height: 36 }}>
-														{target.nomineePhoto ? (
-															<img src={target.nomineePhoto.startsWith("http") ? target.nomineePhoto : getImageUrl(target.nomineePhoto)} alt={target.nomineeName} />
-														) : (
-															<div className="flex h-full w-full items-center justify-center"><LuUser className="h-4 w-4 text-slate-500" /></div>
-														)}
-													</div>
-													<div className="min-w-0 flex-1">
-														<p className="arena-chrome text-[9px] font-extrabold uppercase tracking-[0.2em] text-fuchsia-200">Target</p>
-														<p className="truncate text-sm font-bold text-white">{target.nomineeName}</p>
-													</div>
-													<button
-														type="button"
-														onClick={() => setGiftTargetId(null)}
-														className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:text-white"
-													>
-														Ganti
-													</button>
-												</div>
-											) : (
-												<div className="arena-gift-target is-empty">Tap 🎁 di salah satu kontestan untuk memilih target</div>
-											);
-										})()}
-
-										<div className="arena-gift-grid relative">
-											{giftCombo && giftCombo.count > 1 && (
-												<div className="arena-gift-combo" key={`${giftCombo.type}-${giftCombo.count}`}>x{giftCombo.count}</div>
-											)}
-											{GIFTS.map((g) => {
-												const cdEnds = giftCooldown.get(g.type) ?? 0;
-												const remaining = Math.max(0, cdEnds - Date.now());
-												const onCooldown = remaining > 0;
-												const cdPct = onCooldown ? (remaining / GIFT_CLIENT_COOLDOWN_MS) * 100 : 0;
-												return (
-													<button
-														key={g.type}
-														type="button"
-														ref={(el) => { giftCardRefs.current.set(g.type, el); }}
-														onClick={(e) => sendGift(g.type, e.currentTarget)}
-														disabled={onCooldown || !giftTargetId || !arenaOpen}
-														className={`arena-gift-card ${g.tone}`}
-													>
-														<span className="emoji">{g.emoji}</span>
-														<span className="label">{g.label}</span>
-														<span className="votes">+{g.votes}</span>
-														{onCooldown && <span className="cooldown" style={{ "--cd": `${cdPct}%` } as React.CSSProperties} />}
-													</button>
-												);
-											})}
-										</div>
-										<p className="mt-2 text-[10px] text-slate-500">
-											Gift gratis · cooldown {Math.round(GIFT_CLIENT_COOLDOWN_MS / 100) / 10}s · spam protection aktif
-										</p>
-									</div>
-								</div>
 							</aside>
 						</div>
 					) : (
@@ -1779,30 +1541,26 @@ const EVotingPage: React.FC = () => {
 									<div className="arena-modal-body">
 										{selectedPaidNominee && (
 											<div className="arena-target-card">
-												<div className="flex items-center gap-3">
-													<div className="arena-row-avatar" style={{ width: 52, height: 52 }}>
-														{selectedPaidNominee.nomineePhoto ? (
-															<img
-																src={selectedPaidNominee.nomineePhoto.startsWith("http") ? selectedPaidNominee.nomineePhoto : getImageUrl(selectedPaidNominee.nomineePhoto)}
-																alt={selectedPaidNominee.nomineeName}
-															/>
-														) : (
-															<div className="flex h-full w-full items-center justify-center"><LuUser className="h-6 w-6 text-slate-500" /></div>
-														)}
-													</div>
-													<div className="min-w-0 flex-1">
-														<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.22em] text-fuchsia-200">Target</p>
-														<p className="arena-numeric truncate font-bold text-white">{selectedPaidNominee.nomineeName}</p>
-														{selectedPaidNominee.nomineeSubtitle && (
-															<p className="truncate text-[11px] text-slate-400">{selectedPaidNominee.nomineeSubtitle}</p>
-														)}
-													</div>
-													{currentRank > 0 && (
-														<div className="arena-numeric rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs font-black text-cyan-200">
-															#{currentRank}
-														</div>
+												<div className="target-avatar">
+													{selectedPaidNominee.nomineePhoto ? (
+														<img
+															src={selectedPaidNominee.nomineePhoto.startsWith("http") ? selectedPaidNominee.nomineePhoto : getImageUrl(selectedPaidNominee.nomineePhoto)}
+															alt={selectedPaidNominee.nomineeName}
+														/>
+													) : (
+														<div className="flex h-full w-full items-center justify-center"><LuUser className="h-6 w-6 text-slate-500" /></div>
 													)}
 												</div>
+												<div className="target-meta">
+													<div className="target-label">🎯 Target Boost</div>
+													<div className="target-name">{selectedPaidNominee.nomineeName}</div>
+													{selectedPaidNominee.nomineeSubtitle && (
+														<p className="mt-0.5 truncate text-[11px] text-slate-400">{selectedPaidNominee.nomineeSubtitle}</p>
+													)}
+												</div>
+												{currentRank > 0 && (
+													<div className="target-rank">#{currentRank}</div>
+												)}
 											</div>
 										)}
 
@@ -1823,43 +1581,34 @@ const EVotingPage: React.FC = () => {
 										)}
 
 										<div>
-											<div className="arena-section-head">Data Pembeli</div>
-											<div className="space-y-3">
-												<div>
-													<label className="arena-input-label"><LuUser className="h-3.5 w-3.5" /> Nama *</label>
-													<input
-														type="text"
-														value={buyerName}
-														onChange={(e) => setBuyerName(e.target.value)}
-														className="arena-input"
-														placeholder="Nama lengkap"
-													/>
-												</div>
-												<div>
-													<label className="arena-input-label"><LuMail className="h-3.5 w-3.5" /> Email *</label>
-													<input
-														type="email"
-														value={buyerEmail}
-														onChange={(e) => setBuyerEmail(e.target.value)}
-														className="arena-input"
-														placeholder="email@example.com"
-													/>
-												</div>
-												<div>
-													<label className="arena-input-label"><LuPhone className="h-3.5 w-3.5" /> Telepon <span className="text-slate-500">(opsional)</span></label>
-													<input
-														type="tel"
-														value={buyerPhone}
-														onChange={(e) => setBuyerPhone(e.target.value)}
-														className="arena-input"
-														placeholder="+6281234567890"
-													/>
-												</div>
+											<div className="arena-section-head">Pilih Gift Power-Up</div>
+											<div className="arena-gift-grid">
+												{GIFTS.map((g) => {
+													const isMax = Number.isFinite(maxVoteCount) && g.votes > maxVoteCount;
+													const active = voteCount === g.votes;
+													return (
+														<button
+															key={g.type}
+															type="button"
+															onClick={() => setVoteCount(isMax ? Math.floor(maxVoteCount) : g.votes)}
+															disabled={isMax}
+															className={`arena-gift-card ${g.tone} ${active ? "is-active" : ""}`}
+															title={`${g.label} = ${g.votes} vote`}
+														>
+															<span className="emoji">{g.emoji}</span>
+															<span className="label">{g.label}</span>
+															<span className="votes">+{g.votes}</span>
+														</button>
+													);
+												})}
 											</div>
+											<p className="mt-2 text-[11px] text-slate-400">
+												Tap gift untuk auto-isi jumlah, atau atur custom di bawah ↓
+											</p>
 										</div>
 
 										<div>
-											<div className="arena-section-head">Jumlah Boost Vote</div>
+											<div className="arena-section-head">Atur Jumlah Vote</div>
 											<div className="flex items-stretch gap-2">
 												<button
 													type="button"
@@ -1892,6 +1641,18 @@ const EVotingPage: React.FC = () => {
 													Maksimal <span className="arena-numeric text-cyan-300">{maxVoteCount.toLocaleString("id-ID")}</span> vote per pembelian (batas QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
 												</p>
 											)}
+										</div>
+
+										<div>
+											<div className="arena-section-head">Nama Pengirim</div>
+											<label className="arena-input-label"><LuUser className="h-3.5 w-3.5" /> Nama *</label>
+											<input
+												type="text"
+												value={buyerName}
+												onChange={(e) => setBuyerName(e.target.value)}
+												className="arena-input"
+												placeholder="Nama lengkap (tampil di live feed)"
+											/>
 										</div>
 
 										<div className="arena-summary">

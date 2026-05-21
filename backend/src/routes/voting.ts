@@ -797,18 +797,25 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 		const { eventId, categoryId, nomineeId, buyerName, buyerEmail, buyerPhone, voteCount = 1 } = req.body;
 		const requestedVoteCount = Number(voteCount);
 
-		if (!eventId || !buyerName || !buyerEmail) {
-			return res.status(400).json({ error: "Event, nama, dan email pembeli wajib diisi" });
+		if (!eventId || !buyerName) {
+			return res.status(400).json({ error: "Event dan nama pembeli wajib diisi" });
 		}
 
 		if (!Number.isInteger(requestedVoteCount) || requestedVoteCount < 1) {
 			return res.status(400).json({ error: "Jumlah vote harus minimal 1" });
 		}
 
+		// Email/phone are optional now (gift-style vote-buy). Validate format only
+		// when provided so Midtrans still receives a deliverable receipt address.
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(buyerEmail)) {
+		if (buyerEmail && !emailRegex.test(buyerEmail)) {
 			return res.status(400).json({ error: "Format email tidak valid" });
 		}
+		// Fallback placeholder for Midtrans customer_details when buyer skips
+		// email — Midtrans requires *some* email for QRIS receipt generation.
+		const effectiveEmail: string = buyerEmail && emailRegex.test(buyerEmail)
+			? buyerEmail
+			: `voter-${Date.now().toString(36)}@simpaskor.local`;
 
 		const resolvedEventId = await resolveEventId(eventId);
 		if (!resolvedEventId) {
@@ -852,7 +859,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 				data: {
 					eventId: resolvedEventId,
 					buyerName,
-					buyerEmail,
+					buyerEmail: effectiveEmail,
 					buyerPhone: buyerPhone || null,
 					categoryId: votingTarget.category.id,
 					nomineeId: votingTarget.nominee.id,
@@ -883,7 +890,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					orderId: midtransOrderId,
 					grossAmount: totalAmount,
 					customerName: buyerName,
-					customerEmail: buyerEmail,
+					customerEmail: effectiveEmail,
 					customerPhone: buyerPhone,
 					adminFee,
 					itemDetails: [
@@ -1073,13 +1080,13 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 		const { purchaseCode, email } = req.body;
 		const normalizedPurchaseCode = normalizePurchaseCode(purchaseCode);
 
-		if (!normalizedPurchaseCode || !email) {
-			return res.status(400).json({ error: "Kode pembelian dan email wajib diisi" });
+		if (!normalizedPurchaseCode) {
+			return res.status(400).json({ error: "Kode pembelian wajib diisi" });
 		}
 
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		const normalizedEmail = String(email).trim().toLowerCase();
-		if (!emailRegex.test(normalizedEmail)) {
+		const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
+		if (normalizedEmail && !emailRegex.test(normalizedEmail)) {
 			return res.status(400).json({ error: "Format email tidak valid" });
 		}
 
@@ -1092,7 +1099,13 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 			return res.status(404).json({ error: "Pembelian vote tidak ditemukan" });
 		}
 
-		if (purchase.buyerEmail.trim().toLowerCase() !== normalizedEmail) {
+		// purchaseCode is a strong random secret (VOT-XXXXXXXX-XXXXXXXXXXXX) so
+		// it's sufficient on its own. Only enforce email match when the buyer
+		// actually supplied a real email at purchase time (i.e. not a synthetic
+		// placeholder generated when they skipped the field).
+		const storedEmail = purchase.buyerEmail.trim().toLowerCase();
+		const isPlaceholderEmail = storedEmail.endsWith("@simpaskor.local");
+		if (!isPlaceholderEmail && normalizedEmail && storedEmail !== normalizedEmail) {
 			return res.status(403).json({ error: "Email tidak sesuai dengan pembelian vote" });
 		}
 

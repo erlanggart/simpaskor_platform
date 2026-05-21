@@ -347,7 +347,8 @@ html:not(.dark) .landing-title-gradient-pricing {
 
 .pricing-section {
 	max-height: calc(100vh - 3.5rem);
-	overflow: hidden;
+	overflow-x: hidden;
+	overflow-y: clip;
 }
 
 .pricing-section-carousel {
@@ -1985,7 +1986,8 @@ html:not(.dark) .section-icon-glow-purple::before {
 		radial-gradient(110% 90% at 95% 5%, rgba(0, 229, 255, 0.13), transparent 60%),
 		radial-gradient(140% 120% at 50% 130%, rgba(255, 43, 214, 0.10), transparent 60%),
 		linear-gradient(180deg, var(--arena-bg-0), var(--arena-bg-1) 35%, var(--arena-bg-2));
-	overflow: hidden;
+	overflow-x: hidden;
+	overflow-y: clip;
 }
 
 .evoting-arena ::selection {
@@ -2112,6 +2114,21 @@ html:not(.dark) .section-icon-glow-purple::before {
 	gap: 0.4rem;
 	align-items: stretch;
 }
+@media (max-width: 420px) {
+	.arena-countdown {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		width: 100%;
+		gap: 0.3rem;
+	}
+	.arena-countdown-unit {
+		min-width: 0;
+		padding-inline: 0.25rem;
+	}
+	.arena-countdown-label {
+		letter-spacing: 0.12em;
+	}
+}
 .arena-countdown-unit {
 	min-width: 58px;
 	padding: 0.55rem 0.65rem 0.35rem;
@@ -2223,9 +2240,27 @@ html:not(.dark) .section-icon-glow-purple::before {
 	position: relative;
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 0.6rem;
+	gap: 0.35rem;
 	align-items: end;
 }
+@media (max-width: 479px) {
+	.arena-podium {
+		grid-template-columns: repeat(3, minmax(142px, 1fr));
+		overflow-x: auto;
+		overflow-y: visible;
+		padding: 1.6rem 0.15rem 0.6rem;
+		scroll-snap-type: x mandatory;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+	}
+	.arena-podium::-webkit-scrollbar {
+		height: 0;
+	}
+	.arena-podium-card {
+		scroll-snap-align: center;
+	}
+}
+@media (min-width: 480px) { .arena-podium { gap: 0.6rem; } }
 @media (min-width: 640px) { .arena-podium { gap: 1rem; } }
 @media (min-width: 1024px) { .arena-podium { gap: 1.5rem; } }
 
@@ -2399,15 +2434,24 @@ html:not(.dark) .section-icon-glow-purple::before {
 .arena-row {
 	position: relative;
 	display: grid;
-	grid-template-columns: 56px 56px minmax(0, 1fr) auto;
-	gap: 0.75rem;
+	grid-template-columns: 36px 48px minmax(0, 1fr) auto;
+	gap: 0.55rem;
 	align-items: center;
-	padding: 0.75rem 0.85rem;
-	border-radius: 0.9rem;
+	padding: 0.65rem 0.7rem;
+	border-radius: 0.85rem;
 	border: 1px solid var(--arena-border);
 	background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.18));
 	transition: border-color 220ms ease, background 220ms ease, transform 180ms ease;
 }
+@media (min-width: 640px) {
+	.arena-row {
+		grid-template-columns: 56px 56px minmax(0, 1fr) auto;
+		gap: 0.75rem;
+		padding: 0.75rem 0.85rem;
+	}
+}
+.arena-row-avatar { width: 48px; height: 48px; }
+@media (min-width: 640px) { .arena-row-avatar { width: 56px; height: 56px; } }
 .arena-row:hover {
 	border-color: var(--neon-cyan-soft);
 	background: linear-gradient(180deg, rgba(0, 229, 255, 0.06), rgba(0, 0, 0, 0.18));
@@ -2425,14 +2469,20 @@ html:not(.dark) .section-icon-glow-purple::before {
 	letter-spacing: 0.04em;
 }
 .arena-row-avatar {
-	width: 56px;
-	height: 56px;
+	width: 48px;
+	height: 48px;
 	border-radius: 0.65rem;
 	overflow: hidden;
 	border: 1px solid var(--arena-border-strong);
 	background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(184, 41, 255, 0.08));
 	position: relative;
 	flex-shrink: 0;
+}
+@media (min-width: 640px) {
+	.arena-row-avatar {
+		width: 56px;
+		height: 56px;
+	}
 }
 .arena-row-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 
@@ -2443,6 +2493,9 @@ html:not(.dark) .section-icon-glow-purple::before {
 	margin: 0;
 	font-size: 0.95rem;
 	line-height: 1.2;
+}
+.arena-row-meta {
+	min-width: 0;
 }
 .arena-row-sub {
 	font-size: 0.74rem;
@@ -2700,7 +2753,8 @@ html:not(.dark) .section-icon-glow-purple::before {
 	position: relative;
 	width: 100%;
 	max-width: 28rem;
-	max-height: 94vh;
+	max-height: 100dvh;
+	height: 100dvh;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -2708,7 +2762,7 @@ html:not(.dark) .section-icon-glow-purple::before {
 	background:
 		linear-gradient(180deg, rgba(15, 19, 46, 0.96), rgba(5, 7, 22, 0.98));
 	border: 1px solid transparent;
-	border-radius: 1.5rem 1.5rem 0 0;
+	border-radius: 1.25rem 1.25rem 0 0;
 	background-clip: padding-box;
 	box-shadow:
 		0 -8px 60px rgba(0, 229, 255, 0.2),
@@ -2719,6 +2773,7 @@ html:not(.dark) .section-icon-glow-purple::before {
 @media (min-width: 640px) {
 	.arena-modal {
 		max-height: 90vh;
+		height: auto;
 		border-radius: 1.25rem;
 	}
 }
@@ -2856,13 +2911,18 @@ html:not(.dark) .section-icon-glow-purple::before {
 
 .arena-target-card {
 	position: relative;
-	border-radius: 0.85rem;
+	display: grid;
+	grid-template-columns: 56px minmax(0, 1fr) auto;
+	gap: 0.85rem;
+	align-items: center;
+	border-radius: 0.95rem;
 	border: 1px solid var(--neon-violet-soft);
 	background:
-		linear-gradient(180deg, rgba(184, 41, 255, 0.16), rgba(0, 229, 255, 0.06)),
-		rgba(0, 0, 0, 0.25);
-	padding: 0.85rem 1rem;
+		linear-gradient(180deg, rgba(184, 41, 255, 0.18), rgba(0, 229, 255, 0.06)),
+		rgba(0, 0, 0, 0.35);
+	padding: 0.75rem 0.85rem;
 	overflow: hidden;
+	min-height: 76px;
 }
 .arena-target-card::after {
 	content: "";
@@ -2872,6 +2932,81 @@ html:not(.dark) .section-icon-glow-purple::before {
 	transform: translateX(-130%);
 	animation: arenaSheen 5s ease-in-out infinite;
 	pointer-events: none;
+}
+.arena-target-card .target-avatar {
+	width: 56px;
+	height: 56px;
+	border-radius: 0.7rem;
+	overflow: hidden;
+	border: 2px solid rgba(184, 41, 255, 0.55);
+	background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(184, 41, 255, 0.08));
+	flex-shrink: 0;
+	box-shadow: 0 0 18px rgba(184, 41, 255, 0.35);
+}
+.arena-target-card .target-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.arena-target-card .target-meta { min-width: 0; }
+.arena-target-card .target-label {
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.62rem;
+	font-weight: 800;
+	letter-spacing: 0.22em;
+	text-transform: uppercase;
+	color: #f2b3ff;
+	line-height: 1;
+}
+.arena-target-card .target-name {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 800;
+	font-size: 1rem;
+	line-height: 1.15;
+	color: #fff;
+	margin-top: 0.25rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+.arena-target-card .target-rank {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	font-size: 0.85rem;
+	color: #021018;
+	background: linear-gradient(135deg, #ffd83a, #ff8a00);
+	padding: 0.35rem 0.7rem;
+	border-radius: 999px;
+	box-shadow: 0 6px 16px rgba(255, 138, 0, 0.45);
+	white-space: nowrap;
+	justify-self: end;
+}
+@media (max-width: 420px) {
+	.arena-target-card {
+		grid-template-columns: 48px minmax(0, 1fr);
+		grid-template-areas:
+			"avatar meta"
+			"rank rank";
+		align-items: center;
+		gap: 0.6rem 0.75rem;
+		padding: 0.75rem;
+	}
+	.arena-target-card .target-avatar {
+		grid-area: avatar;
+		width: 48px;
+		height: 48px;
+	}
+	.arena-target-card .target-meta {
+		grid-area: meta;
+	}
+	.arena-target-card .target-name {
+		font-size: 0.9rem;
+	}
+	.arena-target-card .target-rank {
+		grid-area: rank;
+		justify-self: stretch;
+		text-align: center;
+		padding-block: 0.28rem;
+	}
 }
 
 .arena-rank-pred {
@@ -3067,55 +3202,125 @@ html:not(.dark) .section-icon-glow-purple::before {
 
 .arena-gift-grid {
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: 0.5rem;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.6rem;
+}
+@media (min-width: 420px) {
+	.arena-gift-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 0.5rem;
+	}
 }
 
 .arena-gift-card {
 	position: relative;
-	padding: 0.65rem 0.45rem 0.55rem;
-	border-radius: 0.85rem;
-	border: 1px solid var(--arena-border-strong);
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.25));
+	padding: 0.82rem 0.48rem 0.72rem;
+	min-height: 96px;
+	border-radius: 1rem;
+	border: 1.5px solid var(--arena-border-strong);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.3));
 	color: #fff;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 0.2rem;
+	justify-content: center;
+	gap: 0.35rem;
 	cursor: pointer;
 	overflow: hidden;
 	transition: transform 160ms ease, border-color 200ms ease, box-shadow 220ms ease;
+	-webkit-tap-highlight-color: transparent;
+}
+.arena-gift-card::before {
+	content: "";
+	position: absolute;
+	left: 14%;
+	right: 14%;
+	top: -26px;
+	height: 42px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.18);
+	filter: blur(16px);
+	opacity: 0.62;
+	pointer-events: none;
+}
+.arena-gift-card::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 42%),
+		repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 10px);
+	pointer-events: none;
 }
 .arena-gift-card:hover {
-	transform: translateY(-2px);
+	transform: translateY(-3px);
 	border-color: var(--neon-cyan-soft);
-	box-shadow: 0 10px 28px rgba(0, 229, 255, 0.18);
+	box-shadow: 0 12px 32px rgba(0, 229, 255, 0.22);
 }
-.arena-gift-card:active { transform: scale(0.96); }
+.arena-gift-card:active { transform: scale(0.95); }
+.arena-gift-card.is-active {
+	transform: translateY(-3px) scale(1.02);
+	border-color: #6ee7ff;
+	box-shadow: 0 0 0 2px rgba(110, 231, 255, 0.55), 0 14px 36px rgba(0, 229, 255, 0.4);
+}
+.arena-gift-card.is-active::before {
+	content: "";
+	inset: -2px;
+	left: -2px;
+	right: -2px;
+	top: -2px;
+	height: auto;
+	border-radius: inherit;
+	background: linear-gradient(135deg, rgba(110, 231, 255, 0.22), rgba(255, 43, 214, 0.18), rgba(255, 220, 107, 0.16));
+	filter: none;
+	opacity: 1;
+	animation: arenaGiftActivePulse 1.35s ease-in-out infinite;
+}
+.arena-gift-card.is-active .votes::after {
+	content: "ON";
+	position: absolute;
+	top: -2rem;
+	right: -0.35rem;
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	font-size: 0.55rem;
+	color: #021018;
+	background: #6ee7ff;
+	border-radius: 999px;
+	padding: 0.12rem 0.32rem;
+	z-index: 2;
+}
 .arena-gift-card[disabled] {
 	cursor: not-allowed;
-	opacity: 0.55;
+	opacity: 0.45;
 	transform: none;
 }
 .arena-gift-card .emoji {
-	font-size: 1.65rem;
+	font-size: clamp(1.9rem, 8vw, 2.25rem);
 	line-height: 1;
-	filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
-	transition: transform 220ms ease;
+	filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.55));
+	transition: transform 260ms ease;
+	z-index: 1;
 }
-.arena-gift-card:hover .emoji { transform: scale(1.12) rotate(-6deg); }
+.arena-gift-card:hover .emoji,
+.arena-gift-card.is-active .emoji { transform: scale(1.18) rotate(-8deg); }
 .arena-gift-card .label {
 	font-family: "Rajdhani", system-ui, sans-serif;
-	font-size: 0.62rem;
-	letter-spacing: 0.12em;
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.16em;
 	text-transform: uppercase;
-	color: var(--arena-text-dim);
+	color: #fff;
+	z-index: 1;
 }
 .arena-gift-card .votes {
+	position: relative;
 	font-family: "Orbitron", system-ui, sans-serif;
 	font-weight: 800;
-	font-size: 0.78rem;
-	color: #fff;
+	font-size: 0.82rem;
+	color: #ffdc6b;
+	text-shadow: 0 0 10px rgba(255, 218, 90, 0.4);
+	z-index: 1;
 }
 /* Cooldown overlay arc. */
 .arena-gift-card .cooldown {
@@ -3271,10 +3476,80 @@ html:not(.dark) .section-icon-glow-purple::before {
 	box-shadow: 0 0 16px rgba(255, 43, 214, 0.5);
 }
 
+@media (max-width: 420px) {
+	.evoting-arena {
+		overflow-x: hidden;
+	}
+	.arena-countdown-unit {
+		min-width: 0;
+		padding-inline: 0.25rem;
+	}
+	.arena-countdown-value {
+		font-size: 1.15rem;
+	}
+	.arena-countdown-label {
+		font-size: 0.52rem;
+		letter-spacing: 0.1em;
+	}
+	.arena-row {
+		grid-template-columns: 42px minmax(0, 1fr);
+		grid-template-areas:
+			"rank meta"
+			"avatar meta"
+			"button button";
+		gap: 0.55rem 0.7rem;
+		padding: 0.7rem;
+	}
+	.arena-row-rank {
+		grid-area: rank;
+		align-self: end;
+		font-size: 0.95rem;
+	}
+	.arena-row-avatar {
+		grid-area: avatar;
+		width: 42px;
+		height: 42px;
+	}
+	.arena-row-meta {
+		grid-area: meta;
+		align-self: stretch;
+	}
+	.arena-row > .arena-vote-btn {
+		grid-area: button;
+		width: 100%;
+	}
+	.arena-modal-header {
+		padding-inline: 1rem;
+	}
+	.arena-modal-body {
+		padding: 0.95rem 1rem;
+		gap: 0.85rem;
+	}
+	.arena-modal-footer {
+		align-items: stretch;
+		flex-direction: column;
+		padding-inline: 1rem;
+	}
+	.arena-modal-footer .arena-vote-btn,
+	.arena-modal-footer .arena-secondary-btn {
+		flex: 1;
+	}
+	.arena-modal-footer > .flex {
+		width: 100%;
+	}
+	.arena-gift-card {
+		min-height: 92px;
+	}
+}
+
 @keyframes arenaComboPop {
 	0% { transform: scale(0.5); opacity: 0; }
 	60% { transform: scale(1.18); opacity: 1; }
 	100% { transform: scale(1); opacity: 1; }
+}
+@keyframes arenaGiftActivePulse {
+	0%, 100% { opacity: 0.72; transform: scale(1); }
+	50% { opacity: 1; transform: scale(1.03); }
 }
 @keyframes arenaRecvAura {
 	0% { opacity: 0; transform: scale(0.9); }
@@ -3343,6 +3618,7 @@ html:not(.dark) .section-icon-glow-purple::before {
 	.arena-target-card::after,
 	.arena-rankup-card::before,
 	.arena-gift-combo,
+	.arena-gift-card.is-active::before,
 	.arena-gift-fly,
 	.arena-recv-aura,
 	.arena-bear-bounce,
