@@ -43,12 +43,19 @@ export const useLiveVisitorHeartbeat = () => {
 			if (cancelled) return;
 			const path = lastPathRef.current || location.pathname;
 			api
-				.post("/visitors/heartbeat", {
-					sessionId,
-					page: path,
-					role: user?.role || null,
-					userId: user?.id || null,
-				})
+				.post(
+					"/visitors/heartbeat",
+					{
+						sessionId,
+						page: path,
+						role: user?.role || null,
+						userId: user?.id || null,
+					},
+					{
+						timeout: 8_000,
+						silent: true,
+					}
+				)
 				.catch(() => {
 					// Silently ignore — heartbeat is best-effort
 				});

@@ -2,6 +2,18 @@ import axios from "axios";
 import { config } from "./config";
 import Swal from "sweetalert2";
 
+// Extend axios's request config with a `silent` flag. When set, the global
+// response interceptor below skips the timeout / network-error Swal popup —
+// background pollers (live widgets, heartbeats) must never disrupt the UI.
+declare module "axios" {
+	interface AxiosRequestConfig {
+		silent?: boolean;
+	}
+	interface InternalAxiosRequestConfig {
+		silent?: boolean;
+	}
+}
+
 // Debug log for development
 if (config.dev.debugMode) {
 	console.log("🌐 API Configuration:", {
@@ -90,9 +102,13 @@ api.interceptors.response.use(
 		
 		// Handle Network Error
 		if (!error.response) {
-			// Don't show global popup for upload requests (handled locally)
+			// Don't show global popup for upload requests (handled locally) or
+			// for any request that opted out via `silent: true` in axios config
+			// (background pollers, live widgets, heartbeats — they handle their
+			// own inline error state).
 			const isUploadRequest = error.config?.url?.includes('/upload/');
-			if (!isUploadRequest) {
+			const isSilent = error.config?.silent === true;
+			if (!isUploadRequest && !isSilent) {
 				const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
 				Swal.fire({
 					icon: "error",

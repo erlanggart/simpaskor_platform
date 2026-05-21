@@ -254,11 +254,26 @@ const LiveTransactionWidget: React.FC = () => {
 	const fetchLive = async (silent = false) => {
 		try {
 			if (!silent) setRefreshing(true);
-			const res = await api.get<LiveTxResponse>("/admin/transactions/live");
+			// silent=true on the axios config suppresses the global timeout popup —
+			// this widget shows its own inline state if the call fails. Timeout is
+			// 25s (server has its own 4s per-query budget and 10s response cache).
+			const res = await api.get<LiveTxResponse>("/admin/transactions/live", {
+				timeout: 25_000,
+				silent: true,
+			});
 			setData(res.data);
 			setError(null);
 		} catch (err: any) {
-			setError(err?.response?.data?.error || "Gagal memuat data transaksi aktif");
+			// Only show inline error if we have no data yet — otherwise keep showing
+			// the last successful snapshot so a transient hiccup doesn't blank the UI
+			if (!data) {
+				const isTimeout = err?.code === "ECONNABORTED" || err?.message?.includes("timeout");
+				setError(
+					isTimeout
+						? "Memuat data transaksi lebih lama dari biasanya, mencoba lagi…"
+						: err?.response?.data?.error || "Gagal memuat data transaksi aktif"
+				);
+			}
 		} finally {
 			if (!silent) setRefreshing(false);
 			setLoading(false);

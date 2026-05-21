@@ -341,11 +341,19 @@ const LiveVisitorWidget: React.FC = () => {
 	const fetchLive = async (silent = false) => {
 		try {
 			if (!silent) setRefreshing(true);
-			const res = await api.get<LiveVisitorResponse>("/visitors/live");
+			// silent=true tells the global axios interceptor to skip the timeout
+			// Swal — background pollers must never disrupt the UI.
+			const res = await api.get<LiveVisitorResponse>("/visitors/live", {
+				timeout: 15_000,
+				silent: true,
+			});
 			setData(res.data);
 			setError(null);
 		} catch (err: any) {
-			setError(err?.response?.data?.error || "Gagal memuat data pengunjung aktif");
+			// Keep the last good snapshot on transient failures
+			if (!data) {
+				setError(err?.response?.data?.error || "Gagal memuat data pengunjung aktif");
+			}
 		} finally {
 			if (!silent) setRefreshing(false);
 			setLoading(false);

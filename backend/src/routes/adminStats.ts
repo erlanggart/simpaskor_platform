@@ -249,194 +249,259 @@ type LiveTxPayload = {
 	now: number;
 };
 
-const TX_CACHE_TTL_MS = 5_000;
+const TX_CACHE_TTL_MS = 10_000;
+const PER_QUERY_TIMEOUT_MS = 4_000;
 let liveTxCache: { computedAt: number; payload: LiveTxPayload } | null = null;
+// Inflight promise dedupe: if a slow query is already in flight, a second
+// admin tab that polls in the same window waits on the SAME promise instead
+// of triggering another round of queries.
+let liveTxInflight: Promise<LiveTxPayload> | null = null;
 
-const FAILED_STATUSES = new Set(["CANCELLED", "EXPIRED"]);
-const PAID_STATUSES = new Set(["PAID", "USED", "CONFIRMED", "PROCESSING", "SHIPPED", "COMPLETED"]);
+const PAID_TICKET_STATUSES = ["PAID", "USED"] as const;
+const PAID_ORDER_STATUSES = ["CONFIRMED", "PROCESSING", "SHIPPED", "COMPLETED"] as const;
+
+// Run a Prisma query but fall back to a default if it hangs longer than the
+// per-query budget. Prevents one slow table from timing out the whole
+// endpoint and keeps the widget responsive even under partial DB stress.
+const withTimeout = <T,>(promise: Promise<T>, fallback: T, label: string): Promise<T> => {
+	return new Promise<T>((resolve) => {
+		const timer = setTimeout(() => {
+			console.warn(`[transactions/live] query "${label}" exceeded ${PER_QUERY_TIMEOUT_MS}ms, using fallback`);
+			resolve(fallback);
+		}, PER_QUERY_TIMEOUT_MS);
+		promise
+			.then((value) => {
+				clearTimeout(timer);
+				resolve(value);
+			})
+			.catch((err) => {
+				clearTimeout(timer);
+				console.warn(`[transactions/live] query "${label}" failed:`, err?.message || err);
+				resolve(fallback);
+			});
+	});
+};
 
 const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 	const now = Date.now();
 	const oneHourAgo = new Date(now - 60 * 60 * 1000);
 
-	const [
-		ticketGroups,
-		voteGroups,
-		regGroups,
-		eventGroups,
-		orderGroups,
-		ticketRevenueAgg,
-		voteRevenueAgg,
-		regRevenueAgg,
-		eventRevenueAgg,
-		orderRevenueAgg,
-		recentTickets,
-		recentVotes,
-		recentRegs,
-		recentEvents,
-		recentOrders,
-	] = await Promise.all([
-		// Status counts (all-time pending + last-hour activity)
-		prisma.ticketPurchase.groupBy({
-			by: ["status"],
-			_count: { _all: true },
-		}),
-		prisma.votingPurchase.groupBy({
-			by: ["status"],
-			_count: { _all: true },
-		}),
-		prisma.registrationPayment.groupBy({
-			by: ["status"],
-			_count: { _all: true },
-		}),
-		prisma.eventPayment.groupBy({
-			by: ["status"],
-			_count: { _all: true },
-		}),
-		prisma.order.groupBy({
-			by: ["status"],
-			_count: { _all: true },
-		}),
-
-		// Last-hour PAID revenue per type
-		prisma.ticketPurchase.aggregate({
-			_sum: { totalAmount: true },
-			where: { status: { in: ["PAID", "USED"] }, paidAt: { gte: oneHourAgo } },
-		}),
-		prisma.votingPurchase.aggregate({
-			_sum: { totalAmount: true },
-			where: { status: "PAID", paidAt: { gte: oneHourAgo } },
-		}),
-		prisma.registrationPayment.aggregate({
-			_sum: { amount: true },
-			where: { status: "PAID", paidAt: { gte: oneHourAgo } },
-		}),
-		prisma.eventPayment.aggregate({
-			_sum: { amount: true },
-			where: { status: "PAID", paidAt: { gte: oneHourAgo } },
-		}),
-		prisma.order.aggregate({
-			_sum: { totalAmount: true },
-			where: { status: { in: ["CONFIRMED", "PROCESSING", "SHIPPED", "COMPLETED"] }, paidAt: { gte: oneHourAgo } },
-		}),
-
-		// Recent feed — pending OR updated within last hour, ranked by activity
-		prisma.ticketPurchase.findMany({
-			where: { OR: [{ status: "PENDING" }, { updatedAt: { gte: oneHourAgo } }] },
-			orderBy: { updatedAt: "desc" },
-			take: 12,
-			select: {
-				id: true,
-				buyerName: true,
-				buyerEmail: true,
-				totalAmount: true,
-				status: true,
-				createdAt: true,
-				updatedAt: true,
-				event: { select: { title: true } },
-			},
-		}),
-		prisma.votingPurchase.findMany({
-			where: { OR: [{ status: "PENDING" }, { updatedAt: { gte: oneHourAgo } }] },
-			orderBy: { updatedAt: "desc" },
-			take: 12,
-			select: {
-				id: true,
-				buyerName: true,
-				buyerEmail: true,
-				totalAmount: true,
-				status: true,
-				createdAt: true,
-				updatedAt: true,
-				event: { select: { title: true } },
-			},
-		}),
-		prisma.registrationPayment.findMany({
-			where: { OR: [{ status: "PENDING" }, { updatedAt: { gte: oneHourAgo } }] },
-			orderBy: { updatedAt: "desc" },
-			take: 8,
-			include: {
-				participation: { include: { user: { select: { name: true, email: true } }, event: { select: { title: true } } } },
-			},
-		}),
-		prisma.eventPayment.findMany({
-			where: { OR: [{ status: "PENDING" }, { updatedAt: { gte: oneHourAgo } }] },
-			orderBy: { updatedAt: "desc" },
-			take: 6,
-			include: { event: { select: { title: true } } },
-		}),
-		prisma.order.findMany({
-			where: { OR: [{ status: "PENDING" }, { updatedAt: { gte: oneHourAgo } }] },
-			orderBy: { updatedAt: "desc" },
-			take: 8,
-			include: { user: { select: { name: true, email: true } } },
-		}),
+	// Status counts via parallel COUNT(*) queries instead of groupBy.
+	// On unindexed tables Prisma's groupBy degenerates to a full table scan +
+	// in-memory aggregation; a targeted count with a WHERE clause lets the
+	// planner use the smallest data path. Each query has its own timeout so
+	// one slow table can't drag the rest down.
+	const tickets = await Promise.all([
+		withTimeout(prisma.ticketPurchase.count({ where: { status: "PENDING" } }), 0, "ticket.pending"),
+		withTimeout(prisma.ticketPurchase.count({ where: { status: { in: [...PAID_TICKET_STATUSES] } } }), 0, "ticket.paid"),
+		withTimeout(prisma.ticketPurchase.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] } } }), 0, "ticket.failed"),
+		withTimeout(
+			prisma.ticketPurchase.aggregate({
+				_sum: { totalAmount: true },
+				where: { status: { in: [...PAID_TICKET_STATUSES] }, paidAt: { gte: oneHourAgo } },
+			}),
+			{ _sum: { totalAmount: 0 } },
+			"ticket.revenue"
+		),
 	]);
 
-	const bucketize = (groups: { status: string; _count: { _all: number } }[]) => {
-		let pending = 0;
-		let paid = 0;
-		let failed = 0;
-		for (const g of groups) {
-			if (g.status === "PENDING") pending += g._count._all;
-			else if (FAILED_STATUSES.has(g.status)) failed += g._count._all;
-			else if (PAID_STATUSES.has(g.status)) paid += g._count._all;
-		}
-		return { pending, paid, failed };
-	};
+	const votes = await Promise.all([
+		withTimeout(prisma.votingPurchase.count({ where: { status: "PENDING" } }), 0, "vote.pending"),
+		withTimeout(prisma.votingPurchase.count({ where: { status: "PAID" } }), 0, "vote.paid"),
+		withTimeout(prisma.votingPurchase.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] } } }), 0, "vote.failed"),
+		withTimeout(
+			prisma.votingPurchase.aggregate({
+				_sum: { totalAmount: true },
+				where: { status: "PAID", paidAt: { gte: oneHourAgo } },
+			}),
+			{ _sum: { totalAmount: 0 } },
+			"vote.revenue"
+		),
+	]);
 
-	const ticketB = bucketize(ticketGroups);
-	const voteB = bucketize(voteGroups);
-	const regB = bucketize(regGroups);
-	const eventB = bucketize(eventGroups);
-	const orderB = bucketize(orderGroups);
+	const regs = await Promise.all([
+		withTimeout(prisma.registrationPayment.count({ where: { status: "PENDING" } }), 0, "reg.pending"),
+		withTimeout(prisma.registrationPayment.count({ where: { status: "PAID" } }), 0, "reg.paid"),
+		withTimeout(prisma.registrationPayment.count({ where: { status: "EXPIRED" } }), 0, "reg.failed"),
+		withTimeout(
+			prisma.registrationPayment.aggregate({
+				_sum: { amount: true },
+				where: { status: "PAID", paidAt: { gte: oneHourAgo } },
+			}),
+			{ _sum: { amount: 0 } },
+			"reg.revenue"
+		),
+	]);
+
+	const events = await Promise.all([
+		withTimeout(prisma.eventPayment.count({ where: { status: "PENDING" } }), 0, "event.pending"),
+		withTimeout(prisma.eventPayment.count({ where: { status: "PAID" } }), 0, "event.paid"),
+		withTimeout(prisma.eventPayment.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] } } }), 0, "event.failed"),
+		withTimeout(
+			prisma.eventPayment.aggregate({
+				_sum: { amount: true },
+				where: { status: "PAID", paidAt: { gte: oneHourAgo } },
+			}),
+			{ _sum: { amount: 0 } },
+			"event.revenue"
+		),
+	]);
+
+	const orders = await Promise.all([
+		withTimeout(prisma.order.count({ where: { status: "PENDING" } }), 0, "order.pending"),
+		withTimeout(prisma.order.count({ where: { status: { in: [...PAID_ORDER_STATUSES] } } }), 0, "order.paid"),
+		withTimeout(prisma.order.count({ where: { status: "CANCELLED" } }), 0, "order.failed"),
+		withTimeout(
+			prisma.order.aggregate({
+				_sum: { totalAmount: true },
+				where: { status: { in: [...PAID_ORDER_STATUSES] }, paidAt: { gte: oneHourAgo } },
+			}),
+			{ _sum: { totalAmount: 0 } },
+			"order.revenue"
+		),
+	]);
+
+	// Recent feed — just take the most recently updated rows per source
+	// (no OR clause, no joins). We rely on the natural row ordering instead
+	// of a date filter so the query never has to scan + filter.
+	const empty: never[] = [];
+	const [recentTickets, recentVotes, recentRegs, recentEvents, recentOrders] = await Promise.all([
+		withTimeout(
+			prisma.ticketPurchase.findMany({
+				orderBy: { updatedAt: "desc" },
+				take: 10,
+				select: {
+					id: true,
+					buyerName: true,
+					buyerEmail: true,
+					totalAmount: true,
+					status: true,
+					createdAt: true,
+					updatedAt: true,
+					event: { select: { title: true } },
+				},
+			}),
+			empty,
+			"ticket.recent"
+		),
+		withTimeout(
+			prisma.votingPurchase.findMany({
+				orderBy: { updatedAt: "desc" },
+				take: 10,
+				select: {
+					id: true,
+					buyerName: true,
+					buyerEmail: true,
+					totalAmount: true,
+					status: true,
+					createdAt: true,
+					updatedAt: true,
+					event: { select: { title: true } },
+				},
+			}),
+			empty,
+			"vote.recent"
+		),
+		withTimeout(
+			prisma.registrationPayment.findMany({
+				orderBy: { updatedAt: "desc" },
+				take: 6,
+				select: {
+					id: true,
+					amount: true,
+					status: true,
+					createdAt: true,
+					updatedAt: true,
+					participation: {
+						select: {
+							user: { select: { name: true, email: true } },
+							event: { select: { title: true } },
+						},
+					},
+				},
+			}),
+			empty,
+			"reg.recent"
+		),
+		withTimeout(
+			prisma.eventPayment.findMany({
+				orderBy: { updatedAt: "desc" },
+				take: 6,
+				select: {
+					id: true,
+					amount: true,
+					status: true,
+					packageTier: true,
+					createdAt: true,
+					updatedAt: true,
+					event: { select: { title: true } },
+				},
+			}),
+			empty,
+			"event.recent"
+		),
+		withTimeout(
+			prisma.order.findMany({
+				orderBy: { updatedAt: "desc" },
+				take: 6,
+				select: {
+					id: true,
+					totalAmount: true,
+					status: true,
+					createdAt: true,
+					updatedAt: true,
+					user: { select: { name: true, email: true } },
+				},
+			}),
+			empty,
+			"order.recent"
+		),
+	]);
 
 	const byType = [
 		{
 			key: "ticket",
 			label: "E-Ticketing",
-			pending: ticketB.pending,
-			paid: ticketB.paid,
-			failed: ticketB.failed,
-			revenue: ticketRevenueAgg._sum.totalAmount || 0,
+			pending: tickets[0],
+			paid: tickets[1],
+			failed: tickets[2],
+			revenue: tickets[3]._sum.totalAmount || 0,
 		},
 		{
 			key: "vote",
 			label: "E-Voting",
-			pending: voteB.pending,
-			paid: voteB.paid,
-			failed: voteB.failed,
-			revenue: voteRevenueAgg._sum.totalAmount || 0,
+			pending: votes[0],
+			paid: votes[1],
+			failed: votes[2],
+			revenue: votes[3]._sum.totalAmount || 0,
 		},
 		{
 			key: "registration",
 			label: "Registrasi Event",
-			pending: regB.pending,
-			paid: regB.paid,
-			failed: regB.failed,
-			revenue: regRevenueAgg._sum.amount || 0,
+			pending: regs[0],
+			paid: regs[1],
+			failed: regs[2],
+			revenue: regs[3]._sum.amount || 0,
 		},
 		{
 			key: "event",
 			label: "Paket Event",
-			pending: eventB.pending,
-			paid: eventB.paid,
-			failed: eventB.failed,
-			revenue: eventRevenueAgg._sum.amount || 0,
+			pending: events[0],
+			paid: events[1],
+			failed: events[2],
+			revenue: events[3]._sum.amount || 0,
 		},
 		{
 			key: "order",
 			label: "Marketplace",
-			pending: orderB.pending,
-			paid: orderB.paid,
-			failed: orderB.failed,
-			revenue: orderRevenueAgg._sum.totalAmount || 0,
+			pending: orders[0],
+			paid: orders[1],
+			failed: orders[2],
+			revenue: orders[3]._sum.totalAmount || 0,
 		},
 	];
 
-	const pendingTotal =
-		ticketB.pending + voteB.pending + regB.pending + eventB.pending + orderB.pending;
-
+	const pendingTotal = byType.reduce((s, t) => s + t.pending, 0);
 	const lastHourPaid = byType.reduce((s, t) => s + t.paid, 0);
 	const lastHourRevenue = byType.reduce((s, t) => s + t.revenue, 0);
 	const lastHourFailed = byType.reduce((s, t) => s + t.failed, 0);
@@ -516,18 +581,17 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 		});
 	}
 
-	// Sort by recency, cap at 20 rows for the UI
 	recent.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 	const recentTrimmed = recent.slice(0, 20);
 
 	return {
 		pending: {
 			total: pendingTotal,
-			ticket: ticketB.pending,
-			vote: voteB.pending,
-			registration: regB.pending,
-			event: eventB.pending,
-			order: orderB.pending,
+			ticket: tickets[0],
+			vote: votes[0],
+			registration: regs[0],
+			event: events[0],
+			order: orders[0],
 		},
 		lastHour: {
 			paid: lastHourPaid,
@@ -548,15 +612,42 @@ router.get(
 	async (_req: AuthenticatedRequest, res: Response) => {
 		try {
 			const now = Date.now();
+			// Fresh cache → return immediately
 			if (liveTxCache && now - liveTxCache.computedAt < TX_CACHE_TTL_MS) {
 				return res.json(liveTxCache.payload);
 			}
-			const payload = await computeLiveTransactions();
-			liveTxCache = { computedAt: now, payload };
+			// Already computing → wait on the same promise so concurrent admin
+			// polls don't trigger N parallel rounds of DB queries
+			if (!liveTxInflight) {
+				liveTxInflight = computeLiveTransactions()
+					.then((payload) => {
+						liveTxCache = { computedAt: Date.now(), payload };
+						return payload;
+					})
+					.catch((err) => {
+						console.error("[transactions/live] compute failed:", err);
+						// Return the previous cached payload if we have one — better
+						// stale data than a broken UI
+						if (liveTxCache) return liveTxCache.payload;
+						throw err;
+					})
+					.finally(() => {
+						liveTxInflight = null;
+					});
+			}
+			const payload = await liveTxInflight;
 			res.json(payload);
 		} catch (error) {
 			console.error("Error fetching live transactions:", error);
-			res.status(500).json({ error: "Gagal memuat transaksi aktif" });
+			// Last-resort fallback: never let this endpoint take down the admin page
+			res.status(200).json({
+				pending: { total: 0, ticket: 0, vote: 0, registration: 0, event: 0, order: 0 },
+				lastHour: { paid: 0, pending: 0, failed: 0, revenue: 0 },
+				byType: [],
+				recent: [],
+				now: Date.now(),
+				degraded: true,
+			});
 		}
 	}
 );

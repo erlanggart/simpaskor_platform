@@ -706,6 +706,8 @@ model Order {
   items OrderItem[]
 
   @@index([userId])
+  @@index([status, paidAt])
+  @@index([updatedAt])
   @@map("orders")
 }
 
@@ -783,6 +785,8 @@ model TicketPurchase {
   @@index([eventId])
   @@index([buyerEmail])
   @@index([ticketCode])
+  @@index([status, paidAt])
+  @@index([updatedAt])
   @@map("ticket_purchases")
 }
 
@@ -956,6 +960,8 @@ model VotingPurchase {
   @@index([nomineeId])
   @@index([buyerEmail])
   @@index([purchaseCode])
+  @@index([status, paidAt])
+  @@index([updatedAt])
   @@map("voting_purchases")
 }
 
@@ -989,6 +995,8 @@ model RegistrationPayment {
   @@index([participationId])
   @@index([eventId])
   @@index([userId])
+  @@index([status, paidAt])
+  @@index([updatedAt])
   @@map("registration_payments")
 }
 
@@ -1018,6 +1026,8 @@ model EventPayment {
 
   @@index([eventId])
   @@index([userId])
+  @@index([status, paidAt])
+  @@index([updatedAt])
   @@map("event_payments")
 }
 
