@@ -37,7 +37,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
 			{/* ===== Top Header Bar ===== */}
 			{showNavbar && (
-				<header className="absolute top-0 left-0 md:left-[72px] right-0 h-14 z-40 flex items-center justify-between md:justify-end px-4 md:px-8">
+				<header className="main-top-header absolute top-0 left-0 md:left-[72px] right-0 h-14 z-40 flex items-center justify-between md:justify-end px-4 md:px-8">
 					{/* Left: Logo + iPhone hamburger */}
 					<div className="flex md:hidden items-center gap-3">
 						{isIPhone ? (
@@ -87,7 +87,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
 			{/* ===== Left Sidebar Navigation (desktop only) ===== */}
 			{showNavbar && (
-				<nav className="fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center justify-center gap-2 border-r border-gray-200/10 dark:border-white/5">
+				<nav className="main-side-nav fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center justify-center gap-2 border-r border-gray-200/10 dark:border-white/5">
 					{/* Logo at top */}
 					<div className="absolute top-4 left-1/2 -translate-x-1/2">
 						<Link to="/">
@@ -156,7 +156,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
 			{/* ===== Main Content Area ===== */}
 			<main
-				className={`h-screen overflow-y-auto relative z-10 ${
+				className={`main-content-shell h-screen overflow-y-auto relative z-10 ${
 					showNavbar
 						? isIPhone
 							? "pl-0 md:pl-[72px] pt-14 pb-0 md:pb-0"

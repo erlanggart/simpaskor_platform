@@ -4171,8 +4171,10 @@ html:not(.dark) .simpaskor-underline {
 	padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Hide bottom nav while a full-screen purchase modal (ticket / vote) is open
-   so the modal's sticky CTA footer stays visible above the floating nav. */
+/* Hide app navigation while a full-screen purchase modal (ticket / vote) is open
+   so the modal can own the viewport cleanly on mobile and desktop. */
+body.purchase-modal-open .main-top-header,
+body.purchase-modal-open .main-side-nav,
 body.purchase-modal-open .mobile-bottom-nav {
 	display: none !important;
 }
