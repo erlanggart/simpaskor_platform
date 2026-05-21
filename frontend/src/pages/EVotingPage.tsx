@@ -213,6 +213,7 @@ const EVotingPage: React.FC = () => {
 	// Voting detail view
 	const [selectedEvent, setSelectedEvent] = useState<VotingEvent | null>(null);
 	const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+	const [nomineeSearch, setNomineeSearch] = useState("");
 	const [voting, setVoting] = useState(false);
 	const [votedNominees, setVotedNominees] = useState<Set<string>>(new Set());
 
@@ -387,6 +388,10 @@ const EVotingPage: React.FC = () => {
 			setVoteCount(maxVoteCount);
 		}
 	}, [maxVoteCount, voteCount]);
+
+	useEffect(() => {
+		setNomineeSearch("");
+	}, [selectedEvent?.id, selectedCategoryId]);
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -896,6 +901,20 @@ const EVotingPage: React.FC = () => {
 	const sortedNominees = [...(currentCategory?.nominees || [])].sort((a, b) => b.voteCount - a.voteCount);
 	const podiumNominees = sortedNominees.slice(0, 3);
 	const remainingNominees = sortedNominees.slice(3);
+	const nomineeSearchQuery = nomineeSearch.trim().toLowerCase();
+	const isNomineeSearchActive = nomineeSearchQuery.length > 0;
+	const searchedNominees = isNomineeSearchActive
+		? sortedNominees.filter((nominee, index) => {
+			const rank = index + 1;
+			return [
+				nominee.nomineeName,
+				nominee.nomineeSubtitle || "",
+				`#${rank}`,
+				`${rank}`,
+			].some((value) => value.toLowerCase().includes(nomineeSearchQuery));
+		})
+		: [];
+	const leaderboardNominees = isNomineeSearchActive ? searchedNominees : remainingNominees;
 	const podiumOrder = podiumNominees;
 	const categoryVoteCount = sortedNominees.reduce((total, nominee) => total + nominee.voteCount, 0);
 	const selectedPaidCategory = selectedEvent?.votingConfig?.categories.find((category) => category.id === paidVoteTarget?.categoryId);
@@ -1220,24 +1239,52 @@ const EVotingPage: React.FC = () => {
 									})}
 								</div>
 
-								{remainingNominees.length > 0 && (
+								{sortedNominees.length > 0 && (
 									<div>
-										<div className="mb-4 flex items-center justify-between">
-											<h3 className="arena-chrome text-xs font-extrabold uppercase tracking-[0.28em] text-slate-400">
-												Leaderboard <span className="text-cyan-300">#{4} +</span>
-											</h3>
-											<span className="arena-chrome text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-												{remainingNominees.length} kontestan
-											</span>
+										<div className="arena-leaderboard-toolbar">
+											<div className="arena-leaderboard-title">
+												<h3 className="arena-chrome text-xs font-extrabold uppercase tracking-[0.28em] text-slate-400">
+													{isNomineeSearchActive ? (
+														<>Hasil Search <span className="text-cyan-300">Nominee</span></>
+													) : (
+														<>Leaderboard <span className="text-cyan-300">#{4} +</span></>
+													)}
+												</h3>
+												<span className="arena-chrome text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+													{isNomineeSearchActive ? `${leaderboardNominees.length} hasil` : `${remainingNominees.length} kontestan`}
+												</span>
+											</div>
+											<label className="arena-leaderboard-search">
+												<span className="arena-leaderboard-search-icon">
+													<LuSearch className="h-4 w-4" />
+												</span>
+												<input
+													type="search"
+													value={nomineeSearch}
+													onChange={(event) => setNomineeSearch(event.target.value)}
+													placeholder="Cari nominee..."
+													aria-label="Cari nominee di leaderboard"
+												/>
+												{nomineeSearch && (
+													<button
+														type="button"
+														onClick={() => setNomineeSearch("")}
+														aria-label="Hapus pencarian nominee"
+													>
+														<LuX className="h-4 w-4" />
+													</button>
+												)}
+											</label>
 										</div>
 										<Reorder.Group
 											axis="y"
-											values={remainingNominees}
+											values={leaderboardNominees}
 											onReorder={() => { /* sort is data-driven; ignore drag */ }}
 											className="space-y-2.5"
 										>
-											{remainingNominees.map((nominee, idx) => {
-												const rank = idx + 4;
+											{leaderboardNominees.map((nominee, idx) => {
+												const absoluteRank = sortedNominees.findIndex((item) => item.id === nominee.id);
+												const rank = absoluteRank >= 0 ? absoluteRank + 1 : idx + 4;
 												const isVoted = !selectedEvent.votingConfig?.isPaid && votedNominees.has(nominee.id);
 												const maxVotes = sortedNominees[0]?.voteCount || 1;
 												const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
@@ -1329,6 +1376,12 @@ const EVotingPage: React.FC = () => {
 												);
 											})}
 										</Reorder.Group>
+										{isNomineeSearchActive && leaderboardNominees.length === 0 && (
+											<div className="arena-leaderboard-empty">
+												<LuSearch className="h-5 w-5" />
+												<span>Tidak ada nominee cocok.</span>
+											</div>
+										)}
 									</div>
 								)}
 							</div>

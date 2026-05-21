@@ -2488,7 +2488,111 @@ html:not(.dark) .section-icon-glow-purple::before {
 	animation: arenaShine 2.6s ease-in-out infinite;
 }
 
-/* ----- Leaderboard row ----- */
+/* ----- Leaderboard search + row ----- */
+.arena-leaderboard-toolbar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+	align-items: center;
+}
+
+.arena-leaderboard-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+.arena-leaderboard-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+	width: 100%;
+	min-width: 0;
+}
+
+.arena-leaderboard-search-icon {
+	position: absolute;
+	left: 0.75rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: rgba(125, 211, 252, 0.82);
+	pointer-events: none;
+}
+
+.arena-leaderboard-search input {
+	width: 100%;
+	height: 2.65rem;
+	border-radius: 0.8rem;
+	border: 1px solid rgba(0, 229, 255, 0.22);
+	background:
+		linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.18)),
+		rgba(6, 12, 35, 0.86);
+	color: #fff;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 700;
+	font-size: 0.95rem;
+	letter-spacing: 0;
+	outline: none;
+	padding: 0 2.55rem 0 2.35rem;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 28px rgba(0, 0, 0, 0.14);
+	transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.arena-leaderboard-search input::placeholder {
+	color: rgba(148, 163, 184, 0.78);
+}
+
+.arena-leaderboard-search input:focus {
+	border-color: rgba(0, 229, 255, 0.62);
+	box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.12), 0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+.arena-leaderboard-search button {
+	position: absolute;
+	right: 0.45rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 0.6rem;
+	color: rgba(226, 232, 240, 0.84);
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	transition: transform 140ms ease, background 160ms ease, color 160ms ease;
+}
+
+.arena-leaderboard-search button:hover {
+	transform: translateY(-1px);
+	color: #fff;
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.arena-leaderboard-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.55rem;
+	min-height: 4.4rem;
+	border-radius: 0.85rem;
+	border: 1px dashed rgba(148, 163, 184, 0.28);
+	background: rgba(255, 255, 255, 0.025);
+	color: rgba(203, 213, 225, 0.78);
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 700;
+}
+
+@media (min-width: 640px) {
+	.arena-leaderboard-toolbar {
+		grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
+		gap: 1rem;
+	}
+}
+
 .arena-row {
 	position: relative;
 	display: grid;
