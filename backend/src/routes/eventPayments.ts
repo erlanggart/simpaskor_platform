@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { authenticate, authorize, AuthenticatedRequest } from "../middleware/auth";
 import {
+	cancelMidtransTransaction,
 	createSnapTransaction,
 	generateMidtransOrderId,
 	PaymentPrefix,
@@ -272,6 +273,52 @@ router.post("/create", authenticate, async (req: AuthenticatedRequest, res: Resp
 	} catch (error: any) {
 		console.error("Error creating event payment:", error);
 		res.status(500).json({ error: "Gagal membuat pembayaran", details: error.message });
+	}
+});
+
+/**
+ * POST /api/event-payments/:eventId/cancel-pending
+ * Event owner voids their own PENDING event-package payment so it stops
+ * showing in the live-pending widget. Resets Event.paymentStatus so the
+ * panitia can pick a different package on the next attempt.
+ */
+router.post("/:eventId/cancel-pending", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const userId = req.user!.userId;
+		const { eventId } = req.params;
+
+		const payment = await prisma.eventPayment.findFirst({
+			where: { eventId, userId },
+		});
+		if (!payment) {
+			return res.status(404).json({ error: "Pembayaran event tidak ditemukan" });
+		}
+		if (payment.status !== "PENDING") {
+			return res.status(400).json({
+				error: `Pembayaran sudah berstatus ${payment.status}, tidak bisa dibatalkan lagi`,
+				status: payment.status,
+			});
+		}
+
+		await prisma.$transaction(async (tx) => {
+			await tx.eventPayment.update({
+				where: { id: payment.id },
+				data: { status: "CANCELLED" },
+			});
+			await tx.event.update({
+				where: { id: eventId },
+				data: { paymentStatus: "CANCELLED" },
+			});
+		});
+
+		if (payment.midtransOrderId) {
+			void cancelMidtransTransaction(payment.midtransOrderId);
+		}
+
+		res.json({ status: "CANCELLED", paymentId: payment.id });
+	} catch (error: any) {
+		console.error("Error cancelling pending event payment:", error);
+		res.status(500).json({ error: "Gagal membatalkan pembayaran event" });
 	}
 });
 

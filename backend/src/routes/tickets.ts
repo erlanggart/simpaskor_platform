@@ -9,6 +9,7 @@ import {
 import { prisma } from "../lib/prisma";
 import crypto from "crypto";
 import {
+	cancelMidtransTransaction,
 	createSnapTransaction,
 	generateMidtransOrderId,
 	PaymentPrefix,
@@ -513,6 +514,58 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 	} catch (error: any) {
 		console.error("Error purchasing ticket:", error);
 		res.status(400).json({ error: error.message || "Gagal memesan tiket" });
+	}
+});
+
+// POST /api/tickets/cancel-pending - Buyer voids their own PENDING purchase
+// Public endpoint: authenticated by the unique ticketCode returned at purchase
+// time, so a buyer can cancel without an account. Used when the Snap popup is
+// closed before payment so the reserved soldCount is released immediately
+// instead of waiting for the daily expiry sweep.
+router.post("/cancel-pending", async (req, res: Response) => {
+	try {
+		const { purchaseId, ticketCode } = req.body || {};
+		if (!purchaseId || !ticketCode) {
+			return res.status(400).json({ error: "purchaseId dan ticketCode wajib diisi" });
+		}
+
+		const purchase = await prisma.ticketPurchase.findFirst({
+			where: { id: String(purchaseId), ticketCode: String(ticketCode) },
+		});
+		if (!purchase) {
+			return res.status(404).json({ error: "Pembelian tidak ditemukan" });
+		}
+		if (purchase.status !== "PENDING") {
+			return res.status(400).json({
+				error: `Pembelian sudah berstatus ${purchase.status}, tidak bisa dibatalkan lagi`,
+				status: purchase.status,
+			});
+		}
+
+		await prisma.$transaction(async (tx) => {
+			await tx.ticketAttendee.updateMany({
+				where: { purchaseId: purchase.id, status: "PENDING" },
+				data: { status: "CANCELLED" },
+			});
+			await tx.eventTicketConfig.update({
+				where: { eventId: purchase.eventId },
+				data: { soldCount: { decrement: purchase.quantity } },
+			});
+			await tx.ticketPurchase.update({
+				where: { id: purchase.id },
+				data: { status: "CANCELLED" },
+			});
+		});
+
+		// Invalidate the QRIS token on Midtrans side (best-effort).
+		if (purchase.midtransOrderId) {
+			void cancelMidtransTransaction(purchase.midtransOrderId);
+		}
+
+		res.json({ status: "CANCELLED", purchaseId: purchase.id });
+	} catch (error: any) {
+		console.error("Error cancelling pending ticket:", error);
+		res.status(500).json({ error: "Gagal membatalkan pembelian" });
 	}
 });
 

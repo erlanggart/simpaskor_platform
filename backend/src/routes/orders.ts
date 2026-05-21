@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { authenticate, authorize, AuthenticatedRequest } from "../middleware/auth";
 import {
+	cancelMidtransTransaction,
 	createSnapTransaction,
 	generateMidtransOrderId,
 	PaymentPrefix,
@@ -119,6 +120,47 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res: Response) 
 	} catch (error) {
 		console.error("Error creating order:", error);
 		res.status(500).json({ error: "Gagal membuat pesanan" });
+	}
+});
+
+// POST /api/orders/cancel-pending - Buyer voids their own PENDING order
+// Authenticated: only the order owner can cancel. Used when the Snap popup
+// is closed before payment. Stock is not reserved at order creation time, so
+// nothing needs to be released — just mark CANCELLED and invalidate Midtrans.
+router.post("/cancel-pending", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const userId = req.user!.userId;
+		const { orderId } = req.body || {};
+		if (!orderId) {
+			return res.status(400).json({ error: "orderId wajib diisi" });
+		}
+
+		const order = await prisma.order.findFirst({
+			where: { id: String(orderId), userId },
+		});
+		if (!order) {
+			return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+		}
+		if (order.status !== "PENDING" || order.paidAt) {
+			return res.status(400).json({
+				error: `Pesanan sudah berstatus ${order.status}, tidak bisa dibatalkan lagi`,
+				status: order.status,
+			});
+		}
+
+		await prisma.order.update({
+			where: { id: order.id },
+			data: { status: "CANCELLED" },
+		});
+
+		if (order.midtransOrderId) {
+			void cancelMidtransTransaction(order.midtransOrderId);
+		}
+
+		res.json({ status: "CANCELLED", orderId: order.id });
+	} catch (error: any) {
+		console.error("Error cancelling pending order:", error);
+		res.status(500).json({ error: "Gagal membatalkan pesanan" });
 	}
 });
 

@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth";
 import {
+	cancelMidtransTransaction,
 	createSnapTransaction,
 	generateMidtransOrderId,
 	PaymentPrefix,
@@ -130,6 +131,45 @@ router.get("/my", authenticate, async (req: AuthenticatedRequest, res: Response)
 	} catch (error) {
 		console.error("Error fetching registration payments:", error);
 		res.status(500).json({ error: "Gagal memuat pembayaran" });
+	}
+});
+
+/**
+ * POST /api/registration-payments/:id/cancel-pending
+ * Buyer voids their own PENDING registration payment so it stops appearing
+ * in the live-pending widget. The participation record itself is preserved
+ * — the user can call POST /create again to start a fresh Midtrans token.
+ */
+router.post("/:id/cancel-pending", authenticate, async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const userId = req.user!.userId;
+
+		const payment = await prisma.registrationPayment.findFirst({
+			where: { id: req.params.id, userId },
+		});
+		if (!payment) {
+			return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+		}
+		if (payment.status !== "PENDING") {
+			return res.status(400).json({
+				error: `Pembayaran sudah berstatus ${payment.status}, tidak bisa dibatalkan lagi`,
+				status: payment.status,
+			});
+		}
+
+		await prisma.registrationPayment.update({
+			where: { id: payment.id },
+			data: { status: "CANCELLED" },
+		});
+
+		if (payment.midtransOrderId) {
+			void cancelMidtransTransaction(payment.midtransOrderId);
+		}
+
+		res.json({ status: "CANCELLED", paymentId: payment.id });
+	} catch (error: any) {
+		console.error("Error cancelling pending registration payment:", error);
+		res.status(500).json({ error: "Gagal membatalkan pembayaran" });
 	}
 });
 

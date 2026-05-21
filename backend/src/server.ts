@@ -35,6 +35,7 @@ import backupRoutes from "./routes/backup";
 import disbursementRoutes from "./routes/disbursements";
 import externalFinanceRoutes from "./routes/externalFinance";
 import mitraRoutes from "./routes/mitra";
+import { startPendingPaymentSweeper } from "./lib/pendingPaymentSweeper";
 
 dotenv.config();
 
@@ -260,4 +261,9 @@ app.listen(PORT, () => {
 	console.log(`🚀 Server running on port ${PORT}`);
 	console.log(`📡 API available at http://localhost:${PORT}`);
 	console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+
+	// Safety-net sweeper for PENDING payment records the Midtrans webhook
+	// never closed (e.g. buyer abandoned the QRIS popup, expired notification
+	// failed to deliver). Without this, the live-pending widget piles up.
+	startPendingPaymentSweeper();
 });
