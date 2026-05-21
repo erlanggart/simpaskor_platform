@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
+import { useLiveVisitorHeartbeat } from "./hooks/useLiveVisitorHeartbeat";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import "./App.css";
@@ -96,9 +97,15 @@ const LoadingFallback = () => (
 	</div>
 );
 
+const HeartbeatTracker = () => {
+	useLiveVisitorHeartbeat();
+	return null;
+};
+
 function App() {
 	return (
 		<AuthProvider>
+			<HeartbeatTracker />
 			<div className="App">
 				<Suspense fallback={<LoadingFallback />}>
 				<Routes>

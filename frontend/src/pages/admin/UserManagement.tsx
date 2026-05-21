@@ -24,6 +24,7 @@ import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
+import LiveVisitorWidget from "../../components/admin/LiveVisitorWidget";
 
 interface User {
 	id: string;
@@ -423,6 +424,8 @@ const UserManagement: React.FC = () => {
 		<div className="flex p-4 lg:p-6 lg:gap-5">
 			{/* Main Content */}
 			<div className="flex-1 min-w-0 space-y-5">
+			{/* ── Live Visitor Widget ── */}
+			<LiveVisitorWidget />
 			{/* ── Stats Header ── */}
 			{statsLoading ? (
 				<div className="h-32 rounded-2xl bg-gray-100 dark:bg-gray-800/50 animate-pulse" />
