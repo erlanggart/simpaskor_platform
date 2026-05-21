@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { reconcileAdminFeeLedger } from "../lib/adminFeeLedger";
+import { getEventRevenueLedgerSummary, reconcileEventRevenueLedger } from "../lib/revenueLedger";
 
 const router = Router();
 
@@ -63,6 +64,41 @@ const parseDateQuery = (value: unknown, fieldName: string): Date | null => {
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 const toNumber = (value: unknown) => (value === null || value === undefined ? 0 : Number(value) || 0);
 
+async function reconcileExternalRevenueShareEvents(eventId: string) {
+	const events = await prisma.event.findMany({
+		where: eventId
+			? { id: eventId }
+			: {
+					OR: [
+						{ transactions: { some: { sourceType: { in: ["TICKET", "VOTING"] } } } },
+						{
+							ticketPurchases: {
+								some: { status: { in: ["PAID", "USED"] }, totalAmount: { gt: 0 } },
+							},
+						},
+						{
+							votingPurchases: {
+								some: { status: "PAID", totalAmount: { gt: 0 } },
+							},
+						},
+					],
+			  },
+		select: {
+			id: true,
+			title: true,
+			slug: true,
+			packageTier: true,
+			platformSharePercent: true,
+			startDate: true,
+		},
+		orderBy: { startDate: "desc" },
+	});
+
+	await Promise.all(events.map((event) => prisma.$transaction((tx) => reconcileEventRevenueLedger(tx, event.id))));
+
+	return events;
+}
+
 type AdminFeeLedgerRow = {
 	source: string;
 	sourceId: string | null;
@@ -108,6 +144,23 @@ type PackagePaymentRow = {
 	amount: number;
 	paymentType: string | null;
 	midtransOrderId: string | null;
+	paidAt: Date;
+};
+
+type ExternalRevenueShareDetailRow = {
+	id: string;
+	transactionId: string;
+	eventId: string;
+	eventTitle: string | null;
+	eventSlug: string | null;
+	sourceType: "TICKET" | "VOTING";
+	sourceCode: string | null;
+	grossAmount: number;
+	platformAmount: number;
+	panitiaAmount: number;
+	withdrawnPanitiaAmount: number;
+	activePanitiaAmount: number;
+	status: string;
 	paidAt: Date;
 };
 
@@ -227,6 +280,8 @@ router.get("/platform-revenue", requireExternalFinanceApiKey, async (req: Reques
 		const to = parseDateQuery(req.query.to, "to");
 		const eventId = typeof req.query.eventId === "string" ? req.query.eventId.trim() : "";
 		const includeDetails = req.query.includeDetails === "true";
+
+		await reconcileExternalRevenueShareEvents(eventId);
 
 		const revenueShareWhere = Prisma.sql`
 			t."status" = 'PAID'
@@ -393,6 +448,143 @@ router.get("/platform-revenue", requireExternalFinanceApiKey, async (req: Reques
 });
 
 // =============================================================================
+// GET /api/external/revenue-share-balances
+// Lifetime panitia revenue-share balances from paid ticket + voting sales.
+// This endpoint is intentionally lifetime-based: activeBalance only makes sense
+// after subtracting every approved/transferred withdrawal and every pending
+// withdrawal for the event, not only rows inside a date window.
+// =============================================================================
+router.get("/revenue-share-balances", requireExternalFinanceApiKey, async (req: Request, res: Response) => {
+	try {
+		const eventId = typeof req.query.eventId === "string" ? req.query.eventId.trim() : "";
+		const includeDetails = req.query.includeDetails === "true";
+
+		const events = await reconcileExternalRevenueShareEvents(eventId);
+
+		if (eventId && events.length === 0) {
+			return res.status(404).json({ error: "Event tidak ditemukan" });
+		}
+
+		const perEvent = await Promise.all(
+			events.map(async (event) => {
+				const ledger = await getEventRevenueLedgerSummary(prisma, event.id);
+				const platformSharePercent = Math.round(ledger.platformShareRate * 10000) / 100;
+				const panitiaSharePercent = Math.round(ledger.panitiaShareRate * 10000) / 100;
+
+				return {
+					event: {
+						id: event.id,
+						title: event.title,
+						slug: event.slug,
+						startDate: event.startDate,
+						packageTier: event.packageTier,
+						configuredPlatformSharePercent: event.platformSharePercent,
+						platformSharePercent,
+						panitiaSharePercent,
+					},
+					balance: {
+						grossRevenue: ledger.grossRevenue,
+						ticketGrossRevenue: ledger.ticketGrossRevenue,
+						votingGrossRevenue: ledger.votingGrossRevenue,
+						platformShare: ledger.platformShare,
+						panitiaShare: ledger.panitiaShare,
+						ticketRevenue: ledger.ticketRevenue,
+						votingRevenue: ledger.votingRevenue,
+						totalWithdrawn: ledger.totalWithdrawn,
+						totalPending: ledger.totalPending,
+						activeBalance: ledger.activeBalance,
+						lockedPlatformShare: ledger.lockedPlatformShare,
+						activePlatformShare: ledger.activePlatformShare,
+					},
+				};
+			})
+		);
+
+		const totals = perEvent.reduce(
+			(acc, row) => {
+				acc.grossRevenue += row.balance.grossRevenue;
+				acc.ticketGrossRevenue += row.balance.ticketGrossRevenue;
+				acc.votingGrossRevenue += row.balance.votingGrossRevenue;
+				acc.platformShare += row.balance.platformShare;
+				acc.panitiaShare += row.balance.panitiaShare;
+				acc.ticketRevenue += row.balance.ticketRevenue;
+				acc.votingRevenue += row.balance.votingRevenue;
+				acc.totalWithdrawn += row.balance.totalWithdrawn;
+				acc.totalPending += row.balance.totalPending;
+				acc.activeBalance += row.balance.activeBalance;
+				acc.lockedPlatformShare += row.balance.lockedPlatformShare;
+				acc.activePlatformShare += row.balance.activePlatformShare;
+				return acc;
+			},
+			{
+				grossRevenue: 0,
+				ticketGrossRevenue: 0,
+				votingGrossRevenue: 0,
+				platformShare: 0,
+				panitiaShare: 0,
+				ticketRevenue: 0,
+				votingRevenue: 0,
+				totalWithdrawn: 0,
+				totalPending: 0,
+				activeBalance: 0,
+				lockedPlatformShare: 0,
+				activePlatformShare: 0,
+			}
+		);
+
+		let details: ExternalRevenueShareDetailRow[] | undefined;
+		if (includeDetails) {
+			const detailsWhere = Prisma.sql`
+				t."status" = 'PAID'
+				AND rs."status" <> 'CANCELLED'
+				${eventId ? Prisma.sql`AND rs."event_id" = ${eventId}` : Prisma.empty}
+			`;
+
+			details = await prisma.$queryRaw<ExternalRevenueShareDetailRow[]>`
+				SELECT
+					rs."id",
+					rs."transaction_id" AS "transactionId",
+					rs."event_id" AS "eventId",
+					e."title" AS "eventTitle",
+					e."slug" AS "eventSlug",
+					t."source_type"::text AS "sourceType",
+					t."source_code" AS "sourceCode",
+					rs."gross_amount"::double precision AS "grossAmount",
+					rs."platform_amount"::double precision AS "platformAmount",
+					rs."panitia_amount"::double precision AS "panitiaAmount",
+					rs."withdrawn_panitia_amount"::double precision AS "withdrawnPanitiaAmount",
+					(rs."panitia_amount" - rs."withdrawn_panitia_amount")::double precision AS "activePanitiaAmount",
+					rs."status"::text AS "status",
+					t."paid_at" AS "paidAt"
+				FROM "revenue_shares" rs
+				INNER JOIN "transactions" t ON t."id" = rs."transaction_id"
+				INNER JOIN "events" e ON e."id" = rs."event_id"
+				WHERE ${detailsWhere}
+				ORDER BY t."paid_at" ASC
+			`;
+		}
+
+		res.json({
+			currency: "IDR",
+			filters: {
+				eventId: eventId || null,
+				scope: "lifetime",
+			},
+			summary: totals,
+			counts: {
+				events: perEvent.length,
+				revenueShares: details?.length ?? undefined,
+			},
+			events: perEvent,
+			...(includeDetails ? { details } : {}),
+		});
+	} catch (error) {
+		console.error("Error fetching external revenue share balances:", error);
+		res.status(500).json({ error: "Gagal mengambil saldo bagi hasil" });
+	}
+});
+
+// =============================================================================
 // GET /api/external/summary
 // One-shot lifetime summary that combines admin fees + platform revenue share +
 // package payments. Convenient for dashboards that just want the total balance.
@@ -404,6 +596,7 @@ router.get("/summary", requireExternalFinanceApiKey, async (req: Request, res: R
 		const eventId = typeof req.query.eventId === "string" ? req.query.eventId.trim() : "";
 
 		await reconcileAdminFeeLedger();
+		await reconcileExternalRevenueShareEvents(eventId);
 
 		const adminFeeWhere = Prisma.sql`
 			"status" = 'PAID'

@@ -1,300 +1,389 @@
-# External Finance API — Panduan Pengelolaan
+# External Finance API
 
-Dokumen ini menjelaskan cara kerja, cara mengamankan, dan cara mengoperasikan
-**External Finance API** Simpaskor (`/api/external/*`). API ini dipakai sistem
-finansial eksternal (Vertinova) untuk menarik data pemasukan platform dalam
-mode pull, sebagai pelengkap webhook real-time yang Simpaskor kirim per transaksi.
+Dokumen ini untuk web atau sistem eksternal yang ingin mengambil data keuangan
+dari Simpaskor. Semua endpoint bersifat server-to-server dan berada di:
 
----
+```text
+https://DOMAIN-SIMPASKOR/api/external
+```
 
-## 1. Ringkasan Endpoint
+Ganti `https://DOMAIN-SIMPASKOR` dengan domain backend produksi Simpaskor.
 
-Semua endpoint berada di prefix `/api/external` dan **wajib** menyertakan API key.
+## Autentikasi
 
-| Endpoint | Tujuan | Sumber Data |
-|---|---|---|
-| `GET /api/external/admin-fees` | Pemasukan admin fee (biaya layanan per transaksi) | `admin_fee_transactions` ledger (auto-reconcile) |
-| `GET /api/external/platform-revenue` | Bagi hasil platform + pembayaran paket event | `revenue_shares` + `event_payments` |
-| `GET /api/external/summary` | Ringkasan total saldo Simpaskor dari semua sumber | Gabungan ketiganya |
-
-### 1.1 Apa yang termasuk "Saldo Simpaskor"?
-
-Saldo Simpaskor terdiri dari tiga komponen:
-
-1. **Admin fee** — biaya layanan flat yang dibebankan ke pembeli, di luar harga
-   barang. Rumus saat ini:
-   - Tiket: `Rp 2.000 × jumlah tiket`
-   - Voting: `min(Rp 500 × jumlah vote, Rp 10.000)`
-   - Registrasi event: `Rp 5.000` per pembayaran
-2. **Bagi hasil platform (`platformShare`)** — persentase dari nilai bruto
-   ticketing/voting yang menjadi hak Simpaskor, berdasarkan tier paket dan
-   `platformSharePercent` per event:
-   - Default tier tunggal (TICKETING / VOTING): 15% platform / 85% panitia
-   - Default bundle (TICKETING_VOTING): 25% platform / 75% panitia
-   - BRONZE / GOLD: mengikuti `platformSharePercent` yang ditentukan admin
-   - Nilai akhir di-clamp `0–100%`
-3. **Pembayaran paket (`packagePayments`)** — pembayaran upfront tier berbayar:
-   - `BRONZE`: Rp 500.000
-   - `GOLD`: Rp 1.500.000
-   - `IKLAN` / `TICKETING` / `VOTING` / `TICKETING_VOTING`: 0 (bagi hasil saja)
-
----
-
-## 2. Autentikasi
-
-API key dikirim sebagai salah satu dari:
+Kirim API key lewat salah satu header berikut:
 
 ```http
-X-API-Key: <key>
-# atau
-Authorization: Bearer <key>
+X-API-Key: <EXTERNAL_FINANCE_API_KEY>
 ```
 
-Server membandingkan key dengan `crypto.timingSafeEqual` agar aman dari
-timing attack. Key salah → `401 { error: "Access denied" }`.
+atau:
 
-### 2.1 Mengatur API key
-
-API key dibaca dari environment variable `EXTERNAL_FINANCE_API_KEY`.
-Selama variabel tidak diset, server jatuh ke key default lama agar deployment
-existing tidak putus. **Wajib** rotasi ke env variable di production.
-
-`.env` (backend):
-
-```dotenv
-# API key untuk endpoint /api/external/*
-EXTERNAL_FINANCE_API_KEY="ganti-dengan-key-acak-min-32-karakter"
-
-# (opsional) URL webhook yang Simpaskor push ke Vertinova
-VERTINOVA_FINANCE_WEBHOOK_URL="https://vertinova.id/api/finance/webhooks/simpaskor"
-# Bila tidak diset, Vertinova webhook pakai EXTERNAL_FINANCE_API_KEY
-VERTINOVA_FINANCE_API_KEY="ganti-dengan-key-acak-min-32-karakter"
+```http
+Authorization: Bearer <EXTERNAL_FINANCE_API_KEY>
 ```
 
-Cara generate key aman:
+Jangan panggil endpoint ini langsung dari browser frontend, karena API key akan
+terlihat oleh user. Panggil dari backend web eksternal.
+
+## Ringkasan Endpoint
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `GET /api/external/admin-fees` | Mengambil admin fee dari tiket, voting, dan pendaftaran. |
+| `GET /api/external/platform-revenue` | Mengambil pendapatan Simpaskor dari bagi hasil tiket/voting dan pembayaran paket event. |
+| `GET /api/external/revenue-share-balances` | Mengambil saldo bagi hasil panitia dari tiket dan voting secara lifetime. |
+| `GET /api/external/summary` | Mengambil total saldo Simpaskor dalam satu response. |
+
+## Endpoint Utama Untuk Saldo Bagi Hasil
+
+Gunakan endpoint ini jika web eksternal butuh saldo bagi hasil dari vote dan tiket:
+
+```http
+GET /api/external/revenue-share-balances
+```
+
+Saldo ini bersifat lifetime. Artinya, sistem menghitung seluruh transaksi tiket
+dan voting yang sudah `PAID`, lalu mengurangi seluruh dana yang sudah atau sedang
+diajukan pencairannya.
+
+Rumus utama:
+
+```text
+activeBalance = panitiaShare lifetime - totalWithdrawn - totalPending
+```
+
+Field penting:
+
+| Field | Arti |
+| --- | --- |
+| `grossRevenue` | Total bruto tiket + voting sebelum dibagi hasil. |
+| `ticketGrossRevenue` | Total bruto dari tiket saja. |
+| `votingGrossRevenue` | Total bruto dari voting saja. |
+| `platformShare` | Bagian Simpaskor dari tiket + voting. |
+| `panitiaShare` | Bagian panitia dari tiket + voting. |
+| `ticketRevenue` | Bagian panitia dari tiket. |
+| `votingRevenue` | Bagian panitia dari voting. |
+| `totalWithdrawn` | Saldo panitia yang sudah disetujui/ditransfer. |
+| `totalPending` | Saldo panitia yang sedang diajukan dan menunggu proses. |
+| `activeBalance` | Saldo aktif yang masih bisa ditarik. |
+
+### Query Parameter
+
+| Parameter | Tipe | Wajib | Keterangan |
+| --- | --- | --- | --- |
+| `eventId` | string | Tidak | Isi jika hanya ingin mengambil saldo satu event. |
+| `includeDetails` | boolean | Tidak | Isi `true` jika butuh detail per transaksi. Default `false`. |
+
+### Contoh Request
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+curl -X GET \
+  "https://DOMAIN-SIMPASKOR/api/external/revenue-share-balances?includeDetails=true" \
+  -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
 ```
 
-### 2.2 Rotasi key
+Untuk satu event:
 
-1. Generate key baru.
-2. Update `EXTERNAL_FINANCE_API_KEY` di `.env` produksi.
-3. Kirim key baru ke Vertinova melalui saluran aman (1Password / Bitwarden).
-4. Restart backend: `pm2 restart simpaskor-api` atau `docker compose restart backend`.
-5. Verifikasi Vertinova sudah pakai key baru (cek response 200 di log akses).
-6. Setelah verifikasi, anggap key lama hangus.
+```bash
+curl -X GET \
+  "https://DOMAIN-SIMPASKOR/api/external/revenue-share-balances?eventId=<EVENT_ID>" \
+  -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
+```
 
-> Catatan: kalau partner butuh masa transisi, tambahkan logika multi-key
-> sementara dengan memperbolehkan dua key paralel. Saat ini server hanya
-> menerima satu key, sehingga rotasi harus dikoordinasikan singkat (< 5 menit).
-
----
-
-## 3. Endpoint Detail
-
-### 3.1 `GET /api/external/admin-fees`
-
-Pemasukan admin fee Simpaskor.
-
-**Query parameters (semua opsional):**
-
-| Param | Tipe | Keterangan |
-|---|---|---|
-| `from` | ISO date | Filter `paid_at >= from` |
-| `to` | ISO date | Filter `paid_at <= to` |
-| `eventId` | string | Hanya event tertentu |
-| `includeDetails` | `true`/`false` | Sertakan baris transaksi |
-
-**Response:**
+### Contoh Response
 
 ```json
 {
   "currency": "IDR",
-  "filters": { "from": null, "to": null, "eventId": null },
-  "summary": {
-    "totalAdminFee": 1530000,
-    "ticketAdminFee": 800000,
-    "votingAdminFee": 250000,
-    "registrationAdminFee": 480000,
-    "qrisFee": 0
+  "filters": {
+    "eventId": null,
+    "scope": "lifetime"
   },
-  "counts": { "tickets": 12, "voting": 9, "registrations": 96 },
-  "details": { "tickets": [...], "voting": [...], "registrations": [...] },
-  "data": [ { "source": "ticket", "id": "...", "adminFee": 4000, ... } ]
+  "summary": {
+    "grossRevenue": 12000000,
+    "ticketGrossRevenue": 8000000,
+    "votingGrossRevenue": 4000000,
+    "platformShare": 2400000,
+    "panitiaShare": 9600000,
+    "ticketRevenue": 6400000,
+    "votingRevenue": 3200000,
+    "totalWithdrawn": 5000000,
+    "totalPending": 1000000,
+    "activeBalance": 3600000,
+    "lockedPlatformShare": 1250000,
+    "activePlatformShare": 1150000
+  },
+  "counts": {
+    "events": 1,
+    "revenueShares": 25
+  },
+  "events": [
+    {
+      "event": {
+        "id": "event_id",
+        "title": "Festival Paskibra Nasional",
+        "slug": "festival-paskibra-nasional",
+        "startDate": "2026-05-01T00:00:00.000Z",
+        "packageTier": "TICKETING_VOTING",
+        "configuredPlatformSharePercent": 20,
+        "platformSharePercent": 20,
+        "panitiaSharePercent": 80
+      },
+      "balance": {
+        "grossRevenue": 12000000,
+        "ticketGrossRevenue": 8000000,
+        "votingGrossRevenue": 4000000,
+        "platformShare": 2400000,
+        "panitiaShare": 9600000,
+        "ticketRevenue": 6400000,
+        "votingRevenue": 3200000,
+        "totalWithdrawn": 5000000,
+        "totalPending": 1000000,
+        "activeBalance": 3600000,
+        "lockedPlatformShare": 1250000,
+        "activePlatformShare": 1150000
+      }
+    }
+  ],
+  "details": [
+    {
+      "id": "revenue_share_id",
+      "transactionId": "transaction_id",
+      "eventId": "event_id",
+      "eventTitle": "Festival Paskibra Nasional",
+      "eventSlug": "festival-paskibra-nasional",
+      "sourceType": "TICKET",
+      "sourceCode": "TICKET-ABC123",
+      "grossAmount": 100000,
+      "platformAmount": 20000,
+      "panitiaAmount": 80000,
+      "withdrawnPanitiaAmount": 0,
+      "activePanitiaAmount": 80000,
+      "status": "AVAILABLE",
+      "paidAt": "2026-05-01T10:30:00.000Z"
+    }
+  ]
 }
 ```
 
-**Sinkronisasi lifetime:** sebelum membaca, server otomatis menjalankan
-`reconcileAdminFeeLedger()` untuk meng-insert transaksi `PAID` yang belum
-tercatat di `admin_fee_transactions`. Artinya angka yang dikembalikan selalu
-mencakup seluruh transaksi historis tanpa perlu maintenance manual.
+## Admin Fee
 
-### 3.2 `GET /api/external/platform-revenue`
+```http
+GET /api/external/admin-fees
+```
 
-Bagi hasil Simpaskor dari ticketing/voting + pembayaran paket event.
+Endpoint ini mengambil admin fee layanan. Admin fee berbeda dari bagi hasil.
 
-**Query parameters:** sama seperti `/admin-fees`.
+Rumus saat ini:
 
-**Response:**
+| Sumber | Rumus |
+| --- | --- |
+| Tiket | Rp 2.000 x jumlah tiket |
+| Voting | Rp 500 x jumlah vote, maksimal Rp 10.000 per transaksi |
+| Pendaftaran | Rp 5.000 per transaksi |
+
+Query parameter:
+
+| Parameter | Tipe | Wajib | Keterangan |
+| --- | --- | --- | --- |
+| `from` | ISO date | Tidak | Filter mulai tanggal bayar. |
+| `to` | ISO date | Tidak | Filter sampai tanggal bayar. |
+| `eventId` | string | Tidak | Filter satu event. |
+| `includeDetails` | boolean | Tidak | Isi `true` untuk detail transaksi. |
+
+Contoh:
+
+```bash
+curl -X GET \
+  "https://DOMAIN-SIMPASKOR/api/external/admin-fees?from=2026-01-01&to=2026-12-31&includeDetails=true" \
+  -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
+```
+
+Contoh response ringkas:
 
 ```json
 {
   "currency": "IDR",
+  "filters": {
+    "from": "2026-01-01T00:00:00.000Z",
+    "to": "2026-12-31T00:00:00.000Z",
+    "eventId": null
+  },
   "summary": {
-    "totalPlatformRevenue": 7500000,
-    "totalPlatformShare": 5500000,
-    "platformShareFromTickets": 3200000,
-    "platformShareFromVoting": 2300000,
-    "totalPackagePayments": 2000000,
-    "packageTotalsByTier": { "BRONZE": 500000, "GOLD": 1500000 },
-    "grossRevenue": { "tickets": 20000000, "voting": 15000000, "total": 35000000 },
-    "panitiaShare": { "tickets": 16800000, "voting": 12700000, "total": 29500000 }
+    "totalAdminFee": 850000,
+    "ticketAdminFee": 500000,
+    "votingAdminFee": 250000,
+    "registrationAdminFee": 100000,
+    "qrisFee": 0
   },
   "counts": {
-    "revenueShares": 24,
-    "ticketShares": 12,
-    "votingShares": 12,
-    "packagePayments": 3
+    "tickets": 250,
+    "voting": 80,
+    "registrations": 20
   }
 }
 ```
 
-**Catatan:**
+## Pendapatan Platform
 
-- `platformShare` dihitung di sisi panitia paid (Midtrans webhook PAID),
-  sehingga sudah memperhitungkan refund yang men-status-kan transaksi `CANCELLED`.
-- `withdrawnPanitiaAmount` di detail merepresentasikan berapa banyak bagian
-  panitia yang sudah dicairkan via disbursement — tidak berpengaruh pada hak
-  Simpaskor (`platformAmount`).
+```http
+GET /api/external/platform-revenue
+```
 
-### 3.3 `GET /api/external/summary`
+Endpoint ini mengambil pendapatan Simpaskor dari:
 
-Endpoint praktis untuk dashboard. Mengembalikan totalan semua komponen tanpa
-detail baris transaksi.
+- Bagian platform dari transaksi tiket.
+- Bagian platform dari transaksi voting.
+- Pembayaran paket event seperti `BRONZE` dan `GOLD`.
 
-**Query parameters:** sama seperti `/admin-fees`.
+Query parameter sama seperti `/admin-fees`.
 
-**Response:**
+Contoh:
+
+```bash
+curl -X GET \
+  "https://DOMAIN-SIMPASKOR/api/external/platform-revenue?includeDetails=true" \
+  -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
+```
+
+Contoh response ringkas:
 
 ```json
 {
   "currency": "IDR",
   "summary": {
-    "totalSimpaskorBalance": 9030000,
-    "adminFee": {
-      "total": 1530000,
-      "ticket": 800000,
-      "voting": 250000,
-      "registration": 480000
+    "totalPlatformRevenue": 4400000,
+    "totalPlatformShare": 2400000,
+    "platformShareFromTickets": 1600000,
+    "platformShareFromVoting": 800000,
+    "totalPackagePayments": 2000000,
+    "packageTotalsByTier": {
+      "BRONZE": 500000,
+      "GOLD": 1500000
     },
-    "platformShare": {
-      "total": 5500000,
-      "fromTickets": 3200000,
-      "fromVoting": 2300000,
-      "ticketGrossRevenue": 20000000,
-      "votingGrossRevenue": 15000000
+    "grossRevenue": {
+      "tickets": 8000000,
+      "voting": 4000000,
+      "total": 12000000
     },
-    "packagePayments": {
-      "total": 2000000,
-      "byTier": { "BRONZE": 500000, "GOLD": 1500000 }
+    "panitiaShare": {
+      "tickets": 6400000,
+      "voting": 3200000,
+      "total": 9600000
     }
   }
 }
 ```
 
-`totalSimpaskorBalance = adminFee.total + platformShare.total + packagePayments.total`.
+## Summary Simpaskor
 
----
+```http
+GET /api/external/summary
+```
 
-## 4. Webhook Push (Simpaskor → Vertinova)
+Endpoint ini untuk dashboard yang hanya butuh total pendapatan Simpaskor.
 
-Di samping API pull, Simpaskor juga mendorong notifikasi real-time setiap kali
-transaksi `PAID` masuk ke Vertinova. File: [vertinovaFinanceWebhook.ts](../backend/src/lib/vertinovaFinanceWebhook.ts).
+`totalSimpaskorBalance` dihitung dari:
 
-- URL default: `https://vertinova.id/api/finance/webhooks/simpaskor`
-  (override via `VERTINOVA_FINANCE_WEBHOOK_URL`).
-- Header: `X-API-Key: <VERTINOVA_FINANCE_API_KEY>`.
-- Payload: `{ orderId, amount, paidAt, description }`.
-- Timeout 10 detik, dipanggil dari payment handler. **Tidak retry otomatis** —
-  jika gagal, gunakan endpoint pull untuk rekonsiliasi.
+```text
+totalSimpaskorBalance = adminFee.total + platformShare.total + packagePayments.total
+```
 
----
-
-## 5. Cara Konsumsi (cURL)
+Contoh:
 
 ```bash
-# Lifetime summary
-curl -H "X-API-Key: $KEY" "https://api.simpaskor.id/api/external/summary"
-
-# Bulan berjalan, dengan detail
-curl -H "X-API-Key: $KEY" \
-  "https://api.simpaskor.id/api/external/admin-fees?from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&includeDetails=true"
-
-# Per event
-curl -H "X-API-Key: $KEY" \
-  "https://api.simpaskor.id/api/external/platform-revenue?eventId=<EVENT_ID>"
+curl -X GET \
+  "https://DOMAIN-SIMPASKOR/api/external/summary" \
+  -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
 ```
 
----
+Contoh response:
 
-## 6. Operasi & Troubleshooting
-
-### 6.1 Audit konsistensi data
-
-Setiap kali `/admin-fees` atau `/summary` diakses, ledger di-rekonsiliasi.
-Untuk audit ulang manual:
-
-```ts
-import { reconcileAdminFeeLedger } from "./lib/adminFeeLedger";
-await reconcileAdminFeeLedger(); // returns { ticket, voting, registration } yang baru ter-insert
+```json
+{
+  "currency": "IDR",
+  "summary": {
+    "totalSimpaskorBalance": 5250000,
+    "adminFee": {
+      "total": 850000,
+      "ticket": 500000,
+      "voting": 250000,
+      "registration": 100000
+    },
+    "platformShare": {
+      "total": 2400000,
+      "fromTickets": 1600000,
+      "fromVoting": 800000,
+      "ticketGrossRevenue": 8000000,
+      "votingGrossRevenue": 4000000
+    },
+    "packagePayments": {
+      "total": 2000000,
+      "byTier": {
+        "BRONZE": 500000,
+        "GOLD": 1500000
+      }
+    }
+  }
+}
 ```
 
-### 6.2 Memeriksa selisih
+## Contoh Integrasi Node.js
 
-Jika total di Vertinova tidak cocok dengan total di Simpaskor:
+```js
+const BASE_URL = "https://DOMAIN-SIMPASKOR/api/external";
+const API_KEY = process.env.SIMPASKOR_EXTERNAL_FINANCE_API_KEY;
 
-1. Bandingkan `summary.totalSimpaskorBalance` dari `/summary` dengan total di
-   Vertinova pada window waktu yang sama.
-2. Bila admin fee yang berbeda, ambil `?includeDetails=true` di `/admin-fees`
-   dan cari `midtransOrderId` yang hilang di sisi Vertinova.
-3. Bila bagi hasil yang berbeda, ambil `?includeDetails=true` di
-   `/platform-revenue` — fokus pada baris `status` `AVAILABLE` /
-   `PARTIALLY_WITHDRAWN` / `WITHDRAWN` (semua dihitung; hanya `CANCELLED` yang
-   diabaikan).
+async function getRevenueShareBalances(eventId) {
+  const url = new URL(`${BASE_URL}/revenue-share-balances`);
+  if (eventId) url.searchParams.set("eventId", eventId);
 
-### 6.3 Status code
+  const response = await fetch(url, {
+    headers: {
+      "X-API-Key": API_KEY
+    }
+  });
 
-| Kode | Arti |
-|---|---|
-| 200 | OK |
-| 400 | Format tanggal tidak valid (`from` / `to`) |
-| 401 | API key salah atau tidak dikirim |
-| 500 | Error server, periksa log `Error fetching ...` di backend |
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Simpaskor API error ${response.status}: ${error}`);
+  }
 
-### 6.4 Log akses
+  return response.json();
+}
 
-Akses ke `/api/external/*` muncul di log Express. Untuk audit, filter access
-log berdasarkan path tersebut. Hindari menulis API key ke log.
+getRevenueShareBalances()
+  .then((data) => {
+    console.log("Saldo aktif semua event:", data.summary.activeBalance);
+  })
+  .catch(console.error);
+```
 
-### 6.5 Penambahan endpoint baru
+## Catatan Data
 
-Untuk menambah endpoint baru:
+- Semua nominal memakai mata uang IDR.
+- Semua nominal dikirim sebagai angka, bukan string format rupiah.
+- Semua transaksi yang dihitung harus berstatus `PAID`.
+- Endpoint saldo bagi hasil bersifat lifetime dan tidak menerima filter tanggal.
+- Jika `includeDetails=false`, response lebih ringan dan cocok untuk dashboard.
+- Jika butuh audit transaksi, gunakan `includeDetails=true`.
 
-1. Tambahkan handler di [externalFinance.ts](../backend/src/routes/externalFinance.ts).
-2. Pastikan endpoint memakai middleware `requireExternalFinanceApiKey`.
-3. Update dokumen ini di section 1 (tabel) dan 3 (detail).
-4. Beri tahu tim Vertinova lewat changelog terpisah.
+## Status Error
 
----
+| Status | Arti |
+| --- | --- |
+| 200 | Berhasil. |
+| 400 | Query tanggal tidak valid. |
+| 401 | API key salah atau tidak dikirim. |
+| 404 | Event tidak ditemukan untuk `eventId` tertentu. |
+| 500 | Error server. Cek log backend Simpaskor. |
 
-## 7. Daftar Cek Sebelum Go-Live
+## Checklist Untuk Web Eksternal
 
-- [ ] `EXTERNAL_FINANCE_API_KEY` diset di env produksi (bukan default fallback).
-- [ ] Vertinova sudah menerima key produksi via saluran rahasia.
-- [ ] `VERTINOVA_FINANCE_WEBHOOK_URL` & `VERTINOVA_FINANCE_API_KEY` sesuai env target.
-- [ ] Tes `/api/external/summary` dengan key produksi → 200 + data wajar.
-- [ ] `reconcileAdminFeeLedger()` dijalankan minimal sekali sebelum cutover
-      (otomatis terjadi di request pertama, tapi bisa dipicu manual via script).
-- [ ] Backup database terbaru tersedia bila perlu rollback ledger.
+1. Simpan API key di environment backend web eksternal.
+2. Jangan simpan API key di frontend atau localStorage.
+3. Ambil saldo bagi hasil memakai `/revenue-share-balances`.
+4. Ambil total pendapatan Simpaskor memakai `/summary`.
+5. Gunakan `eventId` jika butuh data per event.
+6. Gunakan `includeDetails=true` hanya untuk audit atau halaman detail.
