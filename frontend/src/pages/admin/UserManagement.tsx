@@ -25,6 +25,7 @@ import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
 import LiveVisitorWidget from "../../components/admin/LiveVisitorWidget";
+import LiveTransactionWidget from "../../components/admin/LiveTransactionWidget";
 
 interface User {
 	id: string;
@@ -426,6 +427,8 @@ const UserManagement: React.FC = () => {
 			<div className="flex-1 min-w-0 space-y-5">
 			{/* ── Live Visitor Widget ── */}
 			<LiveVisitorWidget />
+			{/* ── Live Transaction Widget ── */}
+			<LiveTransactionWidget />
 			{/* ── Stats Header ── */}
 			{statsLoading ? (
 				<div className="h-32 rounded-2xl bg-gray-100 dark:bg-gray-800/50 animate-pulse" />
