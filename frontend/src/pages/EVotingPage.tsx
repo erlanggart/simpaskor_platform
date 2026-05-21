@@ -120,10 +120,10 @@ const padTime = (n: number) => String(Math.max(0, n)).padStart(2, "0");
 type GiftType = "lion" | "rocket" | "bear" | "soldier";
 interface GiftDef { type: GiftType; emoji: string; label: string; votes: number; tone: string; }
 const GIFTS: GiftDef[] = [
-	{ type: "lion", emoji: "🦁", label: "Singa", votes: 100, tone: "is-lion" },
-	{ type: "rocket", emoji: "🚀", label: "Roket", votes: 50, tone: "is-rocket" },
-	{ type: "bear", emoji: "🐻", label: "Beruang", votes: 20, tone: "is-bear" },
 	{ type: "soldier", emoji: "🪖", label: "Tentara", votes: 10, tone: "is-soldier" },
+	{ type: "bear", emoji: "🐻", label: "Beruang", votes: 20, tone: "is-bear" },
+	{ type: "rocket", emoji: "🚀", label: "Roket", votes: 50, tone: "is-rocket" },
+	{ type: "lion", emoji: "🦁", label: "Singa", votes: 100, tone: "is-lion" },
 ];
 
 /** Smooth integer ticker for KPI numbers — pure RAF, no dep. */
