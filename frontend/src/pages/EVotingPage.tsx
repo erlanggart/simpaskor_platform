@@ -68,6 +68,16 @@ const EVotingPage: React.FC = () => {
 	const [voteCount, setVoteCount] = useState(1);
 	const [purchasing, setPurchasing] = useState(false);
 
+	// Hide mobile bottom nav while the purchase modal is open so the floating
+	// nav doesn't cover the modal's sticky "Beli Vote" footer.
+	useEffect(() => {
+		if (showPurchaseModal) {
+			document.body.classList.add("purchase-modal-open");
+			return () => document.body.classList.remove("purchase-modal-open");
+		}
+		return undefined;
+	}, [showPurchaseModal]);
+
 	const [paidVoteTarget, setPaidVoteTarget] = useState<{ categoryId: string; nomineeId: string } | null>(null);
 	const maxVoteCount = calculateMaxVoteCount(selectedEvent?.votingConfig?.pricePerVote || 0);
 	const normalizeVoteCount = (value: string) => {
@@ -641,6 +651,8 @@ const EVotingPage: React.FC = () => {
 															src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
 															alt={nominee.nomineeName}
 															className="w-full h-full object-cover object-top"
+															loading="lazy"
+															decoding="async"
 														/>
 													) : (
 														<div className="w-full h-full flex items-center justify-center">
@@ -739,6 +751,8 @@ const EVotingPage: React.FC = () => {
 																	src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
 																	alt={nominee.nomineeName}
 																	className="w-full h-full object-cover object-top"
+																	loading="lazy"
+																	decoding="async"
 																/>
 															) : (
 																<div className="w-full h-full flex items-center justify-center">
@@ -803,118 +817,189 @@ const EVotingPage: React.FC = () => {
 					{/* Purchase votes modal */}
 					{showPurchaseModal && (
 						<div
-							className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-black/50 px-4 pt-[calc(1rem_+_env(safe-area-inset-top))] pb-[calc(6.5rem_+_env(safe-area-inset-bottom))] sm:py-6"
+							className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm"
 							onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
 						>
-							<div className="flex min-h-full items-start justify-center sm:items-center">
-								<div
-									className="flex w-full max-w-md max-h-[calc(100dvh_-_8.5rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-white/[0.06] dark:bg-gray-950/95 sm:max-h-[calc(100dvh_-_3rem)]"
-									onClick={(e) => e.stopPropagation()}
-								>
-									<div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5 sm:p-6">
-										<h3 className="text-lg font-semibold text-gray-900 dark:text-white">Beli Paket Vote</h3>
-										{selectedPaidNominee && (
-											<div className="rounded-xl border border-red-100/70 bg-red-50/70 px-4 py-3 dark:border-red-500/20 dark:bg-red-500/10">
-												<p className="text-xs font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-300">Nominee Pilihan</p>
-												<p className="mt-1 font-semibold text-gray-900 dark:text-white">{selectedPaidNominee.nomineeName}</p>
-												{selectedPaidNominee.nomineeSubtitle && (
-													<p className="text-xs text-gray-500 dark:text-gray-400">{selectedPaidNominee.nomineeSubtitle}</p>
-												)}
-											</div>
-										)}
+							<div
+								className="relative bg-white dark:bg-[#0f1424] rounded-t-3xl sm:rounded-2xl border border-gray-200/60 dark:border-white/[0.08] shadow-2xl w-full sm:max-w-md max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden"
+								onClick={(e) => e.stopPropagation()}
+							>
+								{/* Drag handle (mobile only) */}
+								<div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
+									<div className="w-10 h-1.5 bg-gray-300 dark:bg-white/15 rounded-full" />
+								</div>
 
-										<div>
-											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-												<LuUser className="w-4 h-4 inline mr-1" /> Nama *
-											</label>
-											<input
-												type="text"
-												value={buyerName}
-												onChange={(e) => setBuyerName(e.target.value)}
-												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-											/>
+								{/* Sticky Header */}
+								<div className="relative px-5 sm:px-6 pt-3 sm:pt-6 pb-4 border-b border-gray-100 dark:border-white/[0.06] shrink-0">
+									<button
+										type="button"
+										onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
+										className="absolute right-3 top-3 sm:right-4 sm:top-4 w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+										aria-label="Tutup"
+									>
+										<LuX className="w-5 h-5" />
+									</button>
+									<div className="flex items-start gap-3 pr-10">
+										<div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm shadow-red-500/30 shrink-0">
+											<LuThumbsUp className="w-5 h-5 text-white" />
 										</div>
-										<div>
-											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-												<LuMail className="w-4 h-4 inline mr-1" /> Email *
-											</label>
-											<input
-												type="email"
-												value={buyerEmail}
-												onChange={(e) => setBuyerEmail(e.target.value)}
-												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-											/>
-										</div>
-										<div>
-											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-												<LuPhone className="w-4 h-4 inline mr-1" /> Telepon
-											</label>
-											<input
-												type="tel"
-												value={buyerPhone}
-												onChange={(e) => setBuyerPhone(e.target.value)}
-												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-											/>
-										</div>
-										<div>
-											<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah Vote</label>
-											<input
-												type="number"
-												min={1}
-												step={1}
-												max={Number.isFinite(maxVoteCount) ? maxVoteCount : undefined}
-												value={voteCount}
-												onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
-												className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-gray-900 dark:text-white"
-											/>
-											{Number.isFinite(maxVoteCount) && (
-												<p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-													Maksimal {maxVoteCount.toLocaleString("id-ID")} vote per pembelian (batas pembayaran QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
-												</p>
-											)}
-										</div>
-										<div className="bg-red-50/50 dark:bg-white/[0.03] rounded-lg p-3 text-sm border border-red-100/50 dark:border-white/[0.06]">
-											<div className="flex justify-between">
-												<span className="text-gray-600 dark:text-gray-400">Harga/vote</span>
-												<span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedEvent.votingConfig?.pricePerVote || 0)}</span>
-											</div>
-											<div className="flex justify-between mt-1">
-												<span className="text-gray-600 dark:text-gray-400">Subtotal vote</span>
-												<span className="font-medium text-gray-900 dark:text-white">
-													{formatCurrency(votingOrderSummary.subtotal)}
-												</span>
-											</div>
-											<div className="flex justify-between mt-1">
-												<span className="text-gray-600 dark:text-gray-400">Biaya admin</span>
-												<span className="font-medium text-gray-900 dark:text-white">
-													{formatCurrency(votingOrderSummary.adminFee)}
-												</span>
-											</div>
-											<div className="flex justify-between font-semibold mt-1">
-												<span className="text-gray-900 dark:text-white">Total sebelum QRIS</span>
-												<span className="text-red-600 dark:text-red-400">
-													{formatCurrency(votingOrderSummary.totalBeforeQris)}
-												</span>
-											</div>
-											<p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-												Biaya layanan QRIS dari payment gateway dapat ditambahkan di halaman pembayaran.
+										<div className="min-w-0">
+											<h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-tight">
+												Beli Paket Vote
+											</h2>
+											<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+												{selectedEvent.title}
 											</p>
 										</div>
 									</div>
-									<div className="shrink-0 border-t border-gray-200/70 bg-white/95 p-4 dark:border-white/[0.08] dark:bg-gray-950/95">
-										<div className="flex gap-3">
+								</div>
+
+								{/* Scrollable Body */}
+								<div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 py-5 space-y-4">
+									{selectedPaidNominee && (
+										<div className="rounded-2xl border border-red-100/70 bg-gradient-to-br from-red-50/80 via-orange-50/40 to-amber-50/30 px-4 py-3 dark:border-red-500/20 dark:from-red-500/10 dark:via-orange-500/5 dark:to-amber-500/5">
+											<p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-300">Nominee Pilihan</p>
+											<p className="mt-1 font-semibold text-gray-900 dark:text-white">{selectedPaidNominee.nomineeName}</p>
+											{selectedPaidNominee.nomineeSubtitle && (
+												<p className="text-xs text-gray-500 dark:text-gray-400">{selectedPaidNominee.nomineeSubtitle}</p>
+											)}
+										</div>
+									)}
+
+									<div>
+										<h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+											<span className="w-1 h-4 bg-red-500 rounded-full" />
+											Data Pembeli
+										</h3>
+										<div className="space-y-3">
+											<div>
+												<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+													<LuUser className="w-3.5 h-3.5 inline mr-1" /> Nama *
+												</label>
+												<input
+													type="text"
+													value={buyerName}
+													onChange={(e) => setBuyerName(e.target.value)}
+													className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+													placeholder="Nama lengkap"
+												/>
+											</div>
+											<div>
+												<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+													<LuMail className="w-3.5 h-3.5 inline mr-1" /> Email *
+												</label>
+												<input
+													type="email"
+													value={buyerEmail}
+													onChange={(e) => setBuyerEmail(e.target.value)}
+													className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+													placeholder="email@example.com"
+												/>
+											</div>
+											<div>
+												<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+													<LuPhone className="w-3.5 h-3.5 inline mr-1" /> Telepon <span className="text-gray-400">(Opsional)</span>
+												</label>
+												<input
+													type="tel"
+													value={buyerPhone}
+													onChange={(e) => setBuyerPhone(e.target.value)}
+													className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+													placeholder="+6281234567890"
+												/>
+											</div>
+										</div>
+									</div>
+
+									<div>
+										<h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+											<span className="w-1 h-4 bg-red-500 rounded-full" />
+											Jumlah Vote
+										</h3>
+										<input
+											type="number"
+											min={1}
+											step={1}
+											max={Number.isFinite(maxVoteCount) ? maxVoteCount : undefined}
+											value={voteCount}
+											onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
+											className="w-full px-3 py-2.5 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-base font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+										/>
+										{Number.isFinite(maxVoteCount) && (
+											<p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+												Maksimal {maxVoteCount.toLocaleString("id-ID")} vote per pembelian (batas QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
+											</p>
+										)}
+									</div>
+
+									<div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-gray-50/60 dark:bg-white/[0.02] p-4 text-sm space-y-1.5">
+										<div className="flex justify-between">
+											<span className="text-gray-600 dark:text-gray-400">Harga/vote</span>
+											<span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedEvent.votingConfig?.pricePerVote || 0)}</span>
+										</div>
+										<div className="flex justify-between">
+											<span className="text-gray-600 dark:text-gray-400">Subtotal vote</span>
+											<span className="font-medium text-gray-900 dark:text-white">
+												{formatCurrency(votingOrderSummary.subtotal)}
+											</span>
+										</div>
+										<div className="flex justify-between">
+											<span className="text-gray-600 dark:text-gray-400">Biaya admin</span>
+											<span className="font-medium text-gray-900 dark:text-white">
+												{formatCurrency(votingOrderSummary.adminFee)}
+											</span>
+										</div>
+										<div className="flex justify-between pt-2 mt-1 border-t border-gray-200/70 dark:border-white/[0.06]">
+											<span className="font-semibold text-gray-900 dark:text-white">Total sebelum QRIS</span>
+											<span className="font-bold text-red-600 dark:text-red-400">
+												{formatCurrency(votingOrderSummary.totalBeforeQris)}
+											</span>
+										</div>
+										<p className="pt-1 text-[11px] text-gray-500 dark:text-gray-400">
+											Biaya layanan QRIS dari payment gateway dapat ditambahkan di halaman pembayaran.
+										</p>
+									</div>
+								</div>
+
+								{/* Sticky Footer */}
+								<div className="shrink-0 border-t border-gray-100 dark:border-white/[0.06] bg-white/95 dark:bg-[#0f1424]/95 backdrop-blur-sm px-5 sm:px-6 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+									<div className="flex items-center justify-between gap-3">
+										<div className="min-w-0">
+											<p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
+												Total · {voteCount} vote
+											</p>
+											<p className="text-xl sm:text-2xl font-bold text-red-600 leading-tight truncate">
+												{formatCurrency(votingOrderSummary.totalBeforeQris)}
+											</p>
+										</div>
+										<div className="flex items-center gap-2 shrink-0">
 											<button
+												type="button"
 												onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
-												className="flex-1 px-4 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-lg"
+												className="px-3.5 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
 											>
 												Batal
 											</button>
 											<button
+												type="button"
 												onClick={handlePurchaseVotes}
 												disabled={purchasing}
-												className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
+												className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-[0.98] text-white text-sm rounded-xl font-semibold shadow-lg shadow-red-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all inline-flex items-center gap-1.5"
 											>
-												{purchasing ? "Memproses..." : "Beli Vote"}
+												{purchasing ? (
+													<>
+														<svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+															<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+															<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
+														</svg>
+														Memproses...
+													</>
+												) : (
+													<>
+														<LuThumbsUp className="w-4 h-4" />
+														Beli Vote
+													</>
+												)}
 											</button>
 										</div>
 									</div>

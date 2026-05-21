@@ -6,7 +6,7 @@ import { usePayment } from "../hooks/usePayment";
 import { TicketedEvent, TicketTeam } from "../types/ticket";
 import { LuCalendar, LuMapPin, LuTicket, LuSearch, LuX, LuChevronLeft, LuChevronRight, LuUser, LuMail, LuPhone, LuDownload, LuSend, LuPlus, LuTrash2 } from "react-icons/lu";
 import Swal from "sweetalert2";
-import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { LazyQRCodeSVG, LazyQRCodeCanvas } from "../components/LazyQRCode";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
 import TicketGuideCard from "../components/landing/TicketGuideCard";
 
@@ -59,6 +59,17 @@ const ETicketingPage: React.FC = () => {
 			setAutoEmailSent(true);
 		}
 	}, [ticketResult, buyerEmail]);
+
+	// Hide mobile bottom nav while a ticket modal is open so the floating
+	// nav doesn't cover the modal's sticky "Beli Tiket" footer.
+	useEffect(() => {
+		const open = showPurchaseModal || !!ticketResult;
+		if (open) {
+			document.body.classList.add("purchase-modal-open");
+			return () => document.body.classList.remove("purchase-modal-open");
+		}
+		return undefined;
+	}, [showPurchaseModal, ticketResult]);
 
 	const fetchEvents = useCallback(async () => {
 		try {
@@ -606,48 +617,75 @@ const ETicketingPage: React.FC = () => {
 
 			{/* Purchase Modal */}
 			{showPurchaseModal && selectedEvent && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+				<div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
 					<div
-						className="absolute inset-0 bg-black/50"
+						className="absolute inset-0 bg-black/60 backdrop-blur-sm"
 						onClick={() => setShowPurchaseModal(false)}
 					/>
-					<div className="relative bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-						<div className="p-6">
-							<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-								Beli Tiket
-							</h2>
-							<p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-								{selectedEvent.title}
-							</p>
+					<div className="relative bg-white dark:bg-[#0f1424] rounded-t-3xl sm:rounded-2xl border border-gray-200/60 dark:border-white/[0.08] shadow-2xl w-full sm:max-w-lg max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+						{/* Drag handle (mobile only) */}
+						<div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
+							<div className="w-10 h-1.5 bg-gray-300 dark:bg-white/15 rounded-full" />
+						</div>
 
+						{/* Sticky Header */}
+						<div className="relative px-5 sm:px-6 pt-3 sm:pt-6 pb-4 border-b border-gray-100 dark:border-white/[0.06] shrink-0">
+							<button
+								type="button"
+								onClick={() => setShowPurchaseModal(false)}
+								className="absolute right-3 top-3 sm:right-4 sm:top-4 w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+								aria-label="Tutup"
+							>
+								<LuX className="w-5 h-5" />
+							</button>
+							<div className="flex items-start gap-3 pr-10">
+								<div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm shadow-red-500/30 shrink-0">
+									<LuTicket className="w-5 h-5 text-white" />
+								</div>
+								<div className="min-w-0">
+									<h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-tight">
+										Beli Tiket
+									</h2>
+									<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+										{selectedEvent.title}
+									</p>
+								</div>
+							</div>
+						</div>
+
+						{/* Scrollable Body */}
+						<div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 py-5">
 							{/* Event Info */}
-							<div className="bg-white/50 dark:bg-white/[0.03] rounded-xl p-4 mb-6 border border-gray-200/50 dark:border-white/[0.06]">
-								<div className="space-y-2 text-sm">
-									<div className="flex justify-between">
-										<span className="text-gray-500 dark:text-gray-400">Tanggal</span>
-										<span className="text-gray-900 dark:text-white font-medium">
+							<div className="bg-gradient-to-br from-red-50/80 via-orange-50/40 to-amber-50/30 dark:from-red-500/10 dark:via-orange-500/5 dark:to-amber-500/5 rounded-2xl p-4 mb-5 border border-red-100/70 dark:border-red-500/20">
+								<div className="space-y-2.5 text-sm">
+									<div className="flex justify-between gap-3">
+										<span className="text-gray-600 dark:text-gray-400 inline-flex items-center gap-1.5">
+											<LuCalendar className="w-3.5 h-3.5" />
+											Tanggal
+										</span>
+										<span className="text-gray-900 dark:text-white font-semibold text-right">
 											{formatDate(selectedEvent.startDate)}
 										</span>
 									</div>
-									<div className="flex justify-between">
-										<span className="text-gray-500 dark:text-gray-400">Harga</span>
-										<span className="text-gray-900 dark:text-white font-medium">
+									<div className="flex justify-between gap-3">
+										<span className="text-gray-600 dark:text-gray-400">Harga</span>
+										<span className="text-gray-900 dark:text-white font-semibold">
 											{selectedEvent.ticketConfig?.price === 0
 												? "GRATIS"
 												: formatCurrency(selectedEvent.ticketConfig?.price || 0)}
 										</span>
 									</div>
-									<div className="flex justify-between">
-										<span className="text-gray-500 dark:text-gray-400">Tersedia</span>
-										<span className="text-gray-900 dark:text-white font-medium">
+									<div className="flex justify-between gap-3">
+										<span className="text-gray-600 dark:text-gray-400">Tersedia</span>
+										<span className="text-gray-900 dark:text-white font-semibold">
 											{(selectedEvent.ticketConfig?.quota || 0) -
 												(selectedEvent.ticketConfig?.soldCount || 0)} tiket
 										</span>
 									</div>
 									{selectedEvent.ticketConfig?.description && (
-										<div className="pt-2 border-t border-gray-200/50 dark:border-white/[0.06]">
-											<span className="block text-gray-500 dark:text-gray-400 mb-1">Deskripsi Tiket</span>
-											<p className="text-gray-900 dark:text-white font-medium leading-relaxed whitespace-pre-line">
+										<div className="pt-2.5 mt-1 border-t border-red-100/70 dark:border-red-500/20">
+											<span className="block text-gray-600 dark:text-gray-400 mb-1 text-xs uppercase tracking-wide font-medium">Deskripsi Tiket</span>
+											<p className="text-gray-800 dark:text-white font-medium leading-relaxed whitespace-pre-line">
 												{selectedEvent.ticketConfig.description}
 											</p>
 										</div>
@@ -657,7 +695,10 @@ const ETicketingPage: React.FC = () => {
 
 							{/* Buyer Info */}
 							<div className="space-y-4">
-								<h3 className="text-sm font-semibold text-gray-900 dark:text-white">Data Pembeli</h3>
+								<h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+									<span className="w-1 h-4 bg-red-500 rounded-full" />
+									Data Pembeli
+								</h3>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 									<div>
 										<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -701,9 +742,10 @@ const ETicketingPage: React.FC = () => {
 								</div>
 
 								{/* Attendee List */}
-								<div className="border-t border-gray-200/50 dark:border-white/[0.06] pt-4">
+								<div className="border-t border-gray-200/60 dark:border-white/[0.06] pt-4">
 									<div className="flex items-center justify-between mb-3">
-										<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+										<h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+											<span className="w-1 h-4 bg-red-500 rounded-full" />
 											Data Peserta ({attendees.length}/{MAX_TICKETS})
 										</h3>
 										{attendees.length < MAX_TICKETS && attendees.length < ((selectedEvent.ticketConfig?.quota || 0) - (selectedEvent.ticketConfig?.soldCount || 0)) && (
@@ -923,34 +965,52 @@ const ETicketingPage: React.FC = () => {
 									</div>
 								</div>
 
-								{/* Total */}
-								<div className="border-t border-gray-200/50 dark:border-white/[0.06] pt-4">
-									<div className="flex justify-between text-lg font-bold">
-										<span className="text-gray-900 dark:text-white">Total ({attendees.length} tiket)</span>
-										<span className="text-red-600">
-											{selectedEvent.ticketConfig?.price === 0
-												? "GRATIS"
-												: formatCurrency(
-														(selectedEvent.ticketConfig?.price || 0) * attendees.length
-												  )}
-										</span>
-									</div>
-								</div>
+							</div>
+						</div>
 
-								{/* Buttons */}
-								<div className="flex gap-3 pt-2">
+						{/* Sticky Footer */}
+						<div className="shrink-0 border-t border-gray-100 dark:border-white/[0.06] bg-white/95 dark:bg-[#0f1424]/95 backdrop-blur-sm px-5 sm:px-6 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+							<div className="flex items-center justify-between gap-3">
+								<div className="min-w-0">
+									<p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
+										Total · {attendees.length} tiket
+									</p>
+									<p className="text-xl sm:text-2xl font-bold text-red-600 leading-tight truncate">
+										{selectedEvent.ticketConfig?.price === 0
+											? "GRATIS"
+											: formatCurrency(
+													(selectedEvent.ticketConfig?.price || 0) * attendees.length
+											  )}
+									</p>
+								</div>
+								<div className="flex items-center gap-2 shrink-0">
 									<button
+										type="button"
 										onClick={() => setShowPurchaseModal(false)}
-										className="flex-1 py-2.5 border border-gray-200/50 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 rounded-xl hover:bg-white/50 dark:hover:bg-white/[0.06] font-medium transition-colors"
+										className="px-3.5 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
 									>
 										Batal
 									</button>
 									<button
+										type="button"
 										onClick={handlePurchase}
 										disabled={purchasing || teamsLoading || (isTicketTeamSelectionEnabled(selectedEvent) && selectedEventTeams.length === 0)}
-										className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+										className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-[0.98] text-white text-sm rounded-xl font-semibold shadow-lg shadow-red-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all inline-flex items-center gap-1.5"
 									>
-										{purchasing ? "Memproses..." : "Beli Tiket"}
+										{purchasing ? (
+											<>
+												<svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+													<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+													<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
+												</svg>
+												Memproses...
+											</>
+										) : (
+											<>
+												<LuTicket className="w-4 h-4" />
+												Beli Tiket
+											</>
+										)}
 									</button>
 								</div>
 							</div>
@@ -961,9 +1021,9 @@ const ETicketingPage: React.FC = () => {
 
 			{/* Ticket Success Modal with QR Code */}
 			{ticketResult && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-					<div className="absolute inset-0 bg-black/50" />
-					<div className="relative bg-white/90 dark:bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-white/[0.06] shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
+				<div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+					<div className="relative bg-white dark:bg-[#0f1424] rounded-2xl border border-gray-200/60 dark:border-white/[0.08] shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] overflow-y-auto">
 						<div className="p-6 text-center" id="ticket-content">
 							{/* Success Icon */}
 							<div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
@@ -1018,7 +1078,7 @@ const ETicketingPage: React.FC = () => {
 													</p>
 												)}
 												<div className="bg-white p-4 rounded-xl inline-block shadow-inner mb-3">
-													<QRCodeSVG
+													<LazyQRCodeSVG
 														value={att.ticketCode}
 														size={180}
 														level="H"
@@ -1047,7 +1107,7 @@ const ETicketingPage: React.FC = () => {
 
 									{/* Hidden QRCodeCanvas for the active attendee (for download) */}
 									<div style={{ position: "absolute", left: "-9999px" }}>
-										<QRCodeCanvas
+										<LazyQRCodeCanvas
 											id="ticket-qr-canvas"
 											value={ticketResult.attendees[activeAttendeeIdx]?.ticketCode || ticketResult.ticketCode}
 											size={300}
@@ -1060,7 +1120,7 @@ const ETicketingPage: React.FC = () => {
 								<>
 									{/* Fallback: purchase-level QR (legacy / no attendee data) */}
 									<div className="bg-white p-4 rounded-xl inline-block mb-4 shadow-inner">
-										<QRCodeSVG
+										<LazyQRCodeSVG
 											value={ticketResult.ticketCode}
 											size={180}
 											level="H"
@@ -1068,7 +1128,7 @@ const ETicketingPage: React.FC = () => {
 										/>
 									</div>
 									<div style={{ position: "absolute", left: "-9999px" }}>
-										<QRCodeCanvas
+										<LazyQRCodeCanvas
 											id="ticket-qr-canvas"
 											value={ticketResult.ticketCode}
 											size={300}

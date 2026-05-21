@@ -836,6 +836,8 @@ const EventDetail: React.FC = () => {
 														src={getImageUrl(assignment.jury.profile.avatar) || ""}
 														alt={assignment.jury.name}
 														className="w-20 h-20 rounded-lg object-cover border-2 border-red-200 dark:border-white/[0.1]"
+														loading="lazy"
+														decoding="async"
 													/>
 												) : (
 													<div className="w-20 h-20 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-2xl font-bold">
@@ -1202,6 +1204,8 @@ const EventDetail: React.FC = () => {
 												src={getImageUrl(comment.user.profile.avatar) || ""}
 												alt={comment.user.name}
 												className="w-10 h-10 rounded-full object-cover"
+												loading="lazy"
+												decoding="async"
 											/>
 										) : (
 											<div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white font-bold text-sm">

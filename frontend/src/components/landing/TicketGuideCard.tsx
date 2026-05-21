@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import type { IconType } from "react-icons";
 import {
 	LuArrowRight,
+	LuCheck,
 	LuCircleCheck,
 	LuCreditCard,
 	LuMailCheck,
@@ -98,13 +98,14 @@ const TicketGuideCard: React.FC = () => {
 					})}
 				</div>
 
-				<Link
-					to="/e-ticketing"
+				<button
+					type="button"
+					onClick={() => setIsGuideOpen(false)}
 					className="landing-modern-btn landing-modern-btn-yellow group mt-5 w-full"
 				>
-					<span>Beli Tiket Sekarang</span>
-					<LuArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-				</Link>
+					<LuCheck className="h-4 w-4" />
+					<span>Mengerti</span>
+				</button>
 			</div>
 		</>
 	);
