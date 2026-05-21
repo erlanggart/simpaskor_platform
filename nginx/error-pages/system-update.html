@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 	<meta name="robots" content="noindex, nofollow">
 	<title>Simpaskor — Lagi Main Tenis Sebentar</title>
 	<style>
@@ -30,6 +30,9 @@
 			display: grid;
 			place-items: center;
 			overflow: hidden;
+			min-height: 100vh;
+			min-height: 100dvh;
+			padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 			background:
 				radial-gradient(circle at 18% 22%, rgba(216, 255, 58, 0.14), transparent 32%),
 				radial-gradient(circle at 82% 14%, rgba(59, 215, 255, 0.16), transparent 30%),
@@ -270,6 +273,13 @@
 			border: 1px solid rgba(255, 255, 255, 0.08);
 			cursor: none;
 			touch-action: none;
+			-webkit-user-select: none;
+			user-select: none;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		@media (hover: none) {
+			.canvas-wrap { cursor: default; }
 		}
 
 		.canvas-wrap canvas {
@@ -418,15 +428,47 @@
 
 		.ready .progress span { width: 100%; animation: none; transform: none; }
 
-		@media (max-width: 640px) {
-			body { overflow: auto; }
-			.wrap { padding: 14px; }
-			.card { border-radius: 22px; }
-			.top { flex-direction: column; align-items: flex-start; }
-			.footer { display: block; }
-			.timer { margin-top: 12px; }
-			.scoreboard { gap: 8px; }
-			.side { padding: 6px 10px; }
+		@media (max-width: 720px) {
+			body { overflow: auto; place-items: start center; padding-top: 16px; padding-bottom: 16px; }
+			.wrap { padding: 10px; width: 100%; }
+			.card { border-radius: 20px; padding: 18px; }
+			.top { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+			.brand { font-size: 11px; letter-spacing: 0.26em; }
+			.mark { width: 34px; height: 34px; border-radius: 12px; font-size: 16px; }
+			.status { padding: 7px 12px; font-size: 11.5px; }
+			h1 { font-size: clamp(26px, 8vw, 38px); }
+			.pun { font-size: 11.5px; margin-top: 10px; }
+			.copy { font-size: 13.5px; line-height: 1.6; margin-top: 12px; }
+			.game { padding: 10px; border-radius: 16px; margin-top: 18px; }
+			.scoreboard { gap: 6px; margin-bottom: 8px; grid-template-columns: 1fr auto 1fr; }
+			.side { padding: 6px 10px; border-radius: 11px; }
+			.lbl { font-size: 9.5px; letter-spacing: 0.18em; }
+			.val { font-size: 22px; }
+			.vs { font-size: 10px; letter-spacing: 0.16em; }
+			.canvas-wrap { aspect-ratio: 4 / 3; border-radius: 12px; }
+			.hint { font-size: 11.5px; gap: 8px; margin-top: 10px; flex-direction: column; align-items: stretch; }
+			.hint > span { line-height: 1.5; }
+			.ghost { align-self: flex-end; padding: 8px 14px; }
+			.progress { height: 8px; margin: 20px 0 12px; }
+			.footer { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+			.timer { align-self: flex-start; margin-top: 0; min-width: 0; padding: 8px 14px; font-size: 12.5px; }
+			.actions { flex-direction: column; align-items: stretch; gap: 12px; margin-top: 18px; }
+			button.primary { width: 100%; padding: 14px 22px; font-size: 14.5px; }
+			.small { text-align: center; }
+		}
+
+		@media (max-width: 380px) {
+			.wrap { padding: 6px; }
+			.card { padding: 14px; border-radius: 18px; }
+			h1 { font-size: clamp(22px, 8.5vw, 32px); }
+			.val { font-size: 20px; }
+			.canvas-wrap { aspect-ratio: 5 / 4; }
+		}
+
+		@media (max-height: 640px) and (orientation: landscape) {
+			.canvas-wrap { aspect-ratio: 800 / 360; }
+			h1 { font-size: clamp(24px, 5vw, 36px); }
+			.copy { display: none; }
 		}
 
 		@media (prefers-reduced-motion: reduce) {
@@ -557,13 +599,15 @@
 		var canvas = document.getElementById("pong");
 		var wrap = document.getElementById("canvasWrap");
 		var ctx = canvas.getContext("2d");
-		var W = canvas.width;   // 800
-		var H = canvas.height;  // 420
 
+		var BASE_H = 420;
+		var W = 800;
+		var H = 420;
 		var paddleW = 11;
 		var paddleH = 78;
 		var pad = 18;
 		var winningScore = 5;
+		var scale = 1;
 
 		var game = {
 			ball: { x: W / 2, y: H / 2, vx: 0, vy: 0, r: 9 },
@@ -574,6 +618,46 @@
 			winner: null,
 			keys: {}
 		};
+
+		function resizeCanvas() {
+			var rect = wrap.getBoundingClientRect();
+			var cssW = Math.max(160, rect.width);
+			var cssH = Math.max(120, rect.height);
+			var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+			canvas.width = Math.round(cssW * dpr);
+			canvas.height = Math.round(cssH * dpr);
+			canvas.style.width = cssW + "px";
+			canvas.style.height = cssH + "px";
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+			var prevW = W;
+			var prevH = H;
+			W = cssW;
+			H = cssH;
+			scale = H / BASE_H;
+
+			paddleH = 78 * scale;
+			paddleW = Math.max(7, 11 * scale);
+			pad = Math.max(10, 18 * scale);
+			game.ball.r = Math.max(5, 9 * scale);
+
+			if (prevW > 0 && prevH > 0 && (prevW !== W || prevH !== H)) {
+				game.player.y = clamp((game.player.y / prevH) * H, 0, H - paddleH);
+				game.player.targetY = clamp((game.player.targetY / prevH) * H, 0, H - paddleH);
+				game.ai.y = clamp((game.ai.y / prevH) * H, 0, H - paddleH);
+				game.ball.x = (game.ball.x / prevW) * W;
+				game.ball.y = clamp((game.ball.y / prevH) * H, game.ball.r, H - game.ball.r);
+				game.ball.vx *= W / prevW;
+				game.ball.vy *= H / prevH;
+			} else {
+				game.player.y = H / 2 - paddleH / 2;
+				game.player.targetY = game.player.y;
+				game.ai.y = H / 2 - paddleH / 2;
+				game.ball.x = W / 2;
+				game.ball.y = H / 2;
+			}
+		}
 
 		var scorePlayerEl = document.getElementById("scorePlayer");
 		var scoreAiEl = document.getElementById("scoreAi");
@@ -586,11 +670,11 @@
 		function resetBall(direction) {
 			game.ball.x = W / 2;
 			game.ball.y = H / 2;
-			var speed = 6;
+			var speed = 6 * scale;
 			var angle = (Math.random() * 0.5 - 0.25) * Math.PI;
 			game.ball.vx = Math.cos(angle) * speed * (direction || (Math.random() < 0.5 ? 1 : -1));
 			game.ball.vy = Math.sin(angle) * speed;
-			game.ai.offset = (Math.random() - 0.5) * 26;
+			game.ai.offset = (Math.random() - 0.5) * 26 * scale;
 		}
 
 		function startGame() {
@@ -638,8 +722,9 @@
 
 			// Player paddle: smooth follow toward target
 			var py = game.player.targetY;
-			if (game.keys.up) py -= 8;
-			if (game.keys.down) py += 8;
+			var keySpeed = 8 * scale;
+			if (game.keys.up) py -= keySpeed;
+			if (game.keys.down) py += keySpeed;
 			game.player.targetY = clamp(py, 0, H - paddleH);
 			// Smooth movement (lerp)
 			game.player.y += (game.player.targetY - game.player.y) * 0.4;
@@ -653,7 +738,7 @@
 				desired = H / 2 - paddleH / 2;
 			}
 			var diff = desired - game.ai.y;
-			var aiSpeed = 5.2;
+			var aiSpeed = 5.2 * scale;
 			game.ai.y += Math.sign(diff) * Math.min(Math.abs(diff), aiSpeed);
 			game.ai.y = clamp(game.ai.y, 0, H - paddleH);
 
@@ -674,7 +759,7 @@
 			// Player paddle (left) collision
 			if (game.ball.vx < 0 &&
 				game.ball.x - game.ball.r <= pad + paddleW &&
-				game.ball.x - game.ball.r >= pad - 6) {
+				game.ball.x - game.ball.r >= pad - 6 * scale) {
 				if (game.ball.y >= game.player.y && game.ball.y <= game.player.y + paddleH) {
 					game.ball.x = pad + paddleW + game.ball.r;
 					var hit = (game.ball.y - (game.player.y + paddleH / 2)) / (paddleH / 2);
@@ -689,7 +774,7 @@
 			// AI paddle (right) collision
 			if (game.ball.vx > 0 &&
 				game.ball.x + game.ball.r >= W - pad - paddleW &&
-				game.ball.x + game.ball.r <= W - pad + 6) {
+				game.ball.x + game.ball.r <= W - pad + 6 * scale) {
 				if (game.ball.y >= game.ai.y && game.ball.y <= game.ai.y + paddleH) {
 					game.ball.x = W - pad - paddleW - game.ball.r;
 					var hit2 = (game.ball.y - (game.ai.y + paddleH / 2)) / (paddleH / 2);
@@ -698,17 +783,17 @@
 					game.ball.vx = -Math.cos(ang2) * spd2;
 					game.ball.vy = Math.sin(ang2) * spd2;
 					capSpeed();
-					game.ai.offset = (Math.random() - 0.5) * 28;
+					game.ai.offset = (Math.random() - 0.5) * 28 * scale;
 				}
 			}
 
 			// Score
-			if (game.ball.x < -30) {
+			if (game.ball.x < -30 * scale) {
 				game.score.ai++;
 				setScoreDisplay();
 				if (game.score.ai >= winningScore) gameOver("ai");
 				else resetBall(1);
-			} else if (game.ball.x > W + 30) {
+			} else if (game.ball.x > W + 30 * scale) {
 				game.score.player++;
 				setScoreDisplay();
 				if (game.score.player >= winningScore) gameOver("player");
@@ -717,7 +802,7 @@
 		}
 
 		function capSpeed() {
-			var max = 13;
+			var max = 13 * scale;
 			var s = Math.hypot(game.ball.vx, game.ball.vy);
 			if (s > max) {
 				game.ball.vx *= max / s;
@@ -745,45 +830,49 @@
 			ctx.fillRect(0, 0, W, H);
 
 			// Service boxes (decorative tennis-court look)
+			var inset = 8 * scale;
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
-			ctx.lineWidth = 1.5;
-			ctx.strokeRect(8, 8, W - 16, H - 16);
+			ctx.lineWidth = Math.max(1, 1.5 * scale);
+			ctx.strokeRect(inset, inset, W - inset * 2, H - inset * 2);
 			ctx.beginPath();
-			ctx.moveTo(W * 0.22, 8); ctx.lineTo(W * 0.22, H - 8);
-			ctx.moveTo(W * 0.78, 8); ctx.lineTo(W * 0.78, H - 8);
+			ctx.moveTo(W * 0.22, inset); ctx.lineTo(W * 0.22, H - inset);
+			ctx.moveTo(W * 0.78, inset); ctx.lineTo(W * 0.78, H - inset);
 			ctx.moveTo(W * 0.22, H / 2); ctx.lineTo(W * 0.78, H / 2);
 			ctx.stroke();
 
 			// Center net (dashed)
-			ctx.setLineDash([6, 10]);
+			ctx.setLineDash([6 * scale, 10 * scale]);
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-			ctx.lineWidth = 2;
+			ctx.lineWidth = Math.max(1.2, 2 * scale);
 			ctx.beginPath();
-			ctx.moveTo(W / 2, 6);
-			ctx.lineTo(W / 2, H - 6);
+			ctx.moveTo(W / 2, 6 * scale);
+			ctx.lineTo(W / 2, H - 6 * scale);
 			ctx.stroke();
 			ctx.setLineDash([]);
 
 			// Big watermark score
+			var watermarkSize = Math.min(W, H) * 0.42;
 			ctx.fillStyle = "rgba(255, 255, 255, 0.045)";
-			ctx.font = "950 160px Inter, system-ui, sans-serif";
+			ctx.font = "950 " + watermarkSize + "px Inter, system-ui, sans-serif";
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";
 			ctx.fillText(game.score.player, W * 0.28, H / 2);
 			ctx.fillText(game.score.ai, W * 0.72, H / 2);
 
+			var paddleRadius = Math.max(3, 5 * scale);
+
 			// Player paddle (white)
 			ctx.fillStyle = "#ffffff";
-			roundRect(pad, game.player.y, paddleW, paddleH, 5);
+			roundRect(pad, game.player.y, paddleW, paddleH, paddleRadius);
 
 			// AI paddle (tennis yellow)
 			ctx.fillStyle = "#d8ff3a";
-			roundRect(W - pad - paddleW, game.ai.y, paddleW, paddleH, 5);
+			roundRect(W - pad - paddleW, game.ai.y, paddleW, paddleH, paddleRadius);
 
 			// Ball with glow
 			ctx.save();
 			ctx.shadowColor = "rgba(216, 255, 58, 0.7)";
-			ctx.shadowBlur = 18;
+			ctx.shadowBlur = 18 * scale;
 			ctx.fillStyle = "#d8ff3a";
 			ctx.beginPath();
 			ctx.arc(game.ball.x, game.ball.y, game.ball.r, 0, Math.PI * 2);
@@ -796,12 +885,14 @@
 				ctx.fillRect(0, 0, W, H);
 				ctx.textAlign = "center";
 				ctx.textBaseline = "middle";
+				var bigSize = Math.min(W * 0.08, 44);
+				var smallSize = Math.min(W * 0.032, 16);
 				ctx.fillStyle = game.winner === "player" ? "#d8ff3a" : "#ffffff";
-				ctx.font = "950 44px Inter, system-ui, sans-serif";
-				ctx.fillText(game.winner === "player" ? "GAME, SET, MATCH!" : "SERVER MENANG", W / 2, H / 2 - 22);
+				ctx.font = "950 " + bigSize + "px Inter, system-ui, sans-serif";
+				ctx.fillText(game.winner === "player" ? "GAME, SET, MATCH!" : "SERVER MENANG", W / 2, H / 2 - bigSize * 0.5);
 				ctx.fillStyle = "#cbd5e1";
-				ctx.font = "700 16px Inter, system-ui, sans-serif";
-				ctx.fillText(game.winner === "player" ? "Kamu menang lawan server. Tekan Reset untuk rematch." : "Coba lagi — tekan Reset.", W / 2, H / 2 + 22);
+				ctx.font = "700 " + smallSize + "px Inter, system-ui, sans-serif";
+				ctx.fillText(game.winner === "player" ? "Kamu menang lawan server. Tap Reset untuk rematch." : "Coba lagi — tap Reset.", W / 2, H / 2 + smallSize * 1.4);
 			}
 		}
 
@@ -827,6 +918,15 @@
 			game.player.targetY = clamp(y - paddleH / 2, 0, H - paddleH);
 		});
 
+		canvas.addEventListener("touchstart", function (e) {
+			if (!e.touches[0]) return;
+			e.preventDefault();
+			var y = pointerToCanvasY(e.touches[0].clientY);
+			game.player.targetY = clamp(y - paddleH / 2, 0, H - paddleH);
+			game.player.y = game.player.targetY;
+			startGame();
+		}, { passive: false });
+
 		canvas.addEventListener("touchmove", function (e) {
 			if (!e.touches[0]) return;
 			e.preventDefault();
@@ -849,6 +949,17 @@
 		});
 
 		document.getElementById("resetGame").addEventListener("click", resetGame);
+
+		// Adaptive sizing — canvas mengikuti ukuran container, semua elemen game skala otomatis
+		resizeCanvas();
+		if (typeof ResizeObserver !== "undefined") {
+			var ro = new ResizeObserver(function () { resizeCanvas(); });
+			ro.observe(wrap);
+		}
+		window.addEventListener("resize", resizeCanvas);
+		window.addEventListener("orientationchange", function () {
+			window.setTimeout(resizeCanvas, 80);
+		});
 
 		setScoreDisplay();
 		draw();
