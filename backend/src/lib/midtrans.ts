@@ -133,6 +133,29 @@ export async function createSnapTransaction(params: {
 }
 
 /**
+ * Cancel a pending Midtrans transaction so the QRIS token is invalidated
+ * on Midtrans' side as soon as the buyer abandons the popup.
+ *
+ * Best-effort: failures are logged but never thrown — our own DB row is
+ * still moved to CANCELLED, and the daily expiry sweep handles the rest.
+ */
+export async function cancelMidtransTransaction(midtransOrderId: string): Promise<void> {
+	if (!isMidtransConfigured || !midtransOrderId) return;
+	try {
+		await coreApi.transaction.cancel(midtransOrderId);
+	} catch (err: any) {
+		// Common cases that are not real failures:
+		//  - 404: Midtrans never received this order (token not used)
+		//  - 412 / "cannot be canceled": already settled, expired, or cancelled
+		const status = err?.httpStatusCode || err?.ApiResponse?.status_code;
+		if (status === 404 || status === 412 || status === "404" || status === "412") {
+			return;
+		}
+		console.warn(`[Midtrans] Failed to cancel ${midtransOrderId}:`, err?.message || err);
+	}
+}
+
+/**
  * Verify Midtrans notification signature
  * Uses SHA-512 hash of order_id + status_code + gross_amount + server_key
  */
