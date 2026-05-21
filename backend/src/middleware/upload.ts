@@ -1,6 +1,7 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import type { Request, Response, NextFunction } from "express";
 
 // Ensure upload directories exist
 const ensureDir = (dir: string) => {
@@ -238,3 +239,30 @@ export const uploadTicketTeamLogo = multer({
 		fileSize: 3 * 1024 * 1024,
 	},
 });
+
+// Error-handling middleware for multer upload failures.
+// Mount immediately after a multer middleware in a route chain to translate
+// raw multer / fileFilter errors into clear JSON responses for the client.
+export const handleUploadError = (
+	err: any,
+	_req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	if (err instanceof multer.MulterError) {
+		if (err.code === "LIMIT_FILE_SIZE") {
+			return res.status(400).json({
+				error: "Ukuran foto terlalu besar. Maksimal 3 MB.",
+			});
+		}
+		return res.status(400).json({
+			error: `Gagal mengunggah file: ${err.message}`,
+		});
+	}
+	if (typeof err?.message === "string" && err.message.startsWith("Invalid file type")) {
+		return res.status(400).json({
+			error: "Format foto tidak didukung. Gunakan JPG, JPEG, PNG, atau WEBP.",
+		});
+	}
+	return next(err);
+};

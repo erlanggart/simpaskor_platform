@@ -385,7 +385,7 @@ const EventVoting: React.FC = () => {
 				search.trim() ? `Pencarian: ${search.trim()}` : null,
 			].filter(Boolean).join(" | ");
 
-			exportPurchaseReportToPdf({
+			await exportPurchaseReportToPdf({
 				title: "Laporan Pembelian Vote",
 				subtitle: `${eventTitle || "Event"} - ${filterLabel}`,
 				fileName: `pembelian-vote-${eventTitle || eventId}`,
@@ -668,7 +668,34 @@ const EventVoting: React.FC = () => {
 			setClearNomineePhoto(false);
 			Swal.fire({ title: "Berhasil!", text: "Nominee berhasil diperbarui", icon: "success", timer: 1500, showConfirmButton: false });
 		} catch (err: any) {
-			Swal.fire("Error", err.response?.data?.error || "Gagal memperbarui nominee", "error");
+			const serverMsg = err?.response?.data?.error || err?.response?.data?.message;
+			const status = err?.response?.status;
+			const isPhotoUpload = Boolean(editNomineePhotoFile);
+			const fileSize = editNomineePhotoFile?.size ?? 0;
+
+			let detail: string;
+			if (serverMsg) {
+				detail = serverMsg;
+			} else if (err?.code === "ECONNABORTED" || /timeout/i.test(err?.message || "")) {
+				detail = isPhotoUpload
+					? "Koneksi timeout saat mengunggah foto. Periksa jaringan dan coba lagi."
+					: "Koneksi timeout. Periksa jaringan dan coba lagi.";
+			} else if (!err?.response) {
+				detail = "Tidak dapat terhubung ke server. Periksa koneksi internet Anda.";
+			} else if (status === 413 || fileSize > 3 * 1024 * 1024) {
+				detail = `Ukuran foto terlalu besar (${(fileSize / (1024 * 1024)).toFixed(2)} MB). Maksimal 3 MB.`;
+			} else if (status === 401) {
+				detail = "Sesi Anda telah berakhir. Silakan login ulang.";
+			} else if (status === 403) {
+				detail = "Anda tidak memiliki izin untuk memperbarui nominee ini.";
+			} else if (status === 404) {
+				detail = "Nominee tidak ditemukan. Mungkin sudah dihapus.";
+			} else {
+				detail = `Terjadi kesalahan${status ? ` (HTTP ${status})` : ""}. Silakan coba lagi.`;
+			}
+
+			const title = isPhotoUpload ? "Gagal Memperbarui Foto Nominee" : "Gagal Memperbarui Nominee";
+			Swal.fire(title, detail, "error");
 		} finally {
 			setSavingNominee(false);
 		}
@@ -913,6 +940,7 @@ const EventVoting: React.FC = () => {
 				{ key: "usedVotes", width: 12 },
 				{ key: "remainingVotes", width: 12 },
 				{ key: "totalAmount", width: 16 },
+				{ key: "paidRevenue", width: 18 },
 				{ key: "status", width: 14 },
 				{ key: "createdAt", width: 22 },
 				{ key: "paidAt", width: 22 },
@@ -927,7 +955,8 @@ const EventVoting: React.FC = () => {
 				"Vote Dibeli",
 				"Vote Masuk",
 				"Sisa Vote",
-				"Subtotal Vote",
+				"Subtotal Order",
+				"Pendapatan Vote (PAID)",
 				"Status",
 				"Tanggal Dibuat",
 				"Tanggal Dibayar",
@@ -956,6 +985,7 @@ const EventVoting: React.FC = () => {
 					purchase.usedVotes,
 					Math.max(0, purchase.voteCount - purchase.usedVotes),
 					purchase.totalAmount,
+					purchase.status === "PAID" ? purchase.totalAmount : 0,
 					purchase.status,
 					formatDate(purchase.createdAt || null),
 					formatDate(purchase.paidAt),
@@ -970,13 +1000,14 @@ const EventVoting: React.FC = () => {
 					};
 				});
 				row.getCell(10).numFmt = '"Rp" #,##0';
+				row.getCell(11).numFmt = '"Rp" #,##0';
 			});
 
 			if (allPurchases.length === 0) {
-				purchaseWorksheet.addRow(["-", "Belum ada data pembelian vote", "-", "-", "-", "-", 0, 0, 0, 0, "-", "-", "-"]);
+				purchaseWorksheet.addRow(["-", "Belum ada data pembelian vote", "-", "-", "-", "-", 0, 0, 0, 0, 0, "-", "-", "-"]);
 			}
 			purchaseWorksheet.views = [{ state: "frozen", ySplit: 1 }];
-			purchaseWorksheet.autoFilter = "A1:M1";
+			purchaseWorksheet.autoFilter = "A1:N1";
 
 			const filename = `dashboard-voting-${sanitizeFilename(eventSlug || eventId || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
 			await saveWorkbook(workbook, filename);

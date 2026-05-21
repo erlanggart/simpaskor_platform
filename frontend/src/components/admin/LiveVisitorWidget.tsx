@@ -195,9 +195,8 @@ const Sparkline: React.FC<{ history: HistoryPoint[]; nowTs: number; windowMs: nu
 						<motion.circle
 							cx={lastPoint.x}
 							cy={lastPoint.y}
-							r={9}
 							fill="rgb(220 38 38)"
-							opacity={0.35}
+							initial={{ r: 9, opacity: 0.35 }}
 							animate={{ r: [9, 16, 9], opacity: [0.35, 0, 0.35] }}
 							transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
 						/>

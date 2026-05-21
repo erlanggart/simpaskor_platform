@@ -6,7 +6,8 @@
 		<link rel="shortcut icon" href="/favicon-64.png" />
 		<link rel="apple-touch-icon" href="/favicon-64.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<meta name="theme-color" content="#ffffff" />
+		<meta name="theme-color" content="#080810" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
 
 		<!-- SEO Meta Tags -->
 		<meta name="description" content="Sistem Paskibra Skor - Simpaskor" />
@@ -36,10 +37,61 @@
 		/>
 		<meta property="twitter:image" content="/simpaskor.png" />
 
+		<!-- Preconnect to third-party origins used after first paint -->
+		<link rel="preconnect" href="https://www.google.com" crossorigin />
+		<link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+		<link rel="dns-prefetch" href="https://accounts.google.com" />
+
+		<!-- Voting Arena fonts: Orbitron (display/numeric) + Rajdhani (UI chrome).
+		     Loaded with display=swap so the rest of the app falls back gracefully. -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			rel="stylesheet"
+			href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap"
+		/>
+
 		<title>Simpaskor - Sistem Paskibra Skor</title>
+
+		<!-- Initial paint: prevent white flash before React mounts.
+		     Inline so it applies before any external CSS finishes loading. -->
+		<style>
+			html, body { margin: 0; padding: 0; }
+			body {
+				background-color: #fafafa;
+				color-scheme: light;
+				font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+			}
+			@media (prefers-color-scheme: dark) {
+				body { background-color: #080810; color-scheme: dark; }
+			}
+			html.dark body { background-color: #080810; color-scheme: dark; }
+			#initial-loader {
+				position: fixed;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				z-index: 9999;
+				pointer-events: none;
+			}
+			#initial-loader .spinner {
+				width: 36px;
+				height: 36px;
+				border: 3px solid rgba(239, 68, 68, 0.22);
+				border-top-color: #ef4444;
+				border-radius: 50%;
+				animation: simpaskor-spin 0.7s linear infinite;
+			}
+			@keyframes simpaskor-spin { to { transform: rotate(360deg); } }
+		</style>
 	</head>
 	<body>
-		<div id="root"></div>
+		<div id="root">
+			<div id="initial-loader" aria-hidden="true">
+				<div class="spinner"></div>
+			</div>
+		</div>
 		<!-- Midtrans Snap.js (loaded dynamically based on environment) -->
 		<script id="midtrans-snap" defer></script>
 		<script type="module" src="/src/main.tsx"></script>

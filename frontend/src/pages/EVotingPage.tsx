@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { useAuth } from "../hooks/useAuth";
@@ -24,11 +25,180 @@ import {
 	LuTrophy,
 	LuUser,
 	LuUsers,
+	LuVolume2,
+	LuVolumeX,
 	LuX,
+	LuZap,
 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../utils/emailPolicy";
 import VoteGuideCard from "../components/landing/VoteGuideCard";
+
+// ---------------------------------------------------------------------------
+// Voting Arena helpers — kept local so the page stays self-contained per the
+// brief (no new files). All visual chrome lives in LandingPage.css under the
+// `.evoting-arena` scope.
+// ---------------------------------------------------------------------------
+
+type CountdownParts = { days: number; hours: number; minutes: number; seconds: number; totalMs: number };
+
+const computeCountdown = (target: Date | null): CountdownParts | null => {
+	if (!target) return null;
+	const diff = target.getTime() - Date.now();
+	if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, totalMs: 0 };
+	const days = Math.floor(diff / 86_400_000);
+	const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+	const minutes = Math.floor((diff % 3_600_000) / 60_000);
+	const seconds = Math.floor((diff % 60_000) / 1000);
+	return { days, hours, minutes, seconds, totalMs: diff };
+};
+
+/** Tick once per second to drive the countdown HUD. */
+const useCountdown = (target: Date | null): CountdownParts | null => {
+	const [parts, setParts] = useState<CountdownParts | null>(() => computeCountdown(target));
+	useEffect(() => {
+		setParts(computeCountdown(target));
+		if (!target) return undefined;
+		const id = window.setInterval(() => setParts(computeCountdown(target)), 1000);
+		return () => window.clearInterval(id);
+	}, [target]);
+	return parts;
+};
+
+const ARENA_SOUND_STORAGE_KEY = "voting-arena-sound";
+
+/**
+ * Sound effect placeholder. Wires up two named slots ("vote", "rankup") with
+ * empty <audio> tags so the team can drop in MP3s later without code changes.
+ * Mute state persists per-device in localStorage.
+ */
+const useArenaSound = () => {
+	const [muted, setMuted] = useState<boolean>(() => {
+		if (typeof window === "undefined") return true;
+		return window.localStorage.getItem(ARENA_SOUND_STORAGE_KEY) !== "on";
+	});
+	const refs = useRef<Record<string, HTMLAudioElement | null>>({});
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		window.localStorage.setItem(ARENA_SOUND_STORAGE_KEY, muted ? "off" : "on");
+	}, [muted]);
+
+	const play = useCallback((key: "vote" | "rankup") => {
+		if (muted) return;
+		const el = refs.current[key];
+		if (!el || !el.src) return;
+		try {
+			el.currentTime = 0;
+			void el.play();
+		} catch {
+			/* ignore: missing asset or autoplay block */
+		}
+	}, [muted]);
+
+	const register = useCallback((key: string) => (el: HTMLAudioElement | null) => {
+		refs.current[key] = el;
+	}, []);
+
+	return { muted, setMuted, play, register };
+};
+
+/** Detect rank changes between two ordered nominee snapshots (by id). */
+const diffRanks = (prev: string[], next: string[]) => {
+	const prevIdx = new Map(prev.map((id, idx) => [id, idx]));
+	const deltas = new Map<string, number>();
+	next.forEach((id, idx) => {
+		const before = prevIdx.get(id);
+		if (before === undefined) return;
+		const change = before - idx; // positive = moved up
+		if (change !== 0) deltas.set(id, change);
+	});
+	return deltas;
+};
+
+const padTime = (n: number) => String(Math.max(0, n)).padStart(2, "0");
+
+// ----- Gift Voting catalog -----
+// Keep this in sync with GIFT_CATALOG in backend/src/routes/voting.ts.
+type GiftType = "lion" | "rocket" | "bear" | "soldier";
+interface GiftDef { type: GiftType; emoji: string; label: string; votes: number; tone: string; }
+const GIFTS: GiftDef[] = [
+	{ type: "lion", emoji: "🦁", label: "Singa", votes: 100, tone: "is-lion" },
+	{ type: "rocket", emoji: "🚀", label: "Roket", votes: 50, tone: "is-rocket" },
+	{ type: "bear", emoji: "🐻", label: "Beruang", votes: 20, tone: "is-bear" },
+	{ type: "soldier", emoji: "🪖", label: "Tentara", votes: 10, tone: "is-soldier" },
+];
+const GIFT_CLIENT_COOLDOWN_MS = 1600;
+interface GiftFeedEntry {
+	id: string;
+	categoryId: string;
+	nomineeId: string;
+	nomineeName: string;
+	giftType: GiftType;
+	votes: number;
+	senderLabel: string;
+	ts: number;
+}
+
+/** Smooth integer ticker for KPI numbers — pure RAF, no dep. */
+const ArenaCounter: React.FC<{ value: number; duration?: number }> = ({ value, duration = 700 }) => {
+	const [display, setDisplay] = useState(value);
+	const fromRef = useRef(value);
+	const startRef = useRef(0);
+	const rafRef = useRef<number | null>(null);
+	useEffect(() => {
+		fromRef.current = display;
+		startRef.current = performance.now();
+		if (rafRef.current) cancelAnimationFrame(rafRef.current);
+		const step = (now: number) => {
+			const t = Math.min(1, (now - startRef.current) / duration);
+			const eased = 1 - Math.pow(1 - t, 3);
+			setDisplay(Math.round(fromRef.current + (value - fromRef.current) * eased));
+			if (t < 1) rafRef.current = requestAnimationFrame(step);
+		};
+		rafRef.current = requestAnimationFrame(step);
+		return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [value, duration]);
+	return <>{display.toLocaleString("id-ID")}</>;
+};
+
+/** Countdown HUD strip — days, hours, minutes, seconds. */
+const ArenaCountdownStrip: React.FC<{ target: Date | null; label: string }> = ({ target, label }) => {
+	const parts = useCountdown(target);
+	if (!target || !parts) {
+		return (
+			<div className="mt-6">
+				<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">{label}</p>
+				<p className="arena-numeric mt-1 text-lg font-black text-slate-200">Tanpa batas waktu</p>
+			</div>
+		);
+	}
+	const urgent = parts.totalMs > 0 && parts.totalMs < 60 * 60 * 1000;
+	return (
+		<div className="mt-6">
+			<p className="arena-chrome mb-2 text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">{label}</p>
+			<div className={`arena-countdown ${urgent ? "is-urgent" : ""}`}>
+				<div className="arena-countdown-unit">
+					<div className="arena-countdown-value">{padTime(parts.days)}</div>
+					<div className="arena-countdown-label">Hari</div>
+				</div>
+				<div className="arena-countdown-unit">
+					<div className="arena-countdown-value">{padTime(parts.hours)}</div>
+					<div className="arena-countdown-label">Jam</div>
+				</div>
+				<div className="arena-countdown-unit">
+					<div className="arena-countdown-value">{padTime(parts.minutes)}</div>
+					<div className="arena-countdown-label">Menit</div>
+				</div>
+				<div className="arena-countdown-unit">
+					<div className="arena-countdown-value">{padTime(parts.seconds)}</div>
+					<div className="arena-countdown-label">Detik</div>
+				</div>
+			</div>
+		</div>
+	);
+};
 
 const VOTING_ADMIN_FEE_PER_VOTE = 500;
 const VOTING_MAX_ADMIN_FEE = 10000;
@@ -59,6 +229,281 @@ const EVotingPage: React.FC = () => {
 	const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 	const [voting, setVoting] = useState(false);
 	const [votedNominees, setVotedNominees] = useState<Set<string>>(new Set());
+
+	// ----- Voting Arena state -----
+	const arenaSound = useArenaSound();
+	const [rankDeltas, setRankDeltas] = useState<Map<string, number>>(new Map());
+	const [flashNomineeIds, setFlashNomineeIds] = useState<Set<string>>(new Set());
+	const [voteFeed, setVoteFeed] = useState<Array<{ id: string; text: string; tone: "vote" | "rankup"; ts: number }>>([]);
+	const [confettiBursts, setConfettiBursts] = useState<Array<{ id: string; left: number; top: number }>>([]);
+	const [rankUpAlert, setRankUpAlert] = useState<{ name: string; rank: number } | null>(null);
+	const prevRankRef = useRef<string[]>([]);
+	const prevVoteRef = useRef<Map<string, number>>(new Map());
+	const deltaTimerRef = useRef<number | null>(null);
+	const tickerSeqRef = useRef(0);
+	// Nominees the user actively backed this session — used to gate the
+	// rank-up celebration burst so we don't pop modals for unrelated movement.
+	const myInterestRef = useRef<Set<string>>(new Set());
+	const rankUpTimerRef = useRef<number | null>(null);
+
+	// Defined early so the gift handlers below can close over them without
+	// hitting a temporal-dead-zone error when TypeScript inspects const usage.
+	const pushTickerEntry = useCallback((text: string, tone: "vote" | "rankup") => {
+		tickerSeqRef.current += 1;
+		const id = `feed-${Date.now()}-${tickerSeqRef.current}`;
+		setVoteFeed((prev) => [{ id, text, tone, ts: Date.now() }, ...prev].slice(0, 8));
+	}, []);
+
+	const fireConfetti = useCallback((origin?: { x: number; y: number }) => {
+		const burstId = `cf-${Date.now()}`;
+		setConfettiBursts((prev) => [...prev, { id: burstId, left: origin?.x ?? window.innerWidth / 2, top: origin?.y ?? window.innerHeight / 2 }]);
+		window.setTimeout(() => {
+			setConfettiBursts((prev) => prev.filter((b) => b.id !== burstId));
+		}, 1700);
+	}, []);
+
+	// ----- Gift voting state -----
+	const [giftTargetId, setGiftTargetId] = useState<string | null>(null);
+	const [giftCooldown, setGiftCooldown] = useState<Map<GiftType, number>>(new Map());
+	const [giftCombo, setGiftCombo] = useState<{ type: GiftType; count: number } | null>(null);
+	const [flyingGifts, setFlyingGifts] = useState<Array<{ id: string; emoji: string; from: { x: number; y: number }; to: { x: number; y: number } }>>([]);
+	const [receivingAura, setReceivingAura] = useState<Map<string, GiftType>>(new Map());
+	const [bouncingNominee, setBouncingNominee] = useState<string | null>(null);
+	const [soldierPulseNominee, setSoldierPulseNominee] = useState<string | null>(null);
+	const [lionShow, setLionShow] = useState<{ emoji: string; ts: number } | null>(null);
+	const [rocketShow, setRocketShow] = useState<number | null>(null);
+	const [shaking, setShaking] = useState(false);
+	const giftFeedSinceRef = useRef<number>(Date.now());
+	const giftSeenIdsRef = useRef<Set<string>>(new Set());
+	const giftComboTimerRef = useRef<number | null>(null);
+	const recentGiftsRef = useRef<Array<{ nomineeId: string; ts: number }>>([]);
+	const [trendingNomineeId, setTrendingNomineeId] = useState<string | null>(null);
+	const giftCardRefs = useRef<Map<GiftType, HTMLButtonElement | null>>(new Map());
+	const nomineeCardRefs = useRef<Map<string, HTMLElement | null>>(new Map());
+
+	/**
+	 * Visualize a received gift on the target nominee + fire the gift-specific
+	 * signature effect (lion full-screen, rocket streak, bear bounce, soldier
+	 * pulse). Called both when WE send a gift AND when someone else's gift
+	 * arrives via polling.
+	 */
+	const playGiftEffect = useCallback((nomineeId: string, type: GiftType, fromEl?: HTMLElement | null) => {
+		// Aura ring on the target card.
+		setReceivingAura((prev) => new Map(prev).set(nomineeId, type));
+		window.setTimeout(() => {
+			setReceivingAura((prev) => {
+				const next = new Map(prev);
+				if (next.get(nomineeId) === type) next.delete(nomineeId);
+				return next;
+			});
+		}, 1700);
+
+		// Flying emoji from gift card -> nominee card.
+		const fromRect = fromEl?.getBoundingClientRect();
+		const toEl = nomineeCardRefs.current.get(nomineeId);
+		const toRect = toEl?.getBoundingClientRect();
+		if (fromRect && toRect) {
+			const flyId = `fly-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+			const def = GIFTS.find((g) => g.type === type);
+			setFlyingGifts((prev) => [...prev, {
+				id: flyId,
+				emoji: def?.emoji ?? "🎁",
+				from: { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 },
+				to: { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 },
+			}]);
+			window.setTimeout(() => {
+				setFlyingGifts((prev) => prev.filter((f) => f.id !== flyId));
+			}, 900);
+		}
+
+		// Signature per-gift effect.
+		if (type === "lion") {
+			setLionShow({ emoji: "🦁", ts: Date.now() });
+			setShaking(true);
+			window.setTimeout(() => setShaking(false), 480);
+			window.setTimeout(() => setLionShow(null), 1500);
+			fireConfetti();
+		} else if (type === "rocket") {
+			setRocketShow(Date.now());
+			window.setTimeout(() => setRocketShow(null), 1100);
+		} else if (type === "bear") {
+			setBouncingNominee(nomineeId);
+			window.setTimeout(() => setBouncingNominee((cur) => (cur === nomineeId ? null : cur)), 720);
+		} else if (type === "soldier") {
+			setSoldierPulseNominee(nomineeId);
+			window.setTimeout(() => setSoldierPulseNominee((cur) => (cur === nomineeId ? null : cur)), 800);
+		}
+
+		// Track for trending calc.
+		recentGiftsRef.current = [...recentGiftsRef.current.filter((e) => Date.now() - e.ts < 60_000), { nomineeId, ts: Date.now() }];
+	}, [fireConfetti]);
+
+	/**
+	 * Send a gift to the currently-selected target nominee. Optimistic UI:
+	 * bump local voteCount, fire effects, then call API. On failure, revert.
+	 */
+	const sendGift = useCallback(async (giftType: GiftType, sourceEl: HTMLElement | null) => {
+		if (!selectedEvent || !selectedCategoryId) return;
+		const targetId = giftTargetId;
+		if (!targetId) {
+			Swal.fire({ title: "Pilih Nominee Dulu", text: "Tap salah satu kontestan dulu untuk dijadikan target gift.", icon: "info", background: "#0a0d22", color: "#e6ecff" });
+			return;
+		}
+		const def = GIFTS.find((g) => g.type === giftType);
+		if (!def) return;
+		// Cooldown gate
+		const now = Date.now();
+		const cdEnds = giftCooldown.get(giftType) ?? 0;
+		if (now < cdEnds) return;
+		setGiftCooldown((prev) => new Map(prev).set(giftType, now + GIFT_CLIENT_COOLDOWN_MS));
+
+		// Combo: same gift within 2.5s = combo++
+		setGiftCombo((prev) => {
+			if (prev && prev.type === giftType) return { type: giftType, count: prev.count + 1 };
+			return { type: giftType, count: 1 };
+		});
+		if (giftComboTimerRef.current) window.clearTimeout(giftComboTimerRef.current);
+		giftComboTimerRef.current = window.setTimeout(() => setGiftCombo(null), 2500);
+
+		// Optimistic effect + ticker
+		playGiftEffect(targetId, giftType, sourceEl);
+		const targetNominee = selectedEvent.votingConfig?.categories
+			.find((c) => c.id === selectedCategoryId)
+			?.nominees?.find((n) => n.id === targetId);
+		if (targetNominee) {
+			myInterestRef.current.add(targetId);
+			pushTickerEntry(`${def.emoji} ${user?.name || "Anonim"} kirim ${def.label} (+${def.votes}) → ${targetNominee.nomineeName}`, "rankup");
+			arenaSound.play(def.type === "lion" ? "rankup" : "vote");
+		}
+
+		// Optimistic local vote bump
+		setSelectedEvent((cur) => {
+			if (!cur?.votingConfig) return cur;
+			return {
+				...cur,
+				votingConfig: {
+					...cur.votingConfig,
+					categories: cur.votingConfig.categories.map((cat) =>
+						cat.id === selectedCategoryId
+							? {
+								...cat,
+								nominees: cat.nominees?.map((n) =>
+									n.id === targetId ? { ...n, voteCount: n.voteCount + def.votes } : n
+								),
+							}
+							: cat
+					),
+				},
+			};
+		});
+
+		// API call (de-duped: backend also enforces cooldown).
+		try {
+			await api.post("/voting/gift", {
+				categoryId: selectedCategoryId,
+				nomineeId: targetId,
+				giftType,
+				senderName: user?.name || undefined,
+			}, { silent: true });
+		} catch (err: any) {
+			// On failure (e.g. 429 cooldown race), roll back the local bump.
+			const msg = err?.response?.data?.error;
+			if (err?.response?.status !== 429) {
+				Swal.fire({ title: "Gift gagal", text: msg || "Tidak dapat mengirim gift saat ini.", icon: "error", background: "#0a0d22", color: "#e6ecff" });
+			}
+			setSelectedEvent((cur) => {
+				if (!cur?.votingConfig) return cur;
+				return {
+					...cur,
+					votingConfig: {
+						...cur.votingConfig,
+						categories: cur.votingConfig.categories.map((cat) =>
+							cat.id === selectedCategoryId
+								? {
+									...cat,
+									nominees: cat.nominees?.map((n) =>
+										n.id === targetId ? { ...n, voteCount: Math.max(0, n.voteCount - def.votes) } : n
+									),
+								}
+								: cat
+						),
+					},
+				};
+			});
+		}
+	}, [selectedEvent, selectedCategoryId, giftTargetId, giftCooldown, playGiftEffect, pushTickerEntry, arenaSound, user]);
+
+	// Poll the gift feed every 4s while detail view is open. Apply effects for
+	// gifts sent by OTHER users so this feels like a live battle.
+	useEffect(() => {
+		if (!selectedEvent) return undefined;
+		const eventId = selectedEvent.id;
+		giftFeedSinceRef.current = Date.now();
+		giftSeenIdsRef.current = new Set();
+		const tick = async () => {
+			if (document.visibilityState !== "visible") return;
+			try {
+				const res = await api.get(`/voting/events/${eventId}/gift-feed`, {
+					params: { since: giftFeedSinceRef.current },
+					silent: true,
+				});
+				const entries: GiftFeedEntry[] = res.data?.entries ?? [];
+				if (entries.length === 0) return;
+				// Process oldest → newest so animations layer naturally.
+				const fresh = entries.filter((e) => !giftSeenIdsRef.current.has(e.id)).reverse();
+				for (const e of fresh) {
+					giftSeenIdsRef.current.add(e.id);
+					if (e.ts > giftFeedSinceRef.current) giftFeedSinceRef.current = e.ts;
+					playGiftEffect(e.nomineeId, e.giftType);
+					pushTickerEntry(`${GIFTS.find((g) => g.type === e.giftType)?.emoji ?? "🎁"} ${e.senderLabel} kirim ${e.votes} vote → ${e.nomineeName}`, "rankup");
+				}
+			} catch {
+				/* swallow — feed is best-effort */
+			}
+		};
+		void tick();
+		const id = window.setInterval(tick, 4_000);
+		return () => window.clearInterval(id);
+	}, [selectedEvent?.id, playGiftEffect, pushTickerEntry]);
+
+	// Reset target nominee + visual state when leaving the detail view.
+	useEffect(() => {
+		if (!selectedEvent) {
+			setGiftTargetId(null);
+			setGiftCooldown(new Map());
+			setGiftCombo(null);
+			setFlyingGifts([]);
+			setReceivingAura(new Map());
+			setBouncingNominee(null);
+			setSoldierPulseNominee(null);
+			setLionShow(null);
+			setRocketShow(null);
+			setShaking(false);
+			recentGiftsRef.current = [];
+			setTrendingNomineeId(null);
+		}
+	}, [selectedEvent]);
+
+	// Recompute trending nominee every 5s based on recent gift activity.
+	useEffect(() => {
+		const compute = () => {
+			const cutoff = Date.now() - 60_000;
+			recentGiftsRef.current = recentGiftsRef.current.filter((e) => e.ts > cutoff);
+			const counts = new Map<string, number>();
+			for (const e of recentGiftsRef.current) {
+				counts.set(e.nomineeId, (counts.get(e.nomineeId) ?? 0) + 1);
+			}
+			let topId: string | null = null;
+			let topCount = 0;
+			for (const [id, c] of counts) {
+				if (c > topCount && c >= 2) { topId = id; topCount = c; }
+			}
+			setTrendingNomineeId(topId);
+		};
+		compute();
+		const id = window.setInterval(compute, 5_000);
+		return () => window.clearInterval(id);
+	}, []);
 
 	// Purchase modal (for paid voting)
 	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -120,24 +565,127 @@ const EVotingPage: React.FC = () => {
 		}
 	}, [user]);
 
-	const fetchEventDetail = async (eventId: string) => {
+	const fetchEventDetail = async (eventId: string, opts: { silent?: boolean; pickFirstCategory?: boolean } = {}) => {
 		try {
-			const res = await api.get(`/voting/events/${eventId}`);
+			const res = await api.get(`/voting/events/${eventId}`, opts.silent ? { silent: true } : undefined);
 			setSelectedEvent(res.data);
-			// Set first category as selected
-			if (res.data.votingConfig?.categories?.length > 0) {
-				setSelectedCategoryId(res.data.votingConfig.categories[0].id);
+			if (opts.pickFirstCategory && res.data.votingConfig?.categories?.length > 0) {
+				setSelectedCategoryId((current) => current ?? res.data.votingConfig.categories[0].id);
 			}
 		} catch {
-			Swal.fire("Error", "Gagal memuat detail voting", "error");
+			if (!opts.silent) Swal.fire("Error", "Gagal memuat detail voting", "error");
 		}
 	};
+
+	// Wrapper used by the original entry path — keeps category auto-pick + error toast.
+	const fetchEventDetailInitial = (eventId: string) => fetchEventDetail(eventId, { pickFirstCategory: true });
+
+	// Background poll: every 12s while detail view is open + tab visible. Diffs
+	// snapshots vs. previous to emit ticker entries and rank-delta chips.
+	useEffect(() => {
+		if (!selectedEvent) {
+			prevRankRef.current = [];
+			prevVoteRef.current = new Map();
+			myInterestRef.current = new Set();
+			setRankDeltas(new Map());
+			setFlashNomineeIds(new Set());
+			setVoteFeed([]);
+			setRankUpAlert(null);
+			if (rankUpTimerRef.current) { window.clearTimeout(rankUpTimerRef.current); rankUpTimerRef.current = null; }
+			return undefined;
+		}
+		const eventId = selectedEvent.id;
+		let cancelled = false;
+		const tick = async () => {
+			if (document.visibilityState !== "visible") return;
+			try {
+				const res = await api.get(`/voting/events/${eventId}`, { silent: true });
+				if (cancelled) return;
+				setSelectedEvent(res.data);
+			} catch {
+				/* swallow — keep last good snapshot */
+			}
+		};
+		const id = window.setInterval(tick, 12_000);
+		return () => {
+			cancelled = true;
+			window.clearInterval(id);
+		};
+	}, [selectedEvent?.id]);
+
+	// Diff sorted nominees of the active category to emit rank deltas, flashes,
+	// and ticker entries whenever the snapshot changes.
+	useEffect(() => {
+		const category = selectedEvent?.votingConfig?.categories.find((c) => c.id === selectedCategoryId);
+		const nominees = category?.nominees ?? [];
+		const sorted = [...nominees].sort((a, b) => b.voteCount - a.voteCount);
+		const nextOrder = sorted.map((n) => n.id);
+
+		if (prevRankRef.current.length === 0) {
+			prevRankRef.current = nextOrder;
+			prevVoteRef.current = new Map(sorted.map((n) => [n.id, n.voteCount]));
+			return;
+		}
+
+		const deltas = diffRanks(prevRankRef.current, nextOrder);
+		const flashes = new Set<string>();
+		sorted.forEach((n) => {
+			const before = prevVoteRef.current.get(n.id) ?? n.voteCount;
+			const diff = n.voteCount - before;
+			if (diff > 0) {
+				flashes.add(n.id);
+				pushTickerEntry(`+${diff} vote → ${n.nomineeName}`, "vote");
+			}
+		});
+		deltas.forEach((change, id) => {
+			const nominee = sorted.find((n) => n.id === id);
+			if (!nominee) return;
+			const direction = change > 0 ? "naik" : "turun";
+			pushTickerEntry(`${nominee.nomineeName} ${direction} ${Math.abs(change)} peringkat`, change > 0 ? "rankup" : "vote");
+			if (change > 0) arenaSound.play("rankup");
+
+			// Personal celebration burst: only when one of MY backed nominees
+			// jumps up. Always preempt the previous alert so the latest wins.
+			if (change > 0 && myInterestRef.current.has(id)) {
+				const newRank = nextOrder.indexOf(id) + 1;
+				setRankUpAlert({ name: nominee.nomineeName, rank: newRank });
+				if (rankUpTimerRef.current) window.clearTimeout(rankUpTimerRef.current);
+				rankUpTimerRef.current = window.setTimeout(() => setRankUpAlert(null), 2800);
+				// Extra confetti burst from center for the celebration.
+				fireConfetti();
+			}
+		});
+
+		if (deltas.size > 0) setRankDeltas(deltas);
+		if (flashes.size > 0) setFlashNomineeIds(flashes);
+
+		// Auto-clear delta chips + flash after a short window.
+		if (deltaTimerRef.current) window.clearTimeout(deltaTimerRef.current);
+		deltaTimerRef.current = window.setTimeout(() => {
+			setRankDeltas(new Map());
+			setFlashNomineeIds(new Set());
+		}, 4500);
+
+		prevRankRef.current = nextOrder;
+		prevVoteRef.current = new Map(sorted.map((n) => [n.id, n.voteCount]));
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedEvent, selectedCategoryId, pushTickerEntry, arenaSound]);
+
+	// Drop oldest ticker entries after 14s so the panel doesn't grow forever.
+	useEffect(() => {
+		if (voteFeed.length === 0) return undefined;
+		const id = window.setInterval(() => {
+			setVoteFeed((prev) => prev.filter((e) => Date.now() - e.ts < 14_000));
+		}, 2000);
+		return () => window.clearInterval(id);
+	}, [voteFeed.length]);
 
 	const openVotingEvent = (eventId: string) => {
 		setPaidVoteTarget(null);
 		setShowPurchaseModal(false);
 		setVotedNominees(new Set());
-		fetchEventDetail(eventId);
+		setSelectedCategoryId(null);
+		fetchEventDetailInitial(eventId);
 	};
 
 	const formatDate = (date: string) => {
@@ -166,7 +714,7 @@ const EVotingPage: React.FC = () => {
 		};
 	};
 
-	const handleFreeVote = async (categoryId: string, nomineeId: string) => {
+	const handleFreeVote = async (categoryId: string, nomineeId: string, sourceEl?: HTMLElement | null) => {
 		const result = await Swal.fire({
 			title: "Konfirmasi Vote",
 			text: "Apakah Anda yakin ingin memberikan vote?",
@@ -174,7 +722,9 @@ const EVotingPage: React.FC = () => {
 			showCancelButton: true,
 			confirmButtonText: "Vote!",
 			cancelButtonText: "Batal",
-			confirmButtonColor: "#dc2626",
+			confirmButtonColor: "#00bcd4",
+			background: "#0a0d22",
+			color: "#e6ecff",
 		});
 
 		if (!result.isConfirmed) return;
@@ -189,18 +739,28 @@ const EVotingPage: React.FC = () => {
 			});
 
 			setVotedNominees((prev) => new Set([...prev, nomineeId]));
+			myInterestRef.current.add(nomineeId);
+
+			// Celebrate — confetti from the button's position + sound + toast.
+			let origin: { x: number; y: number } | undefined;
+			if (sourceEl) {
+				const r = sourceEl.getBoundingClientRect();
+				origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+			}
+			fireConfetti(origin);
+			arenaSound.play("vote");
+			pushTickerEntry("Vote kamu masuk arena!", "vote");
 
 			Swal.fire({
-				title: "Vote Berhasil!",
+				title: "Vote Masuk Arena!",
 				icon: "success",
-				timer: 1500,
+				timer: 1300,
 				showConfirmButton: false,
+				background: "#0a0d22",
+				color: "#e6ecff",
 			});
 
-			// Refresh detail
-			if (selectedEvent) {
-				fetchEventDetail(selectedEvent.id);
-			}
+			if (selectedEvent) fetchEventDetail(selectedEvent.id, { silent: true });
 		} catch (err: any) {
 			Swal.fire("Gagal", err.response?.data?.error || "Gagal melakukan vote", "error");
 		} finally {
@@ -247,66 +807,107 @@ const EVotingPage: React.FC = () => {
 			});
 
 			const { snapToken, purchaseCode, totalAmount } = res.data.purchase;
+			const purchaseId = res.data.purchase.id;
 			const adminFee = res.data.purchase.adminFee ?? calculateVotingAdminFee(totalAmount, voteCount);
 			const paymentAmount = res.data.purchase.paymentAmount ?? totalAmount + adminFee;
 
 			if (snapToken && isSnapReady && totalAmount > 0) {
 				setShowPurchaseModal(false);
-				// Open Midtrans Snap payment popup
-				pay(snapToken, {
-					onSuccess: async () => {
-						try {
-							const confirmRes = await api.post("/voting/confirm-payment", {
-								purchaseCode,
-								email: buyerEmail.trim(),
-							});
-							if (confirmRes.data.status !== "PAID") {
-								throw new Error(confirmRes.data.message || "Pembayaran vote belum dikonfirmasi");
-							}
-							const confirmedVoteCount = confirmRes.data.appliedVotes || confirmRes.data.voteCount || voteCount;
-							setPaidVoteTarget(null);
-							Swal.fire({
-								title: "Vote Berhasil!",
-								html: `<div class="text-left space-y-2">
-									<p><strong>Nominee:</strong> ${targetNominee.nomineeName}</p>
-									<p><strong>Jumlah Vote:</strong> ${confirmedVoteCount}</p>
-									<p><strong>Subtotal Vote:</strong> ${formatCurrency(totalAmount)}</p>
-									<p><strong>Biaya Admin:</strong> ${formatCurrency(adminFee)}</p>
-									<p><strong>Total sebelum QRIS:</strong> ${formatCurrency(paymentAmount)}</p>
-									<p class="text-sm text-gray-500 mt-3">Vote langsung masuk ke nominee setelah pembayaran terkonfirmasi.</p>
-								</div>`,
-								icon: "success",
-								confirmButtonColor: "#dc2626",
-							});
-							fetchEventDetail(selectedEvent.id);
-						} catch (err: any) {
-							Swal.fire({
-								title: "Menunggu Konfirmasi Pembayaran",
-								html: `<div class="text-left space-y-2">
-									<p>Pembayaran sudah diterima Midtrans, tetapi server masih menunggu konfirmasi.</p>
-									<p class="text-sm text-gray-500">Vote akan otomatis masuk ke nominee setelah pembayaran terkonfirmasi.</p>
-								</div>`,
-								icon: "info",
-								confirmButtonColor: "#dc2626",
-							});
-							console.error("Voting payment confirmation pending:", err);
+
+				const onSuccess = async () => {
+					try {
+						const confirmRes = await api.post("/voting/confirm-payment", {
+							purchaseCode,
+							email: buyerEmail.trim(),
+						});
+						if (confirmRes.data.status !== "PAID") {
+							throw new Error(confirmRes.data.message || "Pembayaran vote belum dikonfirmasi");
 						}
-					},
-					onPending: () => {
+						const confirmedVoteCount = confirmRes.data.appliedVotes || confirmRes.data.voteCount || voteCount;
+						myInterestRef.current.add(targetNominee.id);
+						setPaidVoteTarget(null);
+						fireConfetti();
+						arenaSound.play("vote");
+						pushTickerEntry(`Boost ${confirmedVoteCount} vote → ${targetNominee.nomineeName}`, "rankup");
 						Swal.fire({
-							title: "Menunggu Pembayaran",
-							html: `<p>Pembayaran sedang diproses. Vote akan otomatis masuk ke nominee setelah pembayaran dikonfirmasi.</p>`,
+							title: "Vote Berhasil!",
+							html: `<div class="text-left space-y-2">
+								<p><strong>Nominee:</strong> ${targetNominee.nomineeName}</p>
+								<p><strong>Jumlah Vote:</strong> ${confirmedVoteCount}</p>
+								<p><strong>Subtotal Vote:</strong> ${formatCurrency(totalAmount)}</p>
+								<p><strong>Biaya Admin:</strong> ${formatCurrency(adminFee)}</p>
+								<p><strong>Total sebelum QRIS:</strong> ${formatCurrency(paymentAmount)}</p>
+								<p class="text-sm text-gray-500 mt-3">Vote langsung masuk ke nominee setelah pembayaran terkonfirmasi.</p>
+							</div>`,
+							icon: "success",
+							confirmButtonColor: "#dc2626",
+						});
+						fetchEventDetail(selectedEvent.id);
+					} catch (err: any) {
+						Swal.fire({
+							title: "Menunggu Konfirmasi Pembayaran",
+							html: `<div class="text-left space-y-2">
+								<p>Pembayaran sudah diterima Midtrans, tetapi server masih menunggu konfirmasi.</p>
+								<p class="text-sm text-gray-500">Vote akan otomatis masuk ke nominee setelah pembayaran terkonfirmasi.</p>
+							</div>`,
 							icon: "info",
 							confirmButtonColor: "#dc2626",
 						});
-					},
-					onError: () => {
-						Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Vote tidak aktif.", "error");
-					},
-					onClose: () => {
-						Swal.fire("Pembayaran Belum Selesai", "Pembayaran belum dilakukan. Vote masuk setelah pembayaran berhasil.", "warning");
-					},
-				});
+						console.error("Voting payment confirmation pending:", err);
+					}
+				};
+				const onPending = () => {
+					Swal.fire({
+						title: "Menunggu Pembayaran",
+						html: `<p>Pembayaran sedang diproses. Vote akan otomatis masuk ke nominee setelah pembayaran dikonfirmasi.</p>`,
+						icon: "info",
+						confirmButtonColor: "#dc2626",
+					});
+				};
+				const onError = () => {
+					Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Vote tidak aktif.", "error");
+				};
+				const onClose = () => {
+					Swal.fire({
+						title: "Pembayaran Belum Selesai",
+						html: `<p>Anda menutup popup QRIS sebelum membayar.</p>
+							<p class="text-sm text-gray-500 mt-2">Lanjutkan pembayaran atau hanguskan transaksi ini sekarang.</p>`,
+						icon: "warning",
+						showCancelButton: true,
+						confirmButtonText: "Lanjutkan Pembayaran",
+						confirmButtonColor: "#dc2626",
+						cancelButtonText: "Batalkan & Hanguskan",
+						cancelButtonColor: "#6b7280",
+						reverseButtons: true,
+						allowOutsideClick: false,
+						allowEscapeKey: false,
+					}).then(async (swalResult) => {
+						if (swalResult.isConfirmed) {
+							pay(snapToken, { onSuccess, onPending, onError, onClose });
+							return;
+						}
+						if (swalResult.dismiss === Swal.DismissReason.cancel) {
+							try {
+								await api.post("/voting/cancel-pending", { purchaseId, purchaseCode });
+								Swal.fire({
+									title: "Transaksi Dihanguskan",
+									text: "Pembelian vote telah dibatalkan.",
+									icon: "success",
+									confirmButtonColor: "#dc2626",
+								});
+							} catch (err: any) {
+								Swal.fire(
+									"Gagal Membatalkan",
+									err?.response?.data?.error || "Tidak dapat membatalkan transaksi. Silakan coba lagi.",
+									"error"
+								);
+							}
+						}
+					});
+				};
+
+				// Open Midtrans Snap payment popup
+				pay(snapToken, { onSuccess, onPending, onError, onClose });
 			} else if (totalAmount === 0) {
 				setShowPurchaseModal(false);
 				setPaidVoteTarget(null);
@@ -458,111 +1059,147 @@ const EVotingPage: React.FC = () => {
 		const selectedEventNomineeCount = getEventNomineeCount(selectedEvent);
 		const selectedEventVoteCount = getEventVoteCount(selectedEvent);
 
+		const votingStatus = getVotingStatus(selectedEvent);
+		const arenaOpen = isVotingOpen(selectedEvent);
+		const countdownTarget = arenaOpen
+			? (selectedEvent.votingConfig?.endDate ? new Date(selectedEvent.votingConfig.endDate) : null)
+			: (votingStatus.color === "amber" && selectedEvent.votingConfig?.startDate
+				? new Date(selectedEvent.votingConfig.startDate)
+				: null);
+
 		return (
-			<div className="evoting-page-shell min-h-screen transition-colors">
-				<div className="evoting-flow-lines" />
-				<main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-					{/* Back button */}
-					<button
-						onClick={() => { setSelectedEvent(null); setSelectedCategoryId(null); setVotedNominees(new Set()); setPaidVoteTarget(null); setShowPurchaseModal(false); }}
-						className="group mb-5 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur-xl transition-all hover:-translate-x-0.5 hover:border-red-200 hover:text-red-600 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:text-red-300"
-					>
-						<LuArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-						Daftar event
-					</button>
+			<div className={`evoting-arena min-h-screen ${shaking ? "is-shaking" : ""}`}>
+				{/* Background layers — purely decorative, all pointer-events:none. */}
+				<div className="evoting-arena-orb is-cyan" />
+				<div className="evoting-arena-orb is-violet" />
+				<div className="evoting-arena-orb is-ember" />
+				<div className="evoting-arena-grid" />
+				<div className="evoting-arena-stars" />
+				<div className="evoting-arena-scanlines" />
 
-					{/* Event header */}
-					<section className="evoting-detail-hero relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-slate-950 shadow-2xl shadow-slate-200/70 mb-6 dark:border-white/[0.08] dark:shadow-black/30">
-						{selectedEventImage ? (
-							<img
-								src={selectedEventImage}
-								alt={selectedEvent.title}
-								className="absolute inset-0 h-full w-full object-cover opacity-70"
-							/>
-						) : (
-							<div className="absolute inset-0 bg-[linear-gradient(135deg,#111827_0%,#7f1d1d_52%,#0f766e_100%)]" />
+				{/* Sound effect placeholders — drop in MP3 src later, controlled by useArenaSound. */}
+				<audio ref={arenaSound.register("vote")} preload="none" />
+				<audio ref={arenaSound.register("rankup")} preload="none" />
+
+				<main className="relative z-10 mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-5 md:py-8">
+					{/* Top HUD strip: back + LIVE + sound */}
+					<div className="mb-5 flex items-center justify-between gap-3">
+						<button
+							onClick={() => { setSelectedEvent(null); setSelectedCategoryId(null); setVotedNominees(new Set()); setPaidVoteTarget(null); setShowPurchaseModal(false); }}
+							className="arena-sound-toggle hover:!text-white"
+						>
+							<LuArrowLeft className="h-4 w-4" />
+							<span className="hidden sm:inline">Kembali ke Arena</span>
+							<span className="sm:hidden">Kembali</span>
+						</button>
+						<div className="flex items-center gap-2">
+							{arenaOpen && (
+								<span className="inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-500/10 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.22em] uppercase text-rose-200 arena-chrome">
+									<span className="arena-live-dot" /> LIVE
+								</span>
+							)}
+							<button
+								type="button"
+								onClick={() => arenaSound.setMuted((m) => !m)}
+								className="arena-sound-toggle"
+								aria-label={arenaSound.muted ? "Aktifkan suara" : "Matikan suara"}
+							>
+								{arenaSound.muted ? <LuVolumeX className="h-3.5 w-3.5" /> : <LuVolume2 className="h-3.5 w-3.5" />}
+								<span className="hidden sm:inline">{arenaSound.muted ? "Sound Off" : "Sound On"}</span>
+							</button>
+						</div>
+					</div>
+
+					{/* Arena Hero */}
+					<section className="arena-hud arena-cut relative mb-6 overflow-hidden rounded-[1.5rem] p-4 sm:p-6 lg:p-7">
+						<span className="arena-bracket tl" />
+						<span className="arena-bracket tr" />
+						<span className="arena-bracket bl" />
+						<span className="arena-bracket br" />
+						{selectedEventImage && (
+							<>
+								<img
+									src={selectedEventImage}
+									alt=""
+									aria-hidden
+									className="absolute inset-0 h-full w-full object-cover opacity-25"
+								/>
+								<div className="absolute inset-0 bg-gradient-to-r from-[#040616]/90 via-[#070a22]/70 to-transparent" />
+							</>
 						)}
-						<div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/[0.78] to-slate-950/[0.35]" />
-						<div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
-						<div className="relative grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-8">
-							<div className="flex min-h-[330px] flex-col justify-end">
-								<div className="mb-4 flex flex-wrap items-center gap-2">
-									<span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black shadow-lg ${selectedEventBadge.className}`}>
-										<LuThumbsUp className="h-3.5 w-3.5" />
-										{selectedEventBadge.label}
-									</span>
-									<span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.15] bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur-xl">
-										<LuTicket className="h-3.5 w-3.5" />
-										{getVotingPriceLabel(selectedEvent)}
-									</span>
-								</div>
-								<h1 className="max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">
-									{selectedEvent.title}
-								</h1>
-								{selectedEvent.description && (
-									<p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/90 line-clamp-2 drop-shadow">
-										{selectedEvent.description}
-									</p>
-								)}
-								<div className="mt-5 flex flex-wrap gap-3 text-sm font-bold text-white">
-									<span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.18] px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-xl">
-										<LuCalendar className="w-4 h-4" />
-										{formatDate(selectedEvent.startDate)}
-									</span>
-									<span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.18] px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-xl">
-										<LuMapPin className="w-4 h-4" />
-										{getEventLocationLabel(selectedEvent)}
-									</span>
+						<div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+							<div className="flex flex-col justify-between">
+								<div>
+									<div className="mb-4 flex flex-wrap items-center gap-2">
+										<span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-cyan-100 arena-chrome">
+											<LuZap className="h-3.5 w-3.5" /> Grand Arena · {selectedEventBadge.label}
+										</span>
+										<span className="inline-flex items-center gap-1.5 rounded-full border border-fuchsia-300/30 bg-fuchsia-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-fuchsia-100 arena-chrome">
+											<LuTicket className="h-3.5 w-3.5" /> {getVotingPriceLabel(selectedEvent)}
+										</span>
+									</div>
+									<h1 className="arena-numeric max-w-3xl text-3xl font-black leading-[1.05] text-white sm:text-4xl lg:text-[2.75rem]" style={{ textShadow: "0 0 28px rgba(0,229,255,0.18)" }}>
+										{selectedEvent.title}
+									</h1>
+									{selectedEvent.description && (
+										<p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300/90 line-clamp-2">
+											{selectedEvent.description}
+										</p>
+									)}
+									<div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-300">
+										<span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1">
+											<LuCalendar className="h-3.5 w-3.5 text-cyan-300" /> {formatDate(selectedEvent.startDate)}
+										</span>
+										<span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1">
+											<LuMapPin className="h-3.5 w-3.5 text-fuchsia-300" /> {getEventLocationLabel(selectedEvent)}
+										</span>
+									</div>
 								</div>
 
+								{/* Countdown */}
+								<ArenaCountdownStrip target={countdownTarget} label={arenaOpen ? "Berakhir Dalam" : (votingStatus.color === "amber" ? "Mulai Dalam" : "Telah Selesai")} />
 							</div>
 
-							<aside className="evoting-glass-panel self-end rounded-3xl border border-white/[0.15] bg-white/[0.12] p-4 text-white shadow-2xl backdrop-blur-2xl">
-								<div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
-									<div className="rounded-2xl bg-white/[0.12] p-4">
-										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Kategori</p>
-										<p className="mt-2 text-2xl font-black">{selectedEvent.votingConfig?.categories.length || 0}</p>
-									</div>
-									<div className="rounded-2xl bg-white/[0.12] p-4">
-										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Nominee</p>
-										<p className="mt-2 text-2xl font-black">{selectedEventNomineeCount}</p>
-									</div>
-									<div className="rounded-2xl bg-white/[0.12] p-4">
-										<p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/[0.68]">Vote</p>
-										<p className="mt-2 text-2xl font-black">{formatCompactNumber(selectedEventVoteCount)}</p>
+							{/* KPI grid */}
+							<div className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-2 xl:grid-cols-3">
+								<div className="arena-kpi">
+									<div className="arena-kpi-label">Kategori</div>
+									<div className="arena-kpi-value">{selectedEvent.votingConfig?.categories.length || 0}</div>
+								</div>
+								<div className="arena-kpi">
+									<div className="arena-kpi-label">Nominee</div>
+									<div className="arena-kpi-value">{selectedEventNomineeCount}</div>
+								</div>
+								<div className="arena-kpi">
+									<div className="arena-kpi-label">Total Vote</div>
+									<div className="arena-kpi-value" style={{ color: "#6cffc6", textShadow: "0 0 18px rgba(34,245,167,0.35)" }}>
+										<ArenaCounter value={selectedEventVoteCount} />
 									</div>
 								</div>
-							</aside>
+							</div>
 						</div>
 					</section>
 
-					{/* Voting status banner */}
-					{!isVotingOpen(selectedEvent) && (
-						<div className={`mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-bold shadow-sm backdrop-blur-xl ${
-							getVotingStatus(selectedEvent).color === "amber"
-								? "bg-amber-50/90 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20"
-								: "bg-slate-50/90 text-slate-700 border-slate-200 dark:bg-white/[0.04] dark:text-slate-300 dark:border-white/[0.08]"
-						}`}>
-							<LuClock className="h-4 w-4 flex-shrink-0" />
+					{/* Status banner (only when closed/not-open) */}
+					{!arenaOpen && (
+						<div className={`arena-status-banner mb-5 ${votingStatus.color === "red" ? "is-closed" : ""}`}>
+							<LuClock className="h-4 w-4" />
 							<span>
-								{getVotingStatus(selectedEvent).color === "amber"
-									? `Voting belum dimulai${selectedEvent.votingConfig?.startDate ? `. Dibuka pada ${new Date(selectedEvent.votingConfig.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}`
-									: "Voting sudah ditutup"}
+								{votingStatus.color === "amber"
+									? `Arena belum dibuka${selectedEvent.votingConfig?.startDate ? ` · ${new Date(selectedEvent.votingConfig.startDate).toLocaleString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}`
+									: "Pertandingan telah usai · pemenang telah ditentukan"}
 							</span>
 						</div>
 					)}
-					{/* Category tabs */}
+
+					{/* Category selector */}
 					{selectedEvent.votingConfig?.categories && selectedEvent.votingConfig.categories.length > 1 && (
-						<div className="evoting-tab-strip mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-white/70 bg-white/75 p-2 shadow-sm backdrop-blur-xl dark:border-white/[0.08] dark:bg-white/[0.035]">
+						<div className="mb-5 flex gap-2 overflow-x-auto pb-1">
 							{selectedEvent.votingConfig.categories.map((cat) => (
 								<button
 									key={cat.id}
 									onClick={() => setSelectedCategoryId(cat.id)}
-									className={`rounded-xl px-4 py-2 text-sm font-black whitespace-nowrap transition-all ${
-										selectedCategoryId === cat.id
-										? "bg-slate-950 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-950"
-										: "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[0.08]"
-									}`}
+									className={`arena-cat-pill ${selectedCategoryId === cat.id ? "is-active" : ""}`}
 								>
 									{cat.title}
 								</button>
@@ -570,413 +1207,728 @@ const EVotingPage: React.FC = () => {
 						</div>
 					)}
 
-					{/* Category title */}
+					{/* Category header */}
 					{currentCategory && (
-						<div className="mb-7 flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between dark:border-white/[0.08] dark:bg-white/[0.035]">
+						<div className="arena-hud mb-6 flex flex-col gap-4 rounded-2xl p-4 sm:p-5 sm:flex-row sm:items-end sm:justify-between">
 							<div>
-							<p className="mb-1 text-[11px] font-black uppercase tracking-[0.24em] text-red-500 dark:text-red-300">Kategori Voting</p>
-							<h2 className="text-2xl font-black text-slate-950 dark:text-white">{currentCategory.title}</h2>
-							{currentCategory.description && (
-								<p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">{currentCategory.description}</p>
-							)}
+								<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.28em] text-cyan-300">Kategori Pertandingan</p>
+								<h2 className="arena-numeric mt-1 text-2xl font-black text-white">{currentCategory.title}</h2>
+								{currentCategory.description && (
+									<p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">{currentCategory.description}</p>
+								)}
 							</div>
-							<div className="grid grid-cols-2 gap-2 sm:min-w-[220px]">
-								<div className="rounded-2xl bg-slate-100 px-4 py-3 dark:bg-white/[0.06]">
-									<p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Nominee</p>
-									<p className="text-xl font-black text-slate-950 dark:text-white">{sortedNominees.length}</p>
+							<div className="grid grid-cols-2 gap-2 sm:min-w-[240px]">
+								<div className="arena-kpi" style={{ padding: "0.7rem 0.85rem" }}>
+									<div className="arena-kpi-label">Kontestan</div>
+									<div className="arena-kpi-value" style={{ fontSize: "1.3rem" }}>{sortedNominees.length}</div>
 								</div>
-								<div className="rounded-2xl bg-red-50 px-4 py-3 dark:bg-red-500/10">
-									<p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-400">Vote</p>
-									<p className="text-xl font-black text-red-600 dark:text-red-300">{formatCompactNumber(categoryVoteCount)}</p>
+								<div className="arena-kpi" style={{ padding: "0.7rem 0.85rem" }}>
+									<div className="arena-kpi-label">Vote</div>
+									<div className="arena-kpi-value" style={{ fontSize: "1.3rem", color: "#6cffc6" }}>
+										<ArenaCounter value={categoryVoteCount} />
+									</div>
 								</div>
 							</div>
 						</div>
 					)}
 
-					{/* Nominees podium */}
+					{/* Arena Podium (Top 3) + Leaderboard (rest) + Live ticker */}
 					{sortedNominees.length > 0 ? (
-						<div className="space-y-8">
-							<div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-5 items-end">
-								{podiumOrder.map((nominee, podiumIdx) => {
-									const rank = sortedNominees.findIndex((item) => item.id === nominee.id) + 1;
-									const isVoted = !selectedEvent.votingConfig?.isPaid && votedNominees.has(nominee.id);
-									const maxVotes = sortedNominees[0]?.voteCount || 1;
-									const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
-									const isFirst = rank === 1;
-									const podiumClass =
-										rank === 1
-											? "order-2 -mt-3 sm:-mt-5 md:-mt-8"
-											: rank === 2
-												? "order-1"
-												: "order-3";
-									const rankTheme =
-										rank === 1
-											? "from-yellow-400 via-amber-400 to-orange-500 text-yellow-950"
-											: rank === 2
-												? "from-slate-200 via-gray-300 to-slate-400 text-slate-800"
-												: "from-amber-700 via-orange-700 to-yellow-700 text-white";
+						<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+							{/* Main column */}
+							<div className="space-y-8">
+								<div className="arena-podium">
+									{podiumOrder.map((nominee, podiumIdx) => {
+										const rank = sortedNominees.findIndex((item) => item.id === nominee.id) + 1;
+										const isVoted = !selectedEvent.votingConfig?.isPaid && votedNominees.has(nominee.id);
+										const maxVotes = sortedNominees[0]?.voteCount || 1;
+										const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
+										const isFirst = rank === 1;
+										const orderClass =
+											rank === 1 ? "order-2 -mt-3 sm:-mt-5 md:-mt-10" : rank === 2 ? "order-1" : "order-3";
+										const rankClass = rank === 1 ? "is-first" : rank === 2 ? "is-second" : "is-third";
+										const badgeClass = rank === 1 ? "r1" : rank === 2 ? "r2" : "r3";
+										const plinthH = isFirst ? "h-14 sm:h-20 md:h-24" : rank === 2 ? "h-11 sm:h-16 md:h-20" : "h-9 sm:h-12 md:h-16";
+										const gapToLeader = rank > 1 && sortedNominees[0] ? (sortedNominees[0].voteCount - nominee.voteCount) : 0;
 
-									return (
-										<div
-											key={nominee.id}
-											className={`voting-podium-card ${podiumClass} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${isFirst ? "voting-podium-winner" : ""} ${
-												isVoted ? "ring-2 ring-green-400/70" : ""
-											}`}
-											style={{ animationDelay: `${podiumIdx * 90}ms` }}
-											onClick={() => openNomineePhotoPreview(nominee)}
-											onKeyDown={(event) => {
-												if ((event.key === "Enter" || event.key === " ") && nominee.nomineePhoto) {
-													event.preventDefault();
-													openNomineePhotoPreview(nominee);
-												}
-											}}
-											tabIndex={nominee.nomineePhoto ? 0 : undefined}
-											aria-label={nominee.nomineePhoto ? `Preview foto ${nominee.nomineeName}` : undefined}
-										>
-											<div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${rankTheme}`} />
-											<div className="relative p-2 sm:p-3 md:p-4">
-												<div className="flex items-center justify-between gap-1.5 mb-2 sm:mb-3">
-													<div className={`inline-flex min-w-0 items-center gap-1 px-2 sm:px-3 py-1 rounded-full bg-gradient-to-r ${rankTheme} text-[10px] sm:text-xs font-black shadow-lg`}>
-														{rank === 1 ? <LuCrown className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> : <LuMedal className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />}
-														<span className="hidden min-[420px]:inline">Juara </span>{rank}
-													</div>
-													<span className="text-[10px] sm:text-xs font-bold text-red-600 dark:text-red-400 whitespace-nowrap">{nominee.voteCount} vote</span>
-												</div>
+										return (
+											<div
+												key={nominee.id}
+												ref={(el) => { nomineeCardRefs.current.set(nominee.id, el); }}
+												className={`arena-podium-card ${rankClass} ${orderClass} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${isVoted ? "ring-2 ring-emerald-400/70" : ""} ${giftTargetId === nominee.id ? "ring-2 ring-fuchsia-400/70" : ""} ${bouncingNominee === nominee.id ? "arena-bear-bounce" : ""}`}
+												style={{ animationDelay: `${podiumIdx * 110}ms` }}
+												onClick={() => openNomineePhotoPreview(nominee)}
+												onKeyDown={(event) => {
+													if ((event.key === "Enter" || event.key === " ") && nominee.nomineePhoto) {
+														event.preventDefault();
+														openNomineePhotoPreview(nominee);
+													}
+												}}
+												tabIndex={nominee.nomineePhoto ? 0 : undefined}
+												aria-label={nominee.nomineePhoto ? `Preview foto ${nominee.nomineeName}` : undefined}
+											>
+												{receivingAura.get(nominee.id) && (
+													<span className={`arena-recv-aura ${GIFTS.find((g) => g.type === receivingAura.get(nominee.id))?.tone ?? ""}`} />
+												)}
+												{soldierPulseNominee === nominee.id && <span className="arena-soldier-pulse" />}
+												{trendingNomineeId === nominee.id && (
+													<span className="absolute right-2 top-2 z-[3]"><span className="arena-trending">🔥 Trending</span></span>
+												)}
+												<button
+													type="button"
+													onClick={(e) => { e.stopPropagation(); setGiftTargetId(nominee.id); }}
+													className="absolute left-2 top-2 z-[3] inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-fuchsia-100 backdrop-blur transition-colors hover:bg-fuchsia-500/30"
+													aria-label={`Jadikan ${nominee.nomineeName} target gift`}
+													title="Set sebagai target gift"
+												>
+													🎁 {giftTargetId === nominee.id ? "Target" : "Pilih"}
+												</button>
+												{isFirst && (
+													<svg className="arena-crown" width="48" height="36" viewBox="0 0 48 36" fill="none" aria-hidden>
+														<defs>
+															<linearGradient id="arenaCrownGrad" x1="0" x2="0" y1="0" y2="1">
+																<stop offset="0%" stopColor="#ffe26b" />
+																<stop offset="60%" stopColor="#ffba2b" />
+																<stop offset="100%" stopColor="#ff7a00" />
+															</linearGradient>
+														</defs>
+														<path d="M4 30 L8 12 L18 22 L24 6 L30 22 L40 12 L44 30 Z" fill="url(#arenaCrownGrad)" stroke="rgba(0,0,0,0.25)" strokeWidth="0.6" />
+														<circle cx="24" cy="6" r="2.5" fill="#fff8c2" />
+														<circle cx="8" cy="12" r="2" fill="#fff8c2" />
+														<circle cx="40" cy="12" r="2" fill="#fff8c2" />
+														<rect x="3" y="30" width="42" height="3" rx="1.2" fill="#ff7a00" />
+													</svg>
+												)}
 
-												<div className={`voting-podium-photo relative mx-auto overflow-hidden rounded-xl sm:rounded-2xl border-2 sm:border-4 ${
-													rank === 1 ? "h-36 sm:h-48 md:h-64 border-yellow-300 shadow-yellow-300/30" : "h-32 sm:h-44 md:h-56 border-white/70 dark:border-white/10"
-												} shadow-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10`}>
-													{nominee.nomineePhoto ? (
-														<img
-															src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
-															alt={nominee.nomineeName}
-															className="w-full h-full object-cover object-top"
-															loading="lazy"
-															decoding="async"
-														/>
-													) : (
-														<div className="w-full h-full flex items-center justify-center">
-															<LuUser className="w-16 h-16 text-gray-400 dark:text-gray-500" />
+												<div className="relative p-2 sm:p-3 md:p-4">
+													<div className="mb-2 flex items-center justify-between gap-1.5 sm:mb-3">
+														<div className={`arena-podium-rankbadge ${badgeClass}`}>
+															{isFirst ? <LuCrown className="h-3.5 w-3.5" /> : <LuMedal className="h-3.5 w-3.5" />}
+															<span className="hidden min-[420px]:inline">JUARA</span> {rank}
 														</div>
-													)}
-													<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2 sm:px-3 md:px-4 pb-2 sm:pb-3 md:pb-4 pt-10 md:pt-12">
-														<h3 className="text-white font-black text-[11px] sm:text-sm md:text-lg leading-tight truncate">{nominee.nomineeName}</h3>
-														{nominee.nomineeSubtitle && (
-															<p className="text-white/75 text-[10px] sm:text-xs truncate mt-0.5">{nominee.nomineeSubtitle}</p>
+														<span className="arena-numeric text-[10px] font-extrabold text-cyan-200 sm:text-xs whitespace-nowrap">
+															<ArenaCounter value={nominee.voteCount} /> <span className="text-slate-400">VOTE</span>
+														</span>
+													</div>
+
+													<div className={`arena-podium-photo mx-auto ${isFirst ? "h-36 sm:h-48 md:h-64" : "h-32 sm:h-44 md:h-56"}`}>
+														{nominee.nomineePhoto ? (
+															<img
+																src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
+																alt={nominee.nomineeName}
+																loading="lazy"
+																decoding="async"
+															/>
+														) : (
+															<div className="flex h-full w-full items-center justify-center">
+																<LuUser className="h-16 w-16 text-slate-500" />
+															</div>
+														)}
+														<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-2 pt-10 sm:px-3 sm:pb-3 md:px-4 md:pb-4 md:pt-12">
+															<h3 className="arena-numeric truncate text-[11px] font-black leading-tight text-white sm:text-sm md:text-lg">{nominee.nomineeName}</h3>
+															{nominee.nomineeSubtitle && (
+																<p className="mt-0.5 truncate text-[10px] text-white/70 sm:text-xs">{nominee.nomineeSubtitle}</p>
+															)}
+														</div>
+													</div>
+
+													<div className="mt-3 md:mt-4">
+														<div className="arena-bar">
+															<div className={`arena-bar-fill ${badgeClass}`} style={{ width: `${pct}%` }} />
+														</div>
+														{!isFirst && gapToLeader > 0 && (
+															<p className="arena-chrome mt-1.5 text-[10px] font-bold text-slate-400">
+																−<span className="arena-numeric text-rose-300">{gapToLeader.toLocaleString("id-ID")}</span> dari juara 1
+															</p>
 														)}
 													</div>
-												</div>
 
-												<div className="mt-3 md:mt-4">
-													<div className="h-1.5 sm:h-2 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
-														<div
-															className={`voting-podium-progress h-full rounded-full bg-gradient-to-r ${rankTheme} transition-all duration-700`}
-															style={{ width: `${pct}%` }}
-														/>
+													<div className={`arena-podium-plinth ${badgeClass} ${plinthH}`}>
+														<span className="text-xl sm:text-2xl md:text-3xl">#{rank}</span>
 													</div>
-												</div>
 
-												<div className={`mt-3 md:mt-4 rounded-t-lg sm:rounded-t-xl bg-gradient-to-r ${rankTheme} ${isFirst ? "h-11 sm:h-14 md:h-16" : "h-9 sm:h-11 md:h-12"} flex items-center justify-center shadow-lg`}>
-													<span className="text-xl sm:text-2xl md:text-3xl font-black">#{rank}</span>
-												</div>
-
-												<button
-													onClick={(event) => {
-														event.stopPropagation();
-														if (selectedEvent.votingConfig?.isPaid) {
-															handlePaidVote(currentCategory!.id, nominee.id);
-														} else {
-															handleFreeVote(currentCategory!.id, nominee.id);
-														}
-													}}
-													disabled={voting || isVoted || !isVotingOpen(selectedEvent)}
-													className={`mt-3 md:mt-4 w-full py-2 sm:py-2.5 rounded-lg sm:rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-sm font-semibold transition-colors ${
-														isVoted
-															? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-															: !isVotingOpen(selectedEvent)
-																? "bg-gray-100 text-gray-400 dark:bg-white/[0.04] dark:text-gray-600 cursor-not-allowed"
-																: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-													}`}
+													<button
+														onClick={(event) => {
+															event.stopPropagation();
+															if (selectedEvent.votingConfig?.isPaid) {
+																handlePaidVote(currentCategory!.id, nominee.id);
+															} else {
+																handleFreeVote(currentCategory!.id, nominee.id, event.currentTarget);
+															}
+														}}
+														disabled={voting || isVoted || !arenaOpen}
+														className={`arena-vote-btn mt-3 w-full md:mt-4 ${isVoted ? "is-voted" : ""} ${selectedEvent.votingConfig?.isPaid ? "is-paid" : ""}`}
 													>
 														{isVoted ? (
 															<>
-																<LuCircleCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+																<LuCircleCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
 																Sudah Vote
 															</>
-														) : !isVotingOpen(selectedEvent) ? (
-															getVotingStatus(selectedEvent).color === "amber" ? "Belum Dibuka" : "Sudah Ditutup"
+														) : !arenaOpen ? (
+															votingStatus.color === "amber" ? "Belum Dibuka" : "Telah Usai"
 														) : (
 															<>
-																{selectedEvent.votingConfig?.isPaid ? <LuTicket className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <LuThumbsUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+																{selectedEvent.votingConfig?.isPaid ? <LuTicket className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <LuThumbsUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
 																{selectedEvent.votingConfig?.isPaid ? "Beli Vote" : "Vote"}
-														</>
-													)}
-												</button>
+															</>
+														)}
+													</button>
+												</div>
 											</div>
+										);
+									})}
+								</div>
+
+								{remainingNominees.length > 0 && (
+									<div>
+										<div className="mb-4 flex items-center justify-between">
+											<h3 className="arena-chrome text-xs font-extrabold uppercase tracking-[0.28em] text-slate-400">
+												Leaderboard <span className="text-cyan-300">#{4} +</span>
+											</h3>
+											<span className="arena-chrome text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+												{remainingNominees.length} kontestan
+											</span>
 										</div>
-									);
-								})}
-							</div>
-
-							{remainingNominees.length > 0 && (
-								<div>
-									<h3 className="text-sm font-bold uppercase tracking-[0.25em] text-gray-400 dark:text-gray-500 mb-4">Nominee Lainnya</h3>
-									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-										{remainingNominees.map((nominee, idx) => {
-											const rank = idx + 4;
-											const isVoted = !selectedEvent.votingConfig?.isPaid && votedNominees.has(nominee.id);
-											const maxVotes = sortedNominees[0]?.voteCount || 1;
-											const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
-
-											return (
-												<div
-													key={nominee.id}
-													className={`bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl border overflow-hidden transition-all ${
-														isVoted ? "border-red-500 ring-1 ring-red-500" : "border-gray-200/50 dark:border-white/[0.06]"
-													} ${nominee.nomineePhoto ? "cursor-zoom-in hover:shadow-lg hover:-translate-y-0.5" : ""}`}
-													onClick={() => openNomineePhotoPreview(nominee)}
-													onKeyDown={(event) => {
-														if ((event.key === "Enter" || event.key === " ") && nominee.nomineePhoto) {
-															event.preventDefault();
-															openNomineePhotoPreview(nominee);
-														}
-													}}
-													tabIndex={nominee.nomineePhoto ? 0 : undefined}
-													aria-label={nominee.nomineePhoto ? `Preview foto ${nominee.nomineeName}` : undefined}
-												>
-													<div className="flex gap-3 p-3">
-														<div className="relative w-24 h-28 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10">
+										<Reorder.Group
+											axis="y"
+											values={remainingNominees}
+											onReorder={() => { /* sort is data-driven; ignore drag */ }}
+											className="space-y-2.5"
+										>
+											{remainingNominees.map((nominee, idx) => {
+												const rank = idx + 4;
+												const isVoted = !selectedEvent.votingConfig?.isPaid && votedNominees.has(nominee.id);
+												const maxVotes = sortedNominees[0]?.voteCount || 1;
+												const pct = maxVotes > 0 ? (nominee.voteCount / maxVotes) * 100 : 0;
+												const delta = rankDeltas.get(nominee.id) ?? 0;
+												const flashing = flashNomineeIds.has(nominee.id);
+												return (
+													<Reorder.Item
+														key={nominee.id}
+														value={nominee}
+														drag={false}
+														layout
+														transition={{ type: "spring", stiffness: 280, damping: 26 }}
+														ref={(el: HTMLLIElement | null) => { nomineeCardRefs.current.set(nominee.id, el); }}
+														className={`arena-row relative ${flashing ? "is-flash" : ""} ${nominee.nomineePhoto ? "cursor-zoom-in" : ""} ${giftTargetId === nominee.id ? "ring-2 ring-fuchsia-400/70" : ""} ${bouncingNominee === nominee.id ? "arena-bear-bounce" : ""}`}
+														onClick={() => openNomineePhotoPreview(nominee)}
+													>
+														{receivingAura.get(nominee.id) && (
+															<span className={`arena-recv-aura ${GIFTS.find((g) => g.type === receivingAura.get(nominee.id))?.tone ?? ""}`} />
+														)}
+														{soldierPulseNominee === nominee.id && <span className="arena-soldier-pulse" />}
+														<button
+															type="button"
+															onClick={(e) => { e.stopPropagation(); setGiftTargetId(nominee.id); }}
+															className="absolute right-2 top-2 z-[3] inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-fuchsia-100 transition-colors hover:bg-fuchsia-500/30"
+															aria-label={`Jadikan ${nominee.nomineeName} target gift`}
+														>
+															🎁
+														</button>
+														<div className="arena-row-rank">#{rank}</div>
+														<div className="arena-row-avatar">
 															{nominee.nomineePhoto ? (
 																<img
 																	src={nominee.nomineePhoto.startsWith("http") ? nominee.nomineePhoto : getImageUrl(nominee.nomineePhoto)}
 																	alt={nominee.nomineeName}
-																	className="w-full h-full object-cover object-top"
 																	loading="lazy"
 																	decoding="async"
 																/>
 															) : (
-																<div className="w-full h-full flex items-center justify-center">
-																	<LuUser className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+																<div className="flex h-full w-full items-center justify-center">
+																	<LuUser className="h-6 w-6 text-slate-500" />
 																</div>
 															)}
-															<div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-gray-900/80 text-white text-[10px] font-bold">
-																#{rank}
-															</div>
 														</div>
-														<div className="min-w-0 flex-1">
-															<h4 className="font-semibold text-gray-900 dark:text-white truncate">{nominee.nomineeName}</h4>
+														<div className="min-w-0">
+															<div className="flex items-center gap-2">
+																<h4 className="arena-row-name truncate">{nominee.nomineeName}</h4>
+																<AnimatePresence>
+																	{delta !== 0 && (
+																		<motion.span
+																			key={`${nominee.id}-${delta}`}
+																			initial={{ opacity: 0, y: -4, scale: 0.7 }}
+																			animate={{ opacity: 1, y: 0, scale: 1 }}
+																			exit={{ opacity: 0, scale: 0.6 }}
+																			className={`arena-delta ${delta > 0 ? "up" : "down"}`}
+																		>
+																			{delta > 0 ? "▲" : "▼"} {Math.abs(delta)}
+																		</motion.span>
+																	)}
+																</AnimatePresence>
+															</div>
 															{nominee.nomineeSubtitle && (
-																<p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{nominee.nomineeSubtitle}</p>
+																<p className="arena-row-sub truncate">{nominee.nomineeSubtitle}</p>
 															)}
-															<div className="mt-3 mb-3">
-																<div className="flex items-center justify-between text-xs mb-1">
-																	<span className="text-gray-500 dark:text-gray-400">Vote</span>
-																	<span className="font-semibold text-red-600 dark:text-red-400">{nominee.voteCount}</span>
+															<div className="mt-2 flex items-center gap-2">
+																<div className="arena-bar flex-1">
+																	<div className="arena-bar-fill" style={{ width: `${pct}%` }} />
 																</div>
-																<div className="w-full bg-gray-100 dark:bg-white/[0.06] rounded-full h-1.5">
-																	<div className="h-1.5 rounded-full bg-red-500 transition-all" style={{ width: `${pct}%` }} />
-																</div>
+																<span className="arena-numeric min-w-[3rem] text-right text-xs font-bold text-cyan-200">
+																	<ArenaCounter value={nominee.voteCount} />
+																</span>
 															</div>
-															<button
-																onClick={(event) => {
-																	event.stopPropagation();
-																	if (selectedEvent.votingConfig?.isPaid) {
-																		handlePaidVote(currentCategory!.id, nominee.id);
-																	} else {
-																		handleFreeVote(currentCategory!.id, nominee.id);
-																	}
-																}}
-																disabled={voting || isVoted || !isVotingOpen(selectedEvent)}
-																className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
-																	isVoted
-																		? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-																		: !isVotingOpen(selectedEvent)
-																			? "bg-gray-100 text-gray-400 dark:bg-white/[0.04] dark:text-gray-600 cursor-not-allowed"
-																			: "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-																}`}
-															>
-																{isVoted ? <LuCircleCheck className="w-4 h-4" /> : selectedEvent.votingConfig?.isPaid ? <LuTicket className="w-4 h-4" /> : <LuThumbsUp className="w-4 h-4" />}
-																{isVoted ? "Sudah Vote" : selectedEvent.votingConfig?.isPaid ? "Beli Vote" : "Vote"}
-															</button>
 														</div>
-													</div>
-												</div>
-											);
-										})}
+														<button
+															onClick={(event) => {
+																event.stopPropagation();
+																if (selectedEvent.votingConfig?.isPaid) {
+																	handlePaidVote(currentCategory!.id, nominee.id);
+																} else {
+																	handleFreeVote(currentCategory!.id, nominee.id, event.currentTarget);
+																}
+															}}
+															disabled={voting || isVoted || !arenaOpen}
+															className={`arena-vote-btn ${isVoted ? "is-voted" : ""} ${selectedEvent.votingConfig?.isPaid ? "is-paid" : ""}`}
+														>
+															{isVoted ? (
+																<><LuCircleCheck className="h-4 w-4" /> Voted</>
+															) : !arenaOpen ? (
+																votingStatus.color === "amber" ? "Tunggu" : "Tutup"
+															) : (
+																<>
+																	{selectedEvent.votingConfig?.isPaid ? <LuTicket className="h-4 w-4" /> : <LuThumbsUp className="h-4 w-4" />}
+																	{selectedEvent.votingConfig?.isPaid ? "Beli" : "Vote"}
+																</>
+															)}
+														</button>
+													</Reorder.Item>
+												);
+											})}
+										</Reorder.Group>
 									</div>
-								</div>
-							)}
-						</div>
-					) : (
-						<div className="text-center py-12 text-gray-500 dark:text-gray-400">
-							<LuThumbsUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
-							<p>Belum ada nominee untuk kategori ini</p>
-						</div>
-					)}
+								)}
+							</div>
 
-					{/* Purchase votes modal */}
-					{showPurchaseModal && (
-						<div
-							className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm"
-							onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
-						>
-							<div
-								className="relative bg-white dark:bg-[#0f1424] rounded-t-3xl sm:rounded-2xl border border-gray-200/60 dark:border-white/[0.08] shadow-2xl w-full sm:max-w-md max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden"
-								onClick={(e) => e.stopPropagation()}
-							>
-								{/* Drag handle (mobile only) */}
-								<div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
-									<div className="w-10 h-1.5 bg-gray-300 dark:bg-white/15 rounded-full" />
-								</div>
-
-								{/* Sticky Header */}
-								<div className="relative px-5 sm:px-6 pt-3 sm:pt-6 pb-4 border-b border-gray-100 dark:border-white/[0.06] shrink-0">
-									<button
-										type="button"
-										onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
-										className="absolute right-3 top-3 sm:right-4 sm:top-4 w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
-										aria-label="Tutup"
-									>
-										<LuX className="w-5 h-5" />
-									</button>
-									<div className="flex items-start gap-3 pr-10">
-										<div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm shadow-red-500/30 shrink-0">
-											<LuThumbsUp className="w-5 h-5 text-white" />
-										</div>
-										<div className="min-w-0">
-											<h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-tight">
-												Beli Paket Vote
-											</h2>
-											<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-												{selectedEvent.title}
-											</p>
-										</div>
+							{/* Live ticker rail (desktop) / drawer (mobile) */}
+							<aside className="arena-hud rounded-2xl p-4 xl:sticky xl:top-4 xl:self-start">
+								<div className="mb-3 flex items-center justify-between">
+									<div className="flex items-center gap-2">
+										<span className="arena-live-dot" />
+										<h3 className="arena-chrome text-xs font-extrabold uppercase tracking-[0.24em] text-white">Live Feed</h3>
 									</div>
+									<span className="arena-chrome text-[10px] uppercase tracking-[0.2em] text-slate-500">tiap 12 dtk</span>
 								</div>
-
-								{/* Scrollable Body */}
-								<div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 py-5 space-y-4">
-									{selectedPaidNominee && (
-										<div className="rounded-2xl border border-red-100/70 bg-gradient-to-br from-red-50/80 via-orange-50/40 to-amber-50/30 px-4 py-3 dark:border-red-500/20 dark:from-red-500/10 dark:via-orange-500/5 dark:to-amber-500/5">
-											<p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-500 dark:text-red-300">Nominee Pilihan</p>
-											<p className="mt-1 font-semibold text-gray-900 dark:text-white">{selectedPaidNominee.nomineeName}</p>
-											{selectedPaidNominee.nomineeSubtitle && (
-												<p className="text-xs text-gray-500 dark:text-gray-400">{selectedPaidNominee.nomineeSubtitle}</p>
-											)}
-										</div>
-									)}
-
-									<div>
-										<h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
-											<span className="w-1 h-4 bg-red-500 rounded-full" />
-											Data Pembeli
-										</h3>
-										<div className="space-y-3">
-											<div>
-												<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-													<LuUser className="w-3.5 h-3.5 inline mr-1" /> Nama *
-												</label>
-												<input
-													type="text"
-													value={buyerName}
-													onChange={(e) => setBuyerName(e.target.value)}
-													className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-													placeholder="Nama lengkap"
-												/>
-											</div>
-											<div>
-												<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-													<LuMail className="w-3.5 h-3.5 inline mr-1" /> Email *
-												</label>
-												<input
-													type="email"
-													value={buyerEmail}
-													onChange={(e) => setBuyerEmail(e.target.value)}
-													className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-													placeholder="email@example.com"
-												/>
-											</div>
-											<div>
-												<label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-													<LuPhone className="w-3.5 h-3.5 inline mr-1" /> Telepon <span className="text-gray-400">(Opsional)</span>
-												</label>
-												<input
-													type="tel"
-													value={buyerPhone}
-													onChange={(e) => setBuyerPhone(e.target.value)}
-													className="w-full px-3 py-2 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-													placeholder="+6281234567890"
-												/>
-											</div>
-										</div>
-									</div>
-
-									<div>
-										<h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
-											<span className="w-1 h-4 bg-red-500 rounded-full" />
-											Jumlah Vote
-										</h3>
-										<input
-											type="number"
-											min={1}
-											step={1}
-											max={Number.isFinite(maxVoteCount) ? maxVoteCount : undefined}
-											value={voteCount}
-											onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
-											className="w-full px-3 py-2.5 rounded-lg border border-gray-200/50 dark:border-white/[0.06] bg-white/50 dark:bg-white/[0.03] text-base font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-										/>
-										{Number.isFinite(maxVoteCount) && (
-											<p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-												Maksimal {maxVoteCount.toLocaleString("id-ID")} vote per pembelian (batas QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
-											</p>
+								<div className="arena-ticker">
+									<AnimatePresence initial={false}>
+										{voteFeed.length === 0 ? (
+											<motion.div
+												key="empty"
+												initial={{ opacity: 0 }}
+												animate={{ opacity: 1 }}
+												exit={{ opacity: 0 }}
+												className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-4 text-center text-xs text-slate-500"
+											>
+												Menunggu aksi pertama…
+											</motion.div>
+										) : (
+											voteFeed.map((entry) => (
+												<motion.div
+													key={entry.id}
+													layout
+													initial={{ opacity: 0, y: -8, scale: 0.97 }}
+													animate={{ opacity: 1, y: 0, scale: 1 }}
+													exit={{ opacity: 0, x: 20 }}
+													transition={{ type: "spring", stiffness: 320, damping: 26 }}
+													className={`arena-ticker-item ${entry.tone === "rankup" ? "is-rankup" : ""}`}
+												>
+													{entry.tone === "rankup" ? (
+														<LuTrophy className="h-3.5 w-3.5 text-emerald-300" />
+													) : (
+														<LuZap className="h-3.5 w-3.5 text-cyan-300" />
+													)}
+													<span className="flex-1 truncate">{entry.text}</span>
+												</motion.div>
+											))
 										)}
-									</div>
+									</AnimatePresence>
+								</div>
 
-									<div className="rounded-2xl border border-gray-200/60 dark:border-white/[0.06] bg-gray-50/60 dark:bg-white/[0.02] p-4 text-sm space-y-1.5">
-										<div className="flex justify-between">
-											<span className="text-gray-600 dark:text-gray-400">Harga/vote</span>
-											<span className="font-medium text-gray-900 dark:text-white">{formatCurrency(selectedEvent.votingConfig?.pricePerVote || 0)}</span>
+								{/* Gift Voting Dock — TikTok-style battle gifts. Persistent
+								    panel so user can spam-tap once a target is locked. */}
+								<div className="mt-4">
+									<div className="arena-gift-dock">
+										<div className="mb-2 flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-sm shadow-lg shadow-fuchsia-500/40">🎁</span>
+												<div>
+													<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.24em] text-fuchsia-200">Gift Battle</p>
+													<p className="text-[10px] text-slate-500">Tap emoji → vote terbang ke target</p>
+												</div>
+											</div>
 										</div>
-										<div className="flex justify-between">
-											<span className="text-gray-600 dark:text-gray-400">Subtotal vote</span>
-											<span className="font-medium text-gray-900 dark:text-white">
-												{formatCurrency(votingOrderSummary.subtotal)}
-											</span>
+
+										{(() => {
+											const target = sortedNominees.find((n) => n.id === giftTargetId);
+											return target ? (
+												<div className="arena-gift-target">
+													<div className="arena-row-avatar" style={{ width: 36, height: 36 }}>
+														{target.nomineePhoto ? (
+															<img src={target.nomineePhoto.startsWith("http") ? target.nomineePhoto : getImageUrl(target.nomineePhoto)} alt={target.nomineeName} />
+														) : (
+															<div className="flex h-full w-full items-center justify-center"><LuUser className="h-4 w-4 text-slate-500" /></div>
+														)}
+													</div>
+													<div className="min-w-0 flex-1">
+														<p className="arena-chrome text-[9px] font-extrabold uppercase tracking-[0.2em] text-fuchsia-200">Target</p>
+														<p className="truncate text-sm font-bold text-white">{target.nomineeName}</p>
+													</div>
+													<button
+														type="button"
+														onClick={() => setGiftTargetId(null)}
+														className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400 hover:text-white"
+													>
+														Ganti
+													</button>
+												</div>
+											) : (
+												<div className="arena-gift-target is-empty">Tap 🎁 di salah satu kontestan untuk memilih target</div>
+											);
+										})()}
+
+										<div className="arena-gift-grid relative">
+											{giftCombo && giftCombo.count > 1 && (
+												<div className="arena-gift-combo" key={`${giftCombo.type}-${giftCombo.count}`}>x{giftCombo.count}</div>
+											)}
+											{GIFTS.map((g) => {
+												const cdEnds = giftCooldown.get(g.type) ?? 0;
+												const remaining = Math.max(0, cdEnds - Date.now());
+												const onCooldown = remaining > 0;
+												const cdPct = onCooldown ? (remaining / GIFT_CLIENT_COOLDOWN_MS) * 100 : 0;
+												return (
+													<button
+														key={g.type}
+														type="button"
+														ref={(el) => { giftCardRefs.current.set(g.type, el); }}
+														onClick={(e) => sendGift(g.type, e.currentTarget)}
+														disabled={onCooldown || !giftTargetId || !arenaOpen}
+														className={`arena-gift-card ${g.tone}`}
+													>
+														<span className="emoji">{g.emoji}</span>
+														<span className="label">{g.label}</span>
+														<span className="votes">+{g.votes}</span>
+														{onCooldown && <span className="cooldown" style={{ "--cd": `${cdPct}%` } as React.CSSProperties} />}
+													</button>
+												);
+											})}
 										</div>
-										<div className="flex justify-between">
-											<span className="text-gray-600 dark:text-gray-400">Biaya admin</span>
-											<span className="font-medium text-gray-900 dark:text-white">
-												{formatCurrency(votingOrderSummary.adminFee)}
-											</span>
-										</div>
-										<div className="flex justify-between pt-2 mt-1 border-t border-gray-200/70 dark:border-white/[0.06]">
-											<span className="font-semibold text-gray-900 dark:text-white">Total sebelum QRIS</span>
-											<span className="font-bold text-red-600 dark:text-red-400">
-												{formatCurrency(votingOrderSummary.totalBeforeQris)}
-											</span>
-										</div>
-										<p className="pt-1 text-[11px] text-gray-500 dark:text-gray-400">
-											Biaya layanan QRIS dari payment gateway dapat ditambahkan di halaman pembayaran.
+										<p className="mt-2 text-[10px] text-slate-500">
+											Gift gratis · cooldown {Math.round(GIFT_CLIENT_COOLDOWN_MS / 100) / 10}s · spam protection aktif
 										</p>
 									</div>
 								</div>
+							</aside>
+						</div>
+					) : (
+						<div className="arena-hud rounded-2xl py-12 text-center text-slate-400">
+							<LuThumbsUp className="mx-auto mb-3 h-12 w-12 opacity-50" />
+							<p>Belum ada kontestan untuk kategori ini</p>
+						</div>
+					)}
 
-								{/* Sticky Footer */}
-								<div className="shrink-0 border-t border-gray-100 dark:border-white/[0.06] bg-white/95 dark:bg-[#0f1424]/95 backdrop-blur-sm px-5 sm:px-6 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
-									<div className="flex items-center justify-between gap-3">
-										<div className="min-w-0">
-											<p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">
-												Total · {voteCount} vote
+					{/* Gift Voting — flying emoji projectiles from gift button to nominee. */}
+					<AnimatePresence>
+						{flyingGifts.map((fly) => (
+							<motion.div
+								key={fly.id}
+								className="arena-gift-fly"
+								initial={{ left: fly.from.x - 18, top: fly.from.y - 18, opacity: 0, scale: 0.4, rotate: -12 }}
+								animate={{
+									left: fly.to.x - 18,
+									top: fly.to.y - 18,
+									opacity: [0, 1, 1, 0],
+									scale: [0.4, 1.4, 1, 0.6],
+									rotate: [-12, 18, -8, 0],
+								}}
+								exit={{ opacity: 0 }}
+								transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1], times: [0, 0.2, 0.8, 1] }}
+							>
+								{fly.emoji}
+							</motion.div>
+						))}
+					</AnimatePresence>
+
+					{/* Lion full-screen celebration */}
+					<AnimatePresence>
+						{lionShow && (
+							<>
+								<div className="arena-lion-veil" key={`lion-veil-${lionShow.ts}`} />
+								<div className="arena-lion-emoji" key={`lion-emoji-${lionShow.ts}`}>{lionShow.emoji}</div>
+							</>
+						)}
+					</AnimatePresence>
+
+					{/* Rocket diagonal streak */}
+					<AnimatePresence>
+						{rocketShow !== null && (
+							<div className="arena-rocket-streak" key={`rocket-${rocketShow}`}>🚀</div>
+						)}
+					</AnimatePresence>
+
+					{/* Rank-up celebration burst — pops when a nominee the user backed
+					    rises in the leaderboard. Auto-dismisses after ~2.8s. */}
+					<AnimatePresence>
+						{rankUpAlert && (
+							<motion.div
+								key={`rankup-${rankUpAlert.name}-${rankUpAlert.rank}`}
+								className="arena-rankup"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								onClick={() => setRankUpAlert(null)}
+							>
+								<motion.div
+									className="arena-rankup-card"
+									initial={{ scale: 0.6, y: 30 }}
+									animate={{ scale: 1, y: 0 }}
+									exit={{ scale: 0.85, opacity: 0 }}
+									transition={{ type: "spring", stiffness: 260, damping: 22 }}
+								>
+									<div className="arena-chrome text-[11px] font-extrabold uppercase tracking-[0.32em] text-amber-200">
+										Rank Up
+									</div>
+									<div className="arena-rankup-rank">#{rankUpAlert.rank}</div>
+									<p className="arena-numeric mt-1 text-lg font-extrabold text-white">
+										{rankUpAlert.name}
+									</p>
+									<p className="mt-2 text-xs text-slate-300">
+										Jagoan kamu naik peringkat! 🏆
+									</p>
+								</motion.div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+
+					{/* Confetti layer (rendered above content) */}
+					<div className="pointer-events-none fixed inset-0 z-[70]">
+						<AnimatePresence>
+							{confettiBursts.flatMap((burst) => (
+								Array.from({ length: 22 }).map((_, i) => {
+									const angle = (Math.PI * 2 * i) / 22 + (Math.random() - 0.5) * 0.4;
+									const dist = 90 + Math.random() * 90;
+									const cx = Math.cos(angle) * dist;
+									const cy = Math.sin(angle) * dist - 40;
+									const emoji = ["🎉", "✨", "⭐", "🏆", "🔥", "💎"][i % 6];
+									return (
+										<span
+											key={`${burst.id}-${i}`}
+											className="arena-confetti"
+											style={{
+												left: burst.left,
+												top: burst.top,
+												// CSS custom props for the @keyframes destination.
+												// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+												...({ "--cx": `${cx}px`, "--cy": `${cy}px`, "--cr": `${Math.random() * 360}deg` } as React.CSSProperties),
+											}}
+										>
+											{emoji}
+										</span>
+									);
+								})
+							))}
+						</AnimatePresence>
+					</div>
+
+					{/* Arena Purchase Modal — boss-fight loadout panel */}
+					{showPurchaseModal && (() => {
+						// Predict rank-after-purchase: clone current sorted list, bump target's
+						// voteCount by `voteCount`, re-rank, compare to current rank.
+						const target = selectedPaidNominee;
+						const currentRank = target ? sortedNominees.findIndex((n) => n.id === target.id) + 1 : 0;
+						let predictedRank = currentRank;
+						if (target && currentRank > 0) {
+							const hypothesis = sortedNominees.map((n) =>
+								n.id === target.id ? { ...n, voteCount: n.voteCount + voteCount } : n
+							);
+							hypothesis.sort((a, b) => b.voteCount - a.voteCount);
+							predictedRank = hypothesis.findIndex((n) => n.id === target.id) + 1;
+						}
+						const movedUp = currentRank > 0 && predictedRank < currentRank;
+
+						return (
+							<div
+								className="arena-modal-backdrop"
+								onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
+							>
+								<div className="arena-modal" onClick={(e) => e.stopPropagation()}>
+									<div className="arena-modal-handle"><span /></div>
+
+									<div className="arena-modal-header">
+										<button
+											type="button"
+											onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
+											className="arena-modal-close"
+											aria-label="Tutup"
+										>
+											<LuX className="h-5 w-5" />
+										</button>
+										<div className="flex items-start gap-3 pr-10">
+											<div className="arena-modal-icon">
+												<LuZap className="h-5 w-5" />
+											</div>
+											<div className="min-w-0">
+												<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.24em] text-cyan-200">Power-Up Loadout</p>
+												<h2 className="arena-numeric text-lg font-black leading-tight text-white sm:text-xl">
+													Boost Vote Arena
+												</h2>
+												<p className="line-clamp-1 text-xs text-slate-400 sm:text-sm">{selectedEvent.title}</p>
+											</div>
+										</div>
+									</div>
+
+									<div className="arena-modal-body">
+										{selectedPaidNominee && (
+											<div className="arena-target-card">
+												<div className="flex items-center gap-3">
+													<div className="arena-row-avatar" style={{ width: 52, height: 52 }}>
+														{selectedPaidNominee.nomineePhoto ? (
+															<img
+																src={selectedPaidNominee.nomineePhoto.startsWith("http") ? selectedPaidNominee.nomineePhoto : getImageUrl(selectedPaidNominee.nomineePhoto)}
+																alt={selectedPaidNominee.nomineeName}
+															/>
+														) : (
+															<div className="flex h-full w-full items-center justify-center"><LuUser className="h-6 w-6 text-slate-500" /></div>
+														)}
+													</div>
+													<div className="min-w-0 flex-1">
+														<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.22em] text-fuchsia-200">Target</p>
+														<p className="arena-numeric truncate font-bold text-white">{selectedPaidNominee.nomineeName}</p>
+														{selectedPaidNominee.nomineeSubtitle && (
+															<p className="truncate text-[11px] text-slate-400">{selectedPaidNominee.nomineeSubtitle}</p>
+														)}
+													</div>
+													{currentRank > 0 && (
+														<div className="arena-numeric rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs font-black text-cyan-200">
+															#{currentRank}
+														</div>
+													)}
+												</div>
+											</div>
+										)}
+
+										{movedUp && (
+											<div className="arena-rank-pred">
+												<LuTrophy className="h-4 w-4 text-amber-300" />
+												<span>
+													Boost ini bisa dorong <strong className="text-white">{selectedPaidNominee?.nomineeName}</strong> ke{" "}
+													<span className="arena-numeric font-extrabold text-emerald-300">rank #{predictedRank}</span>!
+												</span>
+											</div>
+										)}
+										{!movedUp && currentRank > 0 && (
+											<div className="arena-rank-pred is-flat">
+												<LuZap className="h-4 w-4" />
+												<span>Posisi tetap <span className="arena-numeric font-bold text-white">#{currentRank}</span> — tambah vote lagi untuk salip lawan.</span>
+											</div>
+										)}
+
+										<div>
+											<div className="arena-section-head">Data Pembeli</div>
+											<div className="space-y-3">
+												<div>
+													<label className="arena-input-label"><LuUser className="h-3.5 w-3.5" /> Nama *</label>
+													<input
+														type="text"
+														value={buyerName}
+														onChange={(e) => setBuyerName(e.target.value)}
+														className="arena-input"
+														placeholder="Nama lengkap"
+													/>
+												</div>
+												<div>
+													<label className="arena-input-label"><LuMail className="h-3.5 w-3.5" /> Email *</label>
+													<input
+														type="email"
+														value={buyerEmail}
+														onChange={(e) => setBuyerEmail(e.target.value)}
+														className="arena-input"
+														placeholder="email@example.com"
+													/>
+												</div>
+												<div>
+													<label className="arena-input-label"><LuPhone className="h-3.5 w-3.5" /> Telepon <span className="text-slate-500">(opsional)</span></label>
+													<input
+														type="tel"
+														value={buyerPhone}
+														onChange={(e) => setBuyerPhone(e.target.value)}
+														className="arena-input"
+														placeholder="+6281234567890"
+													/>
+												</div>
+											</div>
+										</div>
+
+										<div>
+											<div className="arena-section-head">Jumlah Boost Vote</div>
+											<div className="flex items-stretch gap-2">
+												<button
+													type="button"
+													onClick={() => setVoteCount((v) => Math.max(1, v - 1))}
+													className="arena-secondary-btn"
+													aria-label="Kurangi"
+												>−</button>
+												<input
+													type="number"
+													min={1}
+													step={1}
+													max={Number.isFinite(maxVoteCount) ? maxVoteCount : undefined}
+													value={voteCount}
+													onChange={(e) => setVoteCount(normalizeVoteCount(e.target.value))}
+													className="arena-input flex-1 text-center text-lg arena-numeric"
+													style={{ fontFamily: "Orbitron, system-ui, sans-serif" }}
+												/>
+												<button
+													type="button"
+													onClick={() => setVoteCount((v) => {
+														const next = v + 1;
+														return Number.isFinite(maxVoteCount) ? Math.min(maxVoteCount, next) : next;
+													})}
+													className="arena-secondary-btn"
+													aria-label="Tambah"
+												>+</button>
+											</div>
+											{Number.isFinite(maxVoteCount) && (
+												<p className="mt-1.5 text-[11px] text-slate-500">
+													Maksimal <span className="arena-numeric text-cyan-300">{maxVoteCount.toLocaleString("id-ID")}</span> vote per pembelian (batas QRIS Rp {QRIS_MAX_TRANSACTION.toLocaleString("id-ID")}).
+												</p>
+											)}
+										</div>
+
+										<div className="arena-summary">
+											<div className="arena-summary-row">
+												<span className="label">Harga / vote</span>
+												<span className="value">{formatCurrency(selectedEvent.votingConfig?.pricePerVote || 0)}</span>
+											</div>
+											<div className="arena-summary-row">
+												<span className="label">Subtotal vote</span>
+												<span className="value">{formatCurrency(votingOrderSummary.subtotal)}</span>
+											</div>
+											<div className="arena-summary-row">
+												<span className="label">Biaya admin</span>
+												<span className="value">{formatCurrency(votingOrderSummary.adminFee)}</span>
+											</div>
+											<div className="arena-summary-row is-total">
+												<span className="label">Total sebelum QRIS</span>
+												<span className="value">{formatCurrency(votingOrderSummary.totalBeforeQris)}</span>
+											</div>
+											<p className="pt-0.5 text-[11px] text-slate-500">
+												Biaya layanan QRIS dapat ditambahkan di halaman pembayaran.
 											</p>
-											<p className="text-xl sm:text-2xl font-bold text-red-600 leading-tight truncate">
+										</div>
+									</div>
+
+									<div className="arena-modal-footer">
+										<div className="min-w-0">
+											<p className="arena-chrome text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">Total · {voteCount} vote</p>
+											<p className="arena-numeric truncate text-xl font-black text-cyan-200 leading-tight" style={{ textShadow: "0 0 14px rgba(0,229,255,0.35)" }}>
 												{formatCurrency(votingOrderSummary.totalBeforeQris)}
 											</p>
 										</div>
-										<div className="flex items-center gap-2 shrink-0">
+										<div className="flex shrink-0 items-center gap-2">
 											<button
 												type="button"
 												onClick={() => { setShowPurchaseModal(false); setPaidVoteTarget(null); }}
-												className="px-3.5 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+												className="arena-secondary-btn"
 											>
 												Batal
 											</button>
@@ -984,20 +1936,21 @@ const EVotingPage: React.FC = () => {
 												type="button"
 												onClick={handlePurchaseVotes}
 												disabled={purchasing}
-												className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:scale-[0.98] text-white text-sm rounded-xl font-semibold shadow-lg shadow-red-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all inline-flex items-center gap-1.5"
+												className="arena-vote-btn is-paid"
+												style={{ padding: "0.7rem 1.3rem" }}
 											>
 												{purchasing ? (
 													<>
-														<svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+														<svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
 															<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
 															<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z" />
 														</svg>
-														Memproses...
+														Memproses
 													</>
 												) : (
 													<>
-														<LuThumbsUp className="w-4 h-4" />
-														Beli Vote
+														<LuZap className="h-4 w-4" />
+														Boost Sekarang
 													</>
 												)}
 											</button>
@@ -1005,8 +1958,8 @@ const EVotingPage: React.FC = () => {
 									</div>
 								</div>
 							</div>
-						</div>
-					)}
+						);
+					})()}
 				</main>
 			</div>
 		);

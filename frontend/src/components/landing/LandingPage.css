@@ -1944,6 +1944,1419 @@ html:not(.dark) .section-icon-glow-purple::before {
 	box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
 }
 
+/* =====================================================================
+   VOTING ARENA — Esports/cyber-tournament theme for the voting detail
+   view. Scoped under `.evoting-arena` so it forces its own dark identity
+   (deep void + cyan/violet neon + championship gold) regardless of the
+   app-wide light/dark mode. Keep all visual chrome here; the React layer
+   only adds classnames and motion props.
+   ===================================================================== */
+.evoting-arena {
+	color-scheme: dark;
+	--arena-bg-0: #03030a;
+	--arena-bg-1: #060818;
+	--arena-bg-2: #0a0d22;
+	--arena-grid: rgba(124, 92, 255, 0.075);
+	--arena-grid-strong: rgba(0, 229, 255, 0.12);
+	--arena-text: #e6ecff;
+	--arena-text-dim: #97a3c9;
+	--arena-text-mute: #5e6a8f;
+	--arena-border: rgba(125, 145, 200, 0.16);
+	--arena-border-strong: rgba(125, 145, 200, 0.28);
+	--arena-glass: rgba(10, 14, 36, 0.55);
+	--arena-glass-strong: rgba(13, 18, 44, 0.72);
+	--neon-cyan: #00e5ff;
+	--neon-cyan-soft: rgba(0, 229, 255, 0.35);
+	--neon-violet: #b829ff;
+	--neon-violet-soft: rgba(184, 41, 255, 0.32);
+	--neon-magenta: #ff2bd6;
+	--neon-ember: #ff4d6d;
+	--gold-1: #ffe26b;
+	--gold-2: #ffba2b;
+	--gold-3: #ff7a00;
+	--silver-1: #e7eef8;
+	--silver-2: #94a3b8;
+	--bronze-1: #ffae5b;
+	--bronze-2: #c2410c;
+	position: relative;
+	color: var(--arena-text);
+	background:
+		radial-gradient(120% 90% at 20% -10%, rgba(184, 41, 255, 0.18), transparent 55%),
+		radial-gradient(110% 90% at 95% 5%, rgba(0, 229, 255, 0.13), transparent 60%),
+		radial-gradient(140% 120% at 50% 130%, rgba(255, 43, 214, 0.10), transparent 60%),
+		linear-gradient(180deg, var(--arena-bg-0), var(--arena-bg-1) 35%, var(--arena-bg-2));
+	overflow: hidden;
+}
+
+.evoting-arena ::selection {
+	background: var(--neon-cyan-soft);
+	color: #021018;
+}
+
+/* Layered grid background — drifts slowly, paused on reduced-motion. */
+.evoting-arena-grid {
+	position: absolute;
+	inset: -2px;
+	pointer-events: none;
+	background-image:
+		linear-gradient(var(--arena-grid) 1px, transparent 1px),
+		linear-gradient(90deg, var(--arena-grid-strong) 1px, transparent 1px);
+	background-size: 56px 56px, 56px 56px;
+	mask-image: radial-gradient(120% 80% at 50% 0%, rgba(0, 0, 0, 0.8), transparent 80%);
+	animation: arenaGridDrift 22s linear infinite;
+	opacity: 0.85;
+	z-index: 0;
+}
+
+/* Soft starfield — pure CSS, no JS particles. */
+.evoting-arena-stars {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background:
+		radial-gradient(1px 1px at 12% 22%, rgba(255, 255, 255, 0.65), transparent 60%),
+		radial-gradient(1px 1px at 78% 14%, rgba(0, 229, 255, 0.6), transparent 60%),
+		radial-gradient(1.5px 1.5px at 38% 64%, rgba(184, 41, 255, 0.55), transparent 60%),
+		radial-gradient(1px 1px at 62% 78%, rgba(255, 255, 255, 0.5), transparent 60%),
+		radial-gradient(1px 1px at 91% 58%, rgba(255, 122, 0, 0.5), transparent 60%),
+		radial-gradient(1px 1px at 28% 88%, rgba(0, 229, 255, 0.45), transparent 60%);
+	animation: arenaStarsTwinkle 7s ease-in-out infinite;
+	z-index: 0;
+}
+
+/* Scanline overlay — adds subtle CRT/HUD vibe. */
+.evoting-arena-scanlines {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(
+		180deg,
+		rgba(255, 255, 255, 0.012) 0,
+		rgba(255, 255, 255, 0.012) 1px,
+		transparent 1px,
+		transparent 3px
+	);
+	mix-blend-mode: overlay;
+	opacity: 0.6;
+	z-index: 0;
+}
+
+/* Floating energy orb — corner ambient bloom. */
+.evoting-arena-orb {
+	position: absolute;
+	pointer-events: none;
+	width: 38vmax;
+	height: 38vmax;
+	border-radius: 50%;
+	filter: blur(80px);
+	opacity: 0.55;
+	z-index: 0;
+	animation: arenaOrbDrift 14s ease-in-out infinite;
+}
+.evoting-arena-orb.is-cyan { left: -10vmax; top: -10vmax; background: radial-gradient(circle, var(--neon-cyan), transparent 60%); }
+.evoting-arena-orb.is-violet { right: -12vmax; top: 10vmax; background: radial-gradient(circle, var(--neon-violet), transparent 60%); animation-delay: -5s; }
+.evoting-arena-orb.is-ember { left: 25%; bottom: -18vmax; background: radial-gradient(circle, var(--neon-magenta), transparent 60%); animation-delay: -9s; opacity: 0.35; }
+
+/* HUD container — used for top status bar, KPI strip, ticker. */
+.arena-hud {
+	position: relative;
+	border: 1px solid var(--arena-border);
+	background: linear-gradient(180deg, var(--arena-glass-strong), var(--arena-glass));
+	box-shadow:
+		0 1px 0 rgba(255, 255, 255, 0.04) inset,
+		0 24px 60px rgba(0, 0, 0, 0.55);
+	backdrop-filter: blur(18px) saturate(140%);
+	-webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Cut-corner clip helper — gives that "boss-fight panel" silhouette. */
+.arena-cut {
+	clip-path: polygon(
+		18px 0,
+		100% 0,
+		100% calc(100% - 18px),
+		calc(100% - 18px) 100%,
+		0 100%,
+		0 18px
+	);
+}
+
+/* Animated corner brackets. */
+.arena-bracket {
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	border: 2px solid var(--neon-cyan);
+	box-shadow: 0 0 12px var(--neon-cyan-soft);
+	pointer-events: none;
+}
+.arena-bracket.tl { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+.arena-bracket.tr { top: 8px; right: 8px; border-left: 0; border-bottom: 0; }
+.arena-bracket.bl { bottom: 8px; left: 8px; border-right: 0; border-top: 0; }
+.arena-bracket.br { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+
+/* Numeric / display typography. */
+.arena-numeric {
+	font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
+}
+.arena-chrome {
+	font-family: "Rajdhani", "Orbitron", system-ui, sans-serif;
+	letter-spacing: 0.08em;
+}
+
+/* Countdown card. */
+.arena-countdown {
+	display: inline-flex;
+	gap: 0.4rem;
+	align-items: stretch;
+}
+.arena-countdown-unit {
+	min-width: 58px;
+	padding: 0.55rem 0.65rem 0.35rem;
+	border-radius: 0.65rem;
+	border: 1px solid var(--arena-border-strong);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.18));
+	box-shadow: inset 0 0 24px rgba(0, 229, 255, 0.06);
+	text-align: center;
+	position: relative;
+	overflow: hidden;
+}
+.arena-countdown-unit::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(180deg, transparent 0 49%, rgba(0, 0, 0, 0.4) 49% 51%, transparent 51% 100%);
+	pointer-events: none;
+	opacity: 0.4;
+}
+.arena-countdown-value {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	font-size: clamp(1.25rem, 4vw, 1.85rem);
+	line-height: 1;
+	color: #fff;
+	text-shadow: 0 0 14px var(--neon-cyan-soft);
+}
+.arena-countdown-label {
+	margin-top: 0.25rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.22em;
+	color: var(--arena-text-dim);
+	text-transform: uppercase;
+}
+.arena-countdown.is-urgent .arena-countdown-value {
+	color: #ff6188;
+	text-shadow: 0 0 18px rgba(255, 77, 109, 0.55);
+	animation: arenaPulseUrgent 1.2s ease-in-out infinite;
+}
+
+/* KPI strip cell. */
+.arena-kpi {
+	position: relative;
+	border: 1px solid var(--arena-border);
+	border-radius: 1rem;
+	padding: 0.85rem 1rem;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.18));
+	overflow: hidden;
+}
+.arena-kpi::before {
+	content: "";
+	position: absolute;
+	left: 0; right: 0; top: 0;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+	opacity: 0.55;
+}
+.arena-kpi-label {
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.62rem;
+	font-weight: 700;
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	color: var(--arena-text-dim);
+}
+.arena-kpi-value {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 800;
+	font-size: clamp(1.4rem, 3.6vw, 1.85rem);
+	line-height: 1.05;
+	color: #fff;
+	margin-top: 0.25rem;
+	text-shadow: 0 0 16px rgba(0, 229, 255, 0.25);
+}
+
+/* Category pill selector — "match selector". */
+.arena-cat-pill {
+	position: relative;
+	padding: 0.55rem 1rem;
+	border-radius: 999px;
+	border: 1px solid var(--arena-border);
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--arena-text-dim);
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	font-size: 0.82rem;
+	text-transform: uppercase;
+	white-space: nowrap;
+	transition: color 180ms ease, border-color 180ms ease, background 220ms ease, transform 180ms ease;
+}
+.arena-cat-pill:hover {
+	color: #fff;
+	border-color: var(--neon-cyan-soft);
+	background: rgba(0, 229, 255, 0.08);
+}
+.arena-cat-pill.is-active {
+	color: #021018;
+	background: linear-gradient(135deg, var(--neon-cyan), #6ee7ff);
+	border-color: transparent;
+	box-shadow: 0 0 24px var(--neon-cyan-soft), 0 0 4px rgba(255, 255, 255, 0.6) inset;
+	transform: translateY(-1px);
+}
+
+/* ----- Podium ----- */
+.arena-podium {
+	position: relative;
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.6rem;
+	align-items: end;
+}
+@media (min-width: 640px) { .arena-podium { gap: 1rem; } }
+@media (min-width: 1024px) { .arena-podium { gap: 1.5rem; } }
+
+.arena-podium-card {
+	position: relative;
+	border-radius: 1.1rem;
+	border: 1px solid var(--arena-border-strong);
+	background: linear-gradient(180deg, rgba(20, 26, 60, 0.78), rgba(8, 11, 32, 0.85));
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+	transform-origin: center bottom;
+	animation: arenaPodiumRise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+	transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+	overflow: hidden;
+	isolation: isolate;
+}
+.arena-podium-card:hover {
+	transform: translateY(-6px);
+	border-color: var(--neon-cyan-soft);
+}
+.arena-podium-card::before {
+	/* Diagonal scanline sweep on hover/idle. */
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.16) 48%, transparent 58%);
+	transform: translateX(-130%);
+	animation: arenaSheen 5s ease-in-out infinite;
+	pointer-events: none;
+	mix-blend-mode: screen;
+}
+
+/* Rank 1 — holographic gold aura + conic border. */
+.arena-podium-card.is-first {
+	border: 1px solid transparent;
+	background:
+		linear-gradient(180deg, rgba(48, 28, 6, 0.85), rgba(20, 12, 4, 0.9)) padding-box,
+		conic-gradient(from 0deg, var(--gold-1), var(--gold-2), var(--gold-3), var(--gold-1)) border-box;
+	box-shadow:
+		0 0 48px rgba(255, 186, 43, 0.35),
+		0 30px 70px rgba(0, 0, 0, 0.6);
+	animation: arenaPodiumRise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both, arenaGoldGlow 3.2s ease-in-out infinite;
+}
+.arena-podium-card.is-first::after {
+	/* Champion aura halo above card. */
+	content: "";
+	position: absolute;
+	left: 10%;
+	right: 10%;
+	top: -22%;
+	height: 44%;
+	background: radial-gradient(ellipse at center, rgba(255, 218, 90, 0.55), transparent 65%);
+	filter: blur(2px);
+	pointer-events: none;
+	animation: arenaHalo 3.2s ease-in-out infinite;
+}
+
+.arena-podium-card.is-second { box-shadow: 0 0 38px rgba(203, 213, 225, 0.18), 0 24px 60px rgba(0, 0, 0, 0.55); }
+.arena-podium-card.is-third { box-shadow: 0 0 38px rgba(255, 122, 0, 0.18), 0 24px 60px rgba(0, 0, 0, 0.55); }
+
+.arena-podium-rankbadge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.3rem 0.7rem;
+	border-radius: 999px;
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	font-size: 0.72rem;
+	letter-spacing: 0.06em;
+	color: #050614;
+	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+.arena-podium-rankbadge.r1 { background: linear-gradient(135deg, var(--gold-1), var(--gold-3)); }
+.arena-podium-rankbadge.r2 { background: linear-gradient(135deg, var(--silver-1), var(--silver-2)); }
+.arena-podium-rankbadge.r3 { background: linear-gradient(135deg, var(--bronze-1), var(--bronze-2)); color: #fff; }
+
+.arena-podium-photo {
+	position: relative;
+	overflow: hidden;
+	border-radius: 0.9rem;
+	background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(184, 41, 255, 0.08));
+	border: 1px solid var(--arena-border-strong);
+}
+.arena-podium-card.is-first .arena-podium-photo {
+	border-color: rgba(255, 218, 90, 0.55);
+	box-shadow: inset 0 0 32px rgba(255, 186, 43, 0.18);
+}
+.arena-podium-photo img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: top;
+	transform: scale(1.02);
+	transition: transform 600ms ease;
+	filter: saturate(110%) contrast(1.02);
+}
+.arena-podium-card:hover .arena-podium-photo img { transform: scale(1.07); }
+
+/* Crown floating above #1. */
+.arena-crown {
+	position: absolute;
+	top: -22px;
+	left: 50%;
+	transform: translateX(-50%);
+	filter: drop-shadow(0 8px 18px rgba(255, 186, 43, 0.6));
+	animation: arenaCrownFloat 2.4s ease-in-out infinite;
+	pointer-events: none;
+	z-index: 3;
+}
+
+/* Plinth (the base step under podium card). */
+.arena-podium-plinth {
+	margin-top: 0.6rem;
+	position: relative;
+	border-radius: 0.75rem 0.75rem 0.25rem 0.25rem;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.25));
+	border: 1px solid var(--arena-border);
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	letter-spacing: 0.04em;
+	overflow: hidden;
+}
+.arena-podium-plinth::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: repeating-linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0.04) 0 1px,
+		transparent 1px 14px
+	);
+	pointer-events: none;
+}
+.arena-podium-plinth.r1 { background: linear-gradient(180deg, var(--gold-1), var(--gold-3)); color: #1c0e00; }
+.arena-podium-plinth.r2 { background: linear-gradient(180deg, var(--silver-1), var(--silver-2)); color: #0c1322; }
+.arena-podium-plinth.r3 { background: linear-gradient(180deg, var(--bronze-1), var(--bronze-2)); }
+
+/* Progress bar (podium + leaderboard) */
+.arena-bar {
+	position: relative;
+	height: 6px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.06);
+	overflow: hidden;
+}
+.arena-bar-fill {
+	position: relative;
+	height: 100%;
+	border-radius: 999px;
+	background: linear-gradient(90deg, var(--neon-cyan), var(--neon-violet));
+	box-shadow: 0 0 14px var(--neon-cyan-soft);
+	transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.arena-bar-fill.r1 { background: linear-gradient(90deg, var(--gold-1), var(--gold-3)); box-shadow: 0 0 14px rgba(255, 186, 43, 0.45); }
+.arena-bar-fill.r2 { background: linear-gradient(90deg, var(--silver-1), var(--silver-2)); }
+.arena-bar-fill.r3 { background: linear-gradient(90deg, var(--bronze-1), var(--bronze-2)); }
+.arena-bar-fill::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+	transform: translateX(-120%);
+	animation: arenaShine 2.6s ease-in-out infinite;
+}
+
+/* ----- Leaderboard row ----- */
+.arena-row {
+	position: relative;
+	display: grid;
+	grid-template-columns: 56px 56px minmax(0, 1fr) auto;
+	gap: 0.75rem;
+	align-items: center;
+	padding: 0.75rem 0.85rem;
+	border-radius: 0.9rem;
+	border: 1px solid var(--arena-border);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.18));
+	transition: border-color 220ms ease, background 220ms ease, transform 180ms ease;
+}
+.arena-row:hover {
+	border-color: var(--neon-cyan-soft);
+	background: linear-gradient(180deg, rgba(0, 229, 255, 0.06), rgba(0, 0, 0, 0.18));
+	transform: translateY(-1px);
+}
+.arena-row.is-flash {
+	animation: arenaRowFlash 900ms ease-out 1;
+}
+.arena-row-rank {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	font-size: 1.1rem;
+	color: var(--arena-text-dim);
+	text-align: center;
+	letter-spacing: 0.04em;
+}
+.arena-row-avatar {
+	width: 56px;
+	height: 56px;
+	border-radius: 0.65rem;
+	overflow: hidden;
+	border: 1px solid var(--arena-border-strong);
+	background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(184, 41, 255, 0.08));
+	position: relative;
+	flex-shrink: 0;
+}
+.arena-row-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+
+.arena-row-name {
+	font-weight: 700;
+	color: #fff;
+	letter-spacing: 0.01em;
+	margin: 0;
+	font-size: 0.95rem;
+	line-height: 1.2;
+}
+.arena-row-sub {
+	font-size: 0.74rem;
+	color: var(--arena-text-mute);
+	margin-top: 0.15rem;
+}
+
+/* Δrank chip */
+.arena-delta {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2rem;
+	padding: 0.1rem 0.45rem;
+	border-radius: 999px;
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 800;
+	font-size: 0.65rem;
+	letter-spacing: 0.06em;
+	animation: arenaDeltaPop 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.arena-delta.up { background: rgba(34, 245, 167, 0.16); color: #6cffc6; border: 1px solid rgba(34, 245, 167, 0.4); }
+.arena-delta.down { background: rgba(255, 77, 109, 0.16); color: #ff95aa; border: 1px solid rgba(255, 77, 109, 0.4); }
+.arena-delta.flat { background: rgba(255, 255, 255, 0.06); color: var(--arena-text-dim); border: 1px solid var(--arena-border); }
+
+/* Vote CTA button. */
+.arena-vote-btn {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	padding: 0.55rem 1.05rem;
+	border-radius: 0.65rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	font-size: 0.78rem;
+	color: #021018;
+	background: linear-gradient(135deg, var(--neon-cyan), #6ee7ff);
+	border: 1px solid rgba(255, 255, 255, 0.35);
+	box-shadow: 0 8px 24px var(--neon-cyan-soft), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+	overflow: hidden;
+	transition: transform 120ms ease, box-shadow 220ms ease, filter 220ms ease;
+	cursor: pointer;
+}
+.arena-vote-btn::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.65) 50%, transparent 65%);
+	transform: translateX(-130%);
+	transition: transform 700ms ease;
+}
+.arena-vote-btn:hover::before { transform: translateX(130%); }
+.arena-vote-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 30px var(--neon-cyan-soft); }
+.arena-vote-btn:active { transform: scale(0.96); }
+.arena-vote-btn[disabled] {
+	cursor: not-allowed;
+	background: rgba(255, 255, 255, 0.06);
+	color: var(--arena-text-mute);
+	border-color: var(--arena-border);
+	box-shadow: none;
+}
+.arena-vote-btn.is-voted {
+	background: linear-gradient(135deg, #22f5a7, #06b681);
+	color: #02211a;
+}
+.arena-vote-btn.is-paid {
+	background: linear-gradient(135deg, var(--neon-violet), var(--neon-magenta));
+	color: #fff;
+	border-color: rgba(255, 255, 255, 0.3);
+	box-shadow: 0 8px 24px var(--neon-violet-soft);
+}
+
+/* Floating +1 indicator when vote lands. */
+.arena-float-plus {
+	position: absolute;
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	color: #6cffc6;
+	text-shadow: 0 0 12px rgba(34, 245, 167, 0.6);
+	pointer-events: none;
+	animation: arenaFloatPlus 1.4s ease-out forwards;
+	z-index: 5;
+}
+
+/* Live ticker. */
+.arena-ticker {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+.arena-ticker-item {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	padding: 0.55rem 0.75rem;
+	border-radius: 0.6rem;
+	background: linear-gradient(180deg, rgba(0, 229, 255, 0.07), rgba(0, 0, 0, 0.2));
+	border: 1px solid var(--arena-border);
+	font-size: 0.78rem;
+	color: var(--arena-text);
+}
+.arena-ticker-item.is-rankup { background: linear-gradient(180deg, rgba(34, 245, 167, 0.12), rgba(0, 0, 0, 0.2)); border-color: rgba(34, 245, 167, 0.35); }
+
+/* Status banner */
+.arena-status-banner {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	padding: 0.75rem 1rem;
+	border-radius: 0.85rem;
+	border: 1px solid var(--arena-border-strong);
+	background: linear-gradient(180deg, rgba(255, 122, 0, 0.10), rgba(0, 0, 0, 0.2));
+	color: #ffd0a8;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+}
+.arena-status-banner.is-closed { background: linear-gradient(180deg, rgba(255, 77, 109, 0.12), rgba(0, 0, 0, 0.2)); color: #ffadbe; }
+
+/* Mute/sound toggle */
+.arena-sound-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.4rem 0.7rem;
+	border-radius: 999px;
+	border: 1px solid var(--arena-border-strong);
+	background: var(--arena-glass);
+	color: var(--arena-text-dim);
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	transition: color 180ms ease, border-color 180ms ease;
+}
+.arena-sound-toggle:hover { color: #fff; border-color: var(--neon-cyan-soft); }
+
+/* Live pulse dot. */
+.arena-live-dot {
+	position: relative;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--neon-ember);
+	box-shadow: 0 0 12px var(--neon-ember);
+}
+.arena-live-dot::after {
+	content: "";
+	position: absolute;
+	inset: -4px;
+	border-radius: 50%;
+	border: 1px solid var(--neon-ember);
+	animation: arenaPing 1.6s ease-out infinite;
+}
+
+/* Confetti emoji burst piece (used by JS-rendered fragments). */
+.arena-confetti {
+	position: absolute;
+	pointer-events: none;
+	will-change: transform, opacity;
+	animation: arenaConfetti 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	font-size: 18px;
+	z-index: 6;
+}
+
+/* Animations. */
+@keyframes arenaGridDrift {
+	0% { background-position: 0 0, 0 0; }
+	100% { background-position: 56px 56px, 56px 56px; }
+}
+@keyframes arenaStarsTwinkle {
+	0%, 100% { opacity: 0.7; }
+	50% { opacity: 1; }
+}
+@keyframes arenaOrbDrift {
+	0%, 100% { transform: translate(0, 0); }
+	50% { transform: translate(4vmax, 2vmax); }
+}
+@keyframes arenaSheen {
+	0%, 55% { transform: translateX(-130%); }
+	75%, 100% { transform: translateX(130%); }
+}
+@keyframes arenaPodiumRise {
+	0% { opacity: 0; transform: translateY(38px) scale(0.92) rotateX(6deg); }
+	100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
+}
+@keyframes arenaGoldGlow {
+	0%, 100% { box-shadow: 0 0 32px rgba(255, 186, 43, 0.32), 0 30px 70px rgba(0, 0, 0, 0.6); }
+	50% { box-shadow: 0 0 60px rgba(255, 186, 43, 0.55), 0 30px 90px rgba(0, 0, 0, 0.6); }
+}
+@keyframes arenaHalo {
+	0%, 100% { opacity: 0.55; transform: translateY(0) scaleX(0.95); }
+	50% { opacity: 1; transform: translateY(6px) scaleX(1.1); }
+}
+@keyframes arenaCrownFloat {
+	0%, 100% { transform: translate(-50%, 0); }
+	50% { transform: translate(-50%, -6px); }
+}
+@keyframes arenaShine {
+	0%, 35% { transform: translateX(-120%); }
+	70%, 100% { transform: translateX(120%); }
+}
+@keyframes arenaDeltaPop {
+	0% { opacity: 0; transform: translateY(-4px) scale(0.7); }
+	60% { transform: translateY(0) scale(1.08); }
+	100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes arenaFloatPlus {
+	0% { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+	20% { opacity: 1; transform: translate(-50%, -10px) scale(1); }
+	100% { opacity: 0; transform: translate(-50%, -56px) scale(1.05); }
+}
+@keyframes arenaPulseUrgent {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.55; }
+}
+@keyframes arenaRowFlash {
+	0% { background: linear-gradient(180deg, rgba(34, 245, 167, 0.35), rgba(0, 0, 0, 0.18)); box-shadow: 0 0 24px rgba(34, 245, 167, 0.45); }
+	100% { background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.18)); box-shadow: none; }
+}
+@keyframes arenaPing {
+	0% { transform: scale(1); opacity: 0.85; }
+	100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes arenaConfetti {
+	0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+	100% { opacity: 0; transform: translate(var(--cx, 40px), var(--cy, -120px)) rotate(var(--cr, 240deg)); }
+}
+
+/* ----- Purchase / Loadout modal ----- */
+.arena-modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 80;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	padding: 0;
+	background:
+		radial-gradient(120% 90% at 20% 0%, rgba(184, 41, 255, 0.25), transparent 55%),
+		radial-gradient(110% 90% at 90% 100%, rgba(0, 229, 255, 0.18), transparent 55%),
+		rgba(3, 5, 16, 0.78);
+	backdrop-filter: blur(14px);
+	animation: arenaModalFadeIn 280ms ease forwards;
+}
+@media (min-width: 640px) {
+	.arena-modal-backdrop { align-items: center; padding: 1rem; }
+}
+
+.arena-modal {
+	position: relative;
+	width: 100%;
+	max-width: 28rem;
+	max-height: 94vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	color: var(--arena-text);
+	background:
+		linear-gradient(180deg, rgba(15, 19, 46, 0.96), rgba(5, 7, 22, 0.98));
+	border: 1px solid transparent;
+	border-radius: 1.5rem 1.5rem 0 0;
+	background-clip: padding-box;
+	box-shadow:
+		0 -8px 60px rgba(0, 229, 255, 0.2),
+		0 30px 80px rgba(0, 0, 0, 0.65),
+		inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	animation: arenaModalRise 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@media (min-width: 640px) {
+	.arena-modal {
+		max-height: 90vh;
+		border-radius: 1.25rem;
+	}
+}
+.arena-modal::before {
+	/* Animated neon border using conic gradient. */
+	content: "";
+	position: absolute;
+	inset: -1px;
+	border-radius: inherit;
+	padding: 1px;
+	background: conic-gradient(from 90deg, var(--neon-cyan), var(--neon-violet), var(--neon-magenta), var(--neon-cyan));
+	mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+	-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+	mask-composite: exclude;
+	-webkit-mask-composite: xor;
+	animation: arenaBorderSpin 8s linear infinite;
+	pointer-events: none;
+	opacity: 0.7;
+}
+
+.arena-modal-header {
+	position: relative;
+	flex-shrink: 0;
+	padding: 1.1rem 1.25rem 1rem;
+	border-bottom: 1px solid var(--arena-border);
+	background: linear-gradient(180deg, rgba(0, 229, 255, 0.08), transparent);
+}
+.arena-modal-handle {
+	display: flex;
+	justify-content: center;
+	padding: 0.5rem 0 0.2rem;
+}
+.arena-modal-handle span {
+	width: 44px;
+	height: 4px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.18);
+}
+@media (min-width: 640px) { .arena-modal-handle { display: none; } }
+
+.arena-modal-icon {
+	width: 44px;
+	height: 44px;
+	border-radius: 0.75rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(135deg, var(--neon-violet), var(--neon-magenta));
+	box-shadow: 0 8px 24px var(--neon-violet-soft), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+	color: #fff;
+	flex-shrink: 0;
+}
+
+.arena-modal-close {
+	position: absolute;
+	right: 0.8rem;
+	top: 0.8rem;
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--arena-border);
+	background: rgba(255, 255, 255, 0.04);
+	color: var(--arena-text-dim);
+	transition: color 180ms ease, border-color 180ms ease;
+}
+.arena-modal-close:hover { color: #fff; border-color: var(--neon-cyan-soft); }
+
+.arena-modal-body {
+	flex: 1;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 1.1rem 1.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.arena-section-head {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.74rem;
+	font-weight: 700;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--arena-text);
+	margin-bottom: 0.55rem;
+}
+.arena-section-head::before {
+	content: "";
+	width: 4px;
+	height: 14px;
+	border-radius: 2px;
+	background: linear-gradient(180deg, var(--neon-cyan), var(--neon-violet));
+	box-shadow: 0 0 8px var(--neon-cyan-soft);
+}
+
+.arena-input {
+	width: 100%;
+	padding: 0.65rem 0.85rem;
+	border-radius: 0.6rem;
+	border: 1px solid var(--arena-border);
+	background: rgba(0, 0, 0, 0.25);
+	color: #fff;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.95rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	outline: none;
+	transition: border-color 180ms ease, box-shadow 180ms ease, background 220ms ease;
+}
+.arena-input::placeholder { color: var(--arena-text-mute); font-weight: 500; }
+.arena-input:focus {
+	border-color: var(--neon-cyan-soft);
+	background: rgba(0, 229, 255, 0.06);
+	box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.12), 0 0 24px rgba(0, 229, 255, 0.18);
+}
+
+.arena-input-label {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	margin-bottom: 0.35rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.7rem;
+	font-weight: 700;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	color: var(--arena-text-dim);
+}
+
+.arena-target-card {
+	position: relative;
+	border-radius: 0.85rem;
+	border: 1px solid var(--neon-violet-soft);
+	background:
+		linear-gradient(180deg, rgba(184, 41, 255, 0.16), rgba(0, 229, 255, 0.06)),
+		rgba(0, 0, 0, 0.25);
+	padding: 0.85rem 1rem;
+	overflow: hidden;
+}
+.arena-target-card::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.12) 48%, transparent 58%);
+	transform: translateX(-130%);
+	animation: arenaSheen 5s ease-in-out infinite;
+	pointer-events: none;
+}
+
+.arena-rank-pred {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.6rem 0.85rem;
+	border-radius: 0.7rem;
+	border: 1px dashed rgba(108, 255, 198, 0.4);
+	background: rgba(34, 245, 167, 0.07);
+	color: #b5ffdf;
+	font-size: 0.78rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 600;
+}
+.arena-rank-pred.is-flat {
+	border-color: var(--arena-border);
+	background: rgba(255, 255, 255, 0.03);
+	color: var(--arena-text-dim);
+}
+
+.arena-summary {
+	border-radius: 0.85rem;
+	border: 1px solid var(--arena-border);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(0, 0, 0, 0.25));
+	padding: 0.9rem 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.86rem;
+}
+.arena-summary-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.arena-summary-row .label { color: var(--arena-text-dim); }
+.arena-summary-row .value { color: #fff; font-weight: 700; }
+.arena-summary-row.is-total {
+	margin-top: 0.4rem;
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--arena-border);
+}
+.arena-summary-row.is-total .value {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-size: 1.05rem;
+	font-weight: 900;
+	color: #00e5ff;
+	text-shadow: 0 0 12px var(--neon-cyan-soft);
+}
+
+.arena-modal-footer {
+	position: relative;
+	flex-shrink: 0;
+	padding: 0.85rem 1.25rem max(env(safe-area-inset-bottom), 0.9rem);
+	border-top: 1px solid var(--arena-border);
+	background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(5, 7, 22, 0.95));
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+.arena-secondary-btn {
+	padding: 0.65rem 1rem;
+	border-radius: 0.6rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 700;
+	font-size: 0.85rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--arena-text-dim);
+	border: 1px solid var(--arena-border);
+	background: rgba(255, 255, 255, 0.03);
+	transition: color 180ms ease, border-color 180ms ease;
+}
+.arena-secondary-btn:hover { color: #fff; border-color: var(--neon-cyan-soft); }
+
+/* ----- Rank-up celebration modal ----- */
+.arena-rankup {
+	position: fixed;
+	inset: 0;
+	z-index: 95;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	background: rgba(3, 5, 16, 0.65);
+	backdrop-filter: blur(8px);
+	pointer-events: none;
+}
+.arena-rankup-card {
+	position: relative;
+	padding: 1.75rem 2rem;
+	min-width: 280px;
+	border-radius: 1.25rem;
+	background:
+		radial-gradient(120% 80% at 50% 0%, rgba(255, 218, 90, 0.35), transparent 65%),
+		linear-gradient(180deg, rgba(15, 19, 46, 0.97), rgba(5, 7, 22, 0.99));
+	border: 1px solid transparent;
+	background-clip: padding-box;
+	box-shadow:
+		0 0 50px rgba(255, 186, 43, 0.4),
+		0 30px 80px rgba(0, 0, 0, 0.65);
+	text-align: center;
+	pointer-events: auto;
+	overflow: hidden;
+}
+.arena-rankup-card::before {
+	content: "";
+	position: absolute;
+	inset: -1px;
+	border-radius: inherit;
+	padding: 1px;
+	background: conic-gradient(from 0deg, var(--gold-1), var(--gold-2), var(--gold-3), var(--gold-1));
+	mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+	-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+	mask-composite: exclude;
+	-webkit-mask-composite: xor;
+	animation: arenaBorderSpin 5s linear infinite;
+	pointer-events: none;
+}
+.arena-rankup-rank {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	font-size: clamp(3rem, 14vw, 5rem);
+	line-height: 1;
+	background: linear-gradient(180deg, var(--gold-1), var(--gold-3));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	filter: drop-shadow(0 4px 18px rgba(255, 186, 43, 0.45));
+}
+
+@keyframes arenaModalFadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+@keyframes arenaModalRise {
+	0% { opacity: 0; transform: translateY(50px) scale(0.96); }
+	100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes arenaBorderSpin {
+	to { transform: rotate(360deg); }
+}
+
+/* =====================================================================
+   GIFT VOTING — TikTok-style live battle dock. Sits as a sticky panel on
+   the bottom of mobile / right rail on desktop. Each gift has a signature
+   animation when fired. All animations are GPU-accelerated (transform +
+   opacity only) and respect prefers-reduced-motion.
+   ===================================================================== */
+.arena-gift-dock {
+	position: relative;
+	border: 1px solid var(--arena-border-strong);
+	border-radius: 1rem;
+	padding: 0.85rem;
+	background: linear-gradient(180deg, rgba(13, 18, 44, 0.92), rgba(5, 7, 22, 0.95));
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.05),
+		0 18px 50px rgba(0, 0, 0, 0.55);
+	overflow: hidden;
+}
+.arena-gift-dock::before {
+	content: "";
+	position: absolute;
+	top: 0; left: 0; right: 0;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-violet), transparent);
+	opacity: 0.55;
+}
+
+.arena-gift-target {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.55rem 0.7rem;
+	border-radius: 0.7rem;
+	background: linear-gradient(180deg, rgba(184, 41, 255, 0.18), rgba(0, 0, 0, 0.25));
+	border: 1px dashed rgba(184, 41, 255, 0.4);
+	margin-bottom: 0.7rem;
+}
+.arena-gift-target.is-empty {
+	background: rgba(255, 255, 255, 0.025);
+	border-color: var(--arena-border);
+	color: var(--arena-text-mute);
+	justify-content: center;
+	font-size: 0.78rem;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	letter-spacing: 0.05em;
+}
+
+.arena-gift-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.5rem;
+}
+
+.arena-gift-card {
+	position: relative;
+	padding: 0.65rem 0.45rem 0.55rem;
+	border-radius: 0.85rem;
+	border: 1px solid var(--arena-border-strong);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.25));
+	color: #fff;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.2rem;
+	cursor: pointer;
+	overflow: hidden;
+	transition: transform 160ms ease, border-color 200ms ease, box-shadow 220ms ease;
+}
+.arena-gift-card:hover {
+	transform: translateY(-2px);
+	border-color: var(--neon-cyan-soft);
+	box-shadow: 0 10px 28px rgba(0, 229, 255, 0.18);
+}
+.arena-gift-card:active { transform: scale(0.96); }
+.arena-gift-card[disabled] {
+	cursor: not-allowed;
+	opacity: 0.55;
+	transform: none;
+}
+.arena-gift-card .emoji {
+	font-size: 1.65rem;
+	line-height: 1;
+	filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+	transition: transform 220ms ease;
+}
+.arena-gift-card:hover .emoji { transform: scale(1.12) rotate(-6deg); }
+.arena-gift-card .label {
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-size: 0.62rem;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--arena-text-dim);
+}
+.arena-gift-card .votes {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 800;
+	font-size: 0.78rem;
+	color: #fff;
+}
+/* Cooldown overlay arc. */
+.arena-gift-card .cooldown {
+	position: absolute;
+	inset: 0;
+	background: conic-gradient(rgba(0, 0, 0, 0.55) var(--cd, 0%), transparent 0);
+	pointer-events: none;
+	border-radius: inherit;
+}
+/* Combo badge on top-right. */
+.arena-gift-combo {
+	position: absolute;
+	top: -10px;
+	right: -10px;
+	min-width: 32px;
+	height: 32px;
+	padding: 0 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	background: linear-gradient(135deg, var(--neon-cyan), var(--neon-violet));
+	color: #021018;
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 900;
+	font-size: 0.75rem;
+	letter-spacing: 0.04em;
+	box-shadow: 0 6px 18px var(--neon-cyan-soft);
+	animation: arenaComboPop 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Per-gift card accent. */
+.arena-gift-card.is-lion { background: linear-gradient(180deg, rgba(255, 186, 43, 0.18), rgba(120, 50, 0, 0.4)); border-color: rgba(255, 186, 43, 0.5); }
+.arena-gift-card.is-rocket { background: linear-gradient(180deg, rgba(0, 229, 255, 0.18), rgba(0, 50, 90, 0.4)); border-color: var(--neon-cyan-soft); }
+.arena-gift-card.is-bear { background: linear-gradient(180deg, rgba(255, 122, 0, 0.16), rgba(70, 30, 0, 0.45)); border-color: rgba(255, 138, 61, 0.5); }
+.arena-gift-card.is-soldier { background: linear-gradient(180deg, rgba(108, 255, 198, 0.14), rgba(0, 50, 30, 0.4)); border-color: rgba(34, 245, 167, 0.45); }
+
+/* Floating projectile emoji as it flies toward the target. */
+.arena-gift-fly {
+	position: fixed;
+	z-index: 90;
+	pointer-events: none;
+	font-size: 36px;
+	will-change: transform, opacity;
+	filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55));
+}
+
+/* Nominee card aura when it receives a gift. */
+.arena-recv-aura {
+	position: absolute;
+	inset: -8px;
+	border-radius: inherit;
+	pointer-events: none;
+	z-index: 4;
+	animation: arenaRecvAura 1.6s ease-out forwards;
+}
+.arena-recv-aura.is-lion { box-shadow: 0 0 0 2px rgba(255, 218, 90, 0.7), 0 0 60px rgba(255, 186, 43, 0.7), 0 0 120px rgba(255, 138, 0, 0.45); }
+.arena-recv-aura.is-rocket { box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.7), 0 0 50px rgba(0, 229, 255, 0.65), 0 0 100px rgba(108, 231, 255, 0.4); }
+.arena-recv-aura.is-bear { box-shadow: 0 0 0 2px rgba(255, 138, 61, 0.65), 0 0 45px rgba(255, 122, 0, 0.55), 0 0 90px rgba(255, 90, 0, 0.35); }
+.arena-recv-aura.is-soldier { box-shadow: 0 0 0 2px rgba(108, 255, 198, 0.55), 0 0 40px rgba(34, 245, 167, 0.4); }
+
+/* Bear bounce + soldier pulse hooks for the wrapper itself. */
+.arena-bear-bounce { animation: arenaBearBounce 720ms cubic-bezier(0.4, 1.6, 0.5, 1); }
+.arena-soldier-pulse {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	border: 2px solid rgba(108, 255, 198, 0.7);
+	animation: arenaSoldierPulse 800ms ease-out forwards;
+}
+
+/* Full-screen lion celebration overlay. */
+.arena-lion-veil {
+	position: fixed;
+	inset: 0;
+	z-index: 94;
+	pointer-events: none;
+	background: radial-gradient(ellipse at center, rgba(255, 218, 90, 0.45) 0%, transparent 65%);
+	animation: arenaLionVeil 1500ms ease-out forwards;
+}
+.arena-lion-emoji {
+	position: fixed;
+	left: 50%;
+	top: 38%;
+	z-index: 95;
+	transform: translate(-50%, -50%);
+	font-size: clamp(8rem, 22vw, 16rem);
+	filter: drop-shadow(0 12px 40px rgba(255, 186, 43, 0.7));
+	pointer-events: none;
+	animation: arenaLionEntrance 1500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+/* Subtle screen shake on the arena root when lion fires. */
+.evoting-arena.is-shaking {
+	animation: arenaShake 480ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+/* Rocket diagonal streak across the screen. */
+.arena-rocket-streak {
+	position: fixed;
+	left: -10vw;
+	bottom: 10vh;
+	z-index: 90;
+	font-size: clamp(3rem, 8vw, 5rem);
+	transform: rotate(-25deg);
+	pointer-events: none;
+	animation: arenaRocketStreak 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+	filter: drop-shadow(0 0 24px rgba(0, 229, 255, 0.85));
+}
+.arena-rocket-streak::after {
+	/* Neon contrail behind the rocket. */
+	content: "";
+	position: absolute;
+	right: 80%;
+	top: 50%;
+	height: 6px;
+	width: 18vw;
+	transform: translateY(-50%);
+	background: linear-gradient(90deg, transparent, var(--neon-cyan), #ffffff);
+	border-radius: 999px;
+	box-shadow: 0 0 24px var(--neon-cyan);
+	opacity: 0.9;
+}
+
+/* Realtime ticker entry — extra style for gift events. */
+.arena-ticker-item.is-gift {
+	background: linear-gradient(90deg, rgba(184, 41, 255, 0.18), rgba(0, 0, 0, 0.2));
+	border-color: rgba(184, 41, 255, 0.45);
+}
+.arena-ticker-item .gift-emoji { font-size: 1.05rem; line-height: 1; }
+.arena-ticker-item .gift-amount {
+	font-family: "Orbitron", system-ui, sans-serif;
+	font-weight: 800;
+	color: #ffe48f;
+	margin-left: 0.2rem;
+}
+
+/* Trending badge on a nominee that has received the most gifts recently. */
+.arena-trending {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.1rem 0.45rem;
+	border-radius: 999px;
+	background: linear-gradient(135deg, var(--neon-magenta), var(--neon-violet));
+	color: #fff;
+	font-family: "Rajdhani", system-ui, sans-serif;
+	font-weight: 700;
+	font-size: 0.6rem;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	animation: arenaTrendingPulse 1.6s ease-in-out infinite;
+	box-shadow: 0 0 16px rgba(255, 43, 214, 0.5);
+}
+
+@keyframes arenaComboPop {
+	0% { transform: scale(0.5); opacity: 0; }
+	60% { transform: scale(1.18); opacity: 1; }
+	100% { transform: scale(1); opacity: 1; }
+}
+@keyframes arenaRecvAura {
+	0% { opacity: 0; transform: scale(0.9); }
+	40% { opacity: 1; transform: scale(1); }
+	100% { opacity: 0; transform: scale(1.04); }
+}
+@keyframes arenaBearBounce {
+	0%, 100% { transform: translateY(0) scale(1); }
+	30% { transform: translateY(-12px) scale(1.04); }
+	60% { transform: translateY(0) scale(0.98); }
+	80% { transform: translateY(-4px) scale(1.01); }
+}
+@keyframes arenaSoldierPulse {
+	0% { opacity: 1; transform: scale(1); }
+	100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes arenaLionVeil {
+	0% { opacity: 0; }
+	20% { opacity: 1; }
+	100% { opacity: 0; }
+}
+@keyframes arenaLionEntrance {
+	0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(-12deg); }
+	30% { opacity: 1; transform: translate(-50%, -50%) scale(1.08) rotate(0deg); }
+	55% { transform: translate(-50%, -50%) scale(0.98); }
+	75% { transform: translate(-50%, -50%) scale(1.02); }
+	100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+}
+@keyframes arenaShake {
+	0%, 100% { transform: translate(0, 0); }
+	10% { transform: translate(-3px, -1px); }
+	20% { transform: translate(4px, 2px); }
+	30% { transform: translate(-4px, 1px); }
+	45% { transform: translate(3px, -2px); }
+	60% { transform: translate(-2px, 2px); }
+	80% { transform: translate(2px, -1px); }
+}
+@keyframes arenaRocketStreak {
+	0% { transform: translate(0, 0) rotate(-25deg); opacity: 0; }
+	15% { opacity: 1; }
+	100% { transform: translate(140vw, -60vh) rotate(-25deg); opacity: 0; }
+}
+@keyframes arenaTrendingPulse {
+	0%, 100% { box-shadow: 0 0 12px rgba(255, 43, 214, 0.4); }
+	50% { box-shadow: 0 0 24px rgba(255, 43, 214, 0.8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.evoting-arena-grid,
+	.evoting-arena-stars,
+	.evoting-arena-orb,
+	.arena-podium-card,
+	.arena-podium-card::before,
+	.arena-podium-card.is-first,
+	.arena-podium-card.is-first::after,
+	.arena-crown,
+	.arena-bar-fill::after,
+	.arena-delta,
+	.arena-row.is-flash,
+	.arena-live-dot::after,
+	.arena-float-plus,
+	.arena-confetti,
+	.arena-modal,
+	.arena-modal::before,
+	.arena-modal-backdrop,
+	.arena-target-card::after,
+	.arena-rankup-card::before,
+	.arena-gift-combo,
+	.arena-gift-fly,
+	.arena-recv-aura,
+	.arena-bear-bounce,
+	.arena-soldier-pulse,
+	.arena-lion-veil,
+	.arena-lion-emoji,
+	.evoting-arena.is-shaking,
+	.arena-rocket-streak,
+	.arena-trending {
+		animation: none !important;
+	}
+	.arena-podium-card { transform: none; }
+}
+
 /* ===== Scroll indicator ===== */
 @keyframes scrollBounce {
 	0%,

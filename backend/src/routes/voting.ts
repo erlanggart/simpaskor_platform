@@ -8,11 +8,12 @@ import {
 import { prisma } from "../lib/prisma";
 import crypto from "crypto";
 import {
+	cancelMidtransTransaction,
 	coreApi,
 	createSnapTransaction,
 	resolvePaymentStatus,
 } from "../lib/midtrans";
-import { uploadNomineePhoto } from "../middleware/upload";
+import { uploadNomineePhoto, handleUploadError } from "../middleware/upload";
 import { recordVotingRevenueShare } from "../lib/revenueLedger";
 import { applyPaidVotingPurchaseVotes } from "../lib/votingAutoApply";
 
@@ -481,6 +482,188 @@ router.post("/vote", optionalAuthenticate, async (req: AuthenticatedRequest, res
 	}
 });
 
+// ---------------------------------------------------------------------------
+// GIFT VOTING — TikTok-style live battle gifts. Each gift type maps to a
+// fixed vote multiplier. Gifts are FREE on free-tier events but rate-limited
+// per IP+nominee to prevent spam. A small in-memory ring buffer powers the
+// realtime feed for other viewers (no WebSocket dependency).
+// ---------------------------------------------------------------------------
+
+type GiftType = "lion" | "rocket" | "bear" | "soldier";
+
+const GIFT_CATALOG: Record<GiftType, { votes: number; emoji: string; label: string }> = {
+	lion: { votes: 100, emoji: "🦁", label: "Singa" },
+	rocket: { votes: 50, emoji: "🚀", label: "Roket" },
+	bear: { votes: 20, emoji: "🐻", label: "Beruang" },
+	soldier: { votes: 10, emoji: "🪖", label: "Tentara" },
+};
+
+interface GiftFeedEntry {
+	id: string;
+	eventId: string;
+	categoryId: string;
+	nomineeId: string;
+	nomineeName: string;
+	giftType: GiftType;
+	votes: number;
+	senderLabel: string;
+	ts: number;
+}
+
+// Cooldown bucket: key = `${ip}:${nomineeId}`, value = last-fire epoch ms.
+const giftCooldown = new Map<string, number>();
+const GIFT_COOLDOWN_MS = 1500;
+
+// Ring buffer per event id (last 60s, max 80 entries).
+const giftFeed = new Map<string, GiftFeedEntry[]>();
+const GIFT_FEED_TTL_MS = 60_000;
+const GIFT_FEED_MAX = 80;
+
+const pushGiftFeed = (eventId: string, entry: GiftFeedEntry) => {
+	const now = Date.now();
+	const buf = giftFeed.get(eventId) ?? [];
+	buf.unshift(entry);
+	const fresh = buf.filter((e) => now - e.ts < GIFT_FEED_TTL_MS).slice(0, GIFT_FEED_MAX);
+	giftFeed.set(eventId, fresh);
+};
+
+// Lightweight periodic janitor — prunes stale cooldown + feed entries.
+setInterval(() => {
+	const cutoff = Date.now() - GIFT_FEED_TTL_MS;
+	for (const [k, ts] of giftCooldown) if (ts < cutoff) giftCooldown.delete(k);
+	for (const [evt, buf] of giftFeed) {
+		const fresh = buf.filter((e) => e.ts > cutoff);
+		if (fresh.length === 0) giftFeed.delete(evt);
+		else if (fresh.length !== buf.length) giftFeed.set(evt, fresh);
+	}
+}, 30_000).unref?.();
+
+// POST /api/voting/gift - Send a free gift that adds N votes to a nominee.
+router.post("/gift", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
+	try {
+		const { categoryId, nomineeId, giftType, senderName } = req.body as {
+			categoryId?: string;
+			nomineeId?: string;
+			giftType?: GiftType;
+			senderName?: string;
+		};
+
+		if (!categoryId || !nomineeId || !giftType) {
+			return res.status(400).json({ error: "Kategori, nominee, dan jenis gift wajib diisi" });
+		}
+		const giftDef = GIFT_CATALOG[giftType];
+		if (!giftDef) {
+			return res.status(400).json({ error: "Jenis gift tidak dikenal" });
+		}
+
+		const category = await prisma.votingCategory.findUnique({
+			where: { id: categoryId },
+			include: { config: { include: { event: { select: { id: true } } } } },
+		});
+
+		if (!category || !category.isActive) {
+			return res.status(404).json({ error: "Kategori voting tidak ditemukan" });
+		}
+		if (!category.config.enabled) {
+			return res.status(400).json({ error: "Voting belum diaktifkan" });
+		}
+		if (category.config.isPaid) {
+			return res.status(400).json({ error: "Event ini memakai paid voting — gift gratis tidak tersedia." });
+		}
+
+		const now = new Date();
+		if (category.config.startDate && now < category.config.startDate) {
+			return res.status(400).json({ error: "Voting belum dimulai" });
+		}
+		if (category.config.endDate && now > category.config.endDate) {
+			return res.status(400).json({ error: "Voting sudah ditutup" });
+		}
+
+		const nominee = await prisma.votingNominee.findFirst({
+			where: { id: nomineeId, categoryId },
+		});
+		if (!nominee) {
+			return res.status(404).json({ error: "Nominee tidak ditemukan dalam kategori ini" });
+		}
+		if (!nominee.isActive) {
+			return res.status(400).json({ error: "Nominee sedang dinonaktifkan oleh panitia" });
+		}
+
+		const voterIp = req.headers["x-forwarded-for"]?.toString().split(",")[0]
+			|| req.socket.remoteAddress
+			|| "anon";
+		const cooldownKey = `${voterIp}:${nomineeId}`;
+		const lastFire = giftCooldown.get(cooldownKey) ?? 0;
+		const elapsed = Date.now() - lastFire;
+		if (elapsed < GIFT_COOLDOWN_MS) {
+			return res.status(429).json({
+				error: "Tunggu sebentar sebelum mengirim gift lagi",
+				cooldownRemainingMs: GIFT_COOLDOWN_MS - elapsed,
+			});
+		}
+		giftCooldown.set(cooldownKey, Date.now());
+
+		const senderLabel = (senderName?.trim() || req.user?.userId || "Anonim").slice(0, 40);
+
+		// Single vote row carries the entire gift weight via a marker on voterName.
+		const result = await prisma.$transaction(async (tx) => {
+			const vote = await tx.votingVote.create({
+				data: {
+					categoryId,
+					nomineeId,
+					voterName: `GIFT:${giftType}:${senderLabel}`,
+					voterEmail: null,
+					voterIp,
+				},
+			});
+			const updated = await tx.votingNominee.update({
+				where: { id: nomineeId },
+				data: { voteCount: { increment: giftDef.votes } },
+			});
+			return { vote, updated };
+		});
+
+		const eventId = category.config.event.id;
+		const entry: GiftFeedEntry = {
+			id: result.vote.id,
+			eventId,
+			categoryId,
+			nomineeId,
+			nomineeName: nominee.nomineeName,
+			giftType,
+			votes: giftDef.votes,
+			senderLabel,
+			ts: Date.now(),
+		};
+		pushGiftFeed(eventId, entry);
+
+		res.status(201).json({
+			message: `${giftDef.label} dikirim! +${giftDef.votes} vote`,
+			gift: entry,
+			nominee: { id: result.updated.id, voteCount: result.updated.voteCount },
+		});
+	} catch (error) {
+		console.error("Error sending gift:", error);
+		res.status(500).json({ error: "Gagal mengirim gift" });
+	}
+});
+
+// GET /api/voting/events/:eventId/gift-feed?since=ts — recent gift events
+// for the live activity ticker. Stateless, cheap, no auth required.
+router.get("/events/:eventId/gift-feed", async (req, res) => {
+	try {
+		const eventId = await resolveEventId(req.params.eventId);
+		if (!eventId) return res.json({ entries: [], serverTs: Date.now() });
+		const since = Number(req.query.since) || 0;
+		const buf = giftFeed.get(eventId) ?? [];
+		const entries = buf.filter((e) => e.ts > since);
+		res.json({ entries, serverTs: Date.now() });
+	} catch (error) {
+		console.error("Error fetching gift feed:", error);
+		res.json({ entries: [], serverTs: Date.now() });
+	}
+});
+
 // POST /api/voting/vote-paid - Cast a vote using purchased vote credits
 router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
@@ -737,6 +920,46 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 	} catch (error) {
 		console.error("Error purchasing votes:", error);
 		res.status(500).json({ error: "Gagal memesan vote" });
+	}
+});
+
+// POST /api/voting/cancel-pending - Buyer voids their own PENDING voting purchase
+// Public endpoint: authenticated by the unique purchaseCode returned at
+// purchase time, so a buyer can cancel without an account. Used when the Snap
+// popup is closed before payment.
+router.post("/cancel-pending", async (req, res: Response) => {
+	try {
+		const { purchaseId, purchaseCode } = req.body || {};
+		if (!purchaseId || !purchaseCode) {
+			return res.status(400).json({ error: "purchaseId dan purchaseCode wajib diisi" });
+		}
+
+		const purchase = await prisma.votingPurchase.findFirst({
+			where: { id: String(purchaseId), purchaseCode: String(purchaseCode) },
+		});
+		if (!purchase) {
+			return res.status(404).json({ error: "Pembelian tidak ditemukan" });
+		}
+		if (purchase.status !== "PENDING") {
+			return res.status(400).json({
+				error: `Pembelian sudah berstatus ${purchase.status}, tidak bisa dibatalkan lagi`,
+				status: purchase.status,
+			});
+		}
+
+		await prisma.votingPurchase.update({
+			where: { id: purchase.id },
+			data: { status: "CANCELLED" },
+		});
+
+		if (purchase.midtransOrderId) {
+			void cancelMidtransTransaction(purchase.midtransOrderId);
+		}
+
+		res.json({ status: "CANCELLED", purchaseId: purchase.id });
+	} catch (error: any) {
+		console.error("Error cancelling pending voting purchase:", error);
+		res.status(500).json({ error: "Gagal membatalkan pembelian vote" });
 	}
 });
 
@@ -1332,6 +1555,7 @@ router.post(
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
 	uploadNomineePhoto.single("nomineePhoto"),
+	handleUploadError,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const { nomineeName, nomineeSubtitle, groupId } = req.body;
@@ -1372,6 +1596,7 @@ router.put(
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
 	uploadNomineePhoto.single("nomineePhoto"),
+	handleUploadError,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const { nomineeName, nomineeSubtitle, clearPhoto } = req.body;
@@ -1397,9 +1622,14 @@ router.put(
 			});
 
 			res.json(nominee);
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Error updating nominee:", error);
-			res.status(500).json({ error: "Gagal memperbarui nominee" });
+			if (error?.code === "P2025") {
+				return res.status(404).json({ error: "Nominee tidak ditemukan." });
+			}
+			res.status(500).json({
+				error: `Gagal memperbarui nominee: ${error?.message || "kesalahan server"}`,
+			});
 		}
 	}
 );
