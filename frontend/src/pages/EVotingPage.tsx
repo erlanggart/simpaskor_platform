@@ -708,22 +708,17 @@ const EVotingPage: React.FC = () => {
 						console.error("Voting payment confirmation pending:", err);
 					}
 				};
-				const onPending = () => {
-					Swal.fire({
-						title: "Menunggu Pembayaran",
-						html: `<p>Pembayaran sedang diproses. Vote akan otomatis masuk ke nominee setelah pembayaran dikonfirmasi.</p>`,
-						icon: "info",
-						confirmButtonColor: "#dc2626",
-					});
-				};
 				const onError = () => {
 					Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Vote tidak aktif.", "error");
 				};
-				const onClose = () => {
+				let unfinishedPromptOpen = false;
+				const handleUnfinishedPayment = () => {
+					if (unfinishedPromptOpen) return;
+					unfinishedPromptOpen = true;
 					Swal.fire({
 						title: "Pembayaran Belum Selesai",
-						html: `<p>Anda menutup popup QRIS sebelum membayar.</p>
-							<p class="text-sm text-gray-500 mt-2">Lanjutkan pembayaran atau hanguskan transaksi ini sekarang.</p>`,
+						html: `<p>QRIS belum dibayar atau popup pembayaran ditutup.</p>
+							<p class="text-sm text-gray-500 mt-2">Lanjutkan pembayaran sekarang, atau batalkan transaksi supaya tidak tersimpan sebagai pending.</p>`,
 						icon: "warning",
 						showCancelButton: true,
 						confirmButtonText: "Lanjutkan Pembayaran",
@@ -734,13 +729,16 @@ const EVotingPage: React.FC = () => {
 						allowOutsideClick: false,
 						allowEscapeKey: false,
 					}).then(async (swalResult) => {
+						unfinishedPromptOpen = false;
 						if (swalResult.isConfirmed) {
-							pay(snapToken, { onSuccess, onPending, onError, onClose });
+							pay(snapToken, { onSuccess, onPending: handleUnfinishedPayment, onError, onClose: handleUnfinishedPayment });
 							return;
 						}
 						if (swalResult.dismiss === Swal.DismissReason.cancel) {
 							try {
 								await api.post("/voting/cancel-pending", { purchaseId, purchaseCode });
+								setPaidVoteTarget(null);
+								if (selectedEvent) fetchEventDetail(selectedEvent.id, { silent: true });
 								Swal.fire({
 									title: "Transaksi Dihanguskan",
 									text: "Pembelian vote telah dibatalkan.",
@@ -759,7 +757,7 @@ const EVotingPage: React.FC = () => {
 				};
 
 				// Open Midtrans Snap payment popup
-				pay(snapToken, { onSuccess, onPending, onError, onClose });
+				pay(snapToken, { onSuccess, onPending: handleUnfinishedPayment, onError, onClose: handleUnfinishedPayment });
 			} else if (totalAmount === 0) {
 				setShowPurchaseModal(false);
 				setPaidVoteTarget(null);
