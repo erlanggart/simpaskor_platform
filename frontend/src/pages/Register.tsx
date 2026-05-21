@@ -4,9 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "../hooks/useAuth";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import api from "../utils/api";
+
+const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
 
 // Declare google global type
 declare global {
@@ -443,4 +445,14 @@ const Register = () => {
 	);
 };
 
-export default Register;
+// Wrap with GoogleReCaptchaProvider so the reCAPTCHA SDK only loads on this
+// page (Register is the sole consumer of useGoogleReCaptcha). Mounting the
+// provider at the app root would force every visitor — including landing —
+// to download the Google script before first paint.
+const RegisterWithRecaptcha = () => (
+	<GoogleReCaptchaProvider reCaptchaKey={recaptchaSiteKey}>
+		<Register />
+	</GoogleReCaptchaProvider>
+);
+
+export default RegisterWithRecaptcha;

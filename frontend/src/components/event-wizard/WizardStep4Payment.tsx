@@ -14,6 +14,7 @@ import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
 import { useAuth } from "../../hooks/useAuth";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
+import Swal from "sweetalert2";
 import { getPackagePriceLabel, hasNoUpfrontPayment, isRevenueSharePackage, PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 import { buildDPWhatsAppUrl } from "../../utils/dpWhatsApp";
 import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy";
@@ -200,42 +201,75 @@ const WizardStep4Payment: React.FC<Step4Props> = ({
 
 			const { snapToken } = response.data;
 
-			// Open Midtrans Snap
-			pay(snapToken, {
-				onSuccess: async () => {
-					// Mark event as complete
-					try {
-						await api.post(`/event-payments/${eventId}/complete`);
-					} catch (e) {
-						// Webhook will handle it
+			const onSuccess = async () => {
+				// Mark event as complete
+				try {
+					await api.post(`/event-payments/${eventId}/complete`);
+				} catch (e) {
+					// Webhook will handle it
+				}
+				setPaymentStatus({
+					...response.data,
+					status: "PAID",
+					paidAt: new Date().toISOString(),
+				});
+				showSuccess("Pembayaran berhasil! Event siap dipublish.");
+				setIsProcessing(false);
+			};
+			const onPending = () => {
+				showWarning(
+					"Pembayaran sedang diproses. Silakan selesaikan pembayaran Anda. Status akan diperbarui otomatis setelah pembayaran dikonfirmasi.",
+					"Menunggu Pembayaran"
+				);
+				setIsProcessing(false);
+			};
+			const onError = () => {
+				showError("Pembayaran gagal. Silakan coba lagi.");
+				setIsProcessing(false);
+			};
+			const onClose = () => {
+				Swal.fire({
+					title: "Pembayaran Belum Selesai",
+					html: `<p>Anda menutup popup QRIS sebelum membayar.</p>
+						<p class="text-sm text-gray-500 mt-2">Lanjutkan pembayaran sekarang atau hanguskan transaksi ini. Membatalkan akan mereset paket sehingga Anda bisa pilih paket lain.</p>`,
+					icon: "warning",
+					showCancelButton: true,
+					confirmButtonText: "Lanjutkan Pembayaran",
+					confirmButtonColor: "#dc2626",
+					cancelButtonText: "Batalkan & Hanguskan",
+					cancelButtonColor: "#6b7280",
+					reverseButtons: true,
+					allowOutsideClick: false,
+					allowEscapeKey: false,
+				}).then(async (swalResult) => {
+					if (swalResult.isConfirmed) {
+						pay(snapToken, { onSuccess, onPending, onError, onClose });
+						return;
 					}
-					setPaymentStatus({
-						...response.data,
-						status: "PAID",
-						paidAt: new Date().toISOString(),
-					});
-					showSuccess("Pembayaran berhasil! Event siap dipublish.");
-					setIsProcessing(false);
-				},
-				onPending: () => {
-					showWarning(
-						"Pembayaran sedang diproses. Silakan selesaikan pembayaran Anda. Status akan diperbarui otomatis setelah pembayaran dikonfirmasi.",
-						"Menunggu Pembayaran"
-					);
-					setIsProcessing(false);
-				},
-				onError: () => {
-					showError("Pembayaran gagal. Silakan coba lagi.");
-					setIsProcessing(false);
-				},
-				onClose: () => {
-					showWarning(
-						"Pembayaran belum selesai. Silakan lakukan pembayaran terlebih dahulu untuk melanjutkan.",
-						"Pembayaran Belum Selesai"
-					);
-					setIsProcessing(false);
-				},
-			});
+					if (swalResult.dismiss === Swal.DismissReason.cancel) {
+						try {
+							await api.post(`/event-payments/${eventId}/cancel-pending`);
+							setPaymentStatus(null);
+							setSelectedPackage(null);
+							showSuccess(
+								"Transaksi dibatalkan. Anda bisa memilih paket lain atau mencoba lagi.",
+								"Transaksi Dihanguskan"
+							);
+						} catch (err: any) {
+							showError(
+								err?.response?.data?.error || "Tidak dapat membatalkan pembayaran. Silakan coba lagi.",
+								"Gagal Membatalkan"
+							);
+						}
+						setIsProcessing(false);
+					} else {
+						setIsProcessing(false);
+					}
+				});
+			};
+
+			// Open Midtrans Snap
+			pay(snapToken, { onSuccess, onPending, onError, onClose });
 		} catch (error: any) {
 			showError(error.response?.data?.error || "Gagal memproses pembayaran");
 			setIsProcessing(false);

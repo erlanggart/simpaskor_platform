@@ -1,6 +1,6 @@
 import axios from "axios";
 import { config } from "./config";
-import Swal from "sweetalert2";
+import type { SweetAlertOptions, SweetAlertResult } from "sweetalert2";
 
 // Extend axios's request config with a `silent` flag. When set, the global
 // response interceptor below skips the timeout / network-error Swal popup —
@@ -13,6 +13,19 @@ declare module "axios" {
 		silent?: boolean;
 	}
 }
+
+// Lazy-load sweetalert2 so it does not bloat the initial entry bundle.
+// The popup is only needed when an API call actually fails — for the typical
+// happy-path landing visit, we never download ~80 KB of dialog code.
+let swalPromise: Promise<typeof import("sweetalert2").default> | null = null;
+const loadSwal = () => {
+	if (!swalPromise) {
+		swalPromise = import("sweetalert2").then((m) => m.default);
+	}
+	return swalPromise;
+};
+const fireAlert = (options: SweetAlertOptions): Promise<SweetAlertResult> =>
+	loadSwal().then((Swal) => Swal.fire(options));
 
 // Debug log for development
 if (config.dev.debugMode) {
@@ -52,8 +65,8 @@ api.interceptors.response.use(
 		if (error.response?.status === 429) {
 			const retryAfter = error.response.headers['retry-after'];
 			const waitTime = retryAfter ? `${retryAfter} detik` : 'beberapa saat';
-			
-			Swal.fire({
+
+			void fireAlert({
 				icon: "warning",
 				title: "Terlalu Banyak Permintaan",
 				html: `
@@ -66,7 +79,7 @@ api.interceptors.response.use(
 				timer: 5000,
 				timerProgressBar: true,
 			});
-			
+
 			return Promise.reject(error);
 		}
 		
@@ -85,8 +98,8 @@ api.interceptors.response.use(
 				// Ini adalah session expired untuk authenticated route
 				localStorage.removeItem(TOKEN_KEY);
 				localStorage.removeItem(USER_KEY);
-				
-				Swal.fire({
+
+				void fireAlert({
 					icon: "error",
 					title: "Sesi Berakhir",
 					text: "Sesi Anda telah berakhir. Silakan login kembali.",
@@ -110,7 +123,7 @@ api.interceptors.response.use(
 			const isSilent = error.config?.silent === true;
 			if (!isUploadRequest && !isSilent) {
 				const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
-				Swal.fire({
+				void fireAlert({
 					icon: "error",
 					title: isTimeout ? "Request Timeout" : "Koneksi Terputus",
 					text: isTimeout

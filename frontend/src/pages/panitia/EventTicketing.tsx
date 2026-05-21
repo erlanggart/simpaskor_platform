@@ -544,7 +544,7 @@ const EventTicketing: React.FC = () => {
 				search.trim() ? `Pencarian: ${search.trim()}` : null,
 			].filter(Boolean).join(" | ");
 
-			exportPurchaseReportToPdf({
+			await exportPurchaseReportToPdf({
 				title: "Laporan Pembelian Tiket",
 				subtitle: `${eventTitle || "Event"} - ${filterLabel}`,
 				fileName: `pembelian-tiket-${eventTitle || eventId}`,
@@ -697,6 +697,7 @@ const EventTicketing: React.FC = () => {
 				{ key: "team", width: 30 },
 				{ key: "quantity", width: 10 },
 				{ key: "totalAmount", width: 16 },
+				{ key: "paidRevenue", width: 18 },
 				{ key: "status", width: 14 },
 				{ key: "createdAt", width: 22 },
 				{ key: "paidAt", width: 22 },
@@ -710,7 +711,8 @@ const EventTicketing: React.FC = () => {
 				"No. HP",
 				"Pasukan",
 				"Qty",
-				"Subtotal Tiket",
+				"Subtotal Order",
+				"Pendapatan Tiket (PAID/USED)",
 				"Status",
 				"Tanggal Dibuat",
 				"Tanggal Dibayar",
@@ -727,19 +729,21 @@ const EventTicketing: React.FC = () => {
 					getPurchaseTeamSummary(purchase),
 					purchase.quantity,
 					purchase.totalAmount,
+					["PAID", "USED"].includes(purchase.status) ? purchase.totalAmount : 0,
 					purchase.status,
 					formatDate(purchase.createdAt || null),
 					formatDate(purchase.paidAt),
 					formatDate(purchase.usedAt),
 				]);
 				row.getCell(8).numFmt = '"Rp" #,##0';
+				row.getCell(9).numFmt = '"Rp" #,##0';
 			});
 			if (allPurchases.length === 0) {
-				purchaseWorksheet.addRow(["-", "Belum ada data pembelian tiket", "-", "-", "-", "-", 0, 0, "-", "-", "-", "-"]);
+				purchaseWorksheet.addRow(["-", "Belum ada data pembelian tiket", "-", "-", "-", "-", 0, 0, 0, "-", "-", "-", "-"]);
 			}
 			styleDataRows(purchaseWorksheet, 2, Math.max(2, allPurchases.length + 1));
 			purchaseWorksheet.views = [{ state: "frozen", ySplit: 1 }];
-			purchaseWorksheet.autoFilter = "A1:L1";
+			purchaseWorksheet.autoFilter = "A1:M1";
 
 			const filename = `dashboard-tiket-${sanitizeFilename(eventSlug || eventId || "event")}-${new Date().toISOString().slice(0, 10)}.xlsx`;
 			await saveWorkbook(workbook, filename);

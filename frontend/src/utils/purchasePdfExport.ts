@@ -1,5 +1,6 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// jspdf + jspdf-autotable are ~620 KB combined. Import them dynamically so
+// they only land in the panitia/admin bundles that actually trigger an
+// export — never on the public landing page bundle graph.
 import type { UserOptions } from "jspdf-autotable";
 
 type SummaryRow = [string, string | number];
@@ -59,7 +60,7 @@ const getStatusColor = (status: string): [number, number, number] | null => {
 	}
 };
 
-export function exportPurchaseReportToPdf({
+export async function exportPurchaseReportToPdf({
 	title,
 	subtitle,
 	fileName,
@@ -67,6 +68,10 @@ export function exportPurchaseReportToPdf({
 	head,
 	body,
 }: PurchasePdfParams) {
+	const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+		import("jspdf"),
+		import("jspdf-autotable"),
+	]);
 	const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 	const pageWidth = doc.internal.pageSize.getWidth();
 	const pageHeight = doc.internal.pageSize.getHeight();

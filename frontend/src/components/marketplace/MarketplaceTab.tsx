@@ -182,54 +182,86 @@ const MarketplaceTab: React.FC = () => {
 			});
 
 			const { snapToken } = res.data;
+			const orderId: string | undefined = res.data?.id;
 
 			if (snapToken && isSnapReady) {
 				setShowCart(false);
+
+				const onSuccess = () => {
+					setCart([]);
+					Swal.fire({
+						icon: "success",
+						title: "Pembayaran Berhasil!",
+						text: "Pesanan Anda telah dibayar",
+						confirmButtonText: "OK",
+						confirmButtonColor: "#dc2626",
+					});
+					fetchProducts();
+				};
+				const onPending = () => {
+					setCart([]);
+					Swal.fire({
+						icon: "warning",
+						title: "Menunggu Pembayaran",
+						text: "Pesanan belum dibayar. Silakan selesaikan pembayaran Anda.",
+						confirmButtonText: "OK",
+						confirmButtonColor: "#dc2626",
+					});
+					fetchProducts();
+				};
+				const onError = () => {
+					Swal.fire({
+						icon: "error",
+						title: "Pembayaran Gagal",
+						text: "Pembayaran tidak berhasil. Pesanan dibatalkan.",
+						confirmButtonText: "OK",
+						confirmButtonColor: "#dc2626",
+					});
+					fetchProducts();
+				};
+				const onClose = () => {
+					Swal.fire({
+						title: "Pembayaran Belum Selesai",
+						html: `<p>Anda menutup popup QRIS sebelum membayar.</p>
+							<p class="text-sm text-gray-500 mt-2">Lanjutkan pembayaran atau hanguskan pesanan ini sekarang.</p>`,
+						icon: "warning",
+						showCancelButton: true,
+						confirmButtonText: "Lanjutkan Pembayaran",
+						confirmButtonColor: "#dc2626",
+						cancelButtonText: "Batalkan & Hanguskan",
+						cancelButtonColor: "#6b7280",
+						reverseButtons: true,
+						allowOutsideClick: false,
+						allowEscapeKey: false,
+					}).then(async (swalResult) => {
+						if (swalResult.isConfirmed) {
+							pay(snapToken, { onSuccess, onPending, onError, onClose });
+							return;
+						}
+						if (swalResult.dismiss === Swal.DismissReason.cancel && orderId) {
+							try {
+								await api.post("/orders/cancel-pending", { orderId });
+								setCart([]);
+								Swal.fire({
+									title: "Pesanan Dihanguskan",
+									text: "Pesanan telah dibatalkan.",
+									icon: "success",
+									confirmButtonColor: "#dc2626",
+								});
+								fetchProducts();
+							} catch (err: any) {
+								Swal.fire(
+									"Gagal Membatalkan",
+									err?.response?.data?.error || "Tidak dapat membatalkan pesanan. Silakan coba lagi.",
+									"error"
+								);
+							}
+						}
+					});
+				};
+
 				// Open Midtrans Snap payment popup
-				pay(snapToken, {
-					onSuccess: () => {
-						setCart([]);
-						Swal.fire({
-							icon: "success",
-							title: "Pembayaran Berhasil!",
-							text: "Pesanan Anda telah dibayar",
-							confirmButtonText: "OK",
-							confirmButtonColor: "#dc2626",
-						});
-						fetchProducts();
-					},
-					onPending: () => {
-						setCart([]);
-						Swal.fire({
-							icon: "warning",
-							title: "Menunggu Pembayaran",
-							text: "Pesanan belum dibayar. Silakan selesaikan pembayaran Anda.",
-							confirmButtonText: "OK",
-							confirmButtonColor: "#dc2626",
-						});
-						fetchProducts();
-					},
-					onError: () => {
-						Swal.fire({
-							icon: "error",
-							title: "Pembayaran Gagal",
-							text: "Pembayaran tidak berhasil. Pesanan dibatalkan.",
-							confirmButtonText: "OK",
-							confirmButtonColor: "#dc2626",
-						});
-						fetchProducts();
-					},
-					onClose: () => {
-						Swal.fire({
-							icon: "warning",
-							title: "Pembayaran Belum Selesai",
-							text: "Pesanan belum dibayar dan tidak akan diproses sampai pembayaran selesai.",
-							confirmButtonText: "OK",
-							confirmButtonColor: "#dc2626",
-						});
-						fetchProducts();
-					},
-				});
+				pay(snapToken, { onSuccess, onPending, onError, onClose });
 			} else {
 				setCart([]);
 				setShowCart(false);

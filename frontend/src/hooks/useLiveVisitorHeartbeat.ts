@@ -38,6 +38,9 @@ export const useLiveVisitorHeartbeat = () => {
 	useEffect(() => {
 		const sessionId = sessionIdRef.current;
 		let cancelled = false;
+		let handle: number | null = null;
+		let idleHandle: number | null = null;
+		let startTimeout: number | null = null;
 
 		const ping = () => {
 			if (cancelled) return;
@@ -61,12 +64,27 @@ export const useLiveVisitorHeartbeat = () => {
 				});
 		};
 
-		// Fire once immediately, then every interval. Skip while tab is hidden.
 		const tick = () => {
 			if (document.visibilityState === "visible") ping();
 		};
-		tick();
-		const handle = window.setInterval(tick, HEARTBEAT_INTERVAL_MS);
+
+		// Defer the first heartbeat past the initial paint so it doesn't
+		// compete with critical landing API requests. Use requestIdleCallback
+		// when available, otherwise a small setTimeout fallback.
+		const start = () => {
+			if (cancelled) return;
+			tick();
+			handle = window.setInterval(tick, HEARTBEAT_INTERVAL_MS);
+		};
+
+		const requestIdle = (window as any).requestIdleCallback as
+			| ((cb: () => void, opts?: { timeout: number }) => number)
+			| undefined;
+		if (requestIdle) {
+			idleHandle = requestIdle(start, { timeout: 3000 });
+		} else {
+			startTimeout = window.setTimeout(start, 2000);
+		}
 
 		const onVisibilityChange = () => {
 			if (document.visibilityState === "visible") ping();
@@ -86,7 +104,11 @@ export const useLiveVisitorHeartbeat = () => {
 
 		return () => {
 			cancelled = true;
-			window.clearInterval(handle);
+			if (handle !== null) window.clearInterval(handle);
+			if (startTimeout !== null) window.clearTimeout(startTimeout);
+			if (idleHandle !== null && (window as any).cancelIdleCallback) {
+				(window as any).cancelIdleCallback(idleHandle);
+			}
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 			window.removeEventListener("pagehide", onUnload);
 		};

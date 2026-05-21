@@ -94,23 +94,34 @@ export const useLandingData = (): UseLandingDataReturn => {
 				api.get("/visitors/today"),
 			]);
 
-			let todayVisitors = visitorsRes.data.count || 0;
-			if (!hasTrackedLandingVisit) {
-				hasTrackedLandingVisit = true;
-				const trackRes = await api.post("/visitors/track").catch(() => null);
-				todayVisitors = trackRes?.data?.count || todayVisitors;
-			}
-
 			pinnedRes && setPinnedEvents(pinnedRes.data);
 			eventsRes && setEvents(eventsRes.data.data || eventsRes.data);
 			completedRes && setCompletedEvents(completedRes.data.data || completedRes.data);
 			statsRes && setJuries(statsRes.data.juries || []);
 			setPublicStats({
 				...(statsRes.data.stats || { juriCount: 0, pesertaCount: 0, eventsCount: 0, availableEventsCount: 0, completedEventsCount: 0 }),
-				todayVisitors,
+				todayVisitors: visitorsRes.data.count || 0,
 			});
 			setKlasemen(klasemenRes.data || { year: new Date().getFullYear(), top5: [], full: [], totalEvents: 0 });
 			setError(null);
+
+			// Fire the visitor-tracking POST in the background AFTER the UI has
+			// rendered with the initial counts. The updated count gets patched
+			// into state when the response arrives — no awaiting required.
+			if (!hasTrackedLandingVisit) {
+				hasTrackedLandingVisit = true;
+				api
+					.post("/visitors/track")
+					.then((trackRes) => {
+						const count = trackRes?.data?.count;
+						if (typeof count === "number") {
+							setPublicStats((prev) => ({ ...prev, todayVisitors: count }));
+						}
+					})
+					.catch(() => {
+						// Best-effort; visitor count display is already correct.
+					});
+			}
 		} catch (err: any) {
 			console.error("Error fetching data:", err);
 			setError("Gagal memuat data. Silakan coba lagi nanti.");

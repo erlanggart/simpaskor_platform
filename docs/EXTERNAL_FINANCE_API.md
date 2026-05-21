@@ -4,10 +4,10 @@ Dokumen ini untuk web atau sistem eksternal yang ingin mengambil data keuangan
 dari Simpaskor. Semua endpoint bersifat server-to-server dan berada di:
 
 ```text
-https://DOMAIN-SIMPASKOR/api/external
+https://simpaskor.id/api/external
 ```
 
-Ganti `https://DOMAIN-SIMPASKOR` dengan domain backend produksi Simpaskor.
+Ganti `https://simpaskor.id` dengan domain backend produksi Simpaskor.
 
 ## Autentikasi
 
@@ -79,7 +79,7 @@ Field penting:
 
 ```bash
 curl -X GET \
-  "https://DOMAIN-SIMPASKOR/api/external/revenue-share-balances?includeDetails=true" \
+  "https://simpaskor.id/api/external/revenue-share-balances?includeDetails=true" \
   -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
 ```
 
@@ -87,7 +87,7 @@ Untuk satu event:
 
 ```bash
 curl -X GET \
-  "https://DOMAIN-SIMPASKOR/api/external/revenue-share-balances?eventId=<EVENT_ID>" \
+  "https://simpaskor.id/api/external/revenue-share-balances?eventId=<EVENT_ID>" \
   -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
 ```
 
@@ -196,7 +196,7 @@ Contoh:
 
 ```bash
 curl -X GET \
-  "https://DOMAIN-SIMPASKOR/api/external/admin-fees?from=2026-01-01&to=2026-12-31&includeDetails=true" \
+  "https://simpaskor.id/api/external/admin-fees?from=2026-01-01&to=2026-12-31&includeDetails=true" \
   -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
 ```
 
@@ -243,7 +243,7 @@ Contoh:
 
 ```bash
 curl -X GET \
-  "https://DOMAIN-SIMPASKOR/api/external/platform-revenue?includeDetails=true" \
+  "https://simpaskor.id/api/external/platform-revenue?includeDetails=true" \
   -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
 ```
 
@@ -294,7 +294,7 @@ Contoh:
 
 ```bash
 curl -X GET \
-  "https://DOMAIN-SIMPASKOR/api/external/summary" \
+  "https://simpaskor.id/api/external/summary" \
   -H "X-API-Key: <EXTERNAL_FINANCE_API_KEY>"
 ```
 
@@ -332,7 +332,7 @@ Contoh response:
 ## Contoh Integrasi Node.js
 
 ```js
-const BASE_URL = "https://DOMAIN-SIMPASKOR/api/external";
+const BASE_URL = "https://simpaskor.id/api/external";
 const API_KEY = process.env.SIMPASKOR_EXTERNAL_FINANCE_API_KEY;
 
 async function getRevenueShareBalances(eventId) {

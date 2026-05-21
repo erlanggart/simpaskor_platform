@@ -329,45 +329,85 @@ const ETicketingPage: React.FC = () => {
 			});
 
 			const { snapToken } = res.data.ticket;
+			const purchaseId = res.data.ticket.id;
+			const ticketCode = res.data.ticket.ticketCode;
 
 			if (snapToken && isSnapReady) {
 				setShowPurchaseModal(false);
+
+				const onSuccess = () => {
+					setActiveAttendeeIdx(0);
+					setTicketResult({
+						ticketCode: res.data.ticket.ticketCode,
+						eventTitle: selectedEvent.title,
+						buyerName: buyerName.trim(),
+						quantity: attendees.length,
+						totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
+						message: "Pembayaran berhasil! Tiket Anda sudah aktif. E-Ticket akan dikirim ke email Anda.",
+						ticketDescription: selectedEvent.ticketConfig?.description || null,
+						attendees: res.data.ticket.attendees || [],
+					});
+					// Email is sent automatically by the Midtrans payment webhook (sendTicketEmailFromServer)
+					// No need to send again from frontend
+					fetchEvents();
+				};
+				const onPending = () => {
+					Swal.fire({
+						title: "Menunggu Pembayaran",
+						html: "Pembayaran sedang diproses. Tiket dan barcode akan dikirim ke email Anda setelah pembayaran dikonfirmasi.",
+						icon: "info",
+						confirmButtonColor: "#dc2626",
+					});
+					fetchEvents();
+				};
+				const onError = () => {
+					Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Tiket tidak aktif.", "error");
+					fetchEvents();
+				};
+				// onClose recurses through itself so re-opened Snap popups
+				// trigger the same Lanjutkan/Batalkan flow.
+				const onClose = () => {
+					Swal.fire({
+						title: "Pembayaran Belum Selesai",
+						html: `<p>Anda menutup popup QRIS sebelum membayar.</p>
+							<p class="text-sm text-gray-500 mt-2">Lanjutkan pembayaran atau hanguskan transaksi ini sekarang. Membatalkan akan mengembalikan stok tiket.</p>`,
+						icon: "warning",
+						showCancelButton: true,
+						confirmButtonText: "Lanjutkan Pembayaran",
+						confirmButtonColor: "#dc2626",
+						cancelButtonText: "Batalkan & Hanguskan",
+						cancelButtonColor: "#6b7280",
+						reverseButtons: true,
+						allowOutsideClick: false,
+						allowEscapeKey: false,
+					}).then(async (swalResult) => {
+						if (swalResult.isConfirmed) {
+							pay(snapToken, { onSuccess, onPending, onError, onClose });
+							return;
+						}
+						if (swalResult.dismiss === Swal.DismissReason.cancel) {
+							try {
+								await api.post("/tickets/cancel-pending", { purchaseId, ticketCode });
+								Swal.fire({
+									title: "Transaksi Dihanguskan",
+									text: "Pembelian tiket telah dibatalkan. Stok tiket dikembalikan ke kuota event.",
+									icon: "success",
+									confirmButtonColor: "#dc2626",
+								});
+								fetchEvents();
+							} catch (err: any) {
+								Swal.fire(
+									"Gagal Membatalkan",
+									err?.response?.data?.error || "Tidak dapat membatalkan transaksi. Silakan coba lagi.",
+									"error"
+								);
+							}
+						}
+					});
+				};
+
 				// Open Midtrans Snap payment popup
-				pay(snapToken, {
-					onSuccess: () => {
-						setActiveAttendeeIdx(0);
-						setTicketResult({
-							ticketCode: res.data.ticket.ticketCode,
-							eventTitle: selectedEvent.title,
-							buyerName: buyerName.trim(),
-							quantity: attendees.length,
-							totalAmount: (selectedEvent.ticketConfig?.price || 0) * attendees.length,
-							message: "Pembayaran berhasil! Tiket Anda sudah aktif. E-Ticket akan dikirim ke email Anda.",
-							ticketDescription: selectedEvent.ticketConfig?.description || null,
-							attendees: res.data.ticket.attendees || [],
-						});
-						// Email is sent automatically by the Midtrans payment webhook (sendTicketEmailFromServer)
-						// No need to send again from frontend
-						fetchEvents();
-					},
-					onPending: () => {
-						Swal.fire({
-							title: "Menunggu Pembayaran",
-							html: "Pembayaran sedang diproses. Tiket dan barcode akan dikirim ke email Anda setelah pembayaran dikonfirmasi.",
-							icon: "info",
-							confirmButtonColor: "#dc2626",
-						});
-						fetchEvents();
-					},
-					onError: () => {
-						Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Tiket tidak aktif.", "error");
-						fetchEvents();
-					},
-					onClose: () => {
-						Swal.fire("Pembayaran Belum Selesai", "Pembayaran belum dilakukan. Tiket dan barcode akan dikirim ke email Anda setelah pembayaran berhasil.", "warning");
-						fetchEvents();
-					},
-				});
+				pay(snapToken, { onSuccess, onPending, onError, onClose });
 			} else {
 				// Free ticket or Snap not available
 				setShowPurchaseModal(false);

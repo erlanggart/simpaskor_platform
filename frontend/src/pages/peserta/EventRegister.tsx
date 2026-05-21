@@ -1218,63 +1218,90 @@ const EventRegister: React.FC = () => {
 					const { snapToken, midtransOrderId } = paymentRes.data.payment;
 
 				if (snapToken && isSnapReady) {
+					const paymentId: string | undefined = paymentRes.data?.payment?.id;
 					await new Promise<void>((resolve) => {
-						pay(snapToken, {
-							onSuccess: async () => {
-								// Verify payment status directly with Midtrans to avoid race condition with webhook
-								try {
-									await api.post(`/registrations/${registration.id}/verify-payment`);
-								} catch {}
-								Swal.fire({
-									icon: "success",
-									title: "Pembayaran Berhasil!",
-									html: `
-										<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
-										<p class="text-sm text-gray-600">Pembayaran sebesar <strong>${formatCurrency(event.registrationFee)}</strong> telah diterima.</p>
-										<p class="text-sm text-gray-600">Panitia akan meninjau pendaftaran Anda.</p>
-									`,
-									confirmButtonText: "Lihat Pendaftaran Saya",
-								});
-								resolve();
-							},
-							onPending: () => {
-								Swal.fire({
-									icon: "info",
-									title: "Pembayaran Pending",
-									html: `
-										<p class="mb-2">Pendaftaran berhasil disimpan.</p>
-										<p class="text-sm text-gray-600">Silakan selesaikan pembayaran untuk mengaktifkan pendaftaran Anda.</p>
-										<p class="text-sm text-gray-600">Order ID: <code class="bg-gray-100 px-1 rounded">${midtransOrderId}</code></p>
-									`,
-									confirmButtonText: "OK",
-								});
-								resolve();
-							},
-							onError: () => {
-								Swal.fire({
-									icon: "error",
-									title: "Pembayaran Gagal",
-									html: `
-										<p class="mb-2">Pendaftaran tersimpan, tapi pembayaran gagal.</p>
-										<p class="text-sm text-gray-600">Silakan coba bayar lagi dari halaman pendaftaran Anda.</p>
-									`,
-									confirmButtonText: "OK",
-								});
-								resolve();
-							},
-							onClose: () => {
-								Swal.fire({
-									icon: "info",
-									title: "Pembayaran Ditutup",
-									html: `
-										<p class="mb-2">Pendaftaran berhasil disimpan.</p>
-										<p class="text-sm text-gray-600">Selesaikan pembayaran Anda untuk mengkonfirmasi pendaftaran.</p>
-									`,
-									confirmButtonText: "OK",
-								});
-								resolve();
-							},
-						});
+						const onSuccess = async () => {
+							// Verify payment status directly with Midtrans to avoid race condition with webhook
+							try {
+								await api.post(`/registrations/${registration.id}/verify-payment`);
+							} catch {}
+							Swal.fire({
+								icon: "success",
+								title: "Pembayaran Berhasil!",
+								html: `
+									<p class="mb-2">Anda telah mendaftarkan <strong>${teams.length} tim</strong> untuk event ini.</p>
+									<p class="text-sm text-gray-600">Pembayaran sebesar <strong>${formatCurrency(event.registrationFee)}</strong> telah diterima.</p>
+									<p class="text-sm text-gray-600">Panitia akan meninjau pendaftaran Anda.</p>
+								`,
+								confirmButtonText: "Lihat Pendaftaran Saya",
+							});
+							resolve();
+						};
+						const onPending = () => {
+							Swal.fire({
+								icon: "info",
+								title: "Pembayaran Pending",
+								html: `
+									<p class="mb-2">Pendaftaran berhasil disimpan.</p>
+									<p class="text-sm text-gray-600">Silakan selesaikan pembayaran untuk mengaktifkan pendaftaran Anda.</p>
+									<p class="text-sm text-gray-600">Order ID: <code class="bg-gray-100 px-1 rounded">${midtransOrderId}</code></p>
+								`,
+								confirmButtonText: "OK",
+							});
+							resolve();
+						};
+						const onError = () => {
+							Swal.fire({
+								icon: "error",
+								title: "Pembayaran Gagal",
+								html: `
+									<p class="mb-2">Pendaftaran tersimpan, tapi pembayaran gagal.</p>
+									<p class="text-sm text-gray-600">Silakan coba bayar lagi dari halaman pendaftaran Anda.</p>
+								`,
+								confirmButtonText: "OK",
+							});
+							resolve();
+						};
+						const onClose = () => {
+							Swal.fire({
+								title: "Pembayaran Belum Selesai",
+								html: `<p>Anda menutup popup QRIS sebelum membayar.</p>
+									<p class="text-sm text-gray-500 mt-2">Pendaftaran tim sudah tersimpan. Anda bisa lanjutkan pembayaran sekarang atau hanguskan transaksi ini (pendaftaran tetap tersimpan dan bisa dibayar ulang nanti).</p>`,
+								icon: "warning",
+								showCancelButton: true,
+								confirmButtonText: "Lanjutkan Pembayaran",
+								confirmButtonColor: "#dc2626",
+								cancelButtonText: "Batalkan & Hanguskan",
+								cancelButtonColor: "#6b7280",
+								reverseButtons: true,
+								allowOutsideClick: false,
+								allowEscapeKey: false,
+							}).then(async (swalResult) => {
+								if (swalResult.isConfirmed) {
+									pay(snapToken, { onSuccess, onPending, onError, onClose });
+									return;
+								}
+								if (swalResult.dismiss === Swal.DismissReason.cancel) {
+									if (paymentId) {
+										try {
+											await api.post(`/registration-payments/${paymentId}/cancel-pending`);
+										} catch (err) {
+											console.error("Failed to cancel pending registration payment:", err);
+										}
+									}
+									Swal.fire({
+										icon: "info",
+										title: "Transaksi Dihanguskan",
+										html: `<p>Pembayaran dibatalkan, tapi <strong>pendaftaran tim Anda tetap tersimpan</strong>.</p>
+											<p class="text-sm text-gray-500 mt-2">Anda bisa membayar ulang kapan saja dari halaman "Pendaftaran Saya".</p>`,
+										confirmButtonColor: "#dc2626",
+									});
+									resolve();
+								}
+							});
+						};
+
+						pay(snapToken, { onSuccess, onPending, onError, onClose });
 					});
 				} else {
 					// Snap not ready, show manual payment info
