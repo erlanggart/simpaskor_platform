@@ -13,6 +13,7 @@ declare global {
 					onClose?: () => void;
 				}
 			) => void;
+			hide?: () => void;
 		};
 	}
 }
@@ -100,6 +101,9 @@ export function usePayment() {
 				onSuccess: (result: any) => {
 					setIsLoading(false);
 					callbacks?.onSuccess?.(result);
+					window.setTimeout(() => {
+						window.snap?.hide?.();
+					}, 0);
 				},
 				onPending: (result: any) => {
 					setIsLoading(false);
