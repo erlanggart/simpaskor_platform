@@ -518,29 +518,34 @@ const EventVoting: React.FC = () => {
 		}
 	};
 
-	const handleDeleteCategory = async (categoryId: string) => {
+	const handleToggleCategoryActive = async (category: VotingCategory) => {
+		const nextActive = !category.isActive;
 		const result = await Swal.fire({
-			title: "Hapus Kategori?",
-			text: "Semua nominee dan vote dalam kategori ini akan dihapus!",
-			icon: "warning",
+			title: nextActive ? "Aktifkan Kategori?" : "Nonaktifkan Kategori?",
+			text: nextActive
+				? "Kategori akan muncul kembali di halaman voting publik."
+				: "Kategori akan disembunyikan dari halaman voting publik, tetapi nominee dan hasil vote tetap tersimpan.",
+			icon: nextActive ? "question" : "warning",
 			showCancelButton: true,
-			confirmButtonColor: "#dc2626",
-			confirmButtonText: "Hapus",
+			confirmButtonColor: nextActive ? "#2563eb" : "#dc2626",
+			confirmButtonText: nextActive ? "Aktifkan" : "Nonaktifkan",
 			cancelButtonText: "Batal",
 		});
 
 		if (!result.isConfirmed) return;
 
 		try {
-			await api.delete(`/voting/admin/categories/${categoryId}`);
-			setCategories((prev) => prev.filter((c) => c.id !== categoryId));
-			if (selectedCategoryId === categoryId) {
-				setSelectedCategoryId(null);
-				setNominees([]);
-			}
-			Swal.fire({ title: "Dihapus!", icon: "success", timer: 1500, showConfirmButton: false });
+			const res = await api.put(`/voting/admin/categories/${category.id}`, { isActive: nextActive });
+			setCategories((prev) => prev.map((c) => (c.id === category.id ? res.data : c)));
+			Swal.fire({
+				title: nextActive ? "Kategori Diaktifkan" : "Kategori Dinonaktifkan",
+				text: nextActive ? "Kategori sudah aktif kembali." : "Data nominee dan vote tetap aman tersimpan.",
+				icon: "success",
+				timer: 1500,
+				showConfirmButton: false,
+			});
 		} catch (err: any) {
-			Swal.fire("Error", err.response?.data?.error || "Gagal menghapus kategori", "error");
+			Swal.fire("Error", err.response?.data?.error || "Gagal mengubah status kategori", "error");
 		}
 	};
 
@@ -1698,11 +1703,15 @@ const EventVoting: React.FC = () => {
 												<Cog6ToothIcon className="w-4 h-4" />
 											</button>
 											<button
-												onClick={() => handleDeleteCategory(cat.id)}
-												className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-												title="Hapus"
+												onClick={() => handleToggleCategoryActive(cat)}
+												className={`p-2 rounded-lg ${
+													cat.isActive
+														? "text-gray-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+														: "text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+												}`}
+												title={cat.isActive ? "Nonaktifkan" : "Aktifkan"}
 											>
-												<TrashIcon className="w-4 h-4" />
+												{cat.isActive ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
 											</button>
 										</div>
 									</div>

@@ -16,6 +16,8 @@ import {
 import { uploadNomineePhoto, handleUploadError } from "../middleware/upload";
 import { recordVotingRevenueShare } from "../lib/revenueLedger";
 import { applyPaidVotingPurchaseVotes } from "../lib/votingAutoApply";
+import { recordAdminFeeTransaction } from "../lib/adminFeeLedger";
+import { sendVertinovaPaymentSuccessWebhook } from "../lib/vertinovaFinanceWebhook";
 
 const router = Router();
 
@@ -92,6 +94,10 @@ const buildVotingPurchaseCodeLookupWhere = (code: string) => ({
 });
 
 const REFRESHABLE_VOTING_PURCHASE_STATUSES = ["PENDING", "CANCELLED", "EXPIRED"];
+const CONFIRM_PAYMENT_MAX_WAIT_MS = 15_000;
+const CONFIRM_PAYMENT_RETRY_DELAYS_MS = [350, 650, 1_000, 1_500, 2_000, 2_500, 3_000, 4_000];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type VotingPurchasePaymentStatusSnapshot = { status: string; midtransOrderId: string | null };
 
@@ -155,7 +161,7 @@ const validatePaidVotingTarget = async (eventId: string, categoryId: unknown, no
 const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 	const purchase = await prisma.votingPurchase.findUnique({
 		where: { id: purchaseId },
-		include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
+		include: { event: { select: { id: true, title: true, slug: true, startDate: true, endDate: true, venue: true, city: true } } },
 	});
 
 	if (!canRefreshVotingPurchasePaymentStatus(purchase)) {
@@ -166,22 +172,44 @@ const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 	const paymentResult = resolvePaymentStatus(txStatus.transaction_status, txStatus.fraud_status);
 
 	if (paymentResult === "success") {
-		return prisma.$transaction(async (tx) => {
+		const paidAt = new Date();
+		const refreshed = await prisma.$transaction(async (tx) => {
 			await tx.votingPurchase.update({
 				where: { id: purchase.id },
 				data: {
 					status: "PAID",
 					paymentType: txStatus.payment_type,
-					paidAt: new Date(),
+					paidAt,
 				},
 			});
 			await applyPaidVotingPurchaseVotes(tx, purchase.id);
 			await recordVotingRevenueShare(tx, purchase.id);
 			return tx.votingPurchase.findUnique({
 				where: { id: purchase.id },
-				include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
+				include: { event: { select: { id: true, title: true, slug: true, startDate: true, endDate: true, venue: true, city: true } } },
 			});
 		});
+		const adminFee = calculateVotingAdminFee(purchase.totalAmount, purchase.voteCount);
+		await recordAdminFeeTransaction({
+			source: "voting",
+			sourceId: purchase.id,
+			eventId: purchase.eventId,
+			eventTitle: purchase.event.title,
+			eventSlug: purchase.event.slug,
+			midtransOrderId: purchase.midtransOrderId,
+			baseAmount: purchase.totalAmount,
+			adminFee,
+			voteCount: purchase.voteCount,
+			paymentType: txStatus.payment_type,
+			paidAt,
+		});
+		void sendVertinovaPaymentSuccessWebhook({
+			orderId: purchase.midtransOrderId,
+			amount: adminFee,
+			paidAt: paidAt.toISOString(),
+			description: `Admin fee voting ${purchase.event.title}`,
+		});
+		return refreshed;
 	}
 
 	if (paymentResult === "failed" || paymentResult === "expired") {
@@ -195,7 +223,7 @@ const refreshVotingPurchasePaymentStatus = async (purchaseId: string) => {
 				status: paymentResult === "expired" ? "EXPIRED" : "CANCELLED",
 				paymentType: txStatus.payment_type,
 			},
-			include: { event: { select: { id: true, title: true, startDate: true, endDate: true, venue: true, city: true } } },
+			include: { event: { select: { id: true, title: true, slug: true, startDate: true, endDate: true, venue: true, city: true } } },
 		});
 	}
 
@@ -1164,8 +1192,12 @@ router.get("/check/:purchaseCode", authenticate, async (req: AuthenticatedReques
 // POST /api/voting/confirm-payment - Sync voting purchase payment status and apply votes
 router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response) => {
 	try {
-		const { purchaseCode, email } = req.body;
+		const { purchaseCode, email, waitMs } = req.body;
 		const normalizedPurchaseCode = normalizePurchaseCode(purchaseCode);
+		const requestedWaitMs = Number(waitMs);
+		const maxWaitMs = Number.isFinite(requestedWaitMs)
+			? Math.min(Math.max(requestedWaitMs, 0), CONFIRM_PAYMENT_MAX_WAIT_MS)
+			: 0;
 
 		if (!normalizedPurchaseCode) {
 			return res.status(400).json({ error: "Kode pembelian wajib diisi" });
@@ -1196,19 +1228,37 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 			return res.status(403).json({ error: "Email tidak sesuai dengan pembelian vote" });
 		}
 
-		if (canRefreshVotingPurchasePaymentStatus(purchase)) {
-			try {
-				const refreshedPurchase = await refreshVotingPurchasePaymentStatus(purchase.id);
-				if (refreshedPurchase) purchase = refreshedPurchase;
-			} catch (midtransError) {
-				console.error("Error confirming voting payment status:", midtransError);
+		const deadline = Date.now() + maxWaitMs;
+		let attempt = 0;
+		while (purchase && purchase.status !== "PAID") {
+			if (canRefreshVotingPurchasePaymentStatus(purchase)) {
+				try {
+					const refreshedPurchase = await refreshVotingPurchasePaymentStatus(purchase.id);
+					if (refreshedPurchase) purchase = refreshedPurchase;
+				} catch (midtransError) {
+					console.error("Error confirming voting payment status:", midtransError);
+				}
+			} else {
+				const freshPurchase = await prisma.votingPurchase.findFirst({
+					where: buildVotingPurchaseCodeLookupWhere(normalizedPurchaseCode),
+					include: { event: { select: { title: true } } },
+				});
+				if (freshPurchase) purchase = freshPurchase;
 			}
+
+			if (!purchase || purchase.status === "PAID" || Date.now() >= deadline) break;
+			const delay =
+				CONFIRM_PAYMENT_RETRY_DELAYS_MS[Math.min(attempt, CONFIRM_PAYMENT_RETRY_DELAYS_MS.length - 1)] ?? 1_000;
+			attempt += 1;
+			await sleep(Math.min(delay, Math.max(0, deadline - Date.now())));
 		}
 
 		if (!purchase || purchase.status !== "PAID") {
 			return res.json({
 				status: purchase?.status || "UNKNOWN",
 				message: getVotingPurchasePaymentMessage(purchase?.status),
+				confirmed: false,
+				retryAfterMs: 2_000,
 			});
 		}
 
@@ -1507,21 +1557,25 @@ router.put(
 	}
 );
 
-// DELETE /api/voting/admin/categories/:categoryId - Delete voting category
+// DELETE /api/voting/admin/categories/:categoryId - Soft-disable voting category
 router.delete(
 	"/admin/categories/:categoryId",
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
-			await prisma.votingCategory.delete({
+			const category = await prisma.votingCategory.update({
 				where: { id: req.params.categoryId },
+				data: { isActive: false },
 			});
 
-			res.json({ message: "Kategori voting berhasil dihapus" });
+			res.json({
+				message: "Kategori voting berhasil dinonaktifkan. Nominee dan hasil vote tetap tersimpan.",
+				category,
+			});
 		} catch (error) {
-			console.error("Error deleting voting category:", error);
-			res.status(500).json({ error: "Gagal menghapus kategori voting" });
+			console.error("Error disabling voting category:", error);
+			res.status(500).json({ error: "Gagal menonaktifkan kategori voting" });
 		}
 	}
 );

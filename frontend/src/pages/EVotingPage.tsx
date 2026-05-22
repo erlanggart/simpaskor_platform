@@ -383,6 +383,8 @@ const EVotingPage: React.FC = () => {
 	// Realtime live-purchase popup feed (polled every ~3s).
 	const [liveAlerts, setLiveAlerts] = useState<LiveAlert[]>([]);
 	const liveSinceRef = useRef<number>(0);
+	const suppressLivePurchaseIdsRef = useRef<Set<string>>(new Set());
+	const [paymentVerifying, setPaymentVerifying] = useState(false);
 
 	// Hide mobile bottom nav while the purchase modal is open so the floating
 	// nav doesn't cover the modal's sticky "Beli Vote" footer.
@@ -524,7 +526,9 @@ const EVotingPage: React.FC = () => {
 				});
 				if (cancelled) return;
 				const serverTs = Number(res.data?.serverTs) || Date.now();
-				const entries = Array.isArray(res.data?.entries) ? res.data.entries : [];
+				const entries = Array.isArray(res.data?.entries)
+					? res.data.entries.filter((e: any) => !suppressLivePurchaseIdsRef.current.has(String(e?.id ?? "")))
+					: [];
 				if (liveSinceRef.current === 0) {
 					// First poll: skip historical entries (avoid replay), just bookmark.
 					liveSinceRef.current = serverTs;
@@ -769,12 +773,26 @@ const EVotingPage: React.FC = () => {
 
 			if (snapToken && isSnapReady && totalAmount > 0) {
 				setShowPurchaseModal(false);
+				suppressLivePurchaseIdsRef.current.add(String(purchaseId));
 
 				const onSuccess = async () => {
+					setPaymentVerifying(true);
+					Swal.fire({
+						title: "Memverifikasi Pembayaran",
+						html: `<div class="text-left space-y-2">
+							<p>Pembayaran berhasil di Midtrans. Server sedang memastikan status transaksi dan memasukkan vote.</p>
+							<p class="text-sm text-gray-500">Mohon tunggu sebentar, jangan tutup halaman ini.</p>
+						</div>`,
+						allowOutsideClick: false,
+						allowEscapeKey: false,
+						showConfirmButton: false,
+						didOpen: () => Swal.showLoading(),
+					});
 					try {
 						const confirmRes = await api.post("/voting/confirm-payment", {
 							purchaseCode,
 							email: buyerEmail.trim(),
+							waitMs: 15000,
 						});
 						if (confirmRes.data.status !== "PAID") {
 							throw new Error(confirmRes.data.message || "Pembayaran vote belum dikonfirmasi");
@@ -795,7 +813,7 @@ const EVotingPage: React.FC = () => {
 							arenaSound.play("vote");
 							pushTickerEntry(`Boost ${confirmedVoteCount} vote → ${targetNominee.nomineeName}`, "rankup");
 						}
-						Swal.fire({
+						await Swal.fire({
 							title: "Vote Berhasil!",
 							html: `<div class="text-left space-y-2">
 								<p><strong>Nominee:</strong> ${targetNominee.nomineeName}</p>
@@ -810,16 +828,18 @@ const EVotingPage: React.FC = () => {
 						});
 						fetchEventDetail(selectedEvent.id);
 					} catch (err: any) {
-						Swal.fire({
+						await Swal.fire({
 							title: "Menunggu Konfirmasi Pembayaran",
 							html: `<div class="text-left space-y-2">
-								<p>Pembayaran sudah diterima Midtrans, tetapi server masih menunggu konfirmasi.</p>
-								<p class="text-sm text-gray-500">Vote akan otomatis masuk ke nominee setelah pembayaran terkonfirmasi.</p>
+								<p>Pembayaran sudah terlihat berhasil di Midtrans, tetapi server belum menerima status final.</p>
+								<p class="text-sm text-gray-500">Vote hanya akan dimasukkan setelah server berhasil memverifikasi transaksi dari Midtrans. Coba cek lagi beberapa detik lagi.</p>
 							</div>`,
 							icon: "info",
 							confirmButtonColor: "#dc2626",
 						});
 						console.error("Voting payment confirmation pending:", err);
+					} finally {
+						setPaymentVerifying(false);
 					}
 				};
 				const onError = () => {
@@ -1871,7 +1891,7 @@ const EVotingPage: React.FC = () => {
 				    time a paid purchase confirms (polled every 3s). */}
 				<LiveAlertSystem
 					incoming={liveAlerts}
-					paused={!arenaOpen}
+					paused={!arenaOpen || paymentVerifying}
 				/>
 			</div>
 		);
