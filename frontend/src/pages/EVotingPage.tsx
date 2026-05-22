@@ -36,8 +36,7 @@ const LIVE_VOTE_CTA = "Dukung kandidat favoritmu sekarang dan tampilkan pesan du
 const BUYER_MESSAGE_MAX_LEN = 50;
 const PAYMENT_CONFIRM_WAIT_MS = 25_000;
 const PAYMENT_RECHECK_WAIT_MS = 8_000;
-const PAYMENT_RETURN_WAIT_MS = 30_000;
-const PAYMENT_CELEBRATION_DELAY_MS = 1_600;
+const PAYMENT_CELEBRATION_DELAY_MS = 600;
 
 
 // ---------------------------------------------------------------------------
@@ -786,28 +785,10 @@ const EVotingPage: React.FC = () => {
 				setShowPurchaseModal(false);
 				setPaymentFlowActive(true);
 
-				let snapReturned = false;
-				let resolveSnapReturned: (() => void) | null = null;
 				let successSeen = false;
 				let paidFinalized = false;
 				let verificationInFlight = false;
 				let pendingPromptOpen = false;
-
-				const markSnapReturned = () => {
-					snapReturned = true;
-					resolveSnapReturned?.();
-					resolveSnapReturned = null;
-				};
-
-				const waitForSnapReturnOrTimeout = async () => {
-					if (snapReturned) return;
-					await Promise.race([
-						new Promise<void>((resolve) => {
-							resolveSnapReturned = resolve;
-						}),
-						sleep(PAYMENT_RETURN_WAIT_MS),
-					]);
-				};
 
 				const completePaidPayment = async (waitMs = PAYMENT_CONFIRM_WAIT_MS) => {
 					if (verificationInFlight || paidFinalized) return;
@@ -838,21 +819,10 @@ const EVotingPage: React.FC = () => {
 						paidFinalized = true;
 						myInterestRef.current.add(targetNominee.id);
 						setPaidVoteTarget(null);
-						Swal.fire({
-							title: "Pembayaran Terverifikasi",
-							html: `<div class="text-left space-y-2">
-								<p>Transaksi sudah aman dan vote sudah masuk.</p>
-								<p class="text-sm text-gray-500">Jika halaman Midtrans masih menampilkan sukses, tekan <strong>Return to merchant's page</strong>. Perayaan akan muncul setelah kembali.</p>
-							</div>`,
-							allowOutsideClick: false,
-							allowEscapeKey: false,
-							showConfirmButton: false,
-							didOpen: () => Swal.showLoading(),
-						});
-						await waitForSnapReturnOrTimeout();
 						await sleep(PAYMENT_CELEBRATION_DELAY_MS);
 						Swal.close();
 						setPaymentVerifying(false);
+						setPaymentFlowActive(false);
 						const buyerLabel = buyerName.trim() || "Anonim";
 						setLiveAlerts((prev) => {
 							const alert: LiveAlert = {
@@ -866,7 +836,6 @@ const EVotingPage: React.FC = () => {
 							};
 							return [alert, ...prev.filter((item) => item.id !== alert.id)].slice(0, 24);
 						});
-						setPaymentFlowActive(false);
 						// Fire the matching gift signature animation if the vote count
 						// hits one of the preset gift values (Singa=100, Roket=50,
 						// Beruang=20, Tentara=10). Otherwise fall back to confetti.
@@ -966,13 +935,11 @@ const EVotingPage: React.FC = () => {
 				};
 
 				const handleSnapClose = () => {
-					markSnapReturned();
 					if (successSeen || paidFinalized || verificationInFlight) return;
 					handlePendingPayment();
 				};
 
 				function openSnapPayment() {
-					snapReturned = false;
 					setPaymentFlowActive(true);
 					pay(snapToken, {
 						onSuccess,
