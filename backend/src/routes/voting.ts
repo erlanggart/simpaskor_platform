@@ -1269,21 +1269,27 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 
 		// Broadcast to the live-purchase popup feed so every viewer of this event
 		// sees the donation-alert popup (with buyer name, message, gift emoji).
-		if (applyResult.appliedVotes > 0 && applyResult.nomineeId) {
+		// If the long-poll verifier above already applied the votes, appliedVotes
+		// is 0 here; still publish the same purchase id so the in-memory feed can
+		// dedupe against a later Midtrans webhook while keeping the popup realtime.
+		const liveNomineeId = applyResult.nomineeId ?? purchase.nomineeId;
+		const liveCategoryId = applyResult.categoryId ?? purchase.categoryId;
+		const liveVoteCount = applyResult.appliedVotes > 0 ? applyResult.appliedVotes : purchase.voteCount;
+		if (liveVoteCount > 0 && liveNomineeId) {
 			try {
 				const nominee = await prisma.votingNominee.findUnique({
-					where: { id: applyResult.nomineeId },
+					where: { id: liveNomineeId },
 					select: { nomineeName: true },
 				});
 				pushLivePurchase(purchase.eventId, {
 					id: purchase.id,
-					categoryId: applyResult.categoryId,
-					nomineeId: applyResult.nomineeId,
+					categoryId: liveCategoryId,
+					nomineeId: liveNomineeId,
 					nomineeName: nominee?.nomineeName ?? "Nominee",
 					buyerName: purchase.buyerName,
 					buyerMessage: purchase.buyerMessage,
 					giftType: purchase.giftType,
-					voteCount: applyResult.appliedVotes,
+					voteCount: liveVoteCount,
 				});
 			} catch (broadcastError) {
 				console.error("Failed to broadcast live purchase:", broadcastError);

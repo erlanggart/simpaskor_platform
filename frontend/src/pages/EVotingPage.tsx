@@ -383,7 +383,6 @@ const EVotingPage: React.FC = () => {
 	// Realtime live-purchase popup feed (polled every ~3s).
 	const [liveAlerts, setLiveAlerts] = useState<LiveAlert[]>([]);
 	const liveSinceRef = useRef<number>(0);
-	const suppressLivePurchaseIdsRef = useRef<Set<string>>(new Set());
 	const [paymentVerifying, setPaymentVerifying] = useState(false);
 
 	// Hide mobile bottom nav while the purchase modal is open so the floating
@@ -526,9 +525,7 @@ const EVotingPage: React.FC = () => {
 				});
 				if (cancelled) return;
 				const serverTs = Number(res.data?.serverTs) || Date.now();
-				const entries = Array.isArray(res.data?.entries)
-					? res.data.entries.filter((e: any) => !suppressLivePurchaseIdsRef.current.has(String(e?.id ?? "")))
-					: [];
+				const entries = Array.isArray(res.data?.entries) ? res.data.entries : [];
 				if (liveSinceRef.current === 0) {
 					// First poll: skip historical entries (avoid replay), just bookmark.
 					liveSinceRef.current = serverTs;
@@ -773,7 +770,6 @@ const EVotingPage: React.FC = () => {
 
 			if (snapToken && isSnapReady && totalAmount > 0) {
 				setShowPurchaseModal(false);
-				suppressLivePurchaseIdsRef.current.add(String(purchaseId));
 
 				const onSuccess = async () => {
 					setPaymentVerifying(true);
@@ -800,6 +796,21 @@ const EVotingPage: React.FC = () => {
 						const confirmedVoteCount = confirmRes.data.appliedVotes || confirmRes.data.voteCount || voteCount;
 						myInterestRef.current.add(targetNominee.id);
 						setPaidVoteTarget(null);
+						setPaymentVerifying(false);
+						Swal.close();
+						const buyerLabel = buyerName.trim() || "Anonim";
+						setLiveAlerts((prev) => {
+							const alert: LiveAlert = {
+								id: String(purchaseId),
+								buyerName: buyerLabel,
+								buyerMessage: buyerMessage.trim().slice(0, BUYER_MESSAGE_MAX_LEN) || null,
+								voteCount: confirmedVoteCount,
+								nomineeName: targetNominee.nomineeName,
+								giftType: selectedGiftType ?? null,
+								ts: Date.now(),
+							};
+							return [alert, ...prev.filter((item) => item.id !== alert.id)].slice(0, 24);
+						});
 						// Fire the matching gift signature animation if the vote count
 						// hits one of the preset gift values (Singa=100, Roket=50,
 						// Beruang=20, Tentara=10). Otherwise fall back to confetti.
@@ -813,18 +824,15 @@ const EVotingPage: React.FC = () => {
 							arenaSound.play("vote");
 							pushTickerEntry(`Boost ${confirmedVoteCount} vote → ${targetNominee.nomineeName}`, "rankup");
 						}
-						await Swal.fire({
+						Swal.fire({
 							title: "Vote Berhasil!",
-							html: `<div class="text-left space-y-2">
-								<p><strong>Nominee:</strong> ${targetNominee.nomineeName}</p>
-								<p><strong>Jumlah Vote:</strong> ${confirmedVoteCount}</p>
-								<p><strong>Subtotal Vote:</strong> ${formatCurrency(totalAmount)}</p>
-								<p><strong>Biaya Admin:</strong> ${formatCurrency(adminFee)}</p>
-								<p><strong>Total sebelum QRIS:</strong> ${formatCurrency(paymentAmount)}</p>
-								<p class="text-sm text-gray-500 mt-3">Vote langsung masuk ke nominee setelah pembayaran terkonfirmasi.</p>
-							</div>`,
+							text: `${confirmedVoteCount} vote masuk untuk ${targetNominee.nomineeName}.`,
 							icon: "success",
-							confirmButtonColor: "#dc2626",
+							toast: true,
+							position: "top-end",
+							timer: 2200,
+							showConfirmButton: false,
+							timerProgressBar: true,
 						});
 						fetchEventDetail(selectedEvent.id);
 					} catch (err: any) {
