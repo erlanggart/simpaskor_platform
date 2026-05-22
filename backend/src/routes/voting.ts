@@ -1009,6 +1009,7 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					customerEmail: effectiveEmail,
 					customerPhone: buyerPhone,
 					adminFee,
+					finishRedirectPath: "/e-voting",
 					itemDetails: [
 						{
 							id: resolvedEventId,

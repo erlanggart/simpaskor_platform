@@ -21,6 +21,16 @@ export const coreApi = new midtransClient.CoreApi({
 export const MIDTRANS_CLIENT_KEY = process.env.MIDTRANS_CLIENT_KEY || "";
 export const MIDTRANS_IS_PRODUCTION = isProduction;
 
+export function getFrontendBaseUrl(): string {
+	const fallbackUrl = isProduction ? "https://simpaskor.id" : "http://localhost:5173";
+	return (process.env.FRONTEND_URL || fallbackUrl).replace(/\/+$/, "");
+}
+
+function buildFrontendUrl(pathname: string): string {
+	const safePath = pathname.startsWith("/") ? pathname : `/${pathname}`;
+	return `${getFrontendBaseUrl()}${safePath}`;
+}
+
 // Payment type prefixes for generating unique Midtrans order IDs
 export const PaymentPrefix = {
 	ORDER: "ORD",
@@ -71,6 +81,8 @@ export async function createSnapTransaction(params: {
 	customerEmail: string;
 	customerPhone?: string;
 	adminFee?: number;
+	finishRedirectPath?: string;
+	finishRedirectUrl?: string;
 	itemDetails: Array<{
 		id: string;
 		price: number;
@@ -111,7 +123,9 @@ export async function createSnapTransaction(params: {
 		});
 	}
 
-	const transactionDetails = {
+	const finishRedirectUrl = params.finishRedirectUrl || buildFrontendUrl(params.finishRedirectPath || "/payment/success");
+
+	const transactionDetails: any = {
 		transaction_details: {
 			order_id: params.orderId,
 			gross_amount: totalWithFee,
@@ -123,6 +137,9 @@ export async function createSnapTransaction(params: {
 		},
 		item_details: items,
 		enabled_payments: ["other_qris"],
+		callbacks: {
+			finish: finishRedirectUrl,
+		},
 	};
 
 	const transaction = await snap.createTransaction(transactionDetails);
