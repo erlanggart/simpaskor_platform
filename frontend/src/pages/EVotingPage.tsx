@@ -849,16 +849,6 @@ const EVotingPage: React.FC = () => {
 							arenaSound.play("vote");
 							pushTickerEntry(`Boost ${confirmedVoteCount} vote → ${targetNominee.nomineeName}`, "rankup");
 						}
-						Swal.fire({
-							title: "Vote Berhasil!",
-							text: `${confirmedVoteCount} vote masuk untuk ${targetNominee.nomineeName}.`,
-							icon: "success",
-							toast: true,
-							position: "top-end",
-							timer: 2200,
-							showConfirmButton: false,
-							timerProgressBar: true,
-						});
 						fetchEventDetail(selectedEvent.id);
 					} catch (err: any) {
 						console.error("Voting payment confirmation pending:", err);
