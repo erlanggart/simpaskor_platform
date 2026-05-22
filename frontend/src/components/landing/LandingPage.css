@@ -3617,7 +3617,7 @@ html:not(.dark) .section-icon-glow-purple::before {
 .arena-gift-card.is-lion { background: linear-gradient(180deg, rgba(255, 186, 43, 0.18), rgba(120, 50, 0, 0.4)); border-color: rgba(255, 186, 43, 0.5); }
 .arena-gift-card.is-rocket { background: linear-gradient(180deg, rgba(0, 229, 255, 0.18), rgba(0, 50, 90, 0.4)); border-color: var(--neon-cyan-soft); }
 .arena-gift-card.is-bear { background: linear-gradient(180deg, rgba(255, 122, 0, 0.16), rgba(70, 30, 0, 0.45)); border-color: rgba(255, 138, 61, 0.5); }
-.arena-gift-card.is-soldier { background: linear-gradient(180deg, rgba(108, 255, 198, 0.14), rgba(0, 50, 30, 0.4)); border-color: rgba(34, 245, 167, 0.45); }
+.arena-gift-card.is-flame { background: linear-gradient(180deg, rgba(251, 146, 60, 0.18), rgba(120, 30, 0, 0.45)); border-color: rgba(251, 146, 60, 0.55); }
 
 /* Floating projectile emoji as it flies toward the target. */
 .arena-gift-fly {
@@ -3641,17 +3641,18 @@ html:not(.dark) .section-icon-glow-purple::before {
 .arena-recv-aura.is-lion { box-shadow: 0 0 0 2px rgba(255, 218, 90, 0.7), 0 0 60px rgba(255, 186, 43, 0.7), 0 0 120px rgba(255, 138, 0, 0.45); }
 .arena-recv-aura.is-rocket { box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.7), 0 0 50px rgba(0, 229, 255, 0.65), 0 0 100px rgba(108, 231, 255, 0.4); }
 .arena-recv-aura.is-bear { box-shadow: 0 0 0 2px rgba(255, 138, 61, 0.65), 0 0 45px rgba(255, 122, 0, 0.55), 0 0 90px rgba(255, 90, 0, 0.35); }
-.arena-recv-aura.is-soldier { box-shadow: 0 0 0 2px rgba(108, 255, 198, 0.55), 0 0 40px rgba(34, 245, 167, 0.4); }
+.arena-recv-aura.is-flame { box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.7), 0 0 45px rgba(251, 146, 60, 0.55), 0 0 90px rgba(239, 68, 68, 0.4); }
 
-/* Bear bounce + soldier pulse hooks for the wrapper itself. */
+/* Bear bounce + flame pulse hooks for the wrapper itself. */
 .arena-bear-bounce { animation: arenaBearBounce 720ms cubic-bezier(0.4, 1.6, 0.5, 1); }
-.arena-soldier-pulse {
+.arena-flame-pulse {
 	position: absolute;
 	inset: 0;
 	border-radius: inherit;
 	pointer-events: none;
-	border: 2px solid rgba(108, 255, 198, 0.7);
-	animation: arenaSoldierPulse 800ms ease-out forwards;
+	border: 2px solid rgba(251, 146, 60, 0.75);
+	box-shadow: 0 0 24px rgba(251, 146, 60, 0.45) inset;
+	animation: arenaFlamePulse 800ms ease-out forwards;
 }
 
 /* Full-screen lion celebration overlay. */
@@ -3823,7 +3824,7 @@ html:not(.dark) .section-icon-glow-purple::before {
 	60% { transform: translateY(0) scale(0.98); }
 	80% { transform: translateY(-4px) scale(1.01); }
 }
-@keyframes arenaSoldierPulse {
+@keyframes arenaFlamePulse {
 	0% { opacity: 1; transform: scale(1); }
 	100% { opacity: 0; transform: scale(1.12); }
 }
@@ -3883,7 +3884,7 @@ html:not(.dark) .section-icon-glow-purple::before {
 	.arena-gift-fly,
 	.arena-recv-aura,
 	.arena-bear-bounce,
-	.arena-soldier-pulse,
+	.arena-flame-pulse,
 	.arena-lion-veil,
 	.arena-lion-emoji,
 	.evoting-arena.is-shaking,
@@ -4279,8 +4280,23 @@ html:not(.dark) .simpaskor-underline {
    so the modal can own the viewport cleanly on mobile and desktop. */
 body.purchase-modal-open .main-top-header,
 body.purchase-modal-open .main-side-nav,
-body.purchase-modal-open .mobile-bottom-nav {
+body.purchase-modal-open .mobile-bottom-nav,
+/* Also hide nav chrome inside the E-Voting arena so the live alert popup
+   + floating Dashboard button never collide with the donation-alert popup. */
+body.voting-arena-open .main-top-header,
+body.voting-arena-open .main-side-nav,
+body.voting-arena-open .mobile-bottom-nav {
 	display: none !important;
+}
+
+/* When nav is gone inside the arena, reclaim the left gutter for arena content. */
+body.voting-arena-open .arena-main-shell {
+	padding-left: 1rem;
+}
+@media (min-width: 768px) {
+	body.voting-arena-open .arena-main-shell {
+		padding-left: 2rem;
+	}
 }
 
 .mobile-bottom-nav-shell {
@@ -4435,6 +4451,584 @@ body.purchase-modal-open .mobile-bottom-nav {
 		animation: none !important;
 		transition: background 0.2s ease, color 0.2s ease !important;
 	}
+}
+
+/* ===========================================================================
+   LIVE ALERT SYSTEM — cinematic donation-alert popup overlay for E-Voting.
+   Scoped to .live-alert-* so it doesn't bleed into the existing arena chrome.
+   =========================================================================== */
+.live-alert-popup-wrap {
+	position: fixed;
+	top: 16px;
+	right: 16px;
+	z-index: 9000;
+	pointer-events: none;
+	width: min(340px, calc(100vw - 24px));
+}
+
+.live-alert-popup {
+	position: relative;
+	pointer-events: auto;
+	overflow: hidden;
+	border-radius: 18px;
+	padding: 12px 14px 16px;
+	/* Transparent glass — backdrop-blur is what keeps the text readable over
+	   arbitrary background content. Solid-color fallback at 0.32 alpha is
+	   only visible when the browser doesn't support backdrop-filter. */
+	background: rgba(8, 10, 28, 0.32);
+	backdrop-filter: blur(28px) saturate(170%);
+	-webkit-backdrop-filter: blur(28px) saturate(170%);
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	box-shadow:
+		0 18px 40px -14px rgba(0, 0, 0, 0.55),
+		0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+		0 0 40px -8px rgba(0, 188, 212, 0.3);
+	cursor: pointer;
+	color: #f5f7ff;
+}
+
+.live-alert-popup::before {
+	content: "";
+	position: absolute;
+	inset: -1px;
+	border-radius: 18px;
+	padding: 1px;
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+	-webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+	mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+	pointer-events: none;
+}
+
+.live-alert-glow {
+	position: absolute;
+	inset: -25%;
+	opacity: 0.22;
+	filter: blur(60px);
+	pointer-events: none;
+	z-index: 0;
+}
+
+.live-alert-shine {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+	transform: translateX(-100%);
+	animation: liveAlertShine 2.4s ease-in-out infinite;
+	pointer-events: none;
+	z-index: 1;
+}
+
+@keyframes liveAlertShine {
+	0% { transform: translateX(-100%); }
+	60% { transform: translateX(100%); }
+	100% { transform: translateX(100%); }
+}
+
+.live-alert-particles {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.live-alert-particle {
+	position: absolute;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	box-shadow: 0 0 14px currentColor;
+	filter: brightness(1.2);
+}
+
+.live-alert-head {
+	position: relative;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.live-alert-live-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #ef4444;
+	box-shadow: 0 0 10px #ef4444;
+	animation: liveAlertPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes liveAlertPulse {
+	0%, 100% { opacity: 1; transform: scale(1); }
+	50%      { opacity: 0.65; transform: scale(1.25); }
+}
+
+.live-alert-chip {
+	font-size: 9px;
+	font-weight: 800;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: #fca5a5;
+	padding: 2px 7px;
+	background: rgba(239, 68, 68, 0.12);
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	border-radius: 999px;
+}
+
+.live-alert-gift-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 9px;
+	font-weight: 800;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	padding: 2px 8px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 999px;
+	margin-left: auto;
+	color: #f5f7ff;
+	white-space: nowrap;
+}
+
+.live-alert-gift-icon {
+	display: inline-flex;
+	color: #fbbf24;
+}
+
+.live-alert-body {
+	position: relative;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.live-alert-emoji {
+	font-size: 38px;
+	line-height: 1;
+	filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+	flex-shrink: 0;
+}
+
+.live-alert-text {
+	min-width: 0;
+	flex: 1;
+}
+
+.live-alert-buyer {
+	font-size: 14px;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	/* Layered shadow gives the text crisp edges over any backdrop. */
+	text-shadow:
+		0 1px 2px rgba(0, 0, 0, 0.85),
+		0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.live-alert-line {
+	font-size: 11px;
+	color: #f5f7ff;
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	margin-top: 1px;
+	flex-wrap: wrap;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+}
+
+.live-alert-votes {
+	font-size: 18px;
+	font-weight: 900;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+	text-shadow:
+		0 1px 3px rgba(0, 0, 0, 0.85),
+		0 0 12px currentColor;
+}
+
+.live-alert-target {
+	font-size: 11px;
+	color: #eef2ff;
+	margin-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+}
+.live-alert-target span {
+	color: #ffffff;
+	font-weight: 700;
+}
+
+.live-alert-target span {
+	color: rgba(245, 247, 255, 0.92);
+	font-weight: 700;
+}
+
+.live-alert-message {
+	position: relative;
+	z-index: 3;
+	margin-top: 8px;
+	padding: 7px 10px;
+	background: rgba(0, 0, 0, 0.22);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 10px;
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	font-size: 11px;
+	line-height: 1.4;
+	color: #ffffff;
+	font-style: italic;
+	max-height: 50px;
+	overflow: hidden;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+}
+
+.live-alert-progress {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	height: 2px;
+	width: 100%;
+	transform-origin: left;
+	border-bottom-left-radius: 18px;
+	border-bottom-right-radius: 18px;
+	box-shadow: 0 0 10px currentColor;
+}
+
+/* Tone overrides — accent shadow per emoji */
+.live-alert-popup.is-gold   { box-shadow: 0 22px 60px -16px rgba(0,0,0,0.7), 0 0 60px -8px rgba(255,186,43,0.45); }
+.live-alert-popup.is-cyan   { box-shadow: 0 22px 60px -16px rgba(0,0,0,0.7), 0 0 60px -8px rgba(34,211,238,0.45); }
+.live-alert-popup.is-ember  { box-shadow: 0 22px 60px -16px rgba(0,0,0,0.7), 0 0 60px -8px rgba(251,146,60,0.45); }
+.live-alert-popup.is-violet { box-shadow: 0 22px 60px -16px rgba(0,0,0,0.7), 0 0 60px -8px rgba(167,139,250,0.45); }
+.live-alert-popup.is-royal  { box-shadow: 0 22px 60px -16px rgba(0,0,0,0.7), 0 0 60px -8px rgba(250,204,21,0.45); }
+.live-alert-popup.is-brown  { box-shadow: 0 22px 60px -16px rgba(0,0,0,0.7), 0 0 60px -8px rgba(245,158,11,0.45); }
+.live-alert-popup.is-olive  { box-shadow: 0 22px 60px -16px rgba(0,0,0,0.7), 0 0 60px -8px rgba(52,211,153,0.4); }
+
+/* === Per-emoji signature effects ====================================== */
+.live-alert-fx-lion {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	background:
+		radial-gradient(circle at 18% 28%, rgba(255, 186, 43, 0.4) 0%, transparent 40%),
+		radial-gradient(circle at 82% 72%, rgba(255, 122, 0, 0.32) 0%, transparent 45%);
+	animation: liveAlertLionShake 0.32s ease-in-out 0s 3 alternate;
+}
+
+@keyframes liveAlertLionShake {
+	0%   { transform: translate(0, 0); }
+	25%  { transform: translate(-1.5px, 1px); }
+	50%  { transform: translate(1.5px, -1px); }
+	75%  { transform: translate(-1px, 0); }
+	100% { transform: translate(0, 0); }
+}
+
+.live-alert-fx-rocket-trail {
+	position: absolute;
+	left: 0;
+	top: 40%;
+	width: 120px;
+	height: 6px;
+	background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.9), transparent);
+	border-radius: 999px;
+	filter: blur(2px);
+	z-index: 2;
+	pointer-events: none;
+}
+
+.live-alert-fx-flame {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	background:
+		radial-gradient(ellipse at 50% 110%, rgba(251, 146, 60, 0.55) 0%, transparent 50%),
+		radial-gradient(ellipse at 30% 95%, rgba(239, 68, 68, 0.4) 0%, transparent 45%);
+	animation: liveAlertFlameFlicker 0.45s ease-in-out infinite alternate;
+}
+
+@keyframes liveAlertFlameFlicker {
+	0%   { opacity: 0.7; transform: scaleY(1); }
+	100% { opacity: 1; transform: scaleY(1.08); }
+}
+
+.live-alert-fx-lightning {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	background: rgba(250, 245, 200, 0.55);
+	mix-blend-mode: screen;
+}
+
+.live-alert-fx-crown {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+	background:
+		radial-gradient(circle at 50% 0%, rgba(250, 204, 21, 0.45) 0%, transparent 55%),
+		conic-gradient(from 0deg at 50% 0%, transparent 0deg, rgba(255, 255, 255, 0.18) 30deg, transparent 60deg);
+	animation: liveAlertCrownShimmer 1.6s linear infinite;
+}
+
+@keyframes liveAlertCrownShimmer {
+	0%   { filter: hue-rotate(0deg) brightness(1); }
+	50%  { filter: hue-rotate(20deg) brightness(1.15); }
+	100% { filter: hue-rotate(0deg) brightness(1); }
+}
+
+/* === Mini side rail ================================================== */
+.live-alert-rail {
+	position: fixed;
+	right: 16px;
+	/* Sit below the active popup (≈ popup height + gutter). */
+	top: 170px;
+	z-index: 8500;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 240px;
+	pointer-events: none;
+}
+
+.live-alert-rail-item {
+	pointer-events: auto;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	border-radius: 14px;
+	background: rgba(10, 13, 34, 0.35);
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	backdrop-filter: blur(20px) saturate(160%);
+	-webkit-backdrop-filter: blur(20px) saturate(160%);
+	color: #ffffff;
+	font-size: 12px;
+	box-shadow: 0 14px 30px -16px rgba(0, 0, 0, 0.6);
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+}
+
+.live-alert-rail-item.is-gold   { border-color: rgba(255,186,43,0.35); }
+.live-alert-rail-item.is-cyan   { border-color: rgba(34,211,238,0.35); }
+.live-alert-rail-item.is-ember  { border-color: rgba(251,146,60,0.35); }
+.live-alert-rail-item.is-violet { border-color: rgba(167,139,250,0.4); }
+.live-alert-rail-item.is-royal  { border-color: rgba(250,204,21,0.35); }
+.live-alert-rail-item.is-brown  { border-color: rgba(245,158,11,0.35); }
+.live-alert-rail-item.is-olive  { border-color: rgba(52,211,153,0.35); }
+
+.live-alert-rail-emoji { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.live-alert-rail-meta  { min-width: 0; flex: 1; }
+.live-alert-rail-buyer {
+	font-weight: 800;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.live-alert-rail-line {
+	font-size: 11px;
+	margin-top: 1px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-weight: 700;
+}
+
+/* === Floating audio controls ========================================= */
+.live-alert-controls {
+	position: fixed;
+	right: 14px;
+	bottom: 92px;
+	z-index: 9100;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 8px;
+}
+
+.live-alert-controls-fab {
+	width: 42px;
+	height: 42px;
+	border-radius: 50%;
+	background: rgba(10, 13, 34, 0.88);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	color: #e6ecff;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 14px 30px -16px rgba(0, 0, 0, 0.7);
+	transition: transform 0.18s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.live-alert-controls-fab:hover {
+	transform: translateY(-1px);
+	border-color: rgba(0, 229, 255, 0.45);
+	background: rgba(0, 22, 44, 0.92);
+}
+
+.live-alert-controls-panel {
+	width: 260px;
+	padding: 14px;
+	border-radius: 18px;
+	background: rgba(10, 13, 34, 0.94);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow: 0 22px 50px -16px rgba(0, 0, 0, 0.85);
+	color: #e6ecff;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.live-alert-controls-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 12px;
+}
+
+.live-alert-controls-label {
+	flex-shrink: 0;
+	font-size: 10px;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.18em;
+	color: rgba(245, 247, 255, 0.6);
+	min-width: 64px;
+}
+
+.live-alert-controls-range {
+	flex: 1;
+	accent-color: #22d3ee;
+}
+
+.live-alert-controls-value {
+	font-variant-numeric: tabular-nums;
+	font-weight: 800;
+	font-size: 12px;
+	min-width: 28px;
+	text-align: right;
+}
+
+.live-alert-controls-segmented {
+	display: inline-flex;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	overflow: hidden;
+}
+
+.live-alert-controls-segmented button {
+	padding: 4px 12px;
+	font-size: 11px;
+	font-weight: 700;
+	color: rgba(245, 247, 255, 0.7);
+	background: transparent;
+}
+
+.live-alert-controls-segmented button.is-active {
+	background: linear-gradient(135deg, #00bcd4, #6d28d9);
+	color: #fff;
+}
+
+.live-alert-controls-pill {
+	margin-left: auto;
+	padding: 4px 14px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 800;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: rgba(245, 247, 255, 0.7);
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.live-alert-controls-pill.is-on {
+	color: #022b30;
+	background: linear-gradient(135deg, #6ee7b7, #22d3ee);
+	border-color: transparent;
+}
+
+.live-alert-controls-hint {
+	font-size: 10px;
+	line-height: 1.4;
+	color: rgba(245, 247, 255, 0.55);
+}
+
+/* === Purchase modal CTA & message input ============================== */
+.live-alert-cta {
+	margin-top: 8px;
+	padding: 10px 14px;
+	border-radius: 14px;
+	background: linear-gradient(120deg, rgba(0, 188, 212, 0.16), rgba(126, 34, 206, 0.18));
+	border: 1px solid rgba(0, 229, 255, 0.3);
+	color: #c7faff;
+	font-size: 12px;
+	line-height: 1.45;
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.live-alert-cta-icon {
+	flex-shrink: 0;
+	margin-top: 2px;
+	color: #5eead4;
+}
+
+/* === Mobile tweaks =================================================== */
+@media (max-width: 640px) {
+	.live-alert-popup-wrap {
+		top: 10px;
+		right: 10px;
+		/* On narrow phones cap width so it never exceeds the viewport, but
+		   stay anchored to the right corner so the layout reads consistently. */
+		width: min(300px, calc(100vw - 20px));
+	}
+	.live-alert-popup { padding: 10px 12px 14px; border-radius: 16px; }
+	.live-alert-popup::before { border-radius: 16px; }
+	.live-alert-progress { border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
+	.live-alert-emoji { font-size: 32px; }
+	.live-alert-buyer { font-size: 13px; }
+	.live-alert-votes { font-size: 16px; }
+	.live-alert-line { font-size: 10.5px; }
+	.live-alert-target { font-size: 10.5px; }
+	.live-alert-message { font-size: 10.5px; max-height: 44px; }
+	.live-alert-rail { display: none; } /* save screen real-estate */
+	.live-alert-controls { right: 10px; bottom: 16px; }
+	.live-alert-controls-fab { width: 36px; height: 36px; }
+	.live-alert-controls-panel { width: calc(100vw - 32px); max-width: 280px; }
+}
+
+/* Extra-narrow phones (Galaxy Fold ≤340px). */
+@media (max-width: 360px) {
+	.live-alert-popup-wrap { width: calc(100vw - 16px); right: 8px; top: 8px; }
+	.live-alert-emoji { font-size: 28px; }
+	.live-alert-buyer { font-size: 12px; }
+	.live-alert-votes { font-size: 15px; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.live-alert-shine,
+	.live-alert-fx-flame,
+	.live-alert-fx-lion,
+	.live-alert-fx-crown { animation: none !important; }
+	.live-alert-particle { display: none !important; }
 }
 
 

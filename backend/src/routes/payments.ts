@@ -16,6 +16,7 @@ import {
 } from "../lib/vertinovaFinanceWebhook";
 import { recordTicketRevenueShare, recordVotingRevenueShare } from "../lib/revenueLedger";
 import { applyPaidVotingPurchaseVotes } from "../lib/votingAutoApply";
+import { pushLivePurchase } from "./voting";
 import { recordAdminFeeTransaction } from "../lib/adminFeeLedger";
 
 const router = Router();
@@ -346,6 +347,36 @@ async function handleVotingPayment(
 			await recordVotingRevenueShare(tx, purchase.id);
 		});
 		const adminFee = await recordVotingAdminFee(paidAt);
+
+		// Broadcast to the live popup feed so other viewers see the donation
+		// alert even if the buyer never lands on the confirm-payment endpoint.
+		try {
+			const fresh = await prisma.votingPurchase.findUnique({
+				where: { id: purchase.id },
+				select: {
+					id: true, eventId: true, categoryId: true, nomineeId: true,
+					buyerName: true, buyerMessage: true, giftType: true, voteCount: true,
+				},
+			});
+			if (fresh && fresh.nomineeId) {
+				const nominee = await prisma.votingNominee.findUnique({
+					where: { id: fresh.nomineeId },
+					select: { nomineeName: true },
+				});
+				pushLivePurchase(fresh.eventId, {
+					id: fresh.id,
+					categoryId: fresh.categoryId,
+					nomineeId: fresh.nomineeId,
+					nomineeName: nominee?.nomineeName ?? "Nominee",
+					buyerName: fresh.buyerName,
+					buyerMessage: fresh.buyerMessage,
+					giftType: fresh.giftType,
+					voteCount: fresh.voteCount,
+				});
+			}
+		} catch (broadcastError) {
+			console.error("[Midtrans] Failed to broadcast live purchase:", broadcastError);
+		}
 		void sendVertinovaPaymentSuccessWebhook({
 			orderId: midtransOrderId,
 			amount: adminFee,

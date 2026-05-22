@@ -30,6 +30,11 @@ import {
 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import VoteGuideCard from "../components/landing/VoteGuideCard";
+import LiveAlertSystem, { LiveAlert, GiftBoostType } from "../components/voting/LiveAlertSystem";
+
+const LIVE_VOTE_CTA = "Dukung kandidat favoritmu sekarang dan tampilkan pesan dukungan terbaikmu di live voting!";
+const BUYER_MESSAGE_MAX_LEN = 140;
+
 
 // ---------------------------------------------------------------------------
 // Voting Arena helpers — kept local so the page stays self-contained per the
@@ -117,10 +122,10 @@ const padTime = (n: number) => String(Math.max(0, n)).padStart(2, "0");
 
 // ----- Gift Voting catalog -----
 // Keep this in sync with GIFT_CATALOG in backend/src/routes/voting.ts.
-type GiftType = "lion" | "rocket" | "bear" | "soldier";
+type GiftType = "lion" | "rocket" | "bear" | "flame";
 interface GiftDef { type: GiftType; emoji: string; label: string; votes: number; tone: string; }
 const GIFTS: GiftDef[] = [
-	{ type: "soldier", emoji: "🪖", label: "Tentara", votes: 10, tone: "is-soldier" },
+	{ type: "flame", emoji: "🔥", label: "Api", votes: 10, tone: "is-flame" },
 	{ type: "bear", emoji: "🐻", label: "Beruang", votes: 20, tone: "is-bear" },
 	{ type: "rocket", emoji: "🚀", label: "Roket", votes: 50, tone: "is-rocket" },
 	{ type: "lion", emoji: "🦁", label: "Singa", votes: 100, tone: "is-lion" },
@@ -253,7 +258,7 @@ const EVotingPage: React.FC = () => {
 	const [flyingGifts, setFlyingGifts] = useState<Array<{ id: string; emoji: string; from: { x: number; y: number }; to: { x: number; y: number } }>>([]);
 	const [receivingAura, setReceivingAura] = useState<Map<string, GiftType>>(new Map());
 	const [bouncingNominee, setBouncingNominee] = useState<string | null>(null);
-	const [soldierPulseNominee, setSoldierPulseNominee] = useState<string | null>(null);
+	const [flamePulseNominee, setFlamePulseNominee] = useState<string | null>(null);
 	const [lionShow, setLionShow] = useState<{ emoji: string; ts: number } | null>(null);
 	const [rocketShow, setRocketShow] = useState<number | null>(null);
 	const [shaking, setShaking] = useState(false);
@@ -309,9 +314,9 @@ const EVotingPage: React.FC = () => {
 		} else if (type === "bear") {
 			setBouncingNominee(nomineeId);
 			window.setTimeout(() => setBouncingNominee((cur) => (cur === nomineeId ? null : cur)), 720);
-		} else if (type === "soldier") {
-			setSoldierPulseNominee(nomineeId);
-			window.setTimeout(() => setSoldierPulseNominee((cur) => (cur === nomineeId ? null : cur)), 800);
+		} else if (type === "flame") {
+			setFlamePulseNominee(nomineeId);
+			window.setTimeout(() => setFlamePulseNominee((cur) => (cur === nomineeId ? null : cur)), 800);
 		}
 
 		// Track for trending calc.
@@ -328,7 +333,7 @@ const EVotingPage: React.FC = () => {
 			setFlyingGifts([]);
 			setReceivingAura(new Map());
 			setBouncingNominee(null);
-			setSoldierPulseNominee(null);
+			setFlamePulseNominee(null);
 			setLionShow(null);
 			setRocketShow(null);
 			setShaking(false);
@@ -365,6 +370,19 @@ const EVotingPage: React.FC = () => {
 	const buyerPhone = "";
 	const [voteCount, setVoteCount] = useState(1);
 	const [purchasing, setPurchasing] = useState(false);
+	// Live alert popup payload — short support message. The active gift
+	// preset is DERIVED from voteCount (single source of truth) so a
+	// "click gift then change vote count" flow never carries the old gift
+	// label to the AI voice narration.
+	const [buyerMessage, setBuyerMessage] = useState("");
+	const selectedGiftType: GiftType | null = (() => {
+		const match = GIFTS.find((g) => g.votes === voteCount);
+		return match?.type ?? null;
+	})();
+
+	// Realtime live-purchase popup feed (polled every ~3s).
+	const [liveAlerts, setLiveAlerts] = useState<LiveAlert[]>([]);
+	const liveSinceRef = useRef<number>(0);
 
 	// Hide mobile bottom nav while the purchase modal is open so the floating
 	// nav doesn't cover the modal's sticky "Beli Vote" footer.
@@ -373,8 +391,21 @@ const EVotingPage: React.FC = () => {
 			document.body.classList.add("purchase-modal-open");
 			return () => document.body.classList.remove("purchase-modal-open");
 		}
+		// Reset message + vote count when modal closes so the next purchase
+		// flow starts clean (selectedGiftType is derived from voteCount so
+		// it auto-resets when voteCount goes back to 1).
+		setBuyerMessage("");
+		setVoteCount(1);
 		return undefined;
 	}, [showPurchaseModal]);
+
+	// Hide global nav chrome inside the voting arena so the live popup +
+	// floating dashboard button never collide. Restored on exit.
+	useEffect(() => {
+		if (!selectedEvent) return undefined;
+		document.body.classList.add("voting-arena-open");
+		return () => document.body.classList.remove("voting-arena-open");
+	}, [selectedEvent]);
 
 	const [paidVoteTarget, setPaidVoteTarget] = useState<{ categoryId: string; nomineeId: string } | null>(null);
 	const maxVoteCount = calculateMaxVoteCount(selectedEvent?.votingConfig?.pricePerVote || 0);
@@ -457,6 +488,78 @@ const EVotingPage: React.FC = () => {
 			}
 		};
 		const id = window.setInterval(tick, 12_000);
+		return () => {
+			cancelled = true;
+			window.clearInterval(id);
+		};
+	}, [selectedEvent?.id]);
+
+	// Realtime live-purchase popup poller. Hits a lightweight endpoint every
+	// 3s with `since=lastSeen`, so each viewer sees brand-new paid purchases
+	// the moment they're confirmed without needing a WebSocket. Reset feed
+	// + cursor when leaving the detail view or switching events.
+	useEffect(() => {
+		if (!selectedEvent) {
+			setLiveAlerts([]);
+			liveSinceRef.current = 0;
+			return undefined;
+		}
+		const eventId = selectedEvent.id;
+		// Server's clock — use first poll's `serverTs` as the "since" anchor so
+		// we never replay alerts from before we opened the page.
+		let cancelled = false;
+		let inFlight = false;
+		const tick = async () => {
+			if (document.visibilityState !== "visible") return;
+			// Skip overlapping fetches under slow network. Without this guard,
+			// two ticks fired 3s apart with a 5s response would both read the
+			// same stale cursor and fetch overlapping ranges (id-dedup absorbs
+			// it but wastes bandwidth + server CPU).
+			if (inFlight) return;
+			inFlight = true;
+			try {
+				const res = await api.get(`/voting/events/${eventId}/live-purchases`, {
+					params: { since: liveSinceRef.current },
+					silent: true,
+				});
+				if (cancelled) return;
+				const serverTs = Number(res.data?.serverTs) || Date.now();
+				const entries = Array.isArray(res.data?.entries) ? res.data.entries : [];
+				if (liveSinceRef.current === 0) {
+					// First poll: skip historical entries (avoid replay), just bookmark.
+					liveSinceRef.current = serverTs;
+					return;
+				}
+				liveSinceRef.current = serverTs;
+				if (entries.length === 0) return;
+				const mapped: LiveAlert[] = entries.map((e: any) => ({
+					id: String(e.id ?? `${e.ts}-${e.buyerName}`),
+					buyerName: String(e.buyerName ?? "Anonim"),
+					buyerMessage: e.buyerMessage ? String(e.buyerMessage) : null,
+					voteCount: Number(e.voteCount) || 0,
+					nomineeName: String(e.nomineeName ?? "Nominee"),
+					// Preserve null when backend stored no explicit gift (custom
+					// vote count). LiveAlertSystem uses this to skip the
+					// "Boost X!" narration line — only visual fallback emoji.
+					giftType: (e.giftType as GiftBoostType) ?? null,
+					ts: Number(e.ts) || Date.now(),
+				}));
+				setLiveAlerts((prev) => {
+					const known = new Set(prev.map((p) => p.id));
+					const fresh = mapped.filter((m) => !known.has(m.id));
+					if (fresh.length === 0) return prev;
+					// Keep only the last 24 entries; LiveAlertSystem maintains its own
+					// dedupe + lifetime windows, so this is just memory hygiene.
+					return [...fresh, ...prev].slice(0, 24);
+				});
+			} catch {
+				/* swallow — polling is best-effort */
+			} finally {
+				inFlight = false;
+			}
+		};
+		void tick();
+		const id = window.setInterval(tick, 3000);
 		return () => {
 			cancelled = true;
 			window.clearInterval(id);
@@ -643,6 +746,10 @@ const EVotingPage: React.FC = () => {
 
 		try {
 			setPurchasing(true);
+			// Send giftType ONLY when the buyer selected an explicit preset
+			// (selectedGiftType is derived from voteCount). Custom vote counts
+			// send no giftType so the popup narration skips "Boost X!" and
+			// speaks just the vote count + buyer + nominee + message.
 			const res = await api.post("/voting/purchase", {
 				eventId: selectedEvent.id,
 				categoryId: paidVoteTarget.categoryId,
@@ -651,6 +758,8 @@ const EVotingPage: React.FC = () => {
 				buyerEmail: buyerEmail.trim(),
 				buyerPhone: buyerPhone.trim() || undefined,
 				voteCount,
+				buyerMessage: buyerMessage.trim().slice(0, BUYER_MESSAGE_MAX_LEN) || undefined,
+				giftType: selectedGiftType ?? undefined,
 			});
 
 			const { snapToken, purchaseCode, totalAmount } = res.data.purchase;
@@ -1101,9 +1210,11 @@ const EVotingPage: React.FC = () => {
 						</div>
 					)}
 
-					{/* Arena Podium (Top 3) + Leaderboard (rest) + Live ticker */}
+					{/* Arena Podium (Top 3) + Leaderboard. The legacy right-rail Live Feed
+					    has been promoted to a top-centered cinematic popup overlay
+					    (LiveAlertSystem) + floating mini-rail rendered globally below. */}
 					{sortedNominees.length > 0 ? (
-						<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+						<div className="space-y-8">
 							{/* Main column */}
 							<div className="space-y-8">
 								<div className="arena-podium">
@@ -1139,7 +1250,7 @@ const EVotingPage: React.FC = () => {
 												{receivingAura.get(nominee.id) && (
 													<span className={`arena-recv-aura ${GIFTS.find((g) => g.type === receivingAura.get(nominee.id))?.tone ?? ""}`} />
 												)}
-												{soldierPulseNominee === nominee.id && <span className="arena-soldier-pulse" />}
+												{flamePulseNominee === nominee.id && <span className="arena-flame-pulse" />}
 												{trendingNomineeId === nominee.id && (
 													<span className="absolute right-2 top-2 z-[3]"><span className="arena-trending">🔥 Trending</span></span>
 												)}
@@ -1304,7 +1415,7 @@ const EVotingPage: React.FC = () => {
 														{receivingAura.get(nominee.id) && (
 															<span className={`arena-recv-aura ${GIFTS.find((g) => g.type === receivingAura.get(nominee.id))?.tone ?? ""}`} />
 														)}
-														{soldierPulseNominee === nominee.id && <span className="arena-soldier-pulse" />}
+														{flamePulseNominee === nominee.id && <span className="arena-flame-pulse" />}
 														<div className="arena-row-rank">#{rank}</div>
 														<div className="arena-row-avatar">
 															{nominee.nomineePhoto ? (
@@ -1386,51 +1497,6 @@ const EVotingPage: React.FC = () => {
 								)}
 							</div>
 
-							{/* Live ticker rail (desktop) / drawer (mobile) */}
-							<aside className="arena-hud rounded-2xl p-4 xl:sticky xl:top-4 xl:self-start">
-								<div className="mb-3 flex items-center justify-between">
-									<div className="flex items-center gap-2">
-										<span className="arena-live-dot" />
-										<h3 className="arena-chrome text-xs font-extrabold uppercase tracking-[0.24em] text-white">Live Feed</h3>
-									</div>
-									<span className="arena-chrome text-[10px] uppercase tracking-[0.2em] text-slate-500">tiap 12 dtk</span>
-								</div>
-								<div className="arena-ticker">
-									<AnimatePresence initial={false}>
-										{voteFeed.length === 0 ? (
-											<motion.div
-												key="empty"
-												initial={{ opacity: 0 }}
-												animate={{ opacity: 1 }}
-												exit={{ opacity: 0 }}
-												className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-4 text-center text-xs text-slate-500"
-											>
-												Menunggu aksi pertama…
-											</motion.div>
-										) : (
-											voteFeed.map((entry) => (
-												<motion.div
-													key={entry.id}
-													layout
-													initial={{ opacity: 0, y: -8, scale: 0.97 }}
-													animate={{ opacity: 1, y: 0, scale: 1 }}
-													exit={{ opacity: 0, x: 20 }}
-													transition={{ type: "spring", stiffness: 320, damping: 26 }}
-													className={`arena-ticker-item ${entry.tone === "rankup" ? "is-rankup" : ""}`}
-												>
-													{entry.tone === "rankup" ? (
-														<LuTrophy className="h-3.5 w-3.5 text-emerald-300" />
-													) : (
-														<LuZap className="h-3.5 w-3.5 text-cyan-300" />
-													)}
-													<span className="flex-1 truncate">{entry.text}</span>
-												</motion.div>
-											))
-										)}
-									</AnimatePresence>
-								</div>
-
-							</aside>
 						</div>
 					) : (
 						<div className="arena-hud rounded-2xl py-12 text-center text-slate-400">
@@ -1636,12 +1702,16 @@ const EVotingPage: React.FC = () => {
 											<div className="arena-gift-grid">
 												{GIFTS.map((g) => {
 													const isMax = Number.isFinite(maxVoteCount) && g.votes > maxVoteCount;
-													const active = voteCount === g.votes;
+													const active = selectedGiftType === g.type;
 													return (
 														<button
 															key={g.type}
 															type="button"
-															onClick={() => setVoteCount(isMax ? Math.floor(maxVoteCount) : g.votes)}
+															onClick={() => {
+																// selectedGiftType is derived from voteCount,
+																// so setting voteCount alone is enough.
+																setVoteCount(isMax ? Math.floor(maxVoteCount) : g.votes);
+															}}
 															disabled={isMax}
 															className={`arena-gift-card ${g.tone} ${active ? "is-active" : ""}`}
 															title={`${g.label} = ${g.votes} vote`}
@@ -1704,6 +1774,28 @@ const EVotingPage: React.FC = () => {
 												className="arena-input"
 												placeholder="Nama lengkap (tampil di live feed)"
 											/>
+											<div className="live-alert-cta mt-2">
+												<LuSparkles className="live-alert-cta-icon h-4 w-4" />
+												<span>{LIVE_VOTE_CTA}</span>
+											</div>
+										</div>
+
+										<div>
+											<div className="arena-section-head">Pesan Dukungan (opsional)</div>
+											<label className="arena-input-label"><LuSparkles className="h-3.5 w-3.5" /> Pesan</label>
+											<textarea
+												value={buyerMessage}
+												onChange={(e) => setBuyerMessage(e.target.value.slice(0, BUYER_MESSAGE_MAX_LEN))}
+												maxLength={BUYER_MESSAGE_MAX_LEN}
+												rows={2}
+												className="arena-input"
+												placeholder="Contoh: Semangat terus untuk kandidat nomor 2!"
+												style={{ resize: "none", fontFamily: "inherit" }}
+											/>
+											<p className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+												<span>Pesan dibacakan oleh AI voice saat popup live tampil.</span>
+												<span className="arena-numeric text-cyan-200">{buyerMessage.length}/{BUYER_MESSAGE_MAX_LEN}</span>
+											</p>
 										</div>
 
 										<div className="arena-summary">
@@ -1773,6 +1865,14 @@ const EVotingPage: React.FC = () => {
 						);
 					})()}
 				</main>
+
+				{/* Live Alert overlay — donation-alert-style popup queue, mini-rail,
+				    and floating audio controls. Drives AI voice + emoji SFX every
+				    time a paid purchase confirms (polled every 3s). */}
+				<LiveAlertSystem
+					incoming={liveAlerts}
+					paused={!arenaOpen}
+				/>
 			</div>
 		);
 	}

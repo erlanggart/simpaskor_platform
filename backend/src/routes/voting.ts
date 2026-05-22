@@ -489,13 +489,13 @@ router.post("/vote", optionalAuthenticate, async (req: AuthenticatedRequest, res
 // realtime feed for other viewers (no WebSocket dependency).
 // ---------------------------------------------------------------------------
 
-type GiftType = "lion" | "rocket" | "bear" | "soldier";
+type GiftType = "lion" | "rocket" | "bear" | "flame";
 
 const GIFT_CATALOG: Record<GiftType, { votes: number; emoji: string; label: string }> = {
 	lion: { votes: 100, emoji: "🦁", label: "Singa" },
 	rocket: { votes: 50, emoji: "🚀", label: "Roket" },
 	bear: { votes: 20, emoji: "🐻", label: "Beruang" },
-	soldier: { votes: 10, emoji: "🪖", label: "Tentara" },
+	flame: { votes: 10, emoji: "🔥", label: "Api" },
 };
 
 interface GiftFeedEntry {
@@ -526,6 +526,51 @@ const pushGiftFeed = (eventId: string, entry: GiftFeedEntry) => {
 	const fresh = buf.filter((e) => now - e.ts < GIFT_FEED_TTL_MS).slice(0, GIFT_FEED_MAX);
 	giftFeed.set(eventId, fresh);
 };
+
+// ---------------------------------------------------------------------------
+// LIVE PURCHASE FEED — drives the donation-alert-style realtime popup queue.
+// Pushed whenever a PAID voting purchase becomes active (Snap confirm OR
+// Midtrans webhook OR zero-amount fast-path). Polled by the frontend every
+// ~3s with `since=ts`. In-memory only — fine for single-instance deployments,
+// swap to Redis pub/sub if you scale out horizontally.
+// ---------------------------------------------------------------------------
+interface LivePurchaseEntry {
+	id: string;
+	eventId: string;
+	categoryId: string | null;
+	nomineeId: string | null;
+	nomineeName: string;
+	buyerName: string;
+	buyerMessage: string | null;
+	giftType: string | null;
+	voteCount: number;
+	ts: number;
+}
+const livePurchaseFeed = new Map<string, LivePurchaseEntry[]>();
+const LIVE_PURCHASE_TTL_MS = 60_000;
+const LIVE_PURCHASE_MAX = 60;
+
+export const pushLivePurchase = (eventId: string, entry: Omit<LivePurchaseEntry, "ts" | "eventId">) => {
+	const full: LivePurchaseEntry = { ...entry, eventId, ts: Date.now() };
+	const existing = livePurchaseFeed.get(eventId) ?? [];
+	// Defense in depth: even though `applyPaidVotingPurchaseVotes`'s optimistic
+	// lock + the `appliedVotes > 0` guard already prevent double-broadcast
+	// across webhook + confirm-payment, drop any same-id entry already in the
+	// buffer so a future regression can't cause the popup to fire twice.
+	const deduped = existing.filter((e) => e.id !== full.id);
+	deduped.unshift(full);
+	const fresh = deduped.filter((e) => Date.now() - e.ts < LIVE_PURCHASE_TTL_MS).slice(0, LIVE_PURCHASE_MAX);
+	livePurchaseFeed.set(eventId, fresh);
+};
+
+setInterval(() => {
+	const cutoff = Date.now() - LIVE_PURCHASE_TTL_MS;
+	for (const [evt, buf] of livePurchaseFeed) {
+		const fresh = buf.filter((e) => e.ts > cutoff);
+		if (fresh.length === 0) livePurchaseFeed.delete(evt);
+		else if (fresh.length !== buf.length) livePurchaseFeed.set(evt, fresh);
+	}
+}, 30_000).unref?.();
 
 // Lightweight periodic janitor — prunes stale cooldown + feed entries.
 setInterval(() => {
@@ -664,6 +709,22 @@ router.get("/events/:eventId/gift-feed", async (req, res) => {
 	}
 });
 
+// GET /api/voting/events/:eventId/live-purchases?since=ts — recent paid vote
+// purchases for the realtime donation-alert popup queue. Polled every ~3s.
+router.get("/events/:eventId/live-purchases", async (req, res) => {
+	try {
+		const eventId = await resolveEventId(req.params.eventId);
+		if (!eventId) return res.json({ entries: [], serverTs: Date.now() });
+		const since = Number(req.query.since) || 0;
+		const buf = livePurchaseFeed.get(eventId) ?? [];
+		const entries = buf.filter((e) => e.ts > since);
+		res.json({ entries, serverTs: Date.now() });
+	} catch (error) {
+		console.error("Error fetching live purchases:", error);
+		res.json({ entries: [], serverTs: Date.now() });
+	}
+});
+
 // POST /api/voting/vote-paid - Cast a vote using purchased vote credits
 router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
@@ -794,8 +855,17 @@ router.post("/vote-paid", optionalAuthenticate, async (req: AuthenticatedRequest
 // POST /api/voting/purchase - Purchase vote credits
 router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
 	try {
-		const { eventId, categoryId, nomineeId, buyerName, buyerEmail, buyerPhone, voteCount = 1 } = req.body;
+		const { eventId, categoryId, nomineeId, buyerName, buyerEmail, buyerPhone, voteCount = 1, buyerMessage, giftType } = req.body;
 		const requestedVoteCount = Number(voteCount);
+		// Live alert popup payload — sanitize message + clamp to 140 chars so it
+		// fits the donation-alert layout and prevents XSS/abuse via TTS.
+		const sanitizedMessage = typeof buyerMessage === "string"
+			? buyerMessage.replace(/[<>]/g, "").trim().slice(0, 140)
+			: null;
+		const ALLOWED_GIFTS = ["lion", "rocket", "bear", "soldier", "flame", "lightning", "crown"] as const;
+		const sanitizedGift = typeof giftType === "string" && (ALLOWED_GIFTS as readonly string[]).includes(giftType)
+			? giftType
+			: null;
 
 		if (!eventId || !buyerName) {
 			return res.status(400).json({ error: "Event dan nama pembeli wajib diisi" });
@@ -861,6 +931,8 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 					buyerName,
 					buyerEmail: effectiveEmail,
 					buyerPhone: buyerPhone || null,
+					buyerMessage: sanitizedMessage,
+					giftType: sanitizedGift,
 					categoryId: votingTarget.category.id,
 					nomineeId: votingTarget.nominee.id,
 					voteCount: requestedVoteCount,
@@ -879,6 +951,21 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 				where: { id: createdPurchase.id },
 			});
 		});
+
+		// Zero-amount fast-path: vote already applied, broadcast immediately so
+		// other viewers see the popup without waiting for confirm-payment.
+		if (totalAmount === 0) {
+			pushLivePurchase(resolvedEventId, {
+				id: purchase.id,
+				categoryId: votingTarget.category.id,
+				nomineeId: votingTarget.nominee.id,
+				nomineeName: votingTarget.nominee.nomineeName,
+				buyerName,
+				buyerMessage: sanitizedMessage,
+				giftType: sanitizedGift,
+				voteCount: requestedVoteCount,
+			});
+		}
 
 		// Generate Midtrans Snap token for paid voting
 		let snapToken: string | null = null;
@@ -1129,6 +1216,29 @@ router.post("/confirm-payment", async (req: AuthenticatedRequest, res: Response)
 		const applyResult = await prisma.$transaction(async (tx) => {
 			return applyPaidVotingPurchaseVotes(tx, purchase.id, voterIp);
 		});
+
+		// Broadcast to the live-purchase popup feed so every viewer of this event
+		// sees the donation-alert popup (with buyer name, message, gift emoji).
+		if (applyResult.appliedVotes > 0 && applyResult.nomineeId) {
+			try {
+				const nominee = await prisma.votingNominee.findUnique({
+					where: { id: applyResult.nomineeId },
+					select: { nomineeName: true },
+				});
+				pushLivePurchase(purchase.eventId, {
+					id: purchase.id,
+					categoryId: applyResult.categoryId,
+					nomineeId: applyResult.nomineeId,
+					nomineeName: nominee?.nomineeName ?? "Nominee",
+					buyerName: purchase.buyerName,
+					buyerMessage: purchase.buyerMessage,
+					giftType: purchase.giftType,
+					voteCount: applyResult.appliedVotes,
+				});
+			} catch (broadcastError) {
+				console.error("Failed to broadcast live purchase:", broadcastError);
+			}
+		}
 
 		res.json({
 			status: purchase.status,
