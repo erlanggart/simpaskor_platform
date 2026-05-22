@@ -938,7 +938,7 @@ model VotingPurchase {
   buyerName       String               @map("buyer_name")
   buyerEmail      String               @map("buyer_email")
   buyerPhone      String?              @map("buyer_phone")
-  buyerMessage    String?              @map("buyer_message") // Live alert message (max 140 chars, sanitized client+server)
+  buyerMessage    String?              @map("buyer_message") // Live alert message (max 50 chars, sanitized client+server)
   giftType        String?              @map("gift_type") // lion|rocket|bear|soldier|flame|lightning|crown — feeds emoji boost + SFX
   categoryId      String?              @map("category_id")
   nomineeId       String?              @map("nominee_id")

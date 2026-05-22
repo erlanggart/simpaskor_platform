@@ -94,8 +94,9 @@ const buildVotingPurchaseCodeLookupWhere = (code: string) => ({
 });
 
 const REFRESHABLE_VOTING_PURCHASE_STATUSES = ["PENDING", "CANCELLED", "EXPIRED"];
-const CONFIRM_PAYMENT_MAX_WAIT_MS = 15_000;
+const CONFIRM_PAYMENT_MAX_WAIT_MS = 30_000;
 const CONFIRM_PAYMENT_RETRY_DELAYS_MS = [350, 650, 1_000, 1_500, 2_000, 2_500, 3_000, 4_000];
+const BUYER_MESSAGE_MAX_LEN = 50;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -885,10 +886,10 @@ router.post("/purchase", optionalAuthenticate, async (req: AuthenticatedRequest,
 	try {
 		const { eventId, categoryId, nomineeId, buyerName, buyerEmail, buyerPhone, voteCount = 1, buyerMessage, giftType } = req.body;
 		const requestedVoteCount = Number(voteCount);
-		// Live alert popup payload — sanitize message + clamp to 140 chars so it
+		// Live alert popup payload — sanitize message + clamp to 50 chars so it
 		// fits the donation-alert layout and prevents XSS/abuse via TTS.
 		const sanitizedMessage = typeof buyerMessage === "string"
-			? buyerMessage.replace(/[<>]/g, "").trim().slice(0, 140)
+			? buyerMessage.replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, BUYER_MESSAGE_MAX_LEN)
 			: null;
 		const ALLOWED_GIFTS = ["lion", "rocket", "bear", "soldier", "flame", "lightning", "crown"] as const;
 		const sanitizedGift = typeof giftType === "string" && (ALLOWED_GIFTS as readonly string[]).includes(giftType)

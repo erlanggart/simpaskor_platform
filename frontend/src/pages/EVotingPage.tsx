@@ -33,7 +33,11 @@ import VoteGuideCard from "../components/landing/VoteGuideCard";
 import LiveAlertSystem, { LiveAlert, GiftBoostType } from "../components/voting/LiveAlertSystem";
 
 const LIVE_VOTE_CTA = "Dukung kandidat favoritmu sekarang dan tampilkan pesan dukungan terbaikmu di live voting!";
-const BUYER_MESSAGE_MAX_LEN = 140;
+const BUYER_MESSAGE_MAX_LEN = 50;
+const PAYMENT_CONFIRM_WAIT_MS = 25_000;
+const PAYMENT_RECHECK_WAIT_MS = 8_000;
+const PAYMENT_RETURN_WAIT_MS = 30_000;
+const PAYMENT_CELEBRATION_DELAY_MS = 1_600;
 
 
 // ---------------------------------------------------------------------------
@@ -54,6 +58,15 @@ const computeCountdown = (target: Date | null): CountdownParts | null => {
 	const seconds = Math.floor((diff % 60_000) / 1000);
 	return { days, hours, minutes, seconds, totalMs: diff };
 };
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const normalizeBuyerMessage = (value: string) => (
+	value
+		.replace(/[<>]/g, "")
+		.replace(/\s+/g, " ")
+		.slice(0, BUYER_MESSAGE_MAX_LEN)
+);
 
 /** Tick once per second to drive the countdown HUD. */
 const useCountdown = (target: Date | null): CountdownParts | null => {
@@ -384,6 +397,7 @@ const EVotingPage: React.FC = () => {
 	const [liveAlerts, setLiveAlerts] = useState<LiveAlert[]>([]);
 	const liveSinceRef = useRef<number>(0);
 	const [paymentVerifying, setPaymentVerifying] = useState(false);
+	const [paymentFlowActive, setPaymentFlowActive] = useState(false);
 
 	// Hide mobile bottom nav while the purchase modal is open so the floating
 	// nav doesn't cover the modal's sticky "Beli Vote" footer.
@@ -759,7 +773,7 @@ const EVotingPage: React.FC = () => {
 				buyerEmail: buyerEmail.trim(),
 				buyerPhone: buyerPhone.trim() || undefined,
 				voteCount,
-				buyerMessage: buyerMessage.trim().slice(0, BUYER_MESSAGE_MAX_LEN) || undefined,
+				buyerMessage: normalizeBuyerMessage(buyerMessage).trim() || undefined,
 				giftType: selectedGiftType ?? undefined,
 			});
 
@@ -770,14 +784,40 @@ const EVotingPage: React.FC = () => {
 
 			if (snapToken && isSnapReady && totalAmount > 0) {
 				setShowPurchaseModal(false);
+				setPaymentFlowActive(true);
 
-				const onSuccess = async () => {
+				let snapReturned = false;
+				let resolveSnapReturned: (() => void) | null = null;
+				let successSeen = false;
+				let paidFinalized = false;
+				let verificationInFlight = false;
+				let pendingPromptOpen = false;
+
+				const markSnapReturned = () => {
+					snapReturned = true;
+					resolveSnapReturned?.();
+					resolveSnapReturned = null;
+				};
+
+				const waitForSnapReturnOrTimeout = async () => {
+					if (snapReturned) return;
+					await Promise.race([
+						new Promise<void>((resolve) => {
+							resolveSnapReturned = resolve;
+						}),
+						sleep(PAYMENT_RETURN_WAIT_MS),
+					]);
+				};
+
+				const completePaidPayment = async (waitMs = PAYMENT_CONFIRM_WAIT_MS) => {
+					if (verificationInFlight || paidFinalized) return;
+					verificationInFlight = true;
 					setPaymentVerifying(true);
 					Swal.fire({
-						title: "Memverifikasi Pembayaran",
+						title: successSeen ? "Memverifikasi Pembayaran" : "Mengecek Status Pembayaran",
 						html: `<div class="text-left space-y-2">
-							<p>Pembayaran berhasil di Midtrans. Server sedang memastikan status transaksi dan memasukkan vote.</p>
-							<p class="text-sm text-gray-500">Mohon tunggu sebentar, jangan tutup halaman ini.</p>
+							<p>${successSeen ? "Pembayaran berhasil di Midtrans." : "Server sedang mengecek transaksi ke Midtrans."} Server sedang memastikan status transaksi dan memasukkan vote.</p>
+							<p class="text-sm text-gray-500">Vote baru dirayakan setelah server menerima status PAID, jadi aman dari transaksi palsu.</p>
 						</div>`,
 						allowOutsideClick: false,
 						allowEscapeKey: false,
@@ -788,22 +828,37 @@ const EVotingPage: React.FC = () => {
 						const confirmRes = await api.post("/voting/confirm-payment", {
 							purchaseCode,
 							email: buyerEmail.trim(),
-							waitMs: 15000,
+							waitMs,
 						});
 						if (confirmRes.data.status !== "PAID") {
 							throw new Error(confirmRes.data.message || "Pembayaran vote belum dikonfirmasi");
 						}
 						const confirmedVoteCount = confirmRes.data.appliedVotes || confirmRes.data.voteCount || voteCount;
+						successSeen = true;
+						paidFinalized = true;
 						myInterestRef.current.add(targetNominee.id);
 						setPaidVoteTarget(null);
-						setPaymentVerifying(false);
+						Swal.fire({
+							title: "Pembayaran Terverifikasi",
+							html: `<div class="text-left space-y-2">
+								<p>Transaksi sudah aman dan vote sudah masuk.</p>
+								<p class="text-sm text-gray-500">Jika halaman Midtrans masih menampilkan sukses, tekan <strong>Return to merchant's page</strong>. Perayaan akan muncul setelah kembali.</p>
+							</div>`,
+							allowOutsideClick: false,
+							allowEscapeKey: false,
+							showConfirmButton: false,
+							didOpen: () => Swal.showLoading(),
+						});
+						await waitForSnapReturnOrTimeout();
+						await sleep(PAYMENT_CELEBRATION_DELAY_MS);
 						Swal.close();
+						setPaymentVerifying(false);
 						const buyerLabel = buyerName.trim() || "Anonim";
 						setLiveAlerts((prev) => {
 							const alert: LiveAlert = {
 								id: String(purchaseId),
 								buyerName: buyerLabel,
-								buyerMessage: buyerMessage.trim().slice(0, BUYER_MESSAGE_MAX_LEN) || null,
+								buyerMessage: normalizeBuyerMessage(buyerMessage).trim() || null,
 								voteCount: confirmedVoteCount,
 								nomineeName: targetNominee.nomineeName,
 								giftType: selectedGiftType ?? null,
@@ -811,6 +866,7 @@ const EVotingPage: React.FC = () => {
 							};
 							return [alert, ...prev.filter((item) => item.id !== alert.id)].slice(0, 24);
 						});
+						setPaymentFlowActive(false);
 						// Fire the matching gift signature animation if the vote count
 						// hits one of the preset gift values (Singa=100, Roket=50,
 						// Beruang=20, Tentara=10). Otherwise fall back to confetti.
@@ -836,70 +892,98 @@ const EVotingPage: React.FC = () => {
 						});
 						fetchEventDetail(selectedEvent.id);
 					} catch (err: any) {
-						await Swal.fire({
-							title: "Menunggu Konfirmasi Pembayaran",
+						console.error("Voting payment confirmation pending:", err);
+						setPaymentVerifying(false);
+						verificationInFlight = false;
+						const retryResult = await Swal.fire({
+							title: successSeen ? "Pembayaran Sedang Diamankan" : "Menunggu Pembayaran",
 							html: `<div class="text-left space-y-2">
-								<p>Pembayaran sudah terlihat berhasil di Midtrans, tetapi server belum menerima status final.</p>
-								<p class="text-sm text-gray-500">Vote hanya akan dimasukkan setelah server berhasil memverifikasi transaksi dari Midtrans. Coba cek lagi beberapa detik lagi.</p>
+								<p>Jika QRIS sudah dibayar, jangan batalkan transaksi. Menutup popup Midtrans tidak akan menghanguskan pembayaran.</p>
+								<p class="text-sm text-gray-500">Vote tetap hanya masuk setelah server berhasil membaca status PAID dari Midtrans.</p>
 							</div>`,
 							icon: "info",
+							showDenyButton: true,
+							showCancelButton: true,
+							confirmButtonText: "Cek Lagi",
+							denyButtonText: "Buka QRIS Lagi",
+							cancelButtonText: "Tutup",
 							confirmButtonColor: "#dc2626",
+							denyButtonColor: "#2563eb",
 						});
-						console.error("Voting payment confirmation pending:", err);
-					} finally {
-						setPaymentVerifying(false);
+						if (retryResult.isConfirmed) {
+							void completePaidPayment(PAYMENT_RECHECK_WAIT_MS);
+						} else if (retryResult.isDenied) {
+							openSnapPayment();
+						} else {
+							setPaymentFlowActive(false);
+						}
 					}
 				};
+
+				const onSuccess = async () => {
+					successSeen = true;
+					await completePaidPayment(PAYMENT_CONFIRM_WAIT_MS);
+				};
+
 				const onError = () => {
+					if (successSeen || paidFinalized) return;
+					setPaymentFlowActive(false);
 					Swal.fire("Pembayaran Gagal", "Pembayaran tidak berhasil. Vote tidak aktif.", "error");
 				};
-				let unfinishedPromptOpen = false;
-				const handleUnfinishedPayment = () => {
-					if (unfinishedPromptOpen) return;
-					unfinishedPromptOpen = true;
+
+				const handlePendingPayment = () => {
+					if (successSeen || paidFinalized || verificationInFlight || pendingPromptOpen) return;
+					pendingPromptOpen = true;
 					Swal.fire({
-						title: "Pembayaran Belum Selesai",
-						html: `<p>QRIS belum dibayar atau popup pembayaran ditutup.</p>
-							<p class="text-sm text-gray-500 mt-2">Lanjutkan pembayaran sekarang, atau batalkan transaksi supaya tidak tersimpan sebagai pending.</p>`,
-						icon: "warning",
+						title: "Pembayaran Sedang Diproses",
+						html: `<div class="text-left space-y-2">
+							<p>Jika Anda sudah transfer QRIS, klik <strong>Cek Status</strong>. Jangan batalkan transaksi.</p>
+							<p class="text-sm text-gray-500">Sistem akan memasukkan vote hanya setelah Midtrans memberi status PAID.</p>
+						</div>`,
+						icon: "info",
+						showDenyButton: true,
 						showCancelButton: true,
-						confirmButtonText: "Lanjutkan Pembayaran",
+						confirmButtonText: "Cek Status",
+						denyButtonText: "Buka QRIS Lagi",
+						cancelButtonText: "Tutup",
 						confirmButtonColor: "#dc2626",
-						cancelButtonText: "Batalkan & Hanguskan",
-						cancelButtonColor: "#6b7280",
+						denyButtonColor: "#2563eb",
 						reverseButtons: true,
 						allowOutsideClick: false,
 						allowEscapeKey: false,
 					}).then(async (swalResult) => {
-						unfinishedPromptOpen = false;
+						pendingPromptOpen = false;
 						if (swalResult.isConfirmed) {
-							pay(snapToken, { onSuccess, onPending: handleUnfinishedPayment, onError, onClose: handleUnfinishedPayment });
+							await completePaidPayment(PAYMENT_RECHECK_WAIT_MS);
 							return;
 						}
-						if (swalResult.dismiss === Swal.DismissReason.cancel) {
-							try {
-								await api.post("/voting/cancel-pending", { purchaseId, purchaseCode });
-								setPaidVoteTarget(null);
-								if (selectedEvent) fetchEventDetail(selectedEvent.id, { silent: true });
-								Swal.fire({
-									title: "Transaksi Dihanguskan",
-									text: "Pembelian vote telah dibatalkan.",
-									icon: "success",
-									confirmButtonColor: "#dc2626",
-								});
-							} catch (err: any) {
-								Swal.fire(
-									"Gagal Membatalkan",
-									err?.response?.data?.error || "Tidak dapat membatalkan transaksi. Silakan coba lagi.",
-									"error"
-								);
-							}
+						if (swalResult.isDenied) {
+							openSnapPayment();
+							return;
 						}
+						setPaymentFlowActive(false);
 					});
 				};
 
+				const handleSnapClose = () => {
+					markSnapReturned();
+					if (successSeen || paidFinalized || verificationInFlight) return;
+					handlePendingPayment();
+				};
+
+				function openSnapPayment() {
+					snapReturned = false;
+					setPaymentFlowActive(true);
+					pay(snapToken, {
+						onSuccess,
+						onPending: handlePendingPayment,
+						onError,
+						onClose: handleSnapClose,
+					});
+				}
+
 				// Open Midtrans Snap payment popup
-				pay(snapToken, { onSuccess, onPending: handleUnfinishedPayment, onError, onClose: handleUnfinishedPayment });
+				openSnapPayment();
 			} else if (totalAmount === 0) {
 				setShowPurchaseModal(false);
 				setPaidVoteTarget(null);
@@ -1813,7 +1897,7 @@ const EVotingPage: React.FC = () => {
 											<label className="arena-input-label"><LuSparkles className="h-3.5 w-3.5" /> Pesan</label>
 											<textarea
 												value={buyerMessage}
-												onChange={(e) => setBuyerMessage(e.target.value.slice(0, BUYER_MESSAGE_MAX_LEN))}
+												onChange={(e) => setBuyerMessage(normalizeBuyerMessage(e.target.value))}
 												maxLength={BUYER_MESSAGE_MAX_LEN}
 												rows={2}
 												className="arena-input"
@@ -1821,7 +1905,7 @@ const EVotingPage: React.FC = () => {
 												style={{ resize: "none", fontFamily: "inherit" }}
 											/>
 											<p className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-												<span>Pesan dibacakan oleh AI voice saat popup live tampil.</span>
+												<span>Maks. 50 karakter, dibacakan oleh AI voice.</span>
 												<span className="arena-numeric text-cyan-200">{buyerMessage.length}/{BUYER_MESSAGE_MAX_LEN}</span>
 											</p>
 										</div>
@@ -1899,7 +1983,7 @@ const EVotingPage: React.FC = () => {
 				    time a paid purchase confirms (polled every 3s). */}
 				<LiveAlertSystem
 					incoming={liveAlerts}
-					paused={!arenaOpen || paymentVerifying}
+					paused={!arenaOpen || paymentVerifying || paymentFlowActive}
 				/>
 			</div>
 		);
