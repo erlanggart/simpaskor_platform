@@ -193,6 +193,7 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Kelola Paket", icon: LuCreditCard, path: "/admin/packages" },
 					{ name: "Bagi Hasil", icon: LuBadgeDollarSign, path: "/admin/revenue-share" },
+					{ name: "Admin Fee", icon: LuTicket, path: "/admin/admin-fee" },
 					{ name: "Pencairan", icon: LuBanknote, path: "/admin/disbursements" },
 					{ name: "API", icon: LuCode, path: "/admin/api-integration" },
 					{ name: "Setting", icon: LuSettings, path: "/admin/settings" },

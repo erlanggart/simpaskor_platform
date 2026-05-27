@@ -54,6 +54,7 @@ const OrderManagement = lazy(() => import("./pages/admin/OrderManagement"));
 const GuideManagement = lazy(() => import("./pages/admin/GuideManagement"));
 const PackageManagement = lazy(() => import("./pages/admin/PackageManagement"));
 const RevenueShareManagement = lazy(() => import("./pages/admin/RevenueShareManagement"));
+const AdminFeeManagement = lazy(() => import("./pages/admin/AdminFeeManagement"));
 const AdminSettings = lazy(() => import("./pages/admin/Settings"));
 const AdminBackup = lazy(() => import("./pages/admin/Backup"));
 const DisbursementManagement = lazy(() => import("./pages/admin/DisbursementManagement"));
@@ -178,6 +179,7 @@ function App() {
 							<Route path="guides" element={<GuideManagement />} />
 							<Route path="packages" element={<PackageManagement />} />
 							<Route path="revenue-share" element={<RevenueShareManagement />} />
+							<Route path="admin-fee" element={<AdminFeeManagement />} />
 							<Route path="settings" element={<AdminSettings />} />
 							<Route path="api-integration" element={<ApiIntegration />} />
 							<Route path="backup" element={<AdminBackup />} />
