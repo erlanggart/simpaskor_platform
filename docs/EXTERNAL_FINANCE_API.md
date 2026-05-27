@@ -276,6 +276,54 @@ Contoh response ringkas:
 }
 ```
 
+Jika `includeDetails=true`, response juga menyertakan rincian transaksi di key `details`. Untuk pembayaran paket event, gunakan `details.packagePayments`.
+
+Contoh detail:
+
+```json
+{
+  "currency": "IDR",
+  "filters": {
+    "from": null,
+    "to": null,
+    "eventId": null
+  },
+  "summary": {
+    "totalPlatformRevenue": 4400000,
+    "totalPlatformShare": 2400000,
+    "platformShareFromTickets": 1600000,
+    "platformShareFromVoting": 800000,
+    "totalPackagePayments": 2000000
+  },
+  "counts": {
+    "revenueShares": 12,
+    "ticketShares": 8,
+    "votingShares": 4,
+    "packagePayments": 2
+  },
+  "details": {
+    "revenueShares": [],
+    "packagePayments": [
+      {
+        "id": "evtpay_123",
+        "midtransOrderId": "ORDER-456",
+        "eventId": "evt_789",
+        "eventTitle": "Festival X",
+        "eventSlug": "festival-x",
+        "userId": "usr_123",
+        "packageTier": "BRONZE",
+        "tier": "BRONZE",
+        "amount": 500000,
+        "paymentType": "EVENT_PACKAGE",
+        "status": "PAID",
+        "paidAt": "2026-05-01T10:30:00.000Z",
+        "description": "Pembayaran paket BRONZE"
+      }
+    ]
+  }
+}
+```
+
 ## Summary Simpaskor
 
 ```http

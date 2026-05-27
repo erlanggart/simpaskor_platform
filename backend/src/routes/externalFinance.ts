@@ -141,10 +141,13 @@ type PackagePaymentRow = {
 	eventSlug: string | null;
 	userId: string;
 	packageTier: string;
+	tier: string;
 	amount: number;
+	status: string;
 	paymentType: string | null;
 	midtransOrderId: string | null;
 	paidAt: Date;
+	description: string;
 };
 
 type ExternalRevenueShareDetailRow = {
@@ -338,6 +341,7 @@ router.get("/platform-revenue", requireExternalFinanceApiKey, async (req: Reques
 				userId: true,
 				packageTier: true,
 				amount: true,
+				status: true,
 				paymentType: true,
 				midtransOrderId: true,
 				paidAt: true,
@@ -353,10 +357,13 @@ router.get("/platform-revenue", requireExternalFinanceApiKey, async (req: Reques
 			eventSlug: p.event.slug,
 			userId: p.userId,
 			packageTier: p.packageTier,
+			tier: p.packageTier,
 			amount: toNumber(p.amount),
+			status: p.status,
 			paymentType: p.paymentType,
 			midtransOrderId: p.midtransOrderId,
 			paidAt: p.paidAt!,
+			description: `Pembayaran paket ${p.packageTier}`,
 		}));
 
 		const revenueShareDetails = revenueShares.map((rs) => ({

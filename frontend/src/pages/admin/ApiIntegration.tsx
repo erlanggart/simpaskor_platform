@@ -157,6 +157,43 @@ const ApiIntegration: React.FC = () => {
   "${ENDPOINTS.platformRevenue}?includeDetails=true" \\
   -H "Authorization: Bearer ${EXTERNAL_API_KEY}"`;
 
+	const platformRevenueResponse = `{
+  "currency": "IDR",
+  "summary": {
+    "totalPlatformRevenue": 4400000,
+    "totalPlatformShare": 2400000,
+    "platformShareFromTickets": 1600000,
+    "platformShareFromVoting": 800000,
+    "totalPackagePayments": 2000000
+  },
+  "counts": {
+    "revenueShares": 12,
+    "ticketShares": 8,
+    "votingShares": 4,
+    "packagePayments": 2
+  },
+  "details": {
+    "revenueShares": [],
+    "packagePayments": [
+      {
+        "id": "evtpay_123",
+        "midtransOrderId": "ORDER-456",
+        "eventId": "evt_789",
+        "eventTitle": "Festival X",
+        "eventSlug": "festival-x",
+        "userId": "usr_123",
+        "packageTier": "BRONZE",
+        "tier": "BRONZE",
+        "amount": 500000,
+        "paymentType": "EVENT_PACKAGE",
+        "status": "PAID",
+        "paidAt": "2026-05-01T10:30:00.000Z",
+        "description": "Pembayaran paket BRONZE"
+      }
+    ]
+  }
+}`;
+
 	const balanceCurl = `curl -X GET \\
   "${ENDPOINTS.revenueShareBalances}?includeDetails=true" \\
   -H "X-API-Key: ${EXTERNAL_API_KEY}"`;
@@ -290,7 +327,10 @@ const ApiIntegration: React.FC = () => {
 						Mengambil pendapatan milik Simpaskor: bagian platform dari transaksi tiket/voting plus pembayaran paket event seperti BRONZE atau GOLD.
 					</p>
 					<QueryTable rows={sharedQueryRows} />
-					<CodeBlock code={platformRevenueCurl} />
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+						<CodeBlock code={platformRevenueCurl} />
+						<CodeBlock code={platformRevenueResponse} lang="json" />
+					</div>
 				</Section>
 
 				<Section title="GET /revenue-share-balances" icon={LuGlobe}>
