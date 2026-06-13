@@ -351,14 +351,17 @@ router.post(
 				return res.status(400).json({ error: "Missing required fields" });
 			}
 
-			// Check if material with same number already exists for this category
-			const existing = await prisma.eventMaterial.findUnique({
+			// Numbering restarts per school category, so a duplicate is only a
+			// material with the same number that shares a school category.
+			const targetSchoolCategoryIds: string[] = schoolCategoryIds || [];
+			const existing = await prisma.eventMaterial.findFirst({
 				where: {
-					eventId_eventAssessmentCategoryId_number: {
-						eventId,
-						eventAssessmentCategoryId,
-						number: parseInt(number),
-					},
+					eventId,
+					eventAssessmentCategoryId,
+					number: parseInt(number),
+					...(targetSchoolCategoryIds.length > 0
+						? { schoolCategoryIds: { hasSome: targetSchoolCategoryIds } }
+						: {}),
 				},
 			});
 
@@ -474,22 +477,32 @@ router.put("/:materialId", authenticate, async (req: AuthenticatedRequest, res) 
 			}
 		}
 
-		// Check for duplicate number if number is being changed
-		if (number && number !== material.number) {
-			const existing = await prisma.eventMaterial.findUnique({
+		// Check for duplicate number, scoped to the (possibly changed) school
+		// category since numbering restarts per school category.
+		const resolvedNumber = number ? parseInt(number) : material.number;
+		const resolvedSchoolCategoryIds: string[] =
+			schoolCategoryIds !== undefined ? schoolCategoryIds : material.schoolCategoryIds;
+
+		if (
+			resolvedNumber !== material.number ||
+			schoolCategoryIds !== undefined
+		) {
+			const existing = await prisma.eventMaterial.findFirst({
 				where: {
-					eventId_eventAssessmentCategoryId_number: {
-						eventId: material.eventId,
-						eventAssessmentCategoryId: material.eventAssessmentCategoryId,
-						number: parseInt(number),
-					},
+					id: { not: materialId },
+					eventId: material.eventId,
+					eventAssessmentCategoryId: material.eventAssessmentCategoryId,
+					number: resolvedNumber,
+					...(resolvedSchoolCategoryIds.length > 0
+						? { schoolCategoryIds: { hasSome: resolvedSchoolCategoryIds } }
+						: {}),
 				},
 			});
 
-			if (existing && existing.id !== materialId) {
+			if (existing) {
 				return res
 					.status(400)
-					.json({ error: `Materi nomor ${number} sudah ada` });
+					.json({ error: `Materi nomor ${resolvedNumber} sudah ada untuk kategori ini` });
 			}
 		}
 

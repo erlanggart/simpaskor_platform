@@ -115,7 +115,7 @@ const ManageMateri: React.FC = () => {
 		name: "",
 		description: "",
 	});
-	const [selectedSchoolCategories, setSelectedSchoolCategories] = useState<string[]>([]);
+	const [selectedSchoolCategoryId, setSelectedSchoolCategoryId] = useState<string | null>(null);
 	const [categoryInputs, setCategoryInputs] = useState<ScoreCategoryInput[]>(
 		JSON.parse(JSON.stringify(defaultCategories))
 	);
@@ -152,20 +152,27 @@ const ManageMateri: React.FC = () => {
 
 
 
+	// Next material number, counted separately per school category
+	const getNextNumber = (assessmentCategoryId: string, schoolCategoryId: string | null) => {
+		const category = categories.find((c) => c.id === assessmentCategoryId);
+		if (!category || !schoolCategoryId) return 1;
+		const numbers = category.materials
+			.filter((m) => m.schoolCategoryIds.includes(schoolCategoryId))
+			.map((m) => m.number);
+		return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
+	};
+
 	const openAddMaterialForm = (categoryId: string) => {
-		const category = categories.find((c) => c.id === categoryId);
-		const nextNumber = category
-			? Math.max(0, ...category.materials.map((m) => m.number)) + 1
-			: 1;
+		const defaultSchoolCategoryId = eventSchoolCategories[0]?.id ?? null;
 
 		setShowMaterialForm(categoryId);
 		setEditingMaterial(null);
 		setMaterialForm({
-			number: nextNumber,
+			number: getNextNumber(categoryId, defaultSchoolCategoryId),
 			name: "",
 			description: "",
 		});
-		setSelectedSchoolCategories(eventSchoolCategories.map((sc) => sc.id));
+		setSelectedSchoolCategoryId(defaultSchoolCategoryId);
 		setCategoryInputs(JSON.parse(JSON.stringify(defaultCategories)));
 		setActiveCategoryTab(0);
 	};
@@ -178,7 +185,7 @@ const ManageMateri: React.FC = () => {
 			name: material.name,
 			description: material.description || "",
 		});
-		setSelectedSchoolCategories(material.schoolCategoryIds || []);
+		setSelectedSchoolCategoryId(material.schoolCategoryIds?.[0] ?? null);
 		setCategoryInputs(
 			material.scoreCategories.length > 0
 				? material.scoreCategories.map((cat) => ({
@@ -202,26 +209,20 @@ const ManageMateri: React.FC = () => {
 			name: "",
 			description: "",
 		});
-		setSelectedSchoolCategories([]);
+		setSelectedSchoolCategoryId(null);
 		setCategoryInputs(JSON.parse(JSON.stringify(defaultCategories)));
 		setActiveCategoryTab(0);
 	};
 
-	const toggleSchoolCategory = (categoryId: string) => {
-		setSelectedSchoolCategories((prev) => {
-			if (prev.includes(categoryId)) {
-				return prev.filter((id) => id !== categoryId);
-			}
-			return [...prev, categoryId];
-		});
-	};
-
-	const selectAllSchoolCategories = () => {
-		setSelectedSchoolCategories(eventSchoolCategories.map((sc) => sc.id));
-	};
-
-	const deselectAllSchoolCategories = () => {
-		setSelectedSchoolCategories([]);
+	const selectSchoolCategory = (categoryId: string) => {
+		setSelectedSchoolCategoryId(categoryId);
+		// When adding, suggest the next number for the newly chosen category
+		if (!editingMaterial && showMaterialForm) {
+			setMaterialForm((prev) => ({
+				...prev,
+				number: getNextNumber(showMaterialForm, categoryId),
+			}));
+		}
 	};
 
 	const handleSaveMaterial = async () => {
@@ -233,11 +234,11 @@ const ManageMateri: React.FC = () => {
 			return;
 		}
 
-		if (selectedSchoolCategories.length === 0) {
+		if (!selectedSchoolCategoryId) {
 			Swal.fire({
 				icon: "warning",
 				title: "Pilih Kategori Sekolah",
-				text: "Pilih minimal satu kategori sekolah untuk materi ini.",
+				text: "Pilih satu kategori sekolah untuk materi ini.",
 			});
 			return;
 		}
@@ -268,7 +269,7 @@ const ManageMateri: React.FC = () => {
 				number: materialForm.number,
 				name: materialForm.name,
 				description: materialForm.description || null,
-				schoolCategoryIds: selectedSchoolCategories,
+				schoolCategoryIds: [selectedSchoolCategoryId],
 				scoreCategories: categoryInputs,
 			};
 
@@ -331,16 +332,46 @@ const ManageMateri: React.FC = () => {
 		}
 	};
 
-	const getAllMaterialsWithCategories = () => {
-		const allMaterials: Material[] = [];
-		categories.forEach((cat) => {
-			cat.materials.forEach((mat) => {
-				if (mat.scoreCategories.length > 0 && mat.id !== editingMaterial?.id) {
-					allMaterials.push(mat);
-				}
+	// Materials offered in the "Salin dari" dropdown: only the assessment
+	// category currently being edited (e.g. PBB) and only the same school
+	// category, so the list stays short and relevant.
+	const getMaterialsForCopy = () => {
+		if (!showMaterialForm) return [];
+		const category = categories.find((c) => c.id === showMaterialForm);
+		if (!category) return [];
+		return category.materials.filter(
+			(mat) =>
+				mat.scoreCategories.length > 0 &&
+				mat.id !== editingMaterial?.id &&
+				(!selectedSchoolCategoryId ||
+					mat.schoolCategoryIds.includes(selectedSchoolCategoryId))
+		);
+	};
+
+	// Group a category's materials by school category (one material belongs to
+	// one school category). Order follows the event's school category order and
+	// only non-empty groups are returned.
+	const groupMaterialsBySchool = (materials: Material[]) => {
+		const groups = eventSchoolCategories.map((sc) => ({
+			schoolCategory: { id: sc.id, name: sc.name },
+			materials: materials
+				.filter((m) => m.schoolCategoryIds.includes(sc.id))
+				.sort((a, b) => a.number - b.number),
+		}));
+
+		// Legacy materials without a valid school category
+		const orphans = materials
+			.filter((m) => !m.schoolCategoryIds.some((id) =>
+				eventSchoolCategories.some((sc) => sc.id === id)))
+			.sort((a, b) => a.number - b.number);
+		if (orphans.length > 0) {
+			groups.push({
+				schoolCategory: { id: "__none__", name: "Tanpa Kategori Sekolah" },
+				materials: orphans,
 			});
-		});
-		return allMaterials;
+		}
+
+		return groups.filter((g) => g.materials.length > 0);
 	};
 
 	// Render the material form component
@@ -350,19 +381,221 @@ const ManageMateri: React.FC = () => {
 			materialForm={materialForm}
 			setMaterialForm={setMaterialForm}
 			eventSchoolCategories={eventSchoolCategories}
-			selectedSchoolCategories={selectedSchoolCategories}
-			onToggleSchoolCategory={toggleSchoolCategory}
-			onSelectAllSchoolCategories={selectAllSchoolCategories}
-			onDeselectAllSchoolCategories={deselectAllSchoolCategories}
+			selectedSchoolCategoryId={selectedSchoolCategoryId}
+			onSelectSchoolCategory={selectSchoolCategory}
 			categoryInputs={categoryInputs}
 			setCategoryInputs={setCategoryInputs}
 			activeCategoryTab={activeCategoryTab}
 			setActiveCategoryTab={setActiveCategoryTab}
 			onClose={closeMaterialForm}
 			onSave={handleSaveMaterial}
-			materialsForCopy={getAllMaterialsWithCategories()}
+			materialsForCopy={getMaterialsForCopy()}
 		/>
 	);
+
+	// Render one scoring sheet table for a single school category group
+	const renderScoringSheet = (
+		category: CategoryWithMaterials,
+		schoolName: string,
+		groupMaterials: Material[]
+	) => {
+		const sortedMaterials = [...groupMaterials].sort((a, b) => a.number - b.number);
+
+		// Collect all unique score categories across materials
+		const allScoreCats: { name: string; color: string; order: number; maxOptions: number }[] = [];
+		sortedMaterials.forEach((mat) => {
+			mat.scoreCategories.forEach((sc) => {
+				const existing = allScoreCats.find((a) => a.name === sc.name);
+				if (!existing) {
+					allScoreCats.push({ name: sc.name, color: sc.color || "gray", order: sc.order, maxOptions: sc.options.length });
+				} else if (sc.options.length > existing.maxOptions) {
+					existing.maxOptions = sc.options.length;
+				}
+			});
+		});
+		allScoreCats.sort((a, b) => a.order - b.order);
+
+		const totalOptionCols = allScoreCats.reduce((sum, sc) => sum + sc.maxOptions, 0);
+
+		// Color mapping for header backgrounds
+		const headerColorMap: Record<string, string> = {
+			red: "bg-red-600 text-white",
+			orange: "bg-orange-500 text-white",
+			yellow: "bg-yellow-500 text-white",
+			green: "bg-green-600 text-white",
+			blue: "bg-blue-600 text-white",
+			purple: "bg-purple-600 text-white",
+			gray: "bg-gray-500 text-white",
+		};
+
+		const cellColorMap: Record<string, string> = {
+			red: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300",
+			orange: "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300",
+			yellow: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300",
+			green: "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300",
+			blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300",
+			purple: "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300",
+			gray: "bg-gray-50 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300",
+		};
+
+		return (
+			<div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-900">
+				{/* Paper Header */}
+				<div className="bg-gradient-to-r from-red-700 to-red-600 px-5 py-3 text-center">
+					<h3 className="text-white font-bold text-sm tracking-wider uppercase">
+						Lembar Penilaian — {category.categoryName} · {schoolName}
+					</h3>
+					<p className="text-red-200 text-xs mt-0.5">
+						{sortedMaterials.length} Materi
+					</p>
+				</div>
+
+				<div className="overflow-x-auto">
+					<table className="w-full border-collapse min-w-[600px]">
+						<thead>
+							{/* Category headers spanning options */}
+							<tr>
+								<th
+									rowSpan={2}
+									className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-center border border-gray-300 dark:border-gray-600 w-12"
+								>
+									No
+								</th>
+								<th
+									rowSpan={2}
+									className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-left border border-gray-300 dark:border-gray-600"
+								>
+									Materi Penilaian
+								</th>
+								{allScoreCats.map((sc) => (
+									<th
+										key={sc.name}
+										colSpan={sc.maxOptions}
+										className={`text-xs font-bold px-2 py-2 text-center border border-gray-300 dark:border-gray-600 ${headerColorMap[sc.color] || headerColorMap.gray}`}
+									>
+										{sc.name.toUpperCase()}
+									</th>
+								))}
+								<th
+									rowSpan={2}
+									className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-center border border-gray-300 dark:border-gray-600 w-20"
+								>
+									Aksi
+								</th>
+							</tr>
+							{/* Score value sub-headers */}
+							{totalOptionCols > 0 && (
+								<tr>
+									{allScoreCats.map((sc) => {
+										// Show placeholder score labels from first material that has this category
+										const refMat = sortedMaterials.find((m) => m.scoreCategories.some((s) => s.name === sc.name));
+										const refSc = refMat?.scoreCategories.find((s) => s.name === sc.name);
+										const refOptions = refSc ? [...refSc.options].sort((a, b) => a.order - b.order) : [];
+
+										return Array.from({ length: sc.maxOptions }, (_, i) => (
+											<th
+												key={`${sc.name}-sub-${i}`}
+												className={`text-xs font-medium px-1 py-1.5 text-center border border-gray-300 dark:border-gray-600 ${cellColorMap[sc.color] || cellColorMap.gray}`}
+											>
+												{refOptions[i]?.name || ""}
+											</th>
+										));
+									})}
+								</tr>
+							)}
+						</thead>
+						<tbody>
+							{sortedMaterials.map((material, idx) => (
+								<React.Fragment key={material.id}>
+									<tr
+										className={`group transition-colors ${
+											editingMaterial?.id === material.id
+												? "ring-2 ring-inset ring-red-500"
+												: idx % 2 === 0
+													? "bg-white dark:bg-gray-900"
+													: "bg-gray-50 dark:bg-gray-800/50"
+										} hover:bg-red-50/50 dark:hover:bg-red-900/10`}
+									>
+										{/* Number */}
+										<td className="px-3 py-3 text-center font-bold text-sm text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700">
+											{material.number}
+										</td>
+
+										{/* Material Name + Info */}
+										<td className="px-3 py-3 border border-gray-200 dark:border-gray-700">
+											<p className="font-semibold text-sm text-gray-900 dark:text-white uppercase">
+												{material.name}
+											</p>
+											{material.description && (
+												<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+													{material.description}
+												</p>
+											)}
+										</td>
+
+										{/* Score values per category */}
+										{allScoreCats.map((sc) => {
+											const materialSc = material.scoreCategories.find((s) => s.name === sc.name);
+											const sortedOptions = materialSc
+												? [...materialSc.options].sort((a, b) => a.order - b.order)
+												: [];
+
+											return Array.from({ length: sc.maxOptions }, (_, i) => (
+												<td
+													key={`${material.id}-${sc.name}-${i}`}
+													className={`px-1 py-3 text-center border border-gray-200 dark:border-gray-700 ${
+														sortedOptions[i]
+															? cellColorMap[sc.color] || cellColorMap.gray
+															: ""
+													}`}
+												>
+													{sortedOptions[i] ? (
+														<span className="font-bold text-sm">
+															{sortedOptions[i].score}
+														</span>
+													) : (
+														<span className="text-gray-300 dark:text-gray-600">—</span>
+													)}
+												</td>
+											));
+										})}
+
+										{/* Actions */}
+										<td className="px-2 py-3 text-center border border-gray-200 dark:border-gray-700">
+											<div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+												<button
+													onClick={() => openEditMaterialForm(material)}
+													className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+													title="Edit"
+												>
+													<PencilIcon className="h-4 w-4" />
+												</button>
+												<button
+													onClick={() => handleDeleteMaterial(material)}
+													className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+													title="Hapus"
+												>
+													<TrashIcon className="h-4 w-4" />
+												</button>
+											</div>
+										</td>
+									</tr>
+									{/* Show form right below the material being edited */}
+									{editingMaterial?.id === material.id && showMaterialForm === category.id && (
+										<tr>
+											<td colSpan={2 + totalOptionCols + 1} className="p-0">
+												{renderMaterialForm()}
+											</td>
+										</tr>
+									)}
+								</React.Fragment>
+							))}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		);
+	};
 
 	// Export all materials to PDF (format like Juri scoring layout)
 	const exportToPDF = () => {
@@ -374,8 +607,19 @@ const ManageMateri: React.FC = () => {
 
 		let isFirstPage = true;
 
-		categories.forEach((category) => {
-			if (category.materials.length === 0) return;
+		const dateStr = new Date().toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "long",
+			year: "numeric",
+		});
+
+		// One page per school-category group, so each sheet is separated by category.
+		const groups = categories.flatMap((category) =>
+			groupMaterialsBySchool(category.materials).map((group) => ({ category, group }))
+		);
+
+		groups.forEach(({ category, group }) => {
+			const sortedMaterials = [...group.materials].sort((a, b) => a.number - b.number);
 
 			if (!isFirstPage) {
 				doc.addPage();
@@ -391,23 +635,21 @@ const ManageMateri: React.FC = () => {
 			doc.setFontSize(11);
 			doc.setTextColor(60, 60, 60);
 			doc.setFont("helvetica", "bold");
-			doc.text(`Kategori: ${category.categoryName}`, pageWidth / 2, 22, { align: "center" });
+			doc.text(`${category.categoryName} — ${group.schoolCategory.name}`, pageWidth / 2, 22, { align: "center" });
 
 			// Date on right, total on left
-			const dateStr = new Date().toLocaleDateString("id-ID", {
-				day: "numeric",
-				month: "long",
-				year: "numeric",
-			});
 			doc.setFontSize(8);
 			doc.setFont("helvetica", "normal");
 			doc.setTextColor(120, 120, 120);
-			doc.text(`Total Materi: ${category.materials.length}`, 14, 28);
+			doc.text(`Total Materi: ${sortedMaterials.length}`, 14, 28);
 			doc.text(`Dicetak: ${dateStr}`, pageWidth - 14, 28, { align: "right" });
 
-			// Max score info
-			if (category.maxScoreBreakdown && category.maxScoreBreakdown.length > 0) {
-				const maxInfo = category.maxScoreBreakdown
+			// Max score info (limited to this school category)
+			const groupBreakdown = (category.maxScoreBreakdown || []).filter(
+				(b) => b.schoolCategoryId === group.schoolCategory.id
+			);
+			if (groupBreakdown.length > 0) {
+				const maxInfo = groupBreakdown
 					.map((b) => `${b.schoolCategoryName}: ${b.maxScore} (×${b.juryCount} juri = ${b.totalMaxScore})`)
 					.join("  |  ");
 				doc.setFontSize(7);
@@ -422,7 +664,6 @@ const ManageMateri: React.FC = () => {
 
 			// Build table matching Juri scoring layout:
 			// | No | Kriteria | ScoreCategory1 options... | ScoreCategory2 options... | ... |
-			const sortedMaterials = [...category.materials].sort((a, b) => a.number - b.number);
 
 			// Collect all unique score categories across materials (sorted by order)
 			const allScoreCategories: { name: string; color: string; order: number; maxOptions: number }[] = [];
@@ -585,14 +826,30 @@ const ManageMateri: React.FC = () => {
 			gray: "FF6B7280",
 		};
 
-		categories.forEach((category) => {
-			if (category.materials.length === 0) return;
+		// One worksheet per school-category group, separated by category.
+		const groups = categories.flatMap((category) =>
+			groupMaterialsBySchool(category.materials).map((group) => ({ category, group }))
+		);
+		const usedSheetNames = new Set<string>();
 
-			// Sheet name max 31 chars
-			const sheetName = category.categoryName.substring(0, 31);
+		groups.forEach(({ category, group }) => {
+			const sortedMaterials = [...group.materials].sort((a, b) => a.number - b.number);
+
+			// Sheet name: max 31 chars, no characters ExcelJS forbids, and unique
+			const base =
+				`${category.categoryName} - ${group.schoolCategory.name}`
+					.replace(/[\\/?*[\]:]/g, " ")
+					.trim()
+					.substring(0, 31) || "Sheet";
+			let sheetName = base;
+			let dupIndex = 2;
+			while (usedSheetNames.has(sheetName)) {
+				const suffix = ` (${dupIndex})`;
+				sheetName = base.substring(0, 31 - suffix.length) + suffix;
+				dupIndex++;
+			}
+			usedSheetNames.add(sheetName);
 			const worksheet = workbook.addWorksheet(sheetName);
-
-			const sortedMaterials = [...category.materials].sort((a, b) => a.number - b.number);
 
 			// Collect all unique score categories
 			const allScoreCats: { name: string; color: string; order: number; maxOptions: number }[] = [];
@@ -623,7 +880,7 @@ const ManageMateri: React.FC = () => {
 			// === Row 2: Category name ===
 			worksheet.mergeCells(2, 1, 2, totalCols);
 			const catCell = worksheet.getCell(2, 1);
-			catCell.value = `Kategori: ${category.categoryName}`;
+			catCell.value = `Kategori: ${category.categoryName} — ${group.schoolCategory.name}`;
 			catCell.font = { bold: true, size: 11, color: { argb: "FF3C3C3C" } };
 			catCell.alignment = { horizontal: "center", vertical: "middle" };
 			worksheet.getRow(2).height = 22;
@@ -631,7 +888,7 @@ const ManageMateri: React.FC = () => {
 			// === Row 3: Info row ===
 			const dateStr = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 			worksheet.mergeCells(3, 1, 3, Math.max(1, Math.floor(totalCols / 2)));
-			worksheet.getCell(3, 1).value = `Total Materi: ${category.materials.length}`;
+			worksheet.getCell(3, 1).value = `Total Materi: ${sortedMaterials.length}`;
 			worksheet.getCell(3, 1).font = { size: 9, color: { argb: "FF787878" } };
 			worksheet.getCell(3, 1).alignment = { horizontal: "left", vertical: "middle" };
 
@@ -644,9 +901,12 @@ const ManageMateri: React.FC = () => {
 			}
 			worksheet.getRow(3).height = 18;
 
-			// === Row 4: Max score breakdown ===
-			if (category.maxScoreBreakdown && category.maxScoreBreakdown.length > 0) {
-				const maxInfo = category.maxScoreBreakdown
+			// === Row 4: Max score breakdown (this school category only) ===
+			const groupBreakdown = (category.maxScoreBreakdown || []).filter(
+				(b) => b.schoolCategoryId === group.schoolCategory.id
+			);
+			if (groupBreakdown.length > 0) {
+				const maxInfo = groupBreakdown
 					.map((b) => `${b.schoolCategoryName}: ${b.maxScore} (×${b.juryCount} juri = ${b.totalMaxScore})`)
 					.join("  |  ");
 				worksheet.mergeCells(4, 1, 4, totalCols);
@@ -970,219 +1230,13 @@ const ManageMateri: React.FC = () => {
 												/>
 											</div>
 										) : (
-											<>
-												{/* Scoring Sheet Table */}
-												{(() => {
-													const sortedMaterials = [...category.materials].sort((a, b) => a.number - b.number);
-
-													// Collect all unique score categories across materials
-													const allScoreCats: { name: string; color: string; order: number; maxOptions: number }[] = [];
-													sortedMaterials.forEach((mat) => {
-														mat.scoreCategories.forEach((sc) => {
-															const existing = allScoreCats.find((a) => a.name === sc.name);
-															if (!existing) {
-																allScoreCats.push({ name: sc.name, color: sc.color || "gray", order: sc.order, maxOptions: sc.options.length });
-															} else if (sc.options.length > existing.maxOptions) {
-																existing.maxOptions = sc.options.length;
-															}
-														});
-													});
-													allScoreCats.sort((a, b) => a.order - b.order);
-
-													const totalOptionCols = allScoreCats.reduce((sum, sc) => sum + sc.maxOptions, 0);
-
-													// Color mapping for header backgrounds
-													const headerColorMap: Record<string, string> = {
-														red: "bg-red-600 text-white",
-														orange: "bg-orange-500 text-white",
-														yellow: "bg-yellow-500 text-white",
-														green: "bg-green-600 text-white",
-														blue: "bg-blue-600 text-white",
-														purple: "bg-purple-600 text-white",
-														gray: "bg-gray-500 text-white",
-													};
-
-													const cellColorMap: Record<string, string> = {
-														red: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300",
-														orange: "bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300",
-														yellow: "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300",
-														green: "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300",
-														blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300",
-														purple: "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300",
-														gray: "bg-gray-50 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300",
-													};
-
-													return (
-														<div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-900">
-															{/* Paper Header */}
-															<div className="bg-gradient-to-r from-red-700 to-red-600 px-5 py-3 text-center">
-																<h3 className="text-white font-bold text-sm tracking-wider uppercase">
-																	Lembar Penilaian — {category.categoryName}
-																</h3>
-																<p className="text-red-200 text-xs mt-0.5">
-																	{sortedMaterials.length} Materi
-																</p>
-															</div>
-
-															<div className="overflow-x-auto">
-																<table className="w-full border-collapse min-w-[600px]">
-																	<thead>
-																		{/* Category headers spanning options */}
-																		<tr>
-																			<th
-																				rowSpan={2}
-																				className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-center border border-gray-300 dark:border-gray-600 w-12"
-																			>
-																				No
-																			</th>
-																			<th
-																				rowSpan={2}
-																				className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-left border border-gray-300 dark:border-gray-600"
-																			>
-																				Materi Penilaian
-																			</th>
-																			{allScoreCats.map((sc) => (
-																				<th
-																					key={sc.name}
-																					colSpan={sc.maxOptions}
-																					className={`text-xs font-bold px-2 py-2 text-center border border-gray-300 dark:border-gray-600 ${headerColorMap[sc.color] || headerColorMap.gray}`}
-																				>
-																					{sc.name.toUpperCase()}
-																				</th>
-																			))}
-																			<th
-																				rowSpan={2}
-																				className="bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold px-3 py-2 text-center border border-gray-300 dark:border-gray-600 w-20"
-																			>
-																				Aksi
-																			</th>
-																		</tr>
-																		{/* Score value sub-headers */}
-																		{totalOptionCols > 0 && (
-																			<tr>
-																				{allScoreCats.map((sc) => {
-																					// Show placeholder score labels from first material that has this category
-																					const refMat = sortedMaterials.find((m) => m.scoreCategories.some((s) => s.name === sc.name));
-																					const refSc = refMat?.scoreCategories.find((s) => s.name === sc.name);
-																					const refOptions = refSc ? [...refSc.options].sort((a, b) => a.order - b.order) : [];
-
-																					return Array.from({ length: sc.maxOptions }, (_, i) => (
-																						<th
-																							key={`${sc.name}-sub-${i}`}
-																							className={`text-xs font-medium px-1 py-1.5 text-center border border-gray-300 dark:border-gray-600 ${cellColorMap[sc.color] || cellColorMap.gray}`}
-																						>
-																							{refOptions[i]?.name || ""}
-																						</th>
-																					));
-																				})}
-																			</tr>
-																		)}
-																	</thead>
-																	<tbody>
-																		{sortedMaterials.map((material, idx) => (
-																			<React.Fragment key={material.id}>
-																				<tr
-																					className={`group transition-colors ${
-																						editingMaterial?.id === material.id
-																							? "ring-2 ring-inset ring-red-500"
-																							: idx % 2 === 0
-																								? "bg-white dark:bg-gray-900"
-																								: "bg-gray-50 dark:bg-gray-800/50"
-																					} hover:bg-red-50/50 dark:hover:bg-red-900/10`}
-																				>
-																					{/* Number */}
-																					<td className="px-3 py-3 text-center font-bold text-sm text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700">
-																						{material.number}
-																					</td>
-
-																					{/* Material Name + Info */}
-																					<td className="px-3 py-3 border border-gray-200 dark:border-gray-700">
-																						<p className="font-semibold text-sm text-gray-900 dark:text-white uppercase">
-																							{material.name}
-																						</p>
-																						{material.description && (
-																							<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-																								{material.description}
-																							</p>
-																						)}
-																						{material.schoolCategories.length > 0 && (
-																							<div className="flex flex-wrap gap-1 mt-1.5">
-																								{material.schoolCategories.map((sc) => (
-																									<span
-																										key={sc.id}
-																										className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 rounded text-[10px] font-medium"
-																									>
-																										{sc.name}
-																									</span>
-																								))}
-																							</div>
-																						)}
-																					</td>
-
-																					{/* Score values per category */}
-																					{allScoreCats.map((sc) => {
-																						const materialSc = material.scoreCategories.find((s) => s.name === sc.name);
-																						const sortedOptions = materialSc
-																							? [...materialSc.options].sort((a, b) => a.order - b.order)
-																							: [];
-
-																						return Array.from({ length: sc.maxOptions }, (_, i) => (
-																							<td
-																								key={`${material.id}-${sc.name}-${i}`}
-																								className={`px-1 py-3 text-center border border-gray-200 dark:border-gray-700 ${
-																									sortedOptions[i]
-																										? cellColorMap[sc.color] || cellColorMap.gray
-																										: ""
-																								}`}
-																							>
-																								{sortedOptions[i] ? (
-																									<span className="font-bold text-sm">
-																										{sortedOptions[i].score}
-																									</span>
-																								) : (
-																									<span className="text-gray-300 dark:text-gray-600">—</span>
-																								)}
-																							</td>
-																						));
-																					})}
-
-																					{/* Actions */}
-																					<td className="px-2 py-3 text-center border border-gray-200 dark:border-gray-700">
-																						<div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-																							<button
-																								onClick={() => openEditMaterialForm(material)}
-																								className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-																								title="Edit"
-																							>
-																								<PencilIcon className="h-4 w-4" />
-																							</button>
-																							<button
-																								onClick={() => handleDeleteMaterial(material)}
-																								className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-																								title="Hapus"
-																							>
-																								<TrashIcon className="h-4 w-4" />
-																							</button>
-																						</div>
-																					</td>
-																				</tr>
-																				{/* Show form right below the material being edited */}
-																				{editingMaterial?.id === material.id && showMaterialForm === category.id && (
-																					<tr>
-																						<td colSpan={2 + totalOptionCols + 1} className="p-0">
-																							{renderMaterialForm()}
-																						</td>
-																					</tr>
-																				)}
-																			</React.Fragment>
-																		))}
-																	</tbody>
-																</table>
-															</div>
-														</div>
-													);
-												})()}
-											</>
+											<div className="space-y-6">
+												{groupMaterialsBySchool(category.materials).map((group) => (
+													<div key={group.schoolCategory.id}>
+														{renderScoringSheet(category, group.schoolCategory.name, group.materials)}
+													</div>
+												))}
+											</div>
 										)}
 
 										{/* Add Material Button - only show when not editing */}

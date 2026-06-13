@@ -442,7 +442,10 @@ model EventMaterial {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([eventId, eventAssessmentCategoryId, number])
+  // Note: material numbering restarts per school category, so uniqueness on
+  // (event, assessmentCategory, number) is enforced in application code,
+  // scoped to the material's school category, instead of a DB constraint.
+  @@index([eventId, eventAssessmentCategoryId])
   @@map("event_materials")
 }
 

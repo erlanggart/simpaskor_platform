@@ -48,12 +48,10 @@ interface MaterialFormProps {
 		description: string;
 	}>>;
 
-	// School categories
+	// School category (single selection — one material belongs to one category)
 	eventSchoolCategories: SchoolCategory[];
-	selectedSchoolCategories: string[];
-	onToggleSchoolCategory: (categoryId: string) => void;
-	onSelectAllSchoolCategories: () => void;
-	onDeselectAllSchoolCategories: () => void;
+	selectedSchoolCategoryId: string | null;
+	onSelectSchoolCategory: (categoryId: string) => void;
 
 	// Score categories
 	categoryInputs: ScoreCategoryInput[];
@@ -87,10 +85,8 @@ const MaterialForm: React.FC<MaterialFormProps> = ({
 	materialForm,
 	setMaterialForm,
 	eventSchoolCategories,
-	selectedSchoolCategories,
-	onToggleSchoolCategory,
-	onSelectAllSchoolCategories,
-	onDeselectAllSchoolCategories,
+	selectedSchoolCategoryId,
+	onSelectSchoolCategory,
 	categoryInputs,
 	setCategoryInputs,
 	activeCategoryTab,
@@ -263,48 +259,38 @@ const MaterialForm: React.FC<MaterialFormProps> = ({
 				</div>
 			</div>
 
-			{/* School Categories Selection */}
+			{/* School Category Selection (single — numbering is separated per category) */}
 			<div className="mb-6">
-				<div className="flex items-center justify-between mb-2">
-					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-						Kategori Sekolah *
-					</label>
-					<div className="flex gap-2">
-						<button
-							type="button"
-							onClick={onSelectAllSchoolCategories}
-							className="text-xs text-red-600 dark:text-red-400 hover:underline"
-						>
-							Pilih Semua
-						</button>
-						<span className="text-gray-300">|</span>
-						<button
-							type="button"
-							onClick={onDeselectAllSchoolCategories}
-							className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
-						>
-							Hapus Semua
-						</button>
-					</div>
-				</div>
+				<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Kategori Sekolah *
+				</label>
 				<div className="flex flex-wrap gap-3 p-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-gray-600">
-					{eventSchoolCategories.map((sc) => (
-						<label
-							key={sc.id}
-							className="flex items-center gap-2 cursor-pointer"
-						>
-							<input
-								type="checkbox"
-								checked={selectedSchoolCategories.includes(sc.id)}
-								onChange={() => onToggleSchoolCategory(sc.id)}
-								className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-							/>
-							<span className="text-sm text-gray-700 dark:text-gray-300">
-								{sc.name}
-							</span>
-						</label>
-					))}
+					{eventSchoolCategories.map((sc) => {
+						const active = selectedSchoolCategoryId === sc.id;
+						return (
+							<label
+								key={sc.id}
+								className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+									active
+										? "border-red-500 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+										: "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-red-300"
+								}`}
+							>
+								<input
+									type="radio"
+									name="material-school-category"
+									checked={active}
+									onChange={() => onSelectSchoolCategory(sc.id)}
+									className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+								/>
+								<span className="text-sm font-medium">{sc.name}</span>
+							</label>
+						);
+					})}
 				</div>
+				<p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+					Pilih satu kategori. Nomor urut materi dihitung terpisah untuk tiap kategori sekolah.
+				</p>
 			</div>
 
 			{/* Score Categories */}

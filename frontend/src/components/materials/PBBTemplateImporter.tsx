@@ -229,17 +229,20 @@ export const PBBTemplateRecommendation: React.FC<PBBTemplateRecommendationProps>
 					},
 				});
 
-				// Import all PBB materials
-				for (const template of pbbSimpaskorTemplate) {
-					const payload = {
-						eventAssessmentCategoryId: categoryId,
-						number: template.number,
-						name: template.name,
-						description: null,
-						schoolCategoryIds: schoolCategoryIds,
-						scoreCategories: template.scoreCategories,
-					};
-					await api.post(`/materials/event/${eventSlug}`, payload);
+				// Import the PBB materials separately for each school category so
+				// numbering (1–25) restarts per category.
+				for (const schoolCategoryId of schoolCategoryIds) {
+					for (const template of pbbSimpaskorTemplate) {
+						const payload = {
+							eventAssessmentCategoryId: categoryId,
+							number: template.number,
+							name: template.name,
+							description: null,
+							schoolCategoryIds: [schoolCategoryId],
+							scoreCategories: template.scoreCategories,
+						};
+						await api.post(`/materials/event/${eventSlug}`, payload);
+					}
 				}
 
 				await onImportComplete();
@@ -247,7 +250,7 @@ export const PBBTemplateRecommendation: React.FC<PBBTemplateRecommendationProps>
 				Swal.fire({
 					icon: "success",
 					title: "Template PBB Berhasil Diimport",
-					text: "25 materi PBB telah ditambahkan dengan format nilai Simpaskor.",
+					text: `25 materi PBB ditambahkan untuk ${schoolCategoryIds.length} kategori sekolah.`,
 					timer: 2000,
 					showConfirmButton: false,
 				});
