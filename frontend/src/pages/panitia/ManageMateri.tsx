@@ -488,15 +488,19 @@ const ManageMateri: React.FC = () => {
 				<button
 					type="button"
 					onClick={onToggle}
-					className="w-full bg-gradient-to-r from-red-700 to-red-600 px-5 py-3 flex items-center justify-between gap-3 text-left hover:from-red-800 hover:to-red-700 transition-colors"
+					className={`w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left transition-colors ${
+						expanded
+							? "bg-gradient-to-r from-red-700 to-red-600"
+							: "bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600"
+					}`}
 				>
 					<div className="min-w-0">
-						<h3 className="text-white font-bold text-sm tracking-wider uppercase truncate">
-							Lembar Penilaian — {category.categoryName} · {schoolName}
+						<h3 className="text-white font-bold text-sm tracking-wide uppercase truncate">
+							{category.categoryName} · {schoolName}
 						</h3>
-						<p className="text-red-200 text-xs mt-0.5">
+						<span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-semibold">
 							{sortedMaterials.length} Materi
-						</p>
+						</span>
 					</div>
 					<ChevronDownIcon
 						className={`w-5 h-5 text-white flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
@@ -1316,11 +1320,11 @@ const ManageMateri: React.FC = () => {
 			{/* Add / Edit Material Modal */}
 			{showMaterialForm && (
 				<div
-					className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto"
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
 					onClick={closeMaterialForm}
 				>
 					<div
-						className="w-full max-w-4xl my-8"
+						className="w-full max-w-4xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						{renderMaterialForm()}
