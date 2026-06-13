@@ -6,6 +6,7 @@ import {
 	PencilIcon,
 	TrashIcon,
 	ArrowDownTrayIcon,
+	ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
@@ -110,6 +111,20 @@ const ManageMateri: React.FC = () => {
 	// Material form state
 	const [showMaterialForm, setShowMaterialForm] = useState<string | null>(null);
 	const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+	// School-category groups that are expanded. Empty = all collapsed by default.
+	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+	const toggleGroup = (key: string) => {
+		setExpandedGroups((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) {
+				next.delete(key);
+			} else {
+				next.add(key);
+			}
+			return next;
+		});
+	};
 	const [materialForm, setMaterialForm] = useState({
 		number: 1,
 		name: "",
@@ -420,12 +435,13 @@ const ManageMateri: React.FC = () => {
 		/>
 	);
 
-	// Render one scoring sheet table for a single school category group
+	// Render one collapsible scoring sheet table for a single school category group
 	const renderScoringSheet = (
 		category: CategoryWithMaterials,
 		schoolName: string,
 		groupMaterials: Material[],
-		allowInlineEditForm: boolean
+		expanded: boolean,
+		onToggle: () => void
 	) => {
 		const sortedMaterials = [...groupMaterials].sort((a, b) => a.number - b.number);
 
@@ -468,16 +484,26 @@ const ManageMateri: React.FC = () => {
 
 		return (
 			<div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-900">
-				{/* Paper Header */}
-				<div className="bg-gradient-to-r from-red-700 to-red-600 px-5 py-3 text-center">
-					<h3 className="text-white font-bold text-sm tracking-wider uppercase">
-						Lembar Penilaian — {category.categoryName} · {schoolName}
-					</h3>
-					<p className="text-red-200 text-xs mt-0.5">
-						{sortedMaterials.length} Materi
-					</p>
-				</div>
+				{/* Paper Header — click to expand/collapse */}
+				<button
+					type="button"
+					onClick={onToggle}
+					className="w-full bg-gradient-to-r from-red-700 to-red-600 px-5 py-3 flex items-center justify-between gap-3 text-left hover:from-red-800 hover:to-red-700 transition-colors"
+				>
+					<div className="min-w-0">
+						<h3 className="text-white font-bold text-sm tracking-wider uppercase truncate">
+							Lembar Penilaian — {category.categoryName} · {schoolName}
+						</h3>
+						<p className="text-red-200 text-xs mt-0.5">
+							{sortedMaterials.length} Materi
+						</p>
+					</div>
+					<ChevronDownIcon
+						className={`w-5 h-5 text-white flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+					/>
+				</button>
 
+				{expanded && (
 				<div className="overflow-x-auto">
 					<table className="w-full border-collapse min-w-[600px]">
 						<thead>
@@ -608,20 +634,12 @@ const ManageMateri: React.FC = () => {
 											</div>
 										</td>
 									</tr>
-									{/* Show form right below the material being edited (only in the
-									    first group it appears in, to avoid duplicate forms) */}
-									{allowInlineEditForm && editingMaterial?.id === material.id && showMaterialForm === category.id && (
-										<tr>
-											<td colSpan={2 + totalOptionCols + 1} className="p-0">
-												{renderMaterialForm()}
-											</td>
-										</tr>
-									)}
 								</React.Fragment>
 							))}
 						</tbody>
 					</table>
 				</div>
+				)}
 			</div>
 		);
 	};
@@ -1259,45 +1277,33 @@ const ManageMateri: React.FC = () => {
 												/>
 											</div>
 										) : (
-											(() => {
-												const groups = groupMaterialsBySchool(category.materials);
-												// Render the inline edit form only in the first group that
-												// contains the material being edited (it may appear in several).
-												const editFormGroupId = editingMaterial
-													? groups.find((g) =>
-															g.materials.some((m) => m.id === editingMaterial.id)
-													  )?.schoolCategory.id
-													: undefined;
-												return (
-													<div className="space-y-6">
-														{groups.map((group) => (
-															<div key={group.schoolCategory.id}>
-																{renderScoringSheet(
-																	category,
-																	group.schoolCategory.name,
-																	group.materials,
-																	group.schoolCategory.id === editFormGroupId
-																)}
-															</div>
-														))}
-													</div>
-												);
-											})()
+											<div className="space-y-6">
+												{groupMaterialsBySchool(category.materials).map((group) => {
+													const groupKey = `${category.id}__${group.schoolCategory.id}`;
+													return (
+														<div key={group.schoolCategory.id}>
+															{renderScoringSheet(
+																category,
+																group.schoolCategory.name,
+																group.materials,
+																expandedGroups.has(groupKey),
+																() => toggleGroup(groupKey)
+															)}
+														</div>
+													);
+												})}
+											</div>
 										)}
 
-										{/* Add Material Button - only show when not editing */}
-										{showMaterialForm === category.id && !editingMaterial ? (
-											renderMaterialForm()
-										) : (
-											eventSchoolCategories.length > 0 && !editingMaterial && (
-												<button
-													onClick={() => openAddMaterialForm(category.id)}
-													className="mt-4 flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-												>
-													<PlusIcon className="h-5 w-5" />
-													Tambah Materi
-												</button>
-											)
+										{/* Add Material Button (form opens in a modal popup) */}
+										{eventSchoolCategories.length > 0 && (
+											<button
+												onClick={() => openAddMaterialForm(category.id)}
+												className="mt-4 flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+											>
+												<PlusIcon className="h-5 w-5" />
+												Tambah Materi
+											</button>
 										)}
 									</div>
 								);
@@ -1306,6 +1312,21 @@ const ManageMateri: React.FC = () => {
 					)}
 				</div>
 			</div>
+
+			{/* Add / Edit Material Modal */}
+			{showMaterialForm && (
+				<div
+					className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto"
+					onClick={closeMaterialForm}
+				>
+					<div
+						className="w-full max-w-4xl my-8"
+						onClick={(e) => e.stopPropagation()}
+					>
+						{renderMaterialForm()}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };
