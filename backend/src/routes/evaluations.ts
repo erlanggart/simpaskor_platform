@@ -780,13 +780,40 @@ router.get(
 
 			const assignedEventCategoryIds = eventAssessmentCategories.map((c) => c.id);
 
-			// Count total materials assigned to this juri for this event
-			const totalMaterials = await prisma.eventMaterial.count({
+			// Materials assigned to this juri, with their school-category scoping.
+			const materials = await prisma.eventMaterial.findMany({
 				where: {
 					eventId: event.id,
 					eventAssessmentCategoryId: { in: assignedEventCategoryIds },
 				},
+				select: { id: true, schoolCategoryIds: true },
 			});
+
+			// Map each participant to their school category so completion can be
+			// measured against the materials that actually apply to them.
+			const participationGroups = await prisma.participationGroup.findMany({
+				where: { participation: { eventId: event.id } },
+				select: { id: true, schoolCategoryId: true },
+			});
+			const participantSchoolCategory = new Map(
+				participationGroups.map((p) => [p.id, p.schoolCategoryId])
+			);
+
+			// Materials applicable to a participant: a material with no school
+			// category applies to everyone; otherwise it must include theirs.
+			const applicableMaterialIds = (schoolCategoryId: string | null) =>
+				new Set(
+					materials
+						.filter((m) => {
+							const ids = m.schoolCategoryIds || [];
+							if (ids.length === 0) return true;
+							return schoolCategoryId ? ids.includes(schoolCategoryId) : false;
+						})
+						.map((m) => m.id)
+				);
+
+			// Fallback total for participants not yet scored (whole category)
+			const totalMaterials = materials.length;
 
 			// Get all evaluations by this juri for this event
 			const evaluations = await prisma.materialEvaluation.findMany({
@@ -816,11 +843,23 @@ router.get(
 				isComplete: boolean;
 			}> = {};
 
-			for (const [participantId, materialIds] of evaluationsByParticipant.entries()) {
-				participantStatus[participantId] = {
-					scoredMaterials: materialIds.size,
-					totalMaterials,
-					isComplete: materialIds.size >= totalMaterials,
+			// Build status for every participant against the materials that apply
+			// to their school category (not the whole assessment category).
+			for (const pg of participationGroups) {
+				const applicable = applicableMaterialIds(pg.schoolCategoryId);
+				const total = applicable.size;
+				const materialIds = evaluationsByParticipant.get(pg.id) ?? new Set<string>();
+				// Only count evaluations for materials that still apply to this
+				// participant (a material may have been reassigned to other
+				// school categories after it was scored).
+				let scored = 0;
+				for (const mid of materialIds) {
+					if (applicable.has(mid)) scored++;
+				}
+				participantStatus[pg.id] = {
+					scoredMaterials: scored,
+					totalMaterials: total,
+					isComplete: total > 0 && scored >= total,
 				};
 			}
 
