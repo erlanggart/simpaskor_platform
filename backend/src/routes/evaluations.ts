@@ -1145,6 +1145,7 @@ router.get(
 					eventAssessmentCategoryId: true,
 					name: true,
 					scoreCategories: true,
+					schoolCategoryIds: true,
 				},
 			});
 
@@ -1153,31 +1154,45 @@ router.get(
 				eventMaterials.map((m) => [m.id, m.eventAssessmentCategoryId])
 			);
 
-			// Compute real max score per event assessment category from materials
-			const computedMaxScorePerEAC = new Map<string, number>();
-			for (const eac of event.assessmentCategories) {
-				const categoryMaterials = eventMaterials.filter(
-					(m) => m.eventAssessmentCategoryId === eac.id
-				);
-				let categoryMax = 0;
-				categoryMaterials.forEach((material) => {
-					let materialMaxScore = 0;
-					const scoreCats = material.scoreCategories as any[];
-					if (Array.isArray(scoreCats)) {
-						scoreCats.forEach((scoreCat: any) => {
-							if (Array.isArray(scoreCat.options)) {
-								scoreCat.options.forEach((opt: any) => {
-									if ((opt.score || 0) > materialMaxScore) {
-										materialMaxScore = opt.score || 0;
-									}
-								});
-							}
-						});
-					}
-					categoryMax += materialMaxScore;
-				});
-				computedMaxScorePerEAC.set(eac.id, categoryMax);
-			}
+			// Max score for one material (highest option across its score categories)
+			const materialMaxScore = (material: { scoreCategories: unknown }) => {
+				let max = 0;
+				const scoreCats = material.scoreCategories as any[];
+				if (Array.isArray(scoreCats)) {
+					scoreCats.forEach((scoreCat: any) => {
+						if (Array.isArray(scoreCat.options)) {
+							scoreCat.options.forEach((opt: any) => {
+								if ((opt.score || 0) > max) max = opt.score || 0;
+							});
+						}
+					});
+				}
+				return max;
+			};
+
+			// Real max score per category depends on the participant's school
+			// category: only materials that apply to that category are summed
+			// (a material with no school category applies to everyone).
+			const maxScoreCache = new Map<string, number>();
+			const computeMaxScore = (eacId: string, schoolCategoryId: string | null) => {
+				const cacheKey = `${eacId}:${schoolCategoryId ?? "none"}`;
+				const cached = maxScoreCache.get(cacheKey);
+				if (cached !== undefined) return cached;
+				let total = 0;
+				for (const m of eventMaterials) {
+					if (m.eventAssessmentCategoryId !== eacId) continue;
+					const ids = m.schoolCategoryIds || [];
+					const applies =
+						ids.length === 0
+							? true
+							: schoolCategoryId
+								? ids.includes(schoolCategoryId)
+								: false;
+					if (applies) total += materialMaxScore(m);
+				}
+				maxScoreCache.set(cacheKey, total);
+				return total;
+			};
 
 			// Group material evaluations by participant, assessmentCategory, jury
 			const materialEvalsByParticipant = materialEvaluations.reduce((acc, me) => {
@@ -1259,7 +1274,7 @@ router.get(
 
 						let score: number | null = null;
 						// Use computed max from materials, fall back to customMaxScore or 100
-						let maxScore = computedMaxScorePerEAC.get(eac.id) || eac.customMaxScore || 100;
+						let maxScore = computeMaxScore(eac.id, participant.schoolCategory?.id ?? null) || eac.customMaxScore || 100;
 						let notes: string | null = null;
 						let scoredMaterials: number | undefined;
 
@@ -2100,9 +2115,23 @@ router.get(
 				}[];
 			}
 
+			// Only include materials that apply to this participant's school
+			// category: a material with no school category applies to everyone,
+			// otherwise it must include the participant's category.
+			const participantSchoolCategoryId = participant.schoolCategoryId;
+			const appliesToParticipant = (schoolCategoryIds: string[]) => {
+				const ids = schoolCategoryIds || [];
+				if (ids.length === 0) return true;
+				return participantSchoolCategoryId
+					? ids.includes(participantSchoolCategoryId)
+					: false;
+			};
+
 			const categoryDetails: CategoryDetail[] = event.assessmentCategories.map((eac) => {
 				const categoryMaterials = materials.filter(
-					(m) => m.eventAssessmentCategoryId === eac.id
+					(m) =>
+						m.eventAssessmentCategoryId === eac.id &&
+						appliesToParticipant(m.schoolCategoryIds)
 				);
 
 				// Get juries assigned to this category
