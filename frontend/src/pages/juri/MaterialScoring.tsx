@@ -103,6 +103,9 @@ const MaterialScoring: React.FC = () => {
 	const [isOnline, setIsOnline] = useState(navigator.onLine);
 	const [showReconnected, setShowReconnected] = useState(false);
 	const promptedLocalDraftKeyRef = useRef<string | null>(null);
+	// Tracks which participant's evaluations have already been loaded so a
+	// reconnect / re-render never re-fetches and wipes in-progress scores.
+	const loadedKeyRef = useRef<string | null>(null);
 
 	useLayoutEffect(() => {
 		window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -205,12 +208,25 @@ const MaterialScoring: React.FC = () => {
 		}
 	}, [getLocalStorageKey]);
 
-	// Fetch only existing evaluations for this participant (materials come from context)
+	// Fetch existing evaluations once per participant (materials come from context).
+	// IMPORTANT: this must NOT re-run when the connection drops/returns, otherwise
+	// the in-progress scores would be rebuilt from the server and the form would
+	// flash through a loading state ("auto refresh"). We therefore guard on a
+	// per-participant key and only load the first time it becomes available.
 	useEffect(() => {
-		if (eventSlug && participantId && categories.length > 0) {
+		if (!eventSlug || !participantId) return;
+		const key = `${eventSlug}_${participantId}`;
+
+		// Already loaded this participant — ignore later re-renders (e.g. reconnect)
+		if (loadedKeyRef.current === key) return;
+
+		if (categories.length > 0) {
+			loadedKeyRef.current = key;
 			fetchEvaluations();
-		} else if (eventSlug && participantId && participant !== null && categories.length === 0) {
-			// Participant found but no materials match → stop loading
+		} else if (participant !== null) {
+			// Participant resolved but no materials match → stop loading.
+			// Do not mark as loaded: if materials arrive later (parent still
+			// fetching), the effect can still run.
 			setLoading(false);
 		}
 	}, [eventSlug, participantId, categories, participant]);
