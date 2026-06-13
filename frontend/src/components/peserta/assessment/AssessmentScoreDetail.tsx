@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
 	TrophyIcon,
@@ -28,6 +28,44 @@ interface AssessmentScoreDetailProps {
 }
 
 type AssessmentMaterialScore = AssessmentScoreCategory["materials"][number];
+
+// Counts up from 0 to `value` on mount for a lively stat reveal.
+const AnimatedNumber: React.FC<{
+	value: number;
+	decimals?: number;
+	className?: string;
+}> = ({ value, decimals = 0, className }) => {
+	const [display, setDisplay] = useState(0);
+	const frameRef = useRef<number | null>(null);
+
+	useEffect(() => {
+		const prefersReduced =
+			typeof window !== "undefined" &&
+			window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+		if (prefersReduced) {
+			setDisplay(value);
+			return;
+		}
+
+		const duration = 900;
+		const start = performance.now();
+		const tick = (now: number) => {
+			const progress = Math.min(1, (now - start) / duration);
+			const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+			setDisplay(value * eased);
+			if (progress < 1) {
+				frameRef.current = requestAnimationFrame(tick);
+			}
+		};
+		frameRef.current = requestAnimationFrame(tick);
+
+		return () => {
+			if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+		};
+	}, [value]);
+
+	return <span className={className}>{display.toFixed(decimals)}</span>;
+};
 
 const getMaterialActualScore = (materialScore: AssessmentMaterialScore) =>
 	materialScore.totalScore ??
@@ -572,46 +610,69 @@ const AssessmentScoreDetail: React.FC<AssessmentScoreDetailProps> = ({
 					)}
 				</div>
 
-				{/* Summary banner */}
-				<div className="mb-4 rounded-xl bg-gradient-to-r from-blue-500 to-red-600 p-4 text-white shadow-lg sm:mb-6 sm:p-6">
-					<div className="mb-3 flex items-center gap-3 sm:mb-4">
-						<div className="rounded-lg bg-white/20 p-2 sm:rounded-xl sm:p-3">
-							<TrophyIcon className="h-5 w-5 sm:h-8 sm:w-8" />
-						</div>
-						<div>
-							<h2 className="text-base font-semibold sm:text-lg">Ringkasan Nilai Event</h2>
-							<p className="text-xs text-blue-100 sm:text-sm">
-								Dinilai oleh {scoreData.juries.length} juri
-							</p>
-							<p className="mt-0.5 text-[11px] text-blue-100/90 sm:text-xs">
-								Total final dari nilai materi dan extra nilai
-							</p>
-						</div>
+				{/* Summary banner — blood-red, modern & animated */}
+				<div className="animate-score-card-in relative mb-4 overflow-hidden rounded-2xl bg-gradient-to-br from-[#3d0606] via-[#7a0c0c] to-[#a81616] p-5 text-white shadow-2xl shadow-red-950/40 ring-1 ring-white/10 sm:mb-6 sm:p-7">
+					{/* Decorative glows */}
+					<div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-red-500/25 blur-3xl" />
+					<div className="pointer-events-none absolute -bottom-20 -left-12 h-52 w-52 rounded-full bg-rose-900/40 blur-3xl" />
+					{/* Shimmer sweep */}
+					<div className="pointer-events-none absolute inset-0 overflow-hidden">
+						<div className="animate-score-shimmer absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
 					</div>
-					<div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
-						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
-							<div className="text-xl font-bold leading-tight sm:text-3xl">
-								{actualTotalScore.toFixed(1)}
+
+					<div className="relative">
+						<div className="mb-4 flex items-center gap-3 sm:mb-5">
+							<div className="animate-score-float rounded-xl bg-white/15 p-2.5 ring-1 ring-white/20 backdrop-blur-sm sm:p-3">
+								<TrophyIcon className="h-5 w-5 sm:h-8 sm:w-8" />
 							</div>
-							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Total Nilai</div>
+							<div>
+								<h2 className="text-base font-bold tracking-tight sm:text-xl">
+									Ringkasan Nilai Event
+								</h2>
+								<p className="text-xs text-red-100/90 sm:text-sm">
+									Dinilai oleh {scoreData.juries.length} juri
+								</p>
+								<p className="mt-0.5 text-[11px] text-red-200/70 sm:text-xs">
+									Total final dari nilai materi dan extra nilai
+								</p>
+							</div>
 						</div>
-						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
-							<div className="text-xl font-bold leading-tight sm:text-3xl">
-								{scoreData.juries.length}
-							</div>
-							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Juri Menilai</div>
-						</div>
-						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
-							<div className="text-xl font-bold leading-tight sm:text-3xl">
-								{scoreData.summary.evaluatedMaterials}
-							</div>
-							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Materi Dinilai</div>
-						</div>
-						<div className="rounded-lg bg-white/10 p-3 sm:p-4">
-							<div className="text-xl font-bold leading-tight sm:text-3xl">
-								{scoreData.summary.totalMaterials}
-							</div>
-							<div className="mt-1 text-[11px] text-blue-100 sm:text-sm">Total Materi</div>
+						<div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-4">
+							{[
+								{
+									label: "Total Nilai",
+									value: actualTotalScore,
+									decimals: 1,
+								},
+								{
+									label: "Juri Menilai",
+									value: scoreData.juries.length,
+									decimals: 0,
+								},
+								{
+									label: "Materi Dinilai",
+									value: scoreData.summary.evaluatedMaterials,
+									decimals: 0,
+								},
+								{
+									label: "Total Materi",
+									value: scoreData.summary.totalMaterials,
+									decimals: 0,
+								},
+							].map((stat, i) => (
+								<div
+									key={stat.label}
+									className="animate-score-card-in rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/25 hover:bg-white/20 hover:shadow-lg hover:shadow-red-950/30 sm:p-4"
+									style={{ animationDelay: `${120 + i * 90}ms` }}
+								>
+									<div className="text-xl font-extrabold leading-tight tabular-nums sm:text-3xl">
+										<AnimatedNumber value={stat.value} decimals={stat.decimals} />
+									</div>
+									<div className="mt-1 text-[11px] font-medium text-red-100/80 sm:text-sm">
+										{stat.label}
+									</div>
+								</div>
+							))}
 						</div>
 					</div>
 				</div>
