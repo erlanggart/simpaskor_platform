@@ -48,10 +48,12 @@ interface MaterialFormProps {
 		description: string;
 	}>>;
 
-	// School category (single selection — one material belongs to one category)
+	// School categories (multi-select — a material can belong to several categories)
 	eventSchoolCategories: SchoolCategory[];
-	selectedSchoolCategoryId: string | null;
-	onSelectSchoolCategory: (categoryId: string) => void;
+	selectedSchoolCategories: string[];
+	onToggleSchoolCategory: (categoryId: string) => void;
+	onSelectAllSchoolCategories: () => void;
+	onDeselectAllSchoolCategories: () => void;
 
 	// Score categories
 	categoryInputs: ScoreCategoryInput[];
@@ -85,8 +87,10 @@ const MaterialForm: React.FC<MaterialFormProps> = ({
 	materialForm,
 	setMaterialForm,
 	eventSchoolCategories,
-	selectedSchoolCategoryId,
-	onSelectSchoolCategory,
+	selectedSchoolCategories,
+	onToggleSchoolCategory,
+	onSelectAllSchoolCategories,
+	onDeselectAllSchoolCategories,
 	categoryInputs,
 	setCategoryInputs,
 	activeCategoryTab,
@@ -259,14 +263,33 @@ const MaterialForm: React.FC<MaterialFormProps> = ({
 				</div>
 			</div>
 
-			{/* School Category Selection (single — numbering is separated per category) */}
+			{/* School Categories Selection (multi-select) */}
 			<div className="mb-6">
-				<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-					Kategori Sekolah *
-				</label>
+				<div className="flex items-center justify-between mb-2">
+					<label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+						Kategori Sekolah *
+					</label>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							onClick={onSelectAllSchoolCategories}
+							className="text-xs text-red-600 dark:text-red-400 hover:underline"
+						>
+							Pilih Semua
+						</button>
+						<span className="text-gray-300">|</span>
+						<button
+							type="button"
+							onClick={onDeselectAllSchoolCategories}
+							className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+						>
+							Hapus Semua
+						</button>
+					</div>
+				</div>
 				<div className="flex flex-wrap gap-3 p-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-200 dark:border-gray-600">
 					{eventSchoolCategories.map((sc) => {
-						const active = selectedSchoolCategoryId === sc.id;
+						const active = selectedSchoolCategories.includes(sc.id);
 						return (
 							<label
 								key={sc.id}
@@ -277,11 +300,10 @@ const MaterialForm: React.FC<MaterialFormProps> = ({
 								}`}
 							>
 								<input
-									type="radio"
-									name="material-school-category"
+									type="checkbox"
 									checked={active}
-									onChange={() => onSelectSchoolCategory(sc.id)}
-									className="w-4 h-4 text-red-600 border-gray-300 focus:ring-red-500"
+									onChange={() => onToggleSchoolCategory(sc.id)}
+									className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
 								/>
 								<span className="text-sm font-medium">{sc.name}</span>
 							</label>
@@ -289,7 +311,7 @@ const MaterialForm: React.FC<MaterialFormProps> = ({
 					})}
 				</div>
 				<p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-					Pilih satu kategori. Nomor urut materi dihitung terpisah untuk tiap kategori sekolah.
+					Bisa pilih lebih dari satu. Materi akan muncul & diurutkan terpisah di tiap kategori sekolah yang dipilih.
 				</p>
 			</div>
 

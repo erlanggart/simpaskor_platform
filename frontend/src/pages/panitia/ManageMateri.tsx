@@ -115,7 +115,7 @@ const ManageMateri: React.FC = () => {
 		name: "",
 		description: "",
 	});
-	const [selectedSchoolCategoryId, setSelectedSchoolCategoryId] = useState<string | null>(null);
+	const [selectedSchoolCategories, setSelectedSchoolCategories] = useState<string[]>([]);
 	const [categoryInputs, setCategoryInputs] = useState<ScoreCategoryInput[]>(
 		JSON.parse(JSON.stringify(defaultCategories))
 	);
@@ -152,27 +152,32 @@ const ManageMateri: React.FC = () => {
 
 
 
-	// Next material number, counted separately per school category
-	const getNextNumber = (assessmentCategoryId: string, schoolCategoryId: string | null) => {
+	// Next material number, counted over the selected school categories so each
+	// category's sequence stays continuous (a material may span several).
+	const getNextNumber = (assessmentCategoryId: string, schoolCategoryIds: string[]) => {
 		const category = categories.find((c) => c.id === assessmentCategoryId);
-		if (!category || !schoolCategoryId) return 1;
-		const numbers = category.materials
-			.filter((m) => m.schoolCategoryIds.includes(schoolCategoryId))
-			.map((m) => m.number);
+		if (!category) return 1;
+		const relevant =
+			schoolCategoryIds.length > 0
+				? category.materials.filter((m) =>
+						m.schoolCategoryIds.some((id) => schoolCategoryIds.includes(id))
+				  )
+				: category.materials;
+		const numbers = relevant.map((m) => m.number);
 		return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
 	};
 
 	const openAddMaterialForm = (categoryId: string) => {
-		const defaultSchoolCategoryId = eventSchoolCategories[0]?.id ?? null;
+		const defaultSchoolCategories = eventSchoolCategories.map((sc) => sc.id);
 
 		setShowMaterialForm(categoryId);
 		setEditingMaterial(null);
 		setMaterialForm({
-			number: getNextNumber(categoryId, defaultSchoolCategoryId),
+			number: getNextNumber(categoryId, defaultSchoolCategories),
 			name: "",
 			description: "",
 		});
-		setSelectedSchoolCategoryId(defaultSchoolCategoryId);
+		setSelectedSchoolCategories(defaultSchoolCategories);
 		setCategoryInputs(JSON.parse(JSON.stringify(defaultCategories)));
 		setActiveCategoryTab(0);
 	};
@@ -185,7 +190,7 @@ const ManageMateri: React.FC = () => {
 			name: material.name,
 			description: material.description || "",
 		});
-		setSelectedSchoolCategoryId(material.schoolCategoryIds?.[0] ?? null);
+		setSelectedSchoolCategories(material.schoolCategoryIds || []);
 		setCategoryInputs(
 			material.scoreCategories.length > 0
 				? material.scoreCategories.map((cat) => ({
@@ -209,20 +214,39 @@ const ManageMateri: React.FC = () => {
 			name: "",
 			description: "",
 		});
-		setSelectedSchoolCategoryId(null);
+		setSelectedSchoolCategories([]);
 		setCategoryInputs(JSON.parse(JSON.stringify(defaultCategories)));
 		setActiveCategoryTab(0);
 	};
 
-	const selectSchoolCategory = (categoryId: string) => {
-		setSelectedSchoolCategoryId(categoryId);
-		// When adding, suggest the next number for the newly chosen category
+	// When adding, re-suggest the next number for the current selection
+	const applySuggestedNumber = (schoolCategoryIds: string[]) => {
 		if (!editingMaterial && showMaterialForm) {
 			setMaterialForm((prev) => ({
 				...prev,
-				number: getNextNumber(showMaterialForm, categoryId),
+				number: getNextNumber(showMaterialForm, schoolCategoryIds),
 			}));
 		}
+	};
+
+	const toggleSchoolCategory = (categoryId: string) => {
+		setSelectedSchoolCategories((prev) => {
+			const next = prev.includes(categoryId)
+				? prev.filter((id) => id !== categoryId)
+				: [...prev, categoryId];
+			applySuggestedNumber(next);
+			return next;
+		});
+	};
+
+	const selectAllSchoolCategories = () => {
+		const all = eventSchoolCategories.map((sc) => sc.id);
+		setSelectedSchoolCategories(all);
+		applySuggestedNumber(all);
+	};
+
+	const deselectAllSchoolCategories = () => {
+		setSelectedSchoolCategories([]);
 	};
 
 	const handleSaveMaterial = async () => {
@@ -234,11 +258,11 @@ const ManageMateri: React.FC = () => {
 			return;
 		}
 
-		if (!selectedSchoolCategoryId) {
+		if (selectedSchoolCategories.length === 0) {
 			Swal.fire({
 				icon: "warning",
 				title: "Pilih Kategori Sekolah",
-				text: "Pilih satu kategori sekolah untuk materi ini.",
+				text: "Pilih minimal satu kategori sekolah untuk materi ini.",
 			});
 			return;
 		}
@@ -269,7 +293,7 @@ const ManageMateri: React.FC = () => {
 				number: materialForm.number,
 				name: materialForm.name,
 				description: materialForm.description || null,
-				schoolCategoryIds: [selectedSchoolCategoryId],
+				schoolCategoryIds: selectedSchoolCategories,
 				scoreCategories: categoryInputs,
 			};
 
@@ -333,8 +357,9 @@ const ManageMateri: React.FC = () => {
 	};
 
 	// Materials offered in the "Salin dari" dropdown: only the assessment
-	// category currently being edited (e.g. PBB) and only the same school
-	// category, so the list stays short and relevant.
+	// category currently being edited (e.g. PBB) and only materials that share
+	// at least one of the selected school categories, so the list stays short
+	// and relevant.
 	const getMaterialsForCopy = () => {
 		if (!showMaterialForm) return [];
 		const category = categories.find((c) => c.id === showMaterialForm);
@@ -343,8 +368,8 @@ const ManageMateri: React.FC = () => {
 			(mat) =>
 				mat.scoreCategories.length > 0 &&
 				mat.id !== editingMaterial?.id &&
-				(!selectedSchoolCategoryId ||
-					mat.schoolCategoryIds.includes(selectedSchoolCategoryId))
+				(selectedSchoolCategories.length === 0 ||
+					mat.schoolCategoryIds.some((id) => selectedSchoolCategories.includes(id)))
 		);
 	};
 
@@ -381,8 +406,10 @@ const ManageMateri: React.FC = () => {
 			materialForm={materialForm}
 			setMaterialForm={setMaterialForm}
 			eventSchoolCategories={eventSchoolCategories}
-			selectedSchoolCategoryId={selectedSchoolCategoryId}
-			onSelectSchoolCategory={selectSchoolCategory}
+			selectedSchoolCategories={selectedSchoolCategories}
+			onToggleSchoolCategory={toggleSchoolCategory}
+			onSelectAllSchoolCategories={selectAllSchoolCategories}
+			onDeselectAllSchoolCategories={deselectAllSchoolCategories}
 			categoryInputs={categoryInputs}
 			setCategoryInputs={setCategoryInputs}
 			activeCategoryTab={activeCategoryTab}
@@ -397,7 +424,8 @@ const ManageMateri: React.FC = () => {
 	const renderScoringSheet = (
 		category: CategoryWithMaterials,
 		schoolName: string,
-		groupMaterials: Material[]
+		groupMaterials: Material[],
+		allowInlineEditForm: boolean
 	) => {
 		const sortedMaterials = [...groupMaterials].sort((a, b) => a.number - b.number);
 
@@ -580,8 +608,9 @@ const ManageMateri: React.FC = () => {
 											</div>
 										</td>
 									</tr>
-									{/* Show form right below the material being edited */}
-									{editingMaterial?.id === material.id && showMaterialForm === category.id && (
+									{/* Show form right below the material being edited (only in the
+									    first group it appears in, to avoid duplicate forms) */}
+									{allowInlineEditForm && editingMaterial?.id === material.id && showMaterialForm === category.id && (
 										<tr>
 											<td colSpan={2 + totalOptionCols + 1} className="p-0">
 												{renderMaterialForm()}
@@ -1230,13 +1259,30 @@ const ManageMateri: React.FC = () => {
 												/>
 											</div>
 										) : (
-											<div className="space-y-6">
-												{groupMaterialsBySchool(category.materials).map((group) => (
-													<div key={group.schoolCategory.id}>
-														{renderScoringSheet(category, group.schoolCategory.name, group.materials)}
+											(() => {
+												const groups = groupMaterialsBySchool(category.materials);
+												// Render the inline edit form only in the first group that
+												// contains the material being edited (it may appear in several).
+												const editFormGroupId = editingMaterial
+													? groups.find((g) =>
+															g.materials.some((m) => m.id === editingMaterial.id)
+													  )?.schoolCategory.id
+													: undefined;
+												return (
+													<div className="space-y-6">
+														{groups.map((group) => (
+															<div key={group.schoolCategory.id}>
+																{renderScoringSheet(
+																	category,
+																	group.schoolCategory.name,
+																	group.materials,
+																	group.schoolCategory.id === editFormGroupId
+																)}
+															</div>
+														))}
 													</div>
-												))}
-											</div>
+												);
+											})()
 										)}
 
 										{/* Add Material Button - only show when not editing */}
