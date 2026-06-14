@@ -1,0 +1,78 @@
+services:
+  database:
+    image: postgres:15
+    container_name: simpaskor_database
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: simpaskor_db
+      POSTGRES_USER: simpaskor_user
+      POSTGRES_PASSWORD: simpaskor_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - simpaskor-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simpaskor_user -d simpaskor_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: simpaskor_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://simpaskor_user:simpaskor_password@database:5432/simpaskor_db
+      NODE_ENV: production
+      FRONTEND_URL: https://simpaskor.id
+      CORS_ORIGINS: https://simpaskor.id,https://www.simpaskor.id
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - simpaskor-network
+    command: sh -c "npx prisma db push && npm start"
+    healthcheck:
+      # Backend exposes GET /api/health (returns 200). If the Node process
+      # crashes/hangs, the container is marked unhealthy and `restart` brings
+      # it back — so a single backend hiccup no longer takes everyone offline.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3001/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # Generous: `prisma db push` + build/start can take a while on boot.
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: simpaskor_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+    networks:
+      - simpaskor-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  postgres_data:
+
+networks:
+  simpaskor-network:
+    driver: bridge
