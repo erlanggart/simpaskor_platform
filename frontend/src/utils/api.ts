@@ -61,6 +61,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
 	(response) => response,
 	(error) => {
+		// Ignore canceled/aborted requests entirely. These happen on normal
+		// navigation (component unmount, tab switch, page reload while a
+		// request is in flight) and are NOT connection failures — showing a
+		// "Koneksi Terputus" popup for them falsely tells users with perfectly
+		// good internet that they're offline.
+		if (axios.isCancel(error) || error.code === "ERR_CANCELED") {
+			return Promise.reject(error);
+		}
+
 		// Handle 429 Rate Limiting
 		if (error.response?.status === 429) {
 			const retryAfter = error.response.headers['retry-after'];

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { RouteFallback } from "../components/RouteFallback";
 import { useAuth } from "../hooks/useAuth";
 import { LuHouse, LuStore, LuTicket, LuVote, LuCalendar, LuMenu, LuX } from "react-icons/lu";
 import "../components/landing/LandingPage.css";
@@ -165,7 +166,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 				}`}
 				style={showNavbar ? { height: "100vh" } : undefined}
 			>
-				<Outlet />
+				<Suspense fallback={<RouteFallback />}>
+					<Outlet />
+				</Suspense>
 			</main>
 
 			{/* ===== iPhone Hamburger Menu ===== */}

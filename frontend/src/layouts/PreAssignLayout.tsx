@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
+import { RouteFallback } from "../components/RouteFallback";
+import { preloadRoute } from "../utils/routePreload";
 import {
 	LuCalendar,
 	LuUser,
@@ -95,6 +97,8 @@ export const PreAssignLayout: React.FC = () => {
 							<Link
 								key={item.to}
 								to={item.to}
+								onMouseEnter={() => preloadRoute(item.to)}
+								onFocus={() => preloadRoute(item.to)}
 								className="group relative flex flex-col items-center gap-0.5 outline-none"
 								aria-label={item.label}
 							>
@@ -180,7 +184,9 @@ export const PreAssignLayout: React.FC = () => {
 
 			{/* ===== Main Content Area ===== */}
 			<main className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-[72px] pb-20 md:pb-6">
-				<Outlet />
+				<Suspense fallback={<RouteFallback />}>
+					<Outlet />
+				</Suspense>
 			</main>
 
 			{/* ===== Mobile Bottom Navigation ===== */}
@@ -194,6 +200,7 @@ export const PreAssignLayout: React.FC = () => {
 								<Link
 									key={item.to}
 									to={item.to}
+									onTouchStart={() => preloadRoute(item.to)}
 									className="group relative flex flex-col items-center gap-0.5 outline-none"
 									aria-label={item.label}
 								>

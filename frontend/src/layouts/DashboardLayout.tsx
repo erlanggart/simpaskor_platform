@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/api";
+import { RouteFallback } from "../components/RouteFallback";
+import { preloadRoute } from "../utils/routePreload";
 import { hasFeature, MENU_FEATURE_MAP } from "../utils/packageFeatures";
 import Swal from "sweetalert2";
 import {
@@ -454,6 +456,8 @@ export const DashboardLayout: React.FC = () => {
 							<Link
 								key={item.path}
 								to={item.path}
+								onMouseEnter={() => preloadRoute(item.path)}
+								onFocus={() => preloadRoute(item.path)}
 								className="group relative flex flex-col items-center gap-0.5 outline-none flex-shrink-0"
 								aria-label={item.name}
 							>
@@ -596,7 +600,9 @@ export const DashboardLayout: React.FC = () => {
 				onScroll={handleMainScroll}
 				className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-20 pt-14 md:pt-0 pb-20 md:pb-6"
 			>
-				<Outlet />
+				<Suspense fallback={<RouteFallback />}>
+					<Outlet />
+				</Suspense>
 			</main>
 
 			{/* ===== Mobile Bottom Navigation ===== */}
@@ -610,6 +616,7 @@ export const DashboardLayout: React.FC = () => {
 								<Link
 									key={item.path}
 									to={item.path}
+									onTouchStart={() => preloadRoute(item.path)}
 									className="group relative flex flex-col items-center gap-0.5 outline-none"
 									aria-label={item.name}
 								>
@@ -734,6 +741,7 @@ export const DashboardLayout: React.FC = () => {
 									<Link
 										key={item.path}
 										to={item.path}
+										onTouchStart={() => preloadRoute(item.path)}
 										onClick={() => setShowMoreMenu(false)}
 										className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
 											isActive(item.path)
