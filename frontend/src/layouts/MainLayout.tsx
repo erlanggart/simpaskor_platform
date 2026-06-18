@@ -38,10 +38,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
 			{/* ===== Top Header Bar ===== */}
 			{showNavbar && (
-				<header className="main-top-header absolute top-0 left-0 md:left-[72px] right-0 h-14 z-40 flex items-center justify-between md:justify-end px-4 md:px-8">
+				<header className="main-top-header absolute top-0 left-0 right-0 h-14 z-40 flex items-center justify-between px-4 md:px-8">
 					{/* Left: Logo + iPhone hamburger */}
-					<div className="flex md:hidden items-center gap-3">
-						{isIPhone ? (
+					<div className="flex items-center gap-3">
+						{isIPhone && (
 							<button
 								type="button"
 								onClick={() => setShowMobileMenu(true)}
@@ -50,7 +50,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 							>
 								<LuMenu className="w-5 h-5" />
 							</button>
-						) : (
+						)}
+						<Link to="/" aria-label="Simpaskor Home">
 							<div className="w-9 h-9 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/10 flex items-center justify-center">
 								<img
 									src="/simpaskor.webp"
@@ -58,7 +59,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 									className="w-7 h-7 object-contain"
 								/>
 							</div>
-						)}
+						</Link>
 						{/* <span className="text-sm font-bold text-gray-800 dark:text-white tracking-wide hidden sm:block">
 							SIMPASKOR
 						</span> */}
@@ -86,82 +87,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 				</header>
 			)}
 
-			{/* ===== Left Sidebar Navigation (desktop only) ===== */}
-			{showNavbar && (
-				<nav className="main-side-nav fixed left-0 top-0 h-screen w-14 md:w-[72px] z-50 hidden md:flex flex-col items-center justify-center gap-2 border-r border-gray-200/10 dark:border-white/5">
-					{/* Logo at top */}
-					<div className="absolute top-4 left-1/2 -translate-x-1/2">
-						<Link to="/">
-							<div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
-								<img
-									src="/simpaskor.webp"
-									alt="Logo"
-									className="w-6 h-6 md:w-7 md:h-7 object-contain"
-								/>
-							</div>
-						</Link>
-					</div>
-
-					{/* Navigation Items */}
-					<div className="flex flex-col items-center gap-1.5">
-						{featureNav.map((item) => {
-							const isActive =
-								item.to === "/"
-									? location.pathname === "/"
-									: location.pathname.startsWith(item.to);
-							const Icon = item.icon;
-
-							return (
-								<Link
-									key={item.to}
-									to={item.to}
-									className="group relative flex flex-col items-center gap-0.5 outline-none"
-									aria-label={item.label}
-								>
-									{/* Active indicator line */}
-									{isActive && (
-										<div className="absolute -left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full transition-all" />
-									)}
-
-									<div
-										className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
-											isActive
-												? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110 shadow-lg shadow-red-500/10"
-												: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
-										}`}
-									>
-										<Icon className="w-[18px] h-[18px] md:w-5 md:h-5" />
-									</div>
-
-									<span
-										className={`text-[8px] md:text-[9px] font-medium transition-all duration-300 leading-tight ${
-											isActive
-												? "text-red-500 dark:text-red-400 opacity-100"
-												: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
-										}`}
-									>
-										{item.label}
-									</span>
-
-									{/* Tooltip on hover */}
-									<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
-										{item.label}
-										<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
-									</div>
-								</Link>
-							);
-						})}
-					</div>
-				</nav>
-			)}
-
 			{/* ===== Main Content Area ===== */}
 			<main
 				className={`main-content-shell h-screen overflow-y-auto relative z-10 ${
 					showNavbar
 						? isIPhone
-							? "pl-0 md:pl-[72px] pt-14 pb-0 md:pb-0"
-							: "pl-0 md:pl-[72px] pt-14 pb-16 md:pb-0"
+							? "pt-14 pb-0 md:pb-0"
+							: "pt-14 pb-16 md:pb-0"
 						: ""
 				}`}
 				style={showNavbar ? { height: "100vh" } : undefined}

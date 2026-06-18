@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { LuArrowLeft, LuTrophy, LuSearch, LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { LuArrowLeft, LuSearch, LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { TrophyIcon } from "../components/common/LottieIcons";
 import { api } from "../utils/api";
 import type { KlasemenEntry } from "../hooks/useLandingData";
 
@@ -84,7 +85,7 @@ const KlasemenPage: React.FC = () => {
 						<span>Kembali</span>
 					</Link>
 					<div className="flex items-center gap-3 mb-2">
-						<LuTrophy className="w-7 h-7 text-yellow-500" />
+						<TrophyIcon className="w-7 h-7 text-yellow-500" />
 						<h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white">
 							Klasemen {currentYear}
 						</h1>
@@ -121,7 +122,7 @@ const KlasemenPage: React.FC = () => {
 					</div>
 				) : filtered.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-500">
-						<LuTrophy className="w-16 h-16 mb-4 opacity-20" />
+						<TrophyIcon className="w-16 h-16 mb-4 opacity-20" />
 						<p className="text-base font-medium">
 							{search ? "Tidak ditemukan" : "Belum ada data klasemen"}
 						</p>

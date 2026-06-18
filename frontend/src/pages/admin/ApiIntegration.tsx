@@ -11,7 +11,7 @@ import {
 } from "react-icons/lu";
 import { config } from "../../utils/config";
 
-const EXTERNAL_API_KEY = "simpaskor-admin-fee-2026-7d4f6c9b2a8e41f0b5c3d9e7a1f8b6c4";
+const EXTERNAL_API_KEY_PLACEHOLDER = "YOUR_EXTERNAL_FINANCE_API_KEY";
 
 function getExternalBaseUrl(): string {
 	const apiBase = config.api.baseUrl;
@@ -151,11 +151,11 @@ const lifetimeRows = [
 const ApiIntegration: React.FC = () => {
 	const adminFeeCurl = `curl -X GET \\
   "${ENDPOINTS.adminFees}?from=2026-01-01&to=2026-12-31&includeDetails=true" \\
-  -H "X-API-Key: ${EXTERNAL_API_KEY}"`;
+  -H "X-API-Key: ${EXTERNAL_API_KEY_PLACEHOLDER}"`;
 
 	const platformRevenueCurl = `curl -X GET \\
   "${ENDPOINTS.platformRevenue}?includeDetails=true" \\
-  -H "Authorization: Bearer ${EXTERNAL_API_KEY}"`;
+  -H "Authorization: Bearer ${EXTERNAL_API_KEY_PLACEHOLDER}"`;
 
 	const platformRevenueResponse = `{
   "currency": "IDR",
@@ -196,11 +196,11 @@ const ApiIntegration: React.FC = () => {
 
 	const balanceCurl = `curl -X GET \\
   "${ENDPOINTS.revenueShareBalances}?includeDetails=true" \\
-  -H "X-API-Key: ${EXTERNAL_API_KEY}"`;
+  -H "X-API-Key: ${EXTERNAL_API_KEY_PLACEHOLDER}"`;
 
 	const summaryCurl = `curl -X GET \\
   "${ENDPOINTS.summary}" \\
-  -H "X-API-Key: ${EXTERNAL_API_KEY}"`;
+  -H "X-API-Key: ${EXTERNAL_API_KEY_PLACEHOLDER}"`;
 
 	const balanceResponse = `{
   "currency": "IDR",
@@ -288,9 +288,12 @@ const ApiIntegration: React.FC = () => {
 							<label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">API Key</label>
 							<div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 rounded-lg px-4 py-3 border border-gray-200 dark:border-gray-700">
 								<LuKey className="w-4 h-4 text-gray-400 flex-shrink-0" />
-								<code className="text-sm text-gray-800 dark:text-gray-200 font-mono flex-1 break-all select-all">{EXTERNAL_API_KEY}</code>
-								<CopyButton text={EXTERNAL_API_KEY} />
+								<code className="text-sm text-gray-800 dark:text-gray-200 font-mono flex-1 break-all select-all">{EXTERNAL_API_KEY_PLACEHOLDER}</code>
+								<CopyButton text={EXTERNAL_API_KEY_PLACEHOLDER} />
 							</div>
+							<p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+								Simpan key asli di environment backend sebagai <code className="font-mono">EXTERNAL_FINANCE_API_KEY</code>. Jangan taruh key asli di frontend atau dokumentasi publik.
+							</p>
 						</div>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
 							<div className="bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">

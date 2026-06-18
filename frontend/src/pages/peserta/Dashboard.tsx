@@ -15,11 +15,11 @@ import {
 	LuMapPin,
 	LuSearch,
 	LuTicket,
-	LuTrophy,
 	LuUser,
 	LuVote,
 	LuCircleX,
 } from "react-icons/lu";
+import { TrophyIcon } from "../../components/common/LottieIcons";
 
 type SearchableEvent = {
 	event: Event;
@@ -621,7 +621,7 @@ const PesertaDashboard: React.FC = () => {
 													/>
 												) : (
 													<div className="flex h-full items-center justify-center text-red-500 dark:text-red-300">
-														<LuTrophy className="h-10 w-10" />
+														<TrophyIcon className="h-10 w-10" />
 													</div>
 												)}
 												<div className="absolute left-3 top-3">
@@ -704,7 +704,7 @@ const PesertaDashboard: React.FC = () => {
 					) : (
 						<div className="mt-3">
 							<EmptyState
-								icon={<LuTrophy className="h-5 w-5" />}
+								icon={<TrophyIcon className="h-5 w-5" />}
 								title="Belum ada event terkonfirmasi untuk dilihat nilainya"
 							/>
 						</div>
@@ -746,7 +746,7 @@ const PesertaDashboard: React.FC = () => {
 												/>
 											) : (
 												<div className="flex h-full items-center justify-center text-red-500 dark:text-red-300">
-													<LuTrophy className="h-8 w-8" />
+													<TrophyIcon className="h-8 w-8" />
 												</div>
 											)}
 											<span className="absolute left-2 top-2 rounded-lg bg-amber-500 px-2 py-1 text-[11px] font-bold text-white">
@@ -772,7 +772,7 @@ const PesertaDashboard: React.FC = () => {
 						</div>
 					) : (
 						<EmptyState
-							icon={<LuTrophy className="h-5 w-5" />}
+							icon={<TrophyIcon className="h-5 w-5" />}
 							title="Belum ada event unggulan"
 						/>
 					)}

@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { LuArrowRight, LuTrophy } from "react-icons/lu";
+import { LuArrowRight } from "react-icons/lu";
+import { TrophyIcon } from "../common/LottieIcons";
 import type { KlasemenEntry } from "../../hooks/useLandingData";
 
 interface KlasemenSectionProps {
@@ -70,7 +71,7 @@ const KlasemenSection: React.FC<KlasemenSectionProps> = ({
 						</div>
 					) : top5.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-							<LuTrophy className="w-12 h-12 mb-3 opacity-30" />
+							<TrophyIcon className="w-12 h-12 mb-3 opacity-30" />
 							<p className="text-sm">Belum ada data klasemen</p>
 						</div>
 					) : (

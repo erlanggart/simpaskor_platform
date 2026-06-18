@@ -40,6 +40,8 @@ server {
     include /etc/nginx/snippets/simpaskor-error-pages.conf;
 
     location / {
+        # Port 5173 is mapped to the production frontend container's nginx:80.
+        # It must not run Vite dev server in production.
         proxy_pass http://127.0.0.1:5173;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

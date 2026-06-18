@@ -8,7 +8,8 @@ import {
 	CheckIcon,
 	CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import { LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus, LuMedal, LuTrophy } from "react-icons/lu";
+import { LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus, LuMedal } from "react-icons/lu";
+import { TrophyIcon } from "../common/LottieIcons";
 import { Step2Props, Step2Data, PackageTier } from "../../types/eventWizard";
 import { AssessmentCategory } from "../../types/eventWizard";
 
@@ -71,7 +72,7 @@ const packageChoices: PackageChoice[] = [
 	{
 		tier: "GOLD",
 		name: "Gold",
-		icon: LuTrophy,
+		icon: TrophyIcon,
 		color: "yellow",
 		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
 		bgGlow: "from-yellow-500/10 to-yellow-600/5",

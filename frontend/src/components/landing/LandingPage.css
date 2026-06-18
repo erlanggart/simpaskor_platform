@@ -7,6 +7,8 @@
 	scroll-snap-type: y mandatory;
 	scroll-behavior: smooth;
 	-webkit-overflow-scrolling: touch;
+	/* Keep momentum contained so the snap doesn't "rubber-band" the page */
+	overscroll-behavior-y: contain;
 }
 
 /* Hide scrollbar but keep functionality */
@@ -34,23 +36,32 @@
 /* ===== Section Transition Animations ===== */
 .landing-section-inner > * {
 	opacity: 0;
-	transform: translateY(32px);
+	transform: translate3d(0, 28px, 0) scale(0.985);
+	/* Promote to its own GPU layer to keep the reveal buttery-smooth */
+	will-change: opacity, transform;
+	backface-visibility: hidden;
 	transition:
-		opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-		transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+		opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+		transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .landing-section-inner.section-visible > * {
 	opacity: 1;
-	transform: translateY(0);
+	transform: translate3d(0, 0, 0) scale(1);
 }
 
-/* Stagger children inside the visible section */
+/* Stagger children inside the visible section for a layered, smooth entrance */
 .landing-section-inner.section-visible > *:nth-child(2) {
-	transition-delay: 0.1s;
+	transition-delay: 0.09s;
 }
 .landing-section-inner.section-visible > *:nth-child(3) {
-	transition-delay: 0.2s;
+	transition-delay: 0.18s;
+}
+.landing-section-inner.section-visible > *:nth-child(4) {
+	transition-delay: 0.27s;
+}
+.landing-section-inner.section-visible > *:nth-child(5) {
+	transition-delay: 0.36s;
 }
 
 /* ===== Mobile: disable snap, allow sections to grow ===== */
@@ -75,66 +86,75 @@
 	/* On mobile, sections are always visible (no scroll snap) */
 	.landing-section-inner > * {
 		opacity: 0;
-		transform: translateY(24px);
+		transform: translate3d(0, 20px, 0) scale(0.99);
 	}
 
 	.landing-section-inner.section-visible > * {
 		opacity: 1;
-		transform: translateY(0);
+		transform: translate3d(0, 0, 0) scale(1);
 	}
 }
 
-/* ===== Main Layout Background Grid + Gradient (Dark) ===== */
+/* ===== Respect users who prefer reduced motion ===== */
+@media (prefers-reduced-motion: reduce) {
+	.landing-scroll-container {
+		scroll-behavior: auto;
+	}
+
+	.landing-section-inner > * {
+		transition-duration: 0.01ms !important;
+		transition-delay: 0ms !important;
+		transform: none !important;
+	}
+}
+
+/* ===== Main Layout Background (Dark) ===== */
 .main-layout-bg {
 	position: fixed;
 	inset: 0;
 	z-index: 0;
 	pointer-events: none;
 	/* Dark mode default */
-	background-color: #080810;
+	background-color: #030303;
 	background-image: none;
 }
 
-/* Red gradient overlay - Dark (stronger so grid lines pop) */
+/* Subtle neutral depth - Dark */
 .main-layout-bg::before {
 	content: "";
 	position: absolute;
 	inset: 0;
 	background:
 		radial-gradient(
-			ellipse 90% 70% at 50% 40%,
-			rgba(185, 28, 28, 0.18) 0%,
-			rgba(127, 29, 29, 0.09) 35%,
-			rgba(80, 10, 10, 0.04) 60%,
-			transparent 80%
+			ellipse 90% 70% at 50% 0%,
+			rgba(255, 255, 255, 0.045) 0%,
+			rgba(255, 255, 255, 0.02) 34%,
+			transparent 72%
 		),
 		radial-gradient(
-			circle 500px at 25% 70%,
-			rgba(220, 38, 38, 0.1) 0%,
-			transparent 100%
+			circle 560px at 18% 80%,
+			rgba(255, 255, 255, 0.026) 0%,
+			transparent 76%
 		),
 		radial-gradient(
-			circle 400px at 75% 25%,
-			rgba(185, 28, 28, 0.08) 0%,
-			transparent 100%
+			circle 420px at 88% 24%,
+			rgba(255, 255, 255, 0.02) 0%,
+			transparent 72%
 		);
 	pointer-events: none;
 }
 
-/* Secondary accent glow - Dark */
+/* Quiet black vignette - Dark */
 .main-layout-bg::after {
 	content: "";
 	position: absolute;
 	inset: 0;
-	background: radial-gradient(
-			circle 400px at 20% 80%,
-			rgba(220, 38, 38, 0.06) 0%,
-			transparent 100%
-		),
+	background:
 		radial-gradient(
-			circle 300px at 80% 20%,
-			rgba(239, 68, 68, 0.05) 0%,
-			transparent 100%
+			ellipse 90% 60% at 50% 50%,
+			transparent 0%,
+			rgba(0, 0, 0, 0.22) 72%,
+			rgba(0, 0, 0, 0.44) 100%
 		);
 	pointer-events: none;
 }
@@ -154,6 +174,15 @@ html:not(.dark) .main-layout-bg::before {
 :root:not(.dark) .main-layout-bg::after,
 html:not(.dark) .main-layout-bg::after {
 	background: transparent;
+}
+
+/* ===== Dark Mode Landing Text ===== */
+html.dark .landing-page :where([class*="text-gray-"], [class*="text-slate-"]) {
+	color: rgba(255, 255, 255, 0.94) !important;
+}
+
+html.dark .landing-page :where([class*="placeholder:text-gray-"])::placeholder {
+	color: rgba(255, 255, 255, 0.72) !important;
 }
 
 /* ===== Gradient Title Text ===== */
@@ -3915,31 +3944,35 @@ html:not(.dark) .section-icon-glow-purple::before {
 /* ===== SIMPASKOR Hero Title Animations ===== */
 
 @keyframes simpaskorShimmer {
-	0%   { background-position: 150% center; }
-	100% { background-position: -150% center; }
+	0%, 100% { background-position: 0% center; }
+	50% { background-position: 100% center; }
 }
 
 @keyframes simpaskorLetterIn {
 	0% {
 		opacity: 0;
-		transform: translateY(32px);
-		filter: blur(8px);
+		transform: translateY(18px) scale(0.98);
+		filter: blur(5px);
 	}
 	100% {
 		opacity: 1;
-		transform: translateY(0);
+		transform: translateY(0) scale(1);
 		filter: blur(0);
 	}
 }
 
 @keyframes simpaskorUnderline {
-	0%   { width: 0%; opacity: 0; }
-	100% { width: 6rem; opacity: 1; }
+	0% { width: 0; opacity: 0; transform: translateY(3px); }
+	100% { width: 6rem; opacity: 1; transform: translateY(0); }
 }
 
 /* Wrapper */
 .simpaskor-animated-title {
 	display: block;
+	font-family: "Poppins", Inter, system-ui, sans-serif;
+	font-weight: 900;
+	letter-spacing: 0.015em;
+	text-rendering: geometricPrecision;
 }
 
 /* Each letter */
@@ -3958,13 +3991,13 @@ html:not(.dark) .section-icon-glow-purple::before {
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
-	background-size: 300% auto;
+	background-size: 220% auto;
 	animation:
-		simpaskorLetterIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both,
-		simpaskorShimmer 6s linear infinite;
+		simpaskorLetterIn 0.95s cubic-bezier(0.16, 1, 0.3, 1) both,
+		simpaskorShimmer 12s ease-in-out infinite;
 	animation-delay:
 		var(--letter-delay, 0s),
-		calc(var(--letter-delay, 0s) + 0.6s);
+		calc(var(--letter-delay, 0s) + 0.9s);
 }
 
 /* Light mode */
@@ -3983,7 +4016,7 @@ html:not(.dark) .simpaskor-letter {
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	background-clip: text;
-	background-size: 300% auto;
+	background-size: 220% auto;
 }
 
 /* Underline */
@@ -3992,8 +4025,8 @@ html:not(.dark) .simpaskor-letter {
 	width: 0;
 	background: linear-gradient(90deg, #dc2626, #f87171 50%, #dc2626);
 	border-radius: 2px;
-	animation: simpaskorUnderline 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-	animation-delay: 0.85s;
+	animation: simpaskorUnderline 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	animation-delay: 0.95s;
 	margin-top: 8px;
 	margin-bottom: 20px;
 	opacity: 0.6;
@@ -4227,6 +4260,14 @@ html:not(.dark) .simpaskor-underline {
 		transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
 		box-shadow 0.24s ease,
 		border-color 0.24s ease;
+}
+
+/* Desktop: card is borderless/transparent, so let labels show fully
+   instead of being clipped by the mobile card's overflow:hidden */
+@media (min-width: 640px) {
+	.landing-stat-card {
+		overflow: visible;
+	}
 }
 
 .landing-stat-card:hover {

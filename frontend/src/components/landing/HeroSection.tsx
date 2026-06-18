@@ -12,6 +12,7 @@ interface HeroSectionProps {
 		value: string;
 		label: string;
 		icon: React.ComponentType<{ className?: string }>;
+		iconClassName?: string;
 	}[];
 	onScrollNext: () => void;
 }
@@ -36,8 +37,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 									key={i}
 									className="simpaskor-letter"
 									style={{
-										"--letter-delay": `${i * 0.08}s`,
-										"--shimmer-offset": `${i * 22}%`,
+										"--letter-delay": `${i * 0.055}s`,
 									} as React.CSSProperties}
 								>
 									{letter}
@@ -47,7 +47,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 						<div className="simpaskor-underline mx-auto lg:mx-0" />
 
 						<p className="text-xs sm:text-sm md:text-base text-gray-500 dark:text-gray-500 leading-relaxed mb-4 md:mb-8 max-w-[20rem] sm:max-w-lg mx-auto lg:mx-0">
-							Solusi All-in-One: Transformasi Digital untuk Rekap Nilai, Tiketing, Voting, Marketplace, hingga Direktori Juri dan Peserta dalam Satu Genggaman.
+							Solusi All-in-One: Transformasi Digital untuk Rekap Nilai, Tiketing, dan Voting.
 						</p>
 						<div className="grid w-full max-w-[18.5rem] grid-cols-1 gap-2.5 mx-auto sm:max-w-none sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
 							<Link
@@ -76,14 +76,14 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 											<div className="hidden sm:block w-[1px] h-8 sm:h-12 bg-gray-200 dark:bg-white/10" />
 										)}
 										<div className="landing-stat-card flex items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/80 px-2.5 py-2 text-left shadow-sm shadow-gray-900/[0.03] dark:border-white/[0.08] dark:bg-white/[0.04] sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:gap-3">
-											<div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-gray-100 dark:bg-white/[0.05] border border-gray-200 dark:border-white/[0.08] flex shrink-0 items-center justify-center">
-												<stat.icon className="w-3 h-3 sm:w-4 sm:h-4 text-red-500 dark:text-red-400/80" />
+											<div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg bg-gray-900 dark:bg-black border border-gray-800 dark:border-white/10 flex shrink-0 items-center justify-center overflow-hidden">
+												<stat.icon className={`${stat.iconClassName ?? "w-7 h-7 sm:w-8 sm:h-8"} text-red-500 dark:text-red-400/80`} />
 											</div>
-											<div className="min-w-0">
-												<p className="text-base sm:text-lg md:text-xl font-bold text-gray-800 dark:text-white">
+											<div className="min-w-0 sm:min-w-fit">
+												<p className="text-base sm:text-lg md:text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">
 													{stat.value}
 												</p>
-												<p className="text-[7px] sm:text-[9px] md:text-[10px] tracking-wider text-gray-400 dark:text-gray-500 font-medium leading-tight">
+												<p className="text-[7px] sm:text-[9px] md:text-[10px] tracking-normal sm:tracking-wide text-gray-400 dark:text-gray-500 font-medium leading-tight sm:whitespace-nowrap">
 													{stat.label}
 												</p>
 											</div>

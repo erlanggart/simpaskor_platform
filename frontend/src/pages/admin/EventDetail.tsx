@@ -6,7 +6,6 @@ import {
 	LuUsers,
 	LuBadgeDollarSign,
 	LuUserCog,
-	LuTrophy,
 	LuPencil,
 	LuArrowLeft,
 	LuBookOpen,
@@ -16,6 +15,7 @@ import {
 	LuClock,
 	LuCircleX,
 } from "react-icons/lu";
+import { TrophyIcon } from "../../components/common/LottieIcons";
 import { api } from "../../utils/api";
 
 interface SchoolCategoryLimit {
@@ -245,7 +245,7 @@ const AdminEventDetail: React.FC = () => {
 	const tabs: { key: TabType; label: string; icon: React.ReactNode }[] = [
 		{ key: "info", label: "Informasi", icon: <LuCalendar className="w-4 h-4" /> },
 		{ key: "panitia", label: "Panitia", icon: <LuUserCog className="w-4 h-4" /> },
-		{ key: "juri", label: "Juri", icon: <LuTrophy className="w-4 h-4" /> },
+		{ key: "juri", label: "Juri", icon: <TrophyIcon className="w-4 h-4" /> },
 		{ key: "peserta", label: "Peserta", icon: <LuUsers className="w-4 h-4" /> },
 		{ key: "materi", label: "Materi", icon: <LuBookOpen className="w-4 h-4" /> },
 		{ key: "rekap", label: "Rekapitulasi", icon: <LuChartBar className="w-4 h-4" /> },

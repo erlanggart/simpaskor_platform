@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link, Outlet, useOutlet, useNavigate } from "react-router-dom";
 import {
-	LuTrophy,
 	LuSearch,
 	LuCalendar,
 	LuCircleCheck,
@@ -14,6 +13,7 @@ import {
 	LuCircleX,
 	LuArrowLeft,
 } from "react-icons/lu";
+import { TrophyIcon } from "../../components/common/LottieIcons";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import {
@@ -751,7 +751,7 @@ const JuriEventPenilaian: React.FC = () => {
 				{/* Participants List */}
 				{filteredParticipants.length === 0 ? (
 					<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-12 text-center border border-gray-200/50 dark:border-white/[0.06]">
-						<LuTrophy className="mx-auto w-12 h-12 text-gray-400 dark:text-gray-600" />
+						<TrophyIcon className="mx-auto w-12 h-12 text-gray-400 dark:text-gray-600" />
 						<h3 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">
 							{participants.length === 0
 								? "Belum Ada Peserta"

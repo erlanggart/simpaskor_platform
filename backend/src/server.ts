@@ -75,10 +75,10 @@ app.use(
 			origin: (origin: string | undefined, originCallback: (err: Error | null, allow?: boolean) => void) => {
 				// Allow requests with no origin (server-to-server, webhooks)
 				if (!origin) return originCallback(null, true);
-				if (req.path.startsWith("/api/external") || allowedOrigins.includes(origin)) {
+				if (allowedOrigins.includes(origin)) {
 					originCallback(null, true);
 				} else {
-					originCallback(new Error("Not allowed by CORS"));
+					originCallback(null, false);
 				}
 			},
 			credentials: true,

@@ -8,7 +8,8 @@ import {
 	PhoneIcon,
 	ClockIcon,
 } from "@heroicons/react/24/outline";
-import { LuMedal, LuTrophy, LuCheck, LuX, LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus } from "react-icons/lu";
+import { LuMedal, LuCheck, LuX, LuMegaphone, LuTicket, LuThumbsUp, LuTicketPlus } from "react-icons/lu";
+import { TrophyIcon } from "../common/LottieIcons";
 import { Step4Props, PackageTier, EventPaymentData } from "../../types/eventWizard";
 import { api } from "../../utils/api";
 import { usePayment } from "../../hooks/usePayment";
@@ -123,7 +124,7 @@ const packages: PackageOption[] = [
 		name: "Paket Gold",
 		price: 1500000,
 		priceLabel: PACKAGE_PRICE_LABELS.GOLD,
-		icon: LuTrophy,
+		icon: TrophyIcon,
 		color: "yellow",
 		borderColor: "border-yellow-400/50 dark:border-yellow-500/30",
 		bgGlow: "from-yellow-500/10 to-yellow-600/5",

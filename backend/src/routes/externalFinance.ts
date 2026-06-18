@@ -7,12 +7,7 @@ import { getEventRevenueLedgerSummary, reconcileEventRevenueLedger } from "../li
 
 const router = Router();
 
-// Fallback retained for backward compatibility with deployments that have not
-// yet rotated the key into env. New environments should set EXTERNAL_FINANCE_API_KEY.
-const FALLBACK_EXTERNAL_FINANCE_API_KEY =
-	"simpaskor-admin-fee-2026-7d4f6c9b2a8e41f0b5c3d9e7a1f8b6c4";
-const EXTERNAL_FINANCE_API_KEY =
-	process.env.EXTERNAL_FINANCE_API_KEY?.trim() || FALLBACK_EXTERNAL_FINANCE_API_KEY;
+const EXTERNAL_FINANCE_API_KEY = process.env.EXTERNAL_FINANCE_API_KEY?.trim() || "";
 
 const getExternalApiKey = (req: Request): string => {
 	const apiKeyHeader = req.headers["x-api-key"];
@@ -37,6 +32,13 @@ const secureEquals = (value: string, expected: string): boolean => {
 };
 
 const requireExternalFinanceApiKey = (req: Request, res: Response, next: NextFunction): Response | void => {
+	if (!EXTERNAL_FINANCE_API_KEY) {
+		return res.status(503).json({
+			error: "Service unavailable",
+			message: "External finance API belum dikonfigurasi",
+		});
+	}
+
 	if (!secureEquals(getExternalApiKey(req), EXTERNAL_FINANCE_API_KEY)) {
 		return res.status(401).json({
 			error: "Access denied",

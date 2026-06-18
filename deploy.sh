@@ -61,8 +61,8 @@ git pull origin main >> "$LOG_FILE" 2>&1
 install_nginx_update_page
 
 echo "Restarting containers..." >> "$LOG_FILE"
-docker compose down >> "$LOG_FILE" 2>&1
-docker compose up -d --build -V >> "$LOG_FILE" 2>&1
+docker compose -f docker-compose.prod.yml down >> "$LOG_FILE" 2>&1
+docker compose -f docker-compose.prod.yml up -d --build -V >> "$LOG_FILE" 2>&1
 
 echo "Deploy completed at $(date)" >> "$LOG_FILE"
 echo "============================================" >> "$LOG_FILE"

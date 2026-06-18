@@ -21,7 +21,6 @@ import {
 	LuMoon,
 	LuGraduationCap,
 	LuMapPin,
-	LuTrophy,
 	LuShoppingBag,
 	LuClipboardList,
 	LuThumbsUp,
@@ -35,6 +34,7 @@ import {
 	LuBell,
 	LuCode,
 } from "react-icons/lu";
+import { TrophyIcon } from "../components/common/LottieIcons";
 import "../components/landing/LandingPage.css";
 
 interface MenuItem {
@@ -210,7 +210,7 @@ export const DashboardLayout: React.FC = () => {
 						{ name: "Peserta", icon: LuUsers, path: `/panitia/events/${slug}/peserta` },
 						{ name: "Juri", icon: LuScale, path: `/panitia/events/${slug}/juri` },
 						{ name: "Materi", icon: LuGraduationCap, path: `/panitia/events/${slug}/materi` },
-						{ name: "Juara", icon: LuTrophy, path: `/panitia/events/${slug}/juara` },
+						{ name: "Juara", icon: TrophyIcon, path: `/panitia/events/${slug}/juara` },
 						{ name: "Perform", icon: LuMapPin, path: `/panitia/events/${slug}/field-rechecking` },
 						{ name: "Rekap", icon: LuChartBar, path: `/panitia/events/${slug}/rekapitulasi` },
 						{ name: "Tiket", icon: LuTicket, path: `/panitia/events/${slug}/ticketing` },
@@ -230,7 +230,7 @@ export const DashboardLayout: React.FC = () => {
 			case "PESERTA":
 				roleSpecificItems.push(
 					{ name: "Event", icon: LuCalendar, path: "/peserta/events" },
-					{ name: "Pendaftaran", icon: LuTrophy, path: "/peserta/registrations" },
+					{ name: "Pendaftaran", icon: TrophyIcon, path: "/peserta/registrations" },
 					{ name: "Riwayat", icon: LuChartBar, path: "/peserta/assessment-history" }
 				);
 				break;
@@ -239,7 +239,7 @@ export const DashboardLayout: React.FC = () => {
 					roleSpecificItems.push(
 						{ name: "Materi", icon: LuGraduationCap, path: `/juri/events/${activeJuryEvent.event.slug}/materi` },
 						{ name: "Peserta", icon: LuUsers, path: `/juri/events/${activeJuryEvent.event.slug}/peserta` },
-						{ name: "Penilaian", icon: LuTrophy, path: `/juri/events/${activeJuryEvent.event.slug}/penilaian` }
+						{ name: "Penilaian", icon: TrophyIcon, path: `/juri/events/${activeJuryEvent.event.slug}/penilaian` }
 					);
 				}
 				break;

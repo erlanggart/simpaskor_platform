@@ -168,7 +168,9 @@ logs
 *.log
 
 # Docker
-.dockerignore
+!.dockerignore
+!backend/.dockerignore
+!frontend/.dockerignore
 
 # Database
 *.sqlite

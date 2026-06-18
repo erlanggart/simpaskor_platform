@@ -1,12 +1,12 @@
 import type React from "react";
 import {
 	LuMedal,
-	LuTrophy,
 	LuMegaphone,
 	LuTicket,
 	LuThumbsUp,
 	LuTicketPlus,
 } from "react-icons/lu";
+import { TrophyIcon } from "../common/LottieIcons";
 import { PACKAGE_PRICE_LABELS } from "../../utils/packagePricing";
 
 export type PackageTier = "IKLAN" | "TICKETING" | "VOTING" | "TICKETING_VOTING" | "BRONZE" | "GOLD";
@@ -116,7 +116,7 @@ export const packages: PricingPackage[] = [
 		price: PACKAGE_PRICE_LABELS.GOLD,
 		kicker: "Full service",
 		summary: "Tim pendamping, device tablet, rekap, dan materi penilaian untuk event serius.",
-		icon: LuTrophy,
+		icon: TrophyIcon,
 		btnClass: "bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white",
 		accent: "#eab308",
 		accentSoft: "rgba(234,179,8,0.18)",

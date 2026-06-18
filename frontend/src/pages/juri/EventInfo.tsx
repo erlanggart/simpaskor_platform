@@ -6,7 +6,6 @@ import {
 	LuUsers,
 	LuClock,
 	LuBadgeDollarSign,
-	LuTrophy,
 	LuInfo,
 	LuGraduationCap,
 	LuCircleX,
@@ -14,6 +13,7 @@ import {
 	LuBuilding,
 	LuMail,
 } from "react-icons/lu";
+import { TrophyIcon } from "../../components/common/LottieIcons";
 import { api } from "../../utils/api";
 
 interface SchoolCategoryLimit {
@@ -190,7 +190,7 @@ const JuriEventInfo: React.FC = () => {
 
 	const tabs = [
 		{ id: "info", label: "Informasi Event", icon: LuInfo },
-		{ id: "penilaian", label: "Kategori Penilaian", icon: LuTrophy },
+		{ id: "penilaian", label: "Kategori Penilaian", icon: TrophyIcon },
 	];
 
 	return (
@@ -514,7 +514,7 @@ const JuriEventInfo: React.FC = () => {
 						{event.assessmentCategories && event.assessmentCategories.length > 0 && (
 							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-									<LuTrophy className="w-5 h-5 text-red-500" />
+									<TrophyIcon className="w-5 h-5 text-red-500" />
 									Semua Kriteria Penilaian
 								</h2>
 								<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">

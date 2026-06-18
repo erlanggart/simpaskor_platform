@@ -9,7 +9,6 @@ import {
 	LuCircleCheck,
 	LuCircleX,
 	LuArrowLeft,
-	LuTrophy,
 	LuFileDown,
 	LuEye,
 	LuMessageCircle,
@@ -20,6 +19,7 @@ import {
 	LuShare2,
 	LuHeart,
 } from "react-icons/lu";
+import { TrophyIcon } from "../components/common/LottieIcons";
 import api from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
 // Registration is handled via dedicated page /peserta/events/:id/register
@@ -446,10 +446,10 @@ const EventDetail: React.FC = () => {
 	// Determine tabs for the event
 	const tabs = [
 		{ id: "info", label: "Informasi Event", icon: LuInfo },
-		{ id: "jury", label: "Juri & Penilaian", icon: LuTrophy },
+		{ id: "jury", label: "Juri & Penilaian", icon: TrophyIcon },
 		{ id: "peserta", label: "Peserta", icon: LuUsers },
 		...(event.status === "COMPLETED"
-			? [{ id: "leaderboard", label: "Hasil Perlombaan", icon: LuTrophy }]
+			? [{ id: "leaderboard", label: "Hasil Perlombaan", icon: TrophyIcon }]
 			: []),
 	];
 
@@ -787,7 +787,7 @@ const EventDetail: React.FC = () => {
 						{event.assessmentCategories && event.assessmentCategories.length > 0 && (
 							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-									<LuTrophy className="w-5 h-5 text-red-500" />
+									<TrophyIcon className="w-5 h-5 text-red-500" />
 									Kriteria Penilaian
 								</h2>
 								<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -821,7 +821,7 @@ const EventDetail: React.FC = () => {
 						{event.juryAssignments && event.juryAssignments.length > 0 ? (
 							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 								<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-									<LuTrophy className="w-5 h-5 text-yellow-500" />
+									<TrophyIcon className="w-5 h-5 text-yellow-500" />
 									Dewan Juri ({event.juryAssignments.length})
 								</h2>
 								<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -870,7 +870,7 @@ const EventDetail: React.FC = () => {
 							</div>
 						) : (
 							<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-8 text-center border border-gray-200/50 dark:border-white/[0.06]">
-								<LuTrophy className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+								<TrophyIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
 								<p className="text-gray-500 dark:text-gray-400">Belum ada juri yang ditugaskan</p>
 							</div>
 						)}
@@ -1024,7 +1024,7 @@ const EventDetail: React.FC = () => {
 					return (
 						<div className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-gray-200/50 dark:border-white/[0.06]">
 							<h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-								<LuTrophy className="w-5 h-5 text-yellow-500" />
+								<TrophyIcon className="w-5 h-5 text-yellow-500" />
 								Rekapitulasi Nilai & Peringkat
 							</h2>
 
@@ -1090,7 +1090,7 @@ const EventDetail: React.FC = () => {
 								</table>
 								{ranked.length === 0 && (
 									<div className="text-center py-8 text-gray-500 dark:text-gray-400">
-										<LuTrophy className="w-12 h-12 mx-auto mb-2 opacity-30" />
+										<TrophyIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
 										<p>Belum ada data peringkat untuk kategori ini</p>
 									</div>
 								)}

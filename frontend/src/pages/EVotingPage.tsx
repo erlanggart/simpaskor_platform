@@ -20,7 +20,6 @@ import {
 	LuSparkles,
 	LuThumbsUp,
 	LuTicket,
-	LuTrophy,
 	LuUser,
 	LuUsers,
 	LuVolume2,
@@ -28,6 +27,7 @@ import {
 	LuX,
 	LuZap,
 } from "react-icons/lu";
+import { TrophyIcon } from "../components/common/LottieIcons";
 import Swal from "sweetalert2";
 import VoteGuideCard from "../components/landing/VoteGuideCard";
 import LiveAlertSystem, { LiveAlert, GiftBoostType } from "../components/voting/LiveAlertSystem";
@@ -1752,7 +1752,7 @@ const EVotingPage: React.FC = () => {
 
 										{movedUp && (
 											<div className="arena-rank-pred">
-												<LuTrophy className="h-4 w-4 text-amber-300" />
+												<TrophyIcon className="h-4 w-4 text-amber-300" />
 												<span>
 													Boost ini bisa dorong <strong className="text-white">{selectedPaidNominee?.nomineeName}</strong> ke{" "}
 													<span className="arena-numeric font-extrabold text-emerald-300">rank #{predictedRank}</span>!
@@ -1970,7 +1970,7 @@ const EVotingPage: React.FC = () => {
 
 							<div className="mt-7 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
 								<div className="evoting-mini-stat">
-									<LuTrophy className="h-4 w-4 text-amber-500" />
+									<TrophyIcon className="h-4 w-4 text-amber-500" />
 									<span>{events.length}</span>
 									<p>Event</p>
 								</div>
@@ -2079,7 +2079,7 @@ const EVotingPage: React.FC = () => {
 												/>
 											) : (
 												<div className="w-full h-full flex items-center justify-center">
-													<LuTrophy className="w-10 h-10 text-slate-400/[0.45] dark:text-slate-500" />
+													<TrophyIcon className="w-10 h-10 text-slate-400/[0.45] dark:text-slate-500" />
 												</div>
 											)}
 											<div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/[0.78] to-transparent" />

@@ -113,7 +113,7 @@ router.get("/events", async (req: AuthenticatedRequest, res: Response) => {
 		const skip = (pageNum - 1) * limitNum;
 
 		const where: any = {
-			status: { in: ["PUBLISHED", "ONGOING"] },
+			status: { in: ["PUBLISHED", "ONGOING", "COMPLETED"] },
 			ticketConfig: {
 				is: { enabled: true },
 			},
