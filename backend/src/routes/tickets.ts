@@ -1725,4 +1725,181 @@ router.post(
 	}
 );
 
+// POST /api/tickets/admin/event/:eventId/ots - On-The-Spot (OTS) ticket sale by panitia
+// Supports TUNAI (cash, marks PAID immediately) and QRIS (Midtrans Snap, returns snapToken)
+router.post(
+	"/admin/event/:eventId/ots",
+	authenticate,
+	authorize("SUPERADMIN", "PANITIA"),
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const { eventId } = req.params;
+			const { buyerName, buyerPhone, buyerEmail, quantity, paymentMethod, ticketTeamId } = req.body;
+
+			if (!buyerName?.trim()) {
+				return res.status(400).json({ error: "Nama pembeli wajib diisi" });
+			}
+			const qty = parseInt(quantity, 10);
+			if (!qty || qty < 1 || qty > 50) {
+				return res.status(400).json({ error: "Jumlah tiket tidak valid (1-50)" });
+			}
+			if (!["TUNAI", "QRIS"].includes(paymentMethod)) {
+				return res.status(400).json({ error: "Metode pembayaran tidak valid (TUNAI atau QRIS)" });
+			}
+
+			// Fetch event and ticket config
+			const event = await prisma.event.findUnique({
+				where: { id: eventId },
+				select: {
+					id: true,
+					title: true,
+					startDate: true,
+					venue: true,
+					city: true,
+					ticketConfig: {
+						select: { id: true, price: true, quota: true, soldCount: true, description: true, enabled: true },
+					},
+				},
+			});
+
+			if (!event || !event.ticketConfig) {
+				return res.status(404).json({ error: "Event atau konfigurasi tiket tidak ditemukan" });
+			}
+
+			const { ticketConfig } = event;
+
+			// Check quota (OTS still respects quota limit)
+			if (ticketConfig.soldCount + qty > ticketConfig.quota) {
+				const remaining = ticketConfig.quota - ticketConfig.soldCount;
+				return res.status(400).json({ error: `Kuota tiket tidak cukup. Sisa: ${remaining} tiket` });
+			}
+
+			const totalAmount = ticketConfig.price * qty;
+			const isCash = paymentMethod === "TUNAI";
+			const isPaid = isCash || totalAmount === 0;
+
+			// Atomically reserve quota + create purchase
+			const result = await prisma.$transaction(async (tx) => {
+				const reserved = await tx.$executeRaw`
+					UPDATE "event_ticket_configs"
+					SET "sold_count" = "sold_count" + ${qty}
+					WHERE "event_id" = ${eventId}::uuid
+					AND "sold_count" + ${qty} <= "quota"
+				`;
+
+				if (reserved === 0) {
+					throw new Error("Kuota tiket tidak cukup atau habis");
+				}
+
+				const ticketCode = generateTicketCode();
+				const fallbackEmail = `ots-${ticketCode.toLowerCase()}@simpaskor.id`;
+				const purchase = await tx.ticketPurchase.create({
+					data: {
+						eventId: eventId!,
+						userId: null,
+						buyerName: buyerName.trim(),
+						buyerEmail: buyerEmail?.trim() || fallbackEmail,
+						buyerPhone: buyerPhone?.trim() || null,
+						quantity: qty,
+						totalAmount,
+						ticketCode,
+						status: isPaid ? "PAID" : "PENDING",
+						paidAt: isPaid ? new Date() : null,
+						notes: `OTS-${paymentMethod}`,
+					},
+				});
+
+				const attendeeRecords = [];
+				for (let i = 0; i < qty; i++) {
+					const attendeeCode = generateTicketCode();
+					const attendeeRecord = await tx.ticketAttendee.create({
+						data: {
+							purchaseId: purchase.id,
+							ticketTeamId: ticketTeamId || null,
+							attendeeName: qty > 1 ? `${buyerName.trim()} #${i + 1}` : buyerName.trim(),
+							attendeeEmail: buyerEmail?.trim() || `ots-${attendeeCode.toLowerCase()}@simpaskor.id`,
+							attendeePhone: buyerPhone?.trim() || null,
+							ticketCode: attendeeCode,
+							status: isPaid ? "PAID" : "PENDING",
+						},
+						include: { ticketTeam: true },
+					});
+					attendeeRecords.push(attendeeRecord);
+				}
+
+				return { ...purchase, attendees: attendeeRecords };
+			});
+
+			// For QRIS, generate Midtrans Snap token
+			let snapToken: string | null = null;
+			let midtransOrderId: string | null = null;
+			if (!isPaid && totalAmount > 0) {
+				try {
+					midtransOrderId = generateMidtransOrderId(PaymentPrefix.TICKET, result.id);
+					const snapResult = await createSnapTransaction({
+						orderId: midtransOrderId,
+						grossAmount: totalAmount,
+						customerName: buyerName.trim(),
+						customerEmail: buyerEmail?.trim() || `ots-${result.ticketCode.toLowerCase()}@simpaskor.id`,
+						customerPhone: buyerPhone?.trim(),
+						adminFee: 2000 * qty,
+						itemDetails: [
+							{
+								id: eventId!,
+								price: ticketConfig.price,
+								quantity: qty,
+								name: `Tiket OTS ${event.title}`.substring(0, 50),
+							},
+						],
+					});
+					snapToken = snapResult.token;
+					await prisma.ticketPurchase.update({
+						where: { id: result.id },
+						data: { midtransOrderId, snapToken },
+					});
+				} catch (midtransError) {
+					console.error("[OTS] Midtrans token generation failed:", midtransError);
+				}
+			}
+
+			// For TUNAI/free, send email if buyer email provided
+			if (isPaid && buyerEmail?.trim()) {
+				try {
+					await sendTicketEmailFromServer({
+						to: buyerEmail.trim(),
+						buyerName: buyerName.trim(),
+						ticketCode: result.ticketCode,
+						eventTitle: event.title,
+						eventDate: event.startDate.toISOString(),
+						venue: event.venue,
+						city: event.city,
+						quantity: qty,
+						totalAmount,
+						ticketDescription: ticketConfig.description || null,
+						attendees: result.attendees.map((a: any) => ({
+							name: a.attendeeName,
+							email: a.attendeeEmail,
+							phone: a.attendeePhone,
+							ticketCode: a.ticketCode,
+							supportTeam: a.ticketTeam?.teamName || null,
+						})),
+					});
+				} catch (emailError) {
+					console.error("[OTS] Failed to send email:", emailError);
+				}
+			}
+
+			res.status(201).json({
+				message: isPaid
+					? `Tiket OTS berhasil! Kode: ${result.ticketCode}`
+					: "Pesanan OTS dibuat. Silakan selesaikan pembayaran QRIS.",
+				purchase: { ...result, snapToken, midtransOrderId },
+			});
+		} catch (error: any) {
+			console.error("[OTS] Error:", error);
+			res.status(400).json({ error: error.message || "Gagal membuat tiket OTS" });
+		}
+	}
+);
+
 export default router;

@@ -22,6 +22,8 @@ import {
 import { TrophyIcon } from "../components/common/LottieIcons";
 import api from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
+import SEO from "../components/SEO";
+import { absoluteUrl, truncateText } from "../utils/seo";
 // Registration is handled via dedicated page /peserta/events/:id/register
 import { EventRegistration } from "../types/landing";
 
@@ -116,8 +118,11 @@ interface Event {
 	registrationFee: number | null;
 	organizer: string | null;
 	organizerEmail: string | null;
+	contactEmail: string | null;
 	contactPersonName: string | null;
 	contactPhone: string | null;
+	province: string | null;
+	city: string | null;
 	status: string;
 	featured: boolean;
 	isPinned?: boolean;
@@ -163,6 +168,12 @@ interface LeaderboardData {
 	schoolCategories: { id: string; name: string }[];
 	leaderboard: LeaderboardEntry[];
 }
+
+const getSchemaEventStatus = (status: string) => {
+	if (status === "CANCELLED") return "https://schema.org/EventCancelled";
+	if (status === "COMPLETED") return "https://schema.org/EventCompleted";
+	return "https://schema.org/EventScheduled";
+};
 
 const EventDetail: React.FC = () => {
 	const { id } = useParams<{ id: string }>();
@@ -422,24 +433,32 @@ const EventDetail: React.FC = () => {
 
 	if (error || !event) {
 		return (
-			<div className="min-h-screen flex items-center justify-center px-4">
-				<div className="text-center max-w-md">
-					<LuCircleX className="w-12 h-12 text-red-500/60 mx-auto mb-4" />
-					<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-						Event Tidak Ditemukan
-					</h2>
-					<p className="text-sm text-gray-500 dark:text-gray-500 mb-6">
-						{error || "Event yang Anda cari tidak tersedia"}
-					</p>
-					<button
-						onClick={() => navigate(-1)}
-						className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
-					>
-						<LuArrowLeft className="w-4 h-4" />
-						Kembali
-					</button>
+			<>
+				<SEO
+					title="Event Tidak Ditemukan"
+					description="Event Simpaskor yang Anda cari tidak tersedia atau sudah tidak dapat diakses."
+					path={`/events/${id || ""}`}
+					noindex
+				/>
+				<div className="min-h-screen flex items-center justify-center px-4">
+					<div className="text-center max-w-md">
+						<LuCircleX className="w-12 h-12 text-red-500/60 mx-auto mb-4" />
+						<h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+							Event Tidak Ditemukan
+						</h2>
+						<p className="text-sm text-gray-500 dark:text-gray-500 mb-6">
+							{error || "Event yang Anda cari tidak tersedia"}
+						</p>
+						<button
+							onClick={() => navigate(-1)}
+							className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-red-500/20"
+						>
+							<LuArrowLeft className="w-4 h-4" />
+							Kembali
+						</button>
+					</div>
 				</div>
-			</div>
+			</>
 		);
 	}
 
@@ -466,8 +485,72 @@ const EventDetail: React.FC = () => {
 	};
 
 	const isPromoted = Boolean(event.isPinned || event.featured);
+	const eventCanonicalPath = `/events/${event.slug || event.id}`;
+	const eventCanonicalUrl = absoluteUrl(eventCanonicalPath);
+	const eventDescription = truncateText(
+		event.description ||
+			`Informasi event ${event.title} di Simpaskor, termasuk jadwal, lokasi, biaya pendaftaran, juri, peserta, dan hasil perlombaan.`
+	);
+	const eventImageUrl = getImageUrl(event.thumbnail) || "/simpaskor.png";
+	const hasEventLocation = Boolean(
+		event.venue || event.location || event.city || event.province
+	);
+	const eventLocationName =
+		event.venue ||
+		event.location ||
+		[event.city, event.province].filter(Boolean).join(", ");
+	const eventJsonLd = {
+		"@context": "https://schema.org",
+		"@type": "Event",
+		name: event.title,
+		description: eventDescription,
+		startDate: event.startDate,
+		endDate: event.endDate,
+		eventStatus: getSchemaEventStatus(event.status),
+		eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+		url: eventCanonicalUrl,
+		image: [absoluteUrl(eventImageUrl)],
+		location: hasEventLocation
+			? {
+					"@type": "Place",
+					name: eventLocationName,
+					address: {
+						"@type": "PostalAddress",
+						streetAddress: event.venue || undefined,
+						addressLocality: event.city || event.location || undefined,
+						addressRegion: event.province || undefined,
+						addressCountry: "ID",
+					},
+			  }
+			: undefined,
+		organizer: {
+			"@type": "Organization",
+			name: event.organizer || event.createdBy?.name || "Simpaskor",
+			url: absoluteUrl("/"),
+		},
+		offers: {
+			"@type": "Offer",
+			url: eventCanonicalUrl,
+			price: Number(event.registrationFee || 0),
+			priceCurrency: "IDR",
+			availability:
+				isRegistrationOpen() && !isEventFull()
+					? "https://schema.org/InStock"
+					: "https://schema.org/SoldOut",
+			validThrough: event.registrationDeadline || event.startDate,
+		},
+	};
 
 	return (
+		<>
+		<SEO
+			title={event.title}
+			description={eventDescription}
+			path={eventCanonicalPath}
+			image={eventImageUrl}
+			type="event"
+			jsonLd={eventJsonLd}
+		/>
 		<div className="min-h-screen transition-colors">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -1248,6 +1331,7 @@ const EventDetail: React.FC = () => {
 
 			</div>
 		</div>
+		</>
 	);
 };
 

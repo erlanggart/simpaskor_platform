@@ -2,6 +2,11 @@ import React, { useState, useEffect } from "react";
 import { api } from "../utils/api";
 import { Event } from "../types/landing";
 import EventGrid from "../components/landing/EventGrid";
+import SEO from "../components/SEO";
+import { absoluteUrl } from "../utils/seo";
+
+const eventsPageDescription =
+	"Temukan daftar event dan kompetisi Paskibra di Simpaskor, lengkap dengan jadwal, lokasi, biaya pendaftaran, dan status pendaftaran.";
 
 const EventsPage: React.FC = () => {
 	const [events, setEvents] = useState<Event[]>([]);
@@ -27,8 +32,31 @@ const EventsPage: React.FC = () => {
 		fetchEvents();
 	}, []);
 
+	const eventsJsonLd = {
+		"@context": "https://schema.org",
+		"@type": "CollectionPage",
+		name: "Daftar Event Paskibra di Simpaskor",
+		url: absoluteUrl("/events"),
+		description: eventsPageDescription,
+		mainEntity: {
+			"@type": "ItemList",
+			itemListElement: events.slice(0, 50).map((event, index) => ({
+				"@type": "ListItem",
+				position: index + 1,
+				name: event.title,
+				url: absoluteUrl(`/events/${event.slug || event.id}`),
+			})),
+		},
+	};
+
 	return (
 		<div className="min-h-screen transition-colors">
+			<SEO
+				title="Event Paskibra"
+				description={eventsPageDescription}
+				path="/events"
+				jsonLd={eventsJsonLd}
+			/>
 			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				<div className="mb-6">
 					<p className="text-[10px] md:text-xs tracking-[0.3em] text-gray-400 dark:text-gray-500 font-medium mb-2">

@@ -23,6 +23,8 @@ import {
 	TrashIcon,
 	PhotoIcon,
 	PencilSquareIcon,
+	ShoppingCartIcon,
+	BanknotesIcon,
 } from "@heroicons/react/24/outline";
 import Swal from "sweetalert2";
 import { Html5Qrcode } from "html5-qrcode";
@@ -31,6 +33,7 @@ import { GMAIL_ONLY_EMAIL_MESSAGE, isGmailEmail } from "../../utils/emailPolicy"
 import { config as appConfig } from "../../utils/config";
 import { EventTicketConfig, TicketPurchase, TicketTeam } from "../../types/ticket";
 import { exportPurchaseReportToPdf } from "../../utils/purchasePdfExport";
+import { usePayment } from "../../hooks/usePayment";
 
 const TICKET_REVENUE_SHARE_TIERS = ["TICKETING", "TICKETING_VOTING", "BRONZE", "GOLD"];
 const INDONESIA_TIME_ZONE = "Asia/Jakarta";
@@ -81,10 +84,13 @@ const buildTicketPurchaseSummary = (allPurchases: TicketPurchase[]): TicketPurch
 
 const EventTicketing: React.FC = () => {
 	const { eventSlug } = useParams();
-	const [activeTab, setActiveTab] = useState<"dashboard" | "teams" | "config" | "purchases" | "scan">("dashboard");
+	const [activeTab, setActiveTab] = useState<"dashboard" | "teams" | "config" | "purchases" | "scan" | "ots">("dashboard");
 	const [loading, setLoading] = useState(true);
 	const [eventId, setEventId] = useState<string>("");
 	const [eventTitle, setEventTitle] = useState<string>("");
+
+	// Payment hook for QRIS OTS
+	const { pay, isSnapReady } = usePayment();
 
 	// Config state
 	const [config, setConfig] = useState<EventTicketConfig>({
@@ -168,6 +174,27 @@ const EventTicketing: React.FC = () => {
 	// (huge win during a network blip on busy gates).
 	const usedCodesRef = useRef<Set<string>>(new Set());
 	const audioCtxRef = useRef<AudioContext | null>(null);
+
+	// OTS (On-The-Spot) state
+	const [otsForm, setOtsForm] = useState({
+		buyerName: "",
+		buyerPhone: "",
+		buyerEmail: "",
+		quantity: 1,
+		paymentMethod: "TUNAI" as "TUNAI" | "QRIS",
+		ticketTeamId: "",
+	});
+	const [otsSubmitting, setOtsSubmitting] = useState(false);
+	const [otsResult, setOtsResult] = useState<{
+		ticketCode: string;
+		buyerName: string;
+		quantity: number;
+		totalAmount: number;
+		paymentMethod: string;
+		status: string;
+		snapToken?: string | null;
+		purchaseId?: string;
+	} | null>(null);
 
 	// Web Audio beep — different tones for valid vs invalid.
 	const playBeep = useCallback((kind: "ok" | "err") => {
@@ -295,7 +322,7 @@ const EventTicketing: React.FC = () => {
 	};
 
 	useEffect(() => {
-		if ((activeTab === "teams" || activeTab === "dashboard" || activeTab === "config" || activeTab === "purchases") && eventId) {
+		if ((activeTab === "teams" || activeTab === "dashboard" || activeTab === "config" || activeTab === "purchases" || activeTab === "ots") && eventId) {
 			fetchTicketTeams();
 		}
 	}, [activeTab, eventId]);
@@ -905,8 +932,7 @@ const EventTicketing: React.FC = () => {
 		}
 	};
 
-	const handleResendTicketEmail = async (purchaseId: string, buyerEmail: string) => {
-		const { value: email } = await Swal.fire({
+	const handleResendTicketEmail = async (purchaseId: string, buyerEmail: string) => {		const { value: email } = await Swal.fire({
 			title: "Kirim Ulang Email Tiket",
 			html: `<p class="text-sm text-gray-500 mb-2">Email akan dikirim dengan QR code tiket ke alamat email di bawah. Anda dapat mengubah email tujuan jika email asli tidak valid.</p>`,
 			input: "email",
@@ -937,6 +963,88 @@ const EventTicketing: React.FC = () => {
 			});
 		} catch (err: any) {
 			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengirim email", "error");
+		}
+	};
+
+	const handleOtsSell = async () => {
+		if (!otsForm.buyerName.trim()) {
+			Swal.fire("Error", "Nama pembeli wajib diisi", "error");
+			return;
+		}
+		if (!eventId) return;
+
+		try {
+			setOtsSubmitting(true);
+			const payload: Record<string, any> = {
+				buyerName: otsForm.buyerName.trim(),
+				buyerPhone: otsForm.buyerPhone.trim() || undefined,
+				buyerEmail: otsForm.buyerEmail.trim() || undefined,
+				quantity: otsForm.quantity,
+				paymentMethod: otsForm.paymentMethod,
+				ticketTeamId: otsForm.ticketTeamId || undefined,
+			};
+
+			const res = await api.post(`/tickets/admin/event/${eventId}/ots`, payload);
+			const purchase = res.data.purchase;
+			const snapToken: string | null = purchase.snapToken;
+
+			if (otsForm.paymentMethod === "QRIS" && snapToken && isSnapReady) {
+				pay(snapToken, {
+					onSuccess: () => {
+						setOtsResult({
+							ticketCode: purchase.ticketCode,
+							buyerName: purchase.buyerName,
+							quantity: purchase.quantity,
+							totalAmount: purchase.totalAmount,
+							paymentMethod: "QRIS",
+							status: "PAID",
+						});
+						setOtsForm({ buyerName: "", buyerPhone: "", buyerEmail: "", quantity: 1, paymentMethod: "TUNAI", ticketTeamId: "" });
+						fetchPurchases();
+						fetchDashboard();
+					},
+					onPending: () => {
+						setOtsResult({
+							ticketCode: purchase.ticketCode,
+							buyerName: purchase.buyerName,
+							quantity: purchase.quantity,
+							totalAmount: purchase.totalAmount,
+							paymentMethod: "QRIS",
+							status: "PENDING",
+						});
+						fetchPurchases();
+					},
+					onError: () => {
+						Swal.fire("Pembayaran QRIS Gagal", "Transaksi tidak berhasil. Coba lagi atau gunakan pembayaran tunai.", "error");
+					},
+					onClose: () => {
+						Swal.fire({
+							title: "QRIS Belum Dibayar",
+							html: "<p>Pembayaran QRIS belum diselesaikan. Tiket tetap tersimpan dengan status PENDING.</p>",
+							icon: "warning",
+							confirmButtonColor: "#dc2626",
+						});
+						fetchPurchases();
+					},
+				});
+			} else {
+				// TUNAI / free
+				setOtsResult({
+					ticketCode: purchase.ticketCode,
+					buyerName: purchase.buyerName,
+					quantity: purchase.quantity,
+					totalAmount: purchase.totalAmount,
+					paymentMethod: otsForm.paymentMethod,
+					status: "PAID",
+				});
+				setOtsForm({ buyerName: "", buyerPhone: "", buyerEmail: "", quantity: 1, paymentMethod: "TUNAI", ticketTeamId: "" });
+				fetchPurchases();
+				fetchDashboard();
+			}
+		} catch (err: any) {
+			Swal.fire("Error", err.response?.data?.error || "Gagal membuat tiket OTS", "error");
+		} finally {
+			setOtsSubmitting(false);
 		}
 	};
 
@@ -1263,6 +1371,17 @@ const EventTicketing: React.FC = () => {
 					<span className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-semibold px-1.5 py-0.5 rounded-full">
 						{paidUsedCount}
 					</span>
+				</button>
+				<button
+					onClick={() => { setActiveTab("ots"); setOtsResult(null); }}
+					className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+						activeTab === "ots"
+							? "bg-orange-600 text-white shadow-sm"
+							: "bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
+					}`}
+				>
+					<ShoppingCartIcon className="w-5 h-5" />
+					<span className="hidden sm:inline">Tiket OTS</span>
 				</button>
 			</div>
 
@@ -2333,6 +2452,216 @@ const EventTicketing: React.FC = () => {
 									Scan Tiket Lain
 								</button>
 							</div>
+						</div>
+					)}
+				</div>
+			)}
+
+			{/* OTS (On-The-Spot) Tab */}
+			{activeTab === "ots" && (
+				<div className="max-w-lg mx-auto space-y-5">
+					{/* Info Banner */}
+					<div className="rounded-xl border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20 px-4 py-3 flex items-start gap-3">
+						<BanknotesIcon className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+						<div>
+							<p className="text-sm font-semibold text-orange-700 dark:text-orange-300">Penjualan Tiket On-The-Spot</p>
+							<p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
+								Panitia melayani pembelian tiket langsung di tempat. Pembayaran via tunai (langsung PAID) atau QRIS Midtrans.
+							</p>
+						</div>
+					</div>
+
+					{/* Success result */}
+					{otsResult && (
+						<div className={`rounded-xl border-2 p-5 ${otsResult.status === "PAID" ? "border-green-500 bg-green-50 dark:bg-green-900/20" : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"}`}>
+							<div className="flex items-center gap-3 mb-3">
+								{otsResult.status === "PAID" ? (
+									<CheckCircleIcon className="w-8 h-8 text-green-600" />
+								) : (
+									<ClockIcon className="w-8 h-8 text-yellow-600" />
+								)}
+								<div>
+									<p className={`font-bold text-base ${otsResult.status === "PAID" ? "text-green-700 dark:text-green-400" : "text-yellow-700 dark:text-yellow-400"}`}>
+										{otsResult.status === "PAID" ? "Tiket Berhasil!" : "Menunggu Pembayaran QRIS"}
+									</p>
+									<p className="text-xs text-gray-500 dark:text-gray-400">{otsResult.paymentMethod}</p>
+								</div>
+							</div>
+							<div className="bg-white/70 dark:bg-gray-800/60 rounded-lg p-3 space-y-1.5 text-sm mb-3">
+								<div className="flex justify-between">
+									<span className="text-gray-500">Kode Tiket</span>
+									<span className="font-mono font-bold text-red-600 dark:text-red-400">{otsResult.ticketCode}</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-gray-500">Pembeli</span>
+									<span className="font-medium text-gray-900 dark:text-white">{otsResult.buyerName}</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-gray-500">Jumlah Tiket</span>
+									<span className="text-gray-900 dark:text-white">{otsResult.quantity}</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-gray-500">Total</span>
+									<span className="font-semibold text-gray-900 dark:text-white">
+										{otsResult.totalAmount === 0 ? "GRATIS" : formatCurrency(otsResult.totalAmount)}
+									</span>
+								</div>
+							</div>
+							<button
+								onClick={() => setOtsResult(null)}
+								className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-medium transition-colors"
+							>
+								Jual Tiket Berikutnya
+							</button>
+						</div>
+					)}
+
+					{/* OTS Form */}
+					{!otsResult && (
+						<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-sm p-5 space-y-4">
+							<div className="flex items-center gap-2 mb-1">
+								<ShoppingCartIcon className="w-5 h-5 text-orange-600" />
+								<h3 className="text-base font-semibold text-gray-900 dark:text-white">Form Penjualan OTS</h3>
+							</div>
+
+							{/* Buyer Name */}
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+									Nama Pembeli <span className="text-red-500">*</span>
+								</label>
+								<input
+									type="text"
+									value={otsForm.buyerName}
+									onChange={(e) => setOtsForm((f) => ({ ...f, buyerName: e.target.value }))}
+									className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+									placeholder="Nama lengkap pembeli"
+								/>
+							</div>
+
+							{/* Phone */}
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+									No. HP <span className="text-gray-400">(opsional)</span>
+								</label>
+								<input
+									type="tel"
+									value={otsForm.buyerPhone}
+									onChange={(e) => setOtsForm((f) => ({ ...f, buyerPhone: e.target.value }))}
+									className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+									placeholder="08xxxxxxxxxx"
+								/>
+							</div>
+
+							{/* Email */}
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+									Email <span className="text-gray-400">(opsional — untuk kirim e-ticket)</span>
+								</label>
+								<input
+									type="email"
+									value={otsForm.buyerEmail}
+									onChange={(e) => setOtsForm((f) => ({ ...f, buyerEmail: e.target.value }))}
+									className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+									placeholder="email@gmail.com"
+								/>
+							</div>
+
+							{/* Quantity */}
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+									Jumlah Tiket
+								</label>
+								<div className="flex items-center gap-3">
+									<button
+										onClick={() => setOtsForm((f) => ({ ...f, quantity: Math.max(1, f.quantity - 1) }))}
+										className="w-10 h-10 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-bold text-lg"
+									>−</button>
+									<span className="text-xl font-bold text-gray-900 dark:text-white w-8 text-center">{otsForm.quantity}</span>
+									<button
+										onClick={() => setOtsForm((f) => ({ ...f, quantity: Math.min(50, f.quantity + 1) }))}
+										className="w-10 h-10 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 font-bold text-lg"
+									>+</button>
+									<span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+										Total: <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(config.price * otsForm.quantity)}</span>
+									</span>
+								</div>
+							</div>
+
+							{/* Ticket Team */}
+							{ticketTeams.length > 0 && (
+								<div>
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+										Pasukan yang Didukung <span className="text-gray-400">(opsional)</span>
+									</label>
+									<select
+										value={otsForm.ticketTeamId}
+										onChange={(e) => setOtsForm((f) => ({ ...f, ticketTeamId: e.target.value }))}
+										className="w-full px-4 py-2.5 bg-white dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+									>
+										<option value="">— Pilih pasukan (opsional) —</option>
+										{ticketTeams.map((team) => (
+											<option key={team.id} value={team.id}>
+												{team.teamName}{team.schoolName ? ` — ${team.schoolName}` : ""}
+											</option>
+										))}
+									</select>
+								</div>
+							)}
+
+							{/* Payment Method */}
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+									Metode Pembayaran
+								</label>
+								<div className="grid grid-cols-2 gap-3">
+									<button
+										onClick={() => setOtsForm((f) => ({ ...f, paymentMethod: "TUNAI" }))}
+										className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-medium transition-colors ${
+											otsForm.paymentMethod === "TUNAI"
+												? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+												: "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-green-400"
+										}`}
+									>
+										<BanknotesIcon className="w-5 h-5" />
+										Tunai
+									</button>
+									<button
+										onClick={() => setOtsForm((f) => ({ ...f, paymentMethod: "QRIS" }))}
+										className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-medium transition-colors ${
+											otsForm.paymentMethod === "QRIS"
+												? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+												: "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-400"
+										}`}
+									>
+										<QrCodeIcon className="w-5 h-5" />
+										QRIS
+									</button>
+								</div>
+								{otsForm.paymentMethod === "TUNAI" && (
+									<p className="mt-2 text-xs text-green-700 dark:text-green-400">
+										Tiket langsung berstatus PAID. Pembayaran diterima secara tunai di tempat.
+									</p>
+								)}
+								{otsForm.paymentMethod === "QRIS" && (
+									<p className="mt-2 text-xs text-blue-700 dark:text-blue-400">
+										Akan membuka popup QRIS Midtrans. Tiket PAID setelah pembayaran dikonfirmasi.
+									</p>
+								)}
+							</div>
+
+							{/* Submit */}
+							<button
+								onClick={handleOtsSell}
+								disabled={otsSubmitting || !otsForm.buyerName.trim()}
+								className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50"
+							>
+								<ShoppingCartIcon className="w-5 h-5" />
+								{otsSubmitting
+									? "Memproses..."
+									: otsForm.paymentMethod === "TUNAI"
+									? `Jual ${otsForm.quantity} Tiket (Tunai)`
+									: `Buat QRIS — ${formatCurrency(config.price * otsForm.quantity)}`}
+							</button>
 						</div>
 					)}
 				</div>

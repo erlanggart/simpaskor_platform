@@ -14,6 +14,15 @@ export const verifyRecaptcha = async (
 			return next();
 		}
 
+		// Skip reCAPTCHA for official mobile app
+		// Mobile apps cannot run reCAPTCHA v3 natively; we identify them via a
+		// custom header set in api_client.dart (X-Mobile-Client: simpaskor-flutter)
+		const mobileClient = req.headers['x-mobile-client'];
+		if (mobileClient === 'simpaskor-flutter') {
+			console.log('📱 reCAPTCHA skipped — request from Simpaskor mobile app');
+			return next();
+		}
+
 		const recaptchaToken = req.body.recaptchaToken;
 
 		// Check if token is provided

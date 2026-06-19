@@ -310,16 +310,10 @@ const MaterialScoring: React.FC = () => {
 							icon: "info",
 							title: "Data Lokal Ditemukan",
 							html: `<p>Ditemukan nilai yang belum disimpan ke server.</p>
+								   <p class="text-sm text-gray-500 mt-2">Penilaian akan dilanjutkan dari data lokal perangkat ini.</p>
 								   <p class="text-sm text-gray-500 mt-2">Terakhir disimpan: ${localData.savedAt.toLocaleString("id-ID")}</p>
 								   <p class="text-sm text-yellow-600 mt-2">Klik "Simpan Nilai" untuk menyimpan ke server.</p>`,
 							confirmButtonText: "Lanjutkan Penilaian",
-							showCancelButton: true,
-							cancelButtonText: "Gunakan Data Server",
-						}).then((result) => {
-							if (!result.isConfirmed) {
-								clearLocalStorage();
-								setScores(serverScores);
-							}
 						});
 					}
 				} else {

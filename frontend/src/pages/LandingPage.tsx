@@ -8,6 +8,8 @@ import {
 } from "react-icons/lu";
 import Lottie from "lottie-react";
 import { useLandingData } from "../hooks/useLandingData";
+import SEO from "../components/SEO";
+import { absoluteUrl } from "../utils/seo";
 import { TrophyIcon, EyesIcon, UsersIcon } from "../components/common/LottieIcons";
 import headphoneAnimation from "../assets/lottie/headphone-blueberry.json";
 import HeroSection from "../components/landing/HeroSection";
@@ -94,7 +96,46 @@ const LandingPage: React.FC = () => {
 		},
 	];
 
+	const websiteJsonLd = {
+		"@context": "https://schema.org",
+		"@graph": [
+			{
+				"@type": "WebSite",
+				"@id": absoluteUrl("/#website"),
+				name: "Simpaskor",
+				url: absoluteUrl("/"),
+				description: "Platform manajemen kompetisi Paskibra terdepan di Indonesia.",
+				potentialAction: {
+					"@type": "SearchAction",
+					target: {
+						"@type": "EntryPoint",
+						urlTemplate: `${absoluteUrl("/events")}?q={search_term_string}`,
+					},
+					"query-input": "required name=search_term_string",
+				},
+			},
+			{
+				"@type": "Organization",
+				"@id": absoluteUrl("/#organization"),
+				name: "Simpaskor",
+				url: absoluteUrl("/"),
+				logo: {
+					"@type": "ImageObject",
+					url: absoluteUrl("/simpaskor.png"),
+				},
+				sameAs: [],
+			},
+		],
+	};
+
 	return (
+		<>
+		<SEO
+			title="Simpaskor"
+			description="Platform manajemen kompetisi Paskibra terdepan di Indonesia. Temukan event, beli tiket, dan voting online."
+			path="/"
+			jsonLd={websiteJsonLd}
+		/>
 		<div className="landing-page relative h-full">
 			{/* Right-side section scroll navigation */}
 			<nav className="fixed right-4 md:right-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex flex-col items-center gap-1.5">
@@ -191,6 +232,7 @@ const LandingPage: React.FC = () => {
 			</a>
 
 		</div>
+		</>
 	);
 };
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
+import SEO from "../components/SEO";
+import { absoluteUrl } from "../utils/seo";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
 import { TicketedEvent, TicketTeam } from "../types/ticket";
@@ -431,7 +433,31 @@ const ETicketingPage: React.FC = () => {
 		}
 	};
 
+	const ticketingJsonLd = {
+		"@context": "https://schema.org",
+		"@type": "CollectionPage",
+		name: "E-Ticketing Paskibra - Simpaskor",
+		url: absoluteUrl("/e-ticketing"),
+		description: "Beli tiket event Paskibra secara online di Simpaskor. Tiket digital dengan QR code, pembayaran mudah.",
+		mainEntity: {
+			"@type": "ItemList",
+			itemListElement: events.slice(0, 50).map((event, index) => ({
+				"@type": "ListItem",
+				position: index + 1,
+				name: event.title,
+				url: absoluteUrl(`/events/${event.slug || event.id}`),
+			})),
+		},
+	};
+
 	return (
+		<>
+		<SEO
+			title="E-Ticketing Paskibra"
+			description="Beli tiket event Paskibra secara online di Simpaskor. Pilih event, pesan tiket digital dengan QR code, dan bayar dengan mudah."
+			path="/e-ticketing"
+			jsonLd={ticketingJsonLd}
+		/>
 		<div className="min-h-screen transition-colors">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				<div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -1384,6 +1410,7 @@ const ETicketingPage: React.FC = () => {
 				</div>
 			)}
 		</div>
+		</>
 	);
 };
 

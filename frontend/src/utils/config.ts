@@ -97,12 +97,16 @@ export const config = {
 
 	// SEO & Social Media
 	seo: {
+		siteUrl: import.meta.env.VITE_SITE_URL || "https://simpaskor.id",
 		ogTitle: import.meta.env.VITE_OG_TITLE || "Simpaskor Platform",
 		ogDescription:
 			import.meta.env.VITE_OG_DESCRIPTION ||
 			"Platform Kompetisi Terdepan Indonesia",
 		ogImage: import.meta.env.VITE_OG_IMAGE || "/og-image.jpg",
-		ogUrl: import.meta.env.VITE_OG_URL || "https://simpaskor.com",
+		ogUrl:
+			import.meta.env.VITE_OG_URL ||
+			import.meta.env.VITE_SITE_URL ||
+			"https://simpaskor.id",
 	},
 };
 

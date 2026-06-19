@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
+import SEO from "../components/SEO";
+import { absoluteUrl, truncateText } from "../utils/seo";
 import { useAuth } from "../hooks/useAuth";
 import { usePayment } from "../hooks/usePayment";
 import { VotingEvent } from "../types/voting";
@@ -1114,7 +1116,48 @@ const EVotingPage: React.FC = () => {
 				? new Date(selectedEvent.votingConfig.startDate)
 				: null);
 
+		const arenaDescription = truncateText(
+			selectedEvent.description ||
+				`E-Voting ${selectedEvent.title} di Simpaskor. Vote kandidat favoritmu secara online.`
+		);
+		const arenaCanonicalPath = `/events/${selectedEvent.slug || selectedEvent.id}`;
+		const arenaJsonLd = {
+			"@context": "https://schema.org",
+			"@type": "Event",
+			name: selectedEvent.title,
+			description: arenaDescription,
+			startDate: selectedEvent.startDate,
+			endDate: selectedEvent.endDate,
+			url: absoluteUrl(arenaCanonicalPath),
+			image: selectedEventImage ? [absoluteUrl(selectedEventImage)] : undefined,
+			location: selectedEvent.city || selectedEvent.venue || selectedEvent.location
+				? {
+						"@type": "Place",
+						name: selectedEvent.venue || selectedEvent.location || selectedEvent.city,
+						address: {
+							"@type": "PostalAddress",
+							addressLocality: selectedEvent.city || selectedEvent.location || undefined,
+							addressCountry: "ID",
+						},
+				  }
+				: undefined,
+			organizer: {
+				"@type": "Organization",
+				name: "Simpaskor",
+				url: absoluteUrl("/"),
+			},
+		};
+
 		return (
+			<>
+			<SEO
+				title={selectedEvent.title}
+				description={arenaDescription}
+				path={arenaCanonicalPath}
+				image={selectedEventImage || undefined}
+				type="event"
+				jsonLd={arenaJsonLd}
+			/>
 			<div className={`evoting-arena min-h-screen ${shaking ? "is-shaking" : ""}`}>
 				{/* Background layers — purely decorative, all pointer-events:none. */}
 				<div className="evoting-arena-orb is-cyan" />
@@ -1943,11 +1986,36 @@ const EVotingPage: React.FC = () => {
 					paused={!arenaOpen || paymentVerifying || paymentFlowActive}
 				/>
 			</div>
+			</>
 		);
 	}
 
 	// Event list view
+	const votingListJsonLd = {
+		"@context": "https://schema.org",
+		"@type": "CollectionPage",
+		name: "E-Voting Paskibra - Simpaskor",
+		url: absoluteUrl("/e-voting"),
+		description: "Vote kandidat favorit di event Paskibra Indonesia. Voting online gratis maupun berbayar di Simpaskor.",
+		mainEntity: {
+			"@type": "ItemList",
+			itemListElement: events.slice(0, 50).map((event, index) => ({
+				"@type": "ListItem",
+				position: index + 1,
+				name: event.title,
+				url: absoluteUrl(`/events/${event.slug || event.id}`),
+			})),
+		},
+	};
+
 	return (
+		<>
+		<SEO
+			title="E-Voting Paskibra"
+			description="Vote kandidat favorit di event Paskibra Indonesia. Voting online gratis maupun berbayar. Dukung pasukan terbaik di Simpaskor."
+			path="/e-voting"
+			jsonLd={votingListJsonLd}
+		/>
 		<div className="evoting-page-shell min-h-screen transition-colors">
 			<div className="evoting-flow-lines" />
 			<main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 md:py-10">
@@ -2178,6 +2246,7 @@ const EVotingPage: React.FC = () => {
 				)}
 			</main>
 		</div>
+		</>
 	);
 };
 

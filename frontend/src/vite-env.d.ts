@@ -49,6 +49,7 @@ interface ImportMetaEnv {
 	readonly VITE_FIREBASE_APP_ID?: string;
 
 	// Social Media & SEO
+	readonly VITE_SITE_URL?: string;
 	readonly VITE_OG_TITLE: string;
 	readonly VITE_OG_DESCRIPTION: string;
 	readonly VITE_OG_IMAGE: string;

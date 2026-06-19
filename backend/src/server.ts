@@ -35,6 +35,7 @@ import backupRoutes from "./routes/backup";
 import disbursementRoutes from "./routes/disbursements";
 import externalFinanceRoutes from "./routes/externalFinance";
 import mitraRoutes from "./routes/mitra";
+import seoRoutes from "./routes/seo";
 import { startPendingPaymentSweeper } from "./lib/pendingPaymentSweeper";
 
 dotenv.config();
@@ -167,6 +168,8 @@ app.use("/uploads", (req, res, next) => {
 }, express.static(path.join(__dirname, "../uploads")));
 
 // Routes
+app.use("/", seoRoutes);
+
 app.get("/", (req, res) => {
 	res.json({
 		message: "Welcome to Simpaskor Platform API",
