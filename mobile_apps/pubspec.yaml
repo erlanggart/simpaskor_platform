@@ -1,0 +1,54 @@
+name: simpaskor_mobile
+description: Simpaskor - Platform Kompetisi Paskibra Mobile App
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^3.1.0
+  riverpod_annotation: ^4.0.0
+
+  # Navigation
+  go_router: ^17.3.0
+
+  # HTTP & Networking
+  dio: ^5.4.3
+
+  # Secure Storage
+  flutter_secure_storage: ^10.3.1
+  shared_preferences: ^2.2.3
+
+  # UI & Fonts
+  google_fonts: ^8.1.0
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+
+  # Form
+  flutter_form_builder: ^10.3.0+2
+  form_builder_validators: ^11.3.0
+
+  # Utilities
+  intl: ^0.20.2
+  url_launcher: ^6.3.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.11
+  riverpod_generator: ^4.0.0+1
+  flutter_lints: ^6.0.0
+  custom_lint: ^0.8.1
+  riverpod_lint: ^3.1.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
