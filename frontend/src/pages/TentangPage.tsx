@@ -15,7 +15,6 @@ import {
 	LuMapPin,
 	LuBadgeCheck,
 	LuArrowUpRight,
-	LuBuilding2,
 	LuHandshake,
 	LuUser,
 	LuChevronLeft,
@@ -130,14 +129,14 @@ interface Partner {
 	verified: boolean;
 }
 
-// Aksen gradien dirotasi per kartu agar katalog tetap berwarna meski data dinamis.
+// Gradien merah multi-stop, sedikit variasi gelap-terang per kartu agar tetap dinamis.
 const partnerAccents = [
-	"from-red-500 to-rose-600",
-	"from-rose-500 to-red-600",
-	"from-orange-500 to-red-600",
-	"from-amber-500 to-orange-600",
-	"from-red-500 to-pink-600",
-	"from-rose-500 to-fuchsia-600",
+	"from-red-500 via-red-600 to-red-800",
+	"from-red-600 via-red-700 to-rose-900",
+	"from-rose-500 via-red-600 to-red-800",
+	"from-red-500 via-red-700 to-red-900",
+	"from-red-600 via-rose-700 to-red-900",
+	"from-rose-600 via-red-700 to-red-800",
 ];
 
 /** Resolusi URL foto: absolut dibiarkan, relatif diprefiks backendUrl. */
@@ -453,67 +452,72 @@ const TentangPage: React.FC = () => {
 														e.stopPropagation();
 													}
 												}}
-												className="group relative w-[80%] shrink-0 snap-start overflow-hidden rounded-[1.75rem] border border-gray-200/80 bg-white shadow-[0_6px_28px_-12px_rgba(15,23,42,0.18)] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_22px_55px_-18px_rgba(220,38,38,0.35)] dark:border-white/[0.08] dark:bg-[#12121b] sm:w-[58%] md:w-[290px]"
+												className={`group relative w-[72%] shrink-0 snap-start overflow-hidden rounded-[1.6rem] bg-gradient-to-br ${accent} p-6 text-center shadow-[0_10px_30px_-12px_rgba(15,23,42,0.45)] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_24px_50px_-16px_rgba(15,23,42,0.55)] sm:w-[52%] md:w-[248px]`}
 											>
-												{/* Cover band bergradien + sheen */}
-												<div className={`relative h-[4.75rem] bg-gradient-to-br ${accent}`}>
-													<div className="absolute inset-0 opacity-40 [background:radial-gradient(120%_120%_at_15%_-10%,rgba(255,255,255,0.85),transparent_55%)]" />
-													<div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(135deg,rgba(255,255,255,0.6)_1px,transparent_1px)] [background-size:10px_10px]" />
-													{/* nomor urut samar */}
-													<span className="absolute right-4 top-3 text-2xl font-black text-white/25">
-														{String(i + 1).padStart(2, "0")}
-													</span>
+												{/* sheen lembut di pojok */}
+												<div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(120%_90%_at_20%_-10%,rgba(255,255,255,0.55),transparent_55%)]" />
+
+												{/* Confetti dekoratif */}
+												<div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+													<span className="absolute left-4 top-5 h-2 w-2 rounded-full bg-white/90" />
+													<span className="absolute right-5 top-4 h-2.5 w-2.5 rounded-full border-2 border-white/70" />
+													<span className="absolute left-7 top-12 h-2 w-2 rotate-45 bg-white/80" />
+													<span className="absolute right-7 top-12 text-sm font-black leading-none text-white/80">+</span>
+													<span className="absolute left-3 top-1/2 h-1.5 w-1.5 rounded-full bg-white/70" />
+													<span className="absolute right-4 top-[44%] h-2 w-2 rotate-45 bg-white/60" />
+													<span className="absolute bottom-20 left-5 text-xs font-black leading-none text-white/80">✦</span>
+													<span className="absolute bottom-24 right-6 h-2 w-2 rounded-full border-2 border-white/70" />
 												</div>
 
-												{/* Avatar menumpuk cover */}
-												<div className="px-5">
-													<div className="relative -mt-9 inline-block">
+												<div className="relative z-10 flex flex-col items-center">
+													{/* eyebrow */}
+													<span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/90">
+														{p.verified ? "Mitra Resmi" : "Mitra Baru"}
+													</span>
+
+													{/* Avatar tengah + halo */}
+													<div className="relative mt-3">
+														<div className="absolute -inset-2 rounded-full bg-white/30 blur-md" />
 														{photoUrl ? (
 															<img
 																src={photoUrl}
 																alt={p.name}
 																loading="lazy"
 																draggable={false}
-																className="h-[4.5rem] w-[4.5rem] rounded-2xl object-cover shadow-lg ring-4 ring-white dark:ring-[#12121b]"
+																className="relative h-[5.25rem] w-[5.25rem] rounded-full object-cover shadow-xl ring-4 ring-white"
 															/>
 														) : (
-															<div
-																className={`flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl bg-gradient-to-br ${accent} text-2xl font-black text-white shadow-lg ring-4 ring-white dark:ring-[#12121b]`}
-															>
-																{initials(p.name) || <LuUser className="h-8 w-8" />}
+															<div className="relative grid h-[5.25rem] w-[5.25rem] place-items-center rounded-full bg-white/20 text-2xl font-black text-white shadow-xl ring-4 ring-white/70 backdrop-blur-sm">
+																{initials(p.name) || <LuUser className="h-9 w-9" />}
 															</div>
 														)}
 														{p.verified && (
 															<span
-																className="absolute -bottom-1.5 -right-1.5 grid h-7 w-7 place-items-center rounded-full bg-white shadow-md ring-1 ring-black/5 dark:bg-[#12121b] dark:ring-white/10"
+																className="absolute -bottom-1 -right-1 z-10 grid h-7 w-7 place-items-center rounded-full bg-white shadow-md"
 																title="Mitra Terverifikasi"
 															>
 																<LuBadgeCheck className="h-5 w-5 text-emerald-500" />
 															</span>
 														)}
 													</div>
-												</div>
 
-												{/* Body */}
-												<div className="px-5 pb-5 pt-3">
-													<h3 className="line-clamp-1 text-lg font-extrabold leading-tight text-slate-900 dark:text-white">
+													{/* Nama + lokasi */}
+													<h3 className="mt-4 line-clamp-1 text-lg font-extrabold leading-tight text-white drop-shadow-sm">
 														{p.name}
 													</h3>
-
-													<div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">
-														<LuMapPin className="h-3 w-3 shrink-0 text-red-500" />
+													<p className="mt-1 inline-flex max-w-full items-center gap-1 text-[11px] font-medium text-white/90">
+														<LuMapPin className="h-3 w-3 shrink-0" />
 														<span className="truncate">{partnerLocation(p)}</span>
-													</div>
+													</p>
 
-													<div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3.5 dark:border-white/[0.06]">
-														<span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-															<LuBuilding2 className="h-3.5 w-3.5 shrink-0" />
-															<span className="truncate">{p.institution || "Mitra Simpaskor"}</span>
-														</span>
-														<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-50 text-gray-400 transition-all duration-300 group-hover:bg-red-500 group-hover:text-white dark:bg-white/[0.05] dark:text-gray-500">
-															<LuArrowUpRight className="h-4 w-4" />
-														</span>
-													</div>
+													{/* Tombol */}
+													<Link
+														to="/mitra"
+														className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white px-4 py-2.5 text-xs font-bold text-slate-900 shadow-lg transition-all duration-200 hover:gap-2.5 hover:bg-white/95"
+													>
+														<span>Lihat Profil</span>
+														<LuArrowUpRight className="h-4 w-4" />
+													</Link>
 												</div>
 											</div>
 										);
