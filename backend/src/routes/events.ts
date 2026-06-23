@@ -471,6 +471,55 @@ router.get("/pinned/carousel", async (req: Request, res: Response) => {
 	}
 });
 
+// GET /api/events/public/map - Lightweight list of collaborated events for the
+// spread map on the /tentang page. Only non-draft events that have a location.
+router.get("/public/map", async (_req: Request, res: Response) => {
+	try {
+		const events = await prisma.event.findMany({
+			where: {
+				status: { notIn: ["DRAFT", "CANCELLED"] },
+				OR: [
+					{ city: { not: null } },
+					{ province: { not: null } },
+				],
+			},
+			select: {
+				id: true,
+				title: true,
+				slug: true,
+				thumbnail: true,
+				startDate: true,
+				endDate: true,
+				city: true,
+				province: true,
+				venue: true,
+				status: true,
+			},
+			orderBy: { startDate: "desc" },
+		});
+
+		const data = events
+			.filter((e) => (e.city && e.city.trim()) || (e.province && e.province.trim()))
+			.map((e) => ({
+				id: e.id,
+				title: e.title,
+				slug: e.slug,
+				thumbnail: e.thumbnail,
+				startDate: e.startDate,
+				endDate: e.endDate,
+				city: e.city,
+				province: e.province,
+				venue: e.venue,
+				status: computeEventStatus(e as any),
+			}));
+
+		res.json({ data, total: data.length });
+	} catch (error) {
+		console.error("Error fetching events map:", error);
+		res.status(500).json({ message: "Failed to fetch events map" });
+	}
+});
+
 // POST /api/events/upload-thumbnail - Upload event thumbnail/poster
 router.post(
 	"/upload-thumbnail",

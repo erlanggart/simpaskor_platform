@@ -1,16 +1,27 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
 	LuBadgeDollarSign,
+	LuCamera,
+	LuCircleAlert,
 	LuCircleCheck,
 	LuCircleX,
 	LuCopy,
 	LuRefreshCw,
 	LuSend,
 	LuTicketCheck,
+	LuUpload,
 	LuWallet,
 } from "react-icons/lu";
 import Swal from "sweetalert2";
 import { api } from "../../utils/api";
+import { config } from "../../utils/config";
+import { useAuth } from "../../hooks/useAuth";
+
+const resolveAvatarUrl = (url?: string | null): string | null => {
+	if (!url) return null;
+	if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) return url;
+	return `${config.api.backendUrl}${url}`;
+};
 
 interface MitraCommission {
 	id: string;
@@ -83,12 +94,65 @@ const initialWithdrawalForm = {
 };
 
 const MitraDashboard: React.FC = () => {
+	const { user, updateUser } = useAuth();
 	const [data, setData] = useState<MitraDashboardData | null>(null);
 	const [withdrawalData, setWithdrawalData] = useState<MitraWithdrawalData | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
 	const [form, setForm] = useState(initialWithdrawalForm);
+
+	// ----- Foto profil mitra (wajib) -----
+	const photoInputRef = useRef<HTMLInputElement>(null);
+	const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+	const [photoUploading, setPhotoUploading] = useState(false);
+
+	const currentAvatar = user?.profile?.avatar || null;
+	const hasPhoto = Boolean(currentAvatar);
+	const displayedPhoto = photoPreview || resolveAvatarUrl(currentAvatar);
+
+	const handlePickPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		if (!file.type.startsWith("image/")) {
+			Swal.fire("Format salah", "File harus berupa gambar (JPG/PNG).", "warning");
+			event.target.value = "";
+			return;
+		}
+		if (file.size > 5 * 1024 * 1024) {
+			Swal.fire("Ukuran terlalu besar", "Maksimal ukuran foto 5MB.", "warning");
+			event.target.value = "";
+			return;
+		}
+		const reader = new FileReader();
+		reader.onloadend = () => setPhotoPreview(reader.result as string);
+		reader.readAsDataURL(file);
+	};
+
+	const handleUploadPhoto = async () => {
+		const file = photoInputRef.current?.files?.[0];
+		if (!file) {
+			Swal.fire("Pilih foto", "Silakan pilih foto terlebih dahulu.", "info");
+			return;
+		}
+		setPhotoUploading(true);
+		try {
+			const formData = new FormData();
+			formData.append("avatar", file);
+			const response = await api.post("/users/avatar", formData, {
+				headers: { "Content-Type": "multipart/form-data" },
+			});
+			const newAvatarUrl = response.data.avatarUrl;
+			updateUser({ profile: { ...(user?.profile || {}), avatar: newAvatarUrl } as any });
+			setPhotoPreview(null);
+			if (photoInputRef.current) photoInputRef.current.value = "";
+			Swal.fire("Berhasil", "Foto profil mitra berhasil diunggah.", "success");
+		} catch (err: any) {
+			Swal.fire("Gagal", err.response?.data?.error || "Gagal mengunggah foto.", "error");
+		} finally {
+			setPhotoUploading(false);
+		}
+	};
 
 	const loadData = async () => {
 		setIsLoading(true);
@@ -146,6 +210,10 @@ const MitraDashboard: React.FC = () => {
 		const amount = Number(form.amount);
 		const remainingBalance = withdrawalData?.summary.remainingBalance ?? 0;
 
+		if (!hasPhoto) {
+			Swal.fire("Foto wajib diunggah", "Unggah foto profil mitra terlebih dahulu sebelum mengajukan penarikan dana.", "warning");
+			return;
+		}
 		if (!amount || amount <= 0) {
 			Swal.fire("Jumlah tidak valid", "Masukkan nominal penarikan yang benar.", "warning");
 			return;
@@ -203,6 +271,81 @@ const MitraDashboard: React.FC = () => {
 
 	return (
 		<div className="space-y-6">
+			{/* ===== Foto Profil Mitra (WAJIB) ===== */}
+			<div
+				className={`rounded-2xl border p-5 md:p-6 ${
+					hasPhoto
+						? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-500/20 dark:bg-emerald-950/15"
+						: "border-red-300 bg-red-50/70 dark:border-red-500/30 dark:bg-red-950/20"
+				}`}
+			>
+				<div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+					{/* Avatar / preview */}
+					<div className="relative mx-auto sm:mx-0">
+						<div className="h-24 w-24 overflow-hidden rounded-2xl border-2 border-white bg-gray-100 shadow-md dark:border-white/10 dark:bg-gray-800">
+							{displayedPhoto ? (
+								<img src={displayedPhoto} alt="Foto mitra" className="h-full w-full object-cover" />
+							) : (
+								<div className="flex h-full w-full items-center justify-center text-gray-300 dark:text-gray-600">
+									<LuCamera className="h-9 w-9" />
+								</div>
+							)}
+						</div>
+						<span
+							className={`absolute -bottom-2 -right-2 grid h-7 w-7 place-items-center rounded-full text-white shadow ${
+								hasPhoto ? "bg-emerald-500" : "bg-red-500"
+							}`}
+						>
+							{hasPhoto ? <LuCircleCheck className="h-4 w-4" /> : <LuCircleAlert className="h-4 w-4" />}
+						</span>
+					</div>
+
+					{/* Teks + aksi */}
+					<div className="flex-1 text-center sm:text-left">
+						<div className="flex items-center justify-center gap-2 sm:justify-start">
+							<h2 className="text-base font-bold text-gray-950 dark:text-white">Foto Profil Mitra</h2>
+							<span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+								Wajib
+							</span>
+						</div>
+						<p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+							{hasPhoto
+								? "Foto Anda sudah tampil di katalog mitra Simpaskor. Anda bisa menggantinya kapan saja."
+								: "Foto wajib diunggah agar profil Anda tampil di katalog mitra dan bisa mengajukan penarikan dana."}
+						</p>
+
+						<div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:justify-start">
+							<input
+								ref={photoInputRef}
+								type="file"
+								accept="image/*"
+								onChange={handlePickPhoto}
+								className="hidden"
+							/>
+							<button
+								type="button"
+								onClick={() => photoInputRef.current?.click()}
+								className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-white/[0.06] sm:w-auto"
+							>
+								<LuCamera className="h-4 w-4" />
+								{hasPhoto ? "Ganti Foto" : "Pilih Foto"}
+							</button>
+							{photoPreview && (
+								<button
+									type="button"
+									onClick={handleUploadPhoto}
+									disabled={photoUploading}
+									className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 sm:w-auto"
+								>
+									<LuUpload className="h-4 w-4" />
+									{photoUploading ? "Mengunggah..." : "Simpan Foto"}
+								</button>
+							)}
+						</div>
+					</div>
+				</div>
+			</div>
+
 			<div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
 				<div>
 					<p className="text-xs uppercase tracking-[0.22em] text-red-600 dark:text-red-400 font-bold">
@@ -323,9 +466,14 @@ const MitraDashboard: React.FC = () => {
 								className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-950/40 px-3 py-2.5 text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
 							/>
 						</div>
+						{!hasPhoto && (
+							<p className="text-xs font-semibold text-red-600 dark:text-red-400">
+								Unggah foto profil mitra terlebih dahulu untuk bisa mengajukan penarikan.
+							</p>
+						)}
 						<button
 							type="submit"
-							disabled={isSubmitting || !withdrawalData?.summary.remainingBalance}
+							disabled={isSubmitting || !hasPhoto || !withdrawalData?.summary.remainingBalance}
 							className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 text-white text-sm font-bold transition-colors"
 						>
 							<LuSend className="w-4 h-4" />

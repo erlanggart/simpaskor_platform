@@ -122,6 +122,7 @@ router.get("/public/list", async (_req, res) => {
 				profile: {
 					select: {
 						avatar: true,
+						bio: true,
 						institution: true,
 						city: true,
 						province: true,
@@ -131,14 +132,34 @@ router.get("/public/list", async (_req, res) => {
 			},
 		});
 
+		// Count events referred per mitra (collaborations) for the profile popup.
+		const referralCounts = await prisma.event.groupBy({
+			by: ["mitraProfileId"],
+			where: { mitraProfileId: { not: null }, status: { notIn: ["DRAFT", "CANCELLED"] } },
+			_count: { _all: true },
+		});
+		const eventsByMitraUser = new Map<string, number>();
+
+		const mitraProfiles = await prisma.mitraProfile.findMany({
+			select: { id: true, userId: true },
+		});
+		const profileIdToUser = new Map(mitraProfiles.map((p) => [p.id, p.userId]));
+		for (const row of referralCounts) {
+			const userId = row.mitraProfileId ? profileIdToUser.get(row.mitraProfileId) : undefined;
+			if (userId) eventsByMitraUser.set(userId, row._count._all);
+		}
+
 		const data = mitra.map((user) => ({
 			id: user.id,
 			name: user.name,
 			photo: user.profile?.avatar ?? null,
+			bio: user.profile?.bio ?? null,
 			institution: user.profile?.institution ?? null,
 			city: user.profile?.city ?? null,
 			province: user.profile?.province ?? null,
 			verified: Boolean(user.mitraProfile?.referralCode),
+			joinedAt: user.createdAt,
+			eventCount: eventsByMitraUser.get(user.id) ?? 0,
 		}));
 
 		res.json({ data, total: data.length });

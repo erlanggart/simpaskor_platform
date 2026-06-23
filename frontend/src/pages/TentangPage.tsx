@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import {
@@ -25,6 +25,10 @@ import { absoluteUrl } from "../utils/seo";
 import { api } from "../utils/api";
 import { config } from "../utils/config";
 import { UsersIcon } from "../components/common/LottieIcons";
+import MitraProfileModal from "../components/landing/MitraProfileModal";
+
+// Peta memuat Leaflet (besar) — lazy-load agar tidak membebani bundle awal.
+const EventSpreadMap = lazy(() => import("../components/landing/EventSpreadMap"));
 
 /**
  * Reusable scroll-reveal wrapper. Fades + lifts children into view once,
@@ -123,20 +127,23 @@ interface Partner {
 	id: string;
 	name: string;
 	photo: string | null;
+	bio: string | null;
 	institution: string | null;
 	city: string | null;
 	province: string | null;
 	verified: boolean;
+	joinedAt: string | null;
+	eventCount: number;
 }
 
-// Gradien merah multi-stop, sedikit variasi gelap-terang per kartu agar tetap dinamis.
+// Gradien merah → hitam, sedikit variasi per kartu agar tidak monoton.
 const partnerAccents = [
-	"from-red-500 via-red-600 to-red-800",
-	"from-red-600 via-red-700 to-rose-900",
-	"from-rose-500 via-red-600 to-red-800",
-	"from-red-500 via-red-700 to-red-900",
-	"from-red-600 via-rose-700 to-red-900",
-	"from-rose-600 via-red-700 to-red-800",
+	"from-red-600 via-red-800 to-black",
+	"from-red-500 via-red-900 to-black",
+	"from-red-600 via-red-900 to-neutral-950",
+	"from-rose-600 via-red-800 to-black",
+	"from-red-700 via-red-900 to-black",
+	"from-red-600 via-rose-900 to-neutral-950",
 ];
 
 /** Resolusi URL foto: absolut dibiarkan, relatif diprefiks backendUrl. */
@@ -166,6 +173,7 @@ const TentangPage: React.FC = () => {
 	const reduce = useReducedMotion();
 	const [partners, setPartners] = useState<Partner[]>([]);
 	const [partnersLoading, setPartnersLoading] = useState(true);
+	const [activePartner, setActivePartner] = useState<Partner | null>(null);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -338,8 +346,7 @@ const TentangPage: React.FC = () => {
 								Mitra Simpaskor di berbagai wilayah
 							</h2>
 							<p className="mt-4 text-sm leading-relaxed text-gray-500 dark:text-gray-400 sm:text-base">
-								Komunitas, sekolah, dan penyelenggara baris berbaris yang tumbuh bersama Simpaskor—dari
-								Sumatera hingga Sulawesi.
+								Komunitas, sekolah, dan penyelenggara baris berbaris yang tumbuh bersama Simpaskor.
 							</p>
 						</div>
 					</Reveal>
@@ -454,21 +461,6 @@ const TentangPage: React.FC = () => {
 												}}
 												className={`group relative w-[72%] shrink-0 snap-start overflow-hidden rounded-[1.6rem] bg-gradient-to-br ${accent} p-6 text-center shadow-[0_10px_30px_-12px_rgba(15,23,42,0.45)] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_24px_50px_-16px_rgba(15,23,42,0.55)] sm:w-[52%] md:w-[248px]`}
 											>
-												{/* sheen lembut di pojok */}
-												<div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(120%_90%_at_20%_-10%,rgba(255,255,255,0.55),transparent_55%)]" />
-
-												{/* Confetti dekoratif */}
-												<div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-													<span className="absolute left-4 top-5 h-2 w-2 rounded-full bg-white/90" />
-													<span className="absolute right-5 top-4 h-2.5 w-2.5 rounded-full border-2 border-white/70" />
-													<span className="absolute left-7 top-12 h-2 w-2 rotate-45 bg-white/80" />
-													<span className="absolute right-7 top-12 text-sm font-black leading-none text-white/80">+</span>
-													<span className="absolute left-3 top-1/2 h-1.5 w-1.5 rounded-full bg-white/70" />
-													<span className="absolute right-4 top-[44%] h-2 w-2 rotate-45 bg-white/60" />
-													<span className="absolute bottom-20 left-5 text-xs font-black leading-none text-white/80">✦</span>
-													<span className="absolute bottom-24 right-6 h-2 w-2 rounded-full border-2 border-white/70" />
-												</div>
-
 												<div className="relative z-10 flex flex-col items-center">
 													{/* eyebrow */}
 													<span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/90">
@@ -511,13 +503,17 @@ const TentangPage: React.FC = () => {
 													</p>
 
 													{/* Tombol */}
-													<Link
-														to="/mitra"
+													<button
+														type="button"
+														onClick={() => {
+															if (drag.current.moved) return;
+															setActivePartner(p);
+														}}
 														className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white px-4 py-2.5 text-xs font-bold text-slate-900 shadow-lg transition-all duration-200 hover:gap-2.5 hover:bg-white/95"
 													>
 														<span>Lihat Profil</span>
 														<LuArrowUpRight className="h-4 w-4" />
-													</Link>
+													</button>
 												</div>
 											</div>
 										);
@@ -543,6 +539,37 @@ const TentangPage: React.FC = () => {
 								<span>Jadi Mitra Simpaskor</span>
 								<LuArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
 							</Link>
+						</div>
+					</Reveal>
+				</section>
+
+				{/* ===================== PETA SEBARAN EVENT ===================== */}
+				<section className="relative mx-auto max-w-6xl px-5 py-12 sm:px-6 md:px-12 md:py-20">
+					<Reveal>
+						<div className="mx-auto max-w-2xl text-center">
+							<div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-600 dark:text-red-400">
+								<LuMapPin className="h-3.5 w-3.5" />
+								Peta Kolaborasi
+							</div>
+							<h2 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl dark:text-white">
+								Sebaran event kolaborasi Simpaskor
+							</h2>
+							<p className="mt-4 text-sm leading-relaxed text-gray-500 dark:text-gray-400 sm:text-base">
+								Jelajahi titik-titik lokasi event yang berjalan bersama Simpaskor. Klik penanda untuk
+								melihat detail event di wilayah tersebut.
+							</p>
+						</div>
+					</Reveal>
+
+					<Reveal delay={0.1}>
+						<div className="mt-10">
+							<Suspense
+								fallback={
+									<div className="h-[460px] w-full animate-pulse rounded-3xl border border-gray-200/70 bg-white/60 dark:border-white/[0.07] dark:bg-white/[0.03]" />
+								}
+							>
+								<EventSpreadMap />
+							</Suspense>
 						</div>
 					</Reveal>
 				</section>
@@ -686,6 +713,9 @@ const TentangPage: React.FC = () => {
 					</Reveal>
 				</section>
 			</div>
+
+			{/* Popup profil mitra */}
+			<MitraProfileModal partner={activePartner} onClose={() => setActivePartner(null)} />
 		</>
 	);
 };
