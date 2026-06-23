@@ -106,6 +106,48 @@ router.get(
 	}
 );
 
+// Public catalog of verified mitra across regions — used by the landing /tentang page.
+router.get("/public/list", async (_req, res) => {
+	try {
+		const mitra = await prisma.user.findMany({
+			where: {
+				role: UserRole.MITRA,
+				status: "ACTIVE",
+			},
+			orderBy: [{ isPinned: "desc" }, { createdAt: "asc" }],
+			select: {
+				id: true,
+				name: true,
+				createdAt: true,
+				profile: {
+					select: {
+						avatar: true,
+						institution: true,
+						city: true,
+						province: true,
+					},
+				},
+				mitraProfile: { select: { referralCode: true } },
+			},
+		});
+
+		const data = mitra.map((user) => ({
+			id: user.id,
+			name: user.name,
+			photo: user.profile?.avatar ?? null,
+			institution: user.profile?.institution ?? null,
+			city: user.profile?.city ?? null,
+			province: user.profile?.province ?? null,
+			verified: Boolean(user.mitraProfile?.referralCode),
+		}));
+
+		res.json({ data, total: data.length });
+	} catch (error) {
+		console.error("Get public mitra list error:", error);
+		res.status(500).json({ message: "Failed to load mitra list" });
+	}
+});
+
 router.get("/public/rules", (_req, res) => {
 	res.json({
 		commissionPerEvent: COMMISSION_PER_EVENT,
