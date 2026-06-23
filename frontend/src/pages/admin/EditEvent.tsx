@@ -45,6 +45,8 @@ interface EventFormData {
 	endDate: string;
 	registrationDeadline: string;
 	location: string;
+	province: string;
+	city: string;
 	venue: string;
 	schoolCategoryLimits: SchoolCategoryLimit[];
 	registrationFee: number;
@@ -53,6 +55,44 @@ interface EventFormData {
 	contactPhone: string;
 	status: string;
 }
+
+// Daftar provinsi (selaras dengan peta sebaran event di halaman /tentang).
+const PROVINCES = [
+	"Aceh",
+	"Sumatera Utara",
+	"Sumatera Barat",
+	"Riau",
+	"Kepulauan Riau",
+	"Jambi",
+	"Sumatera Selatan",
+	"Bangka Belitung",
+	"Bengkulu",
+	"Lampung",
+	"DKI Jakarta",
+	"Jawa Barat",
+	"Banten",
+	"Jawa Tengah",
+	"DI Yogyakarta",
+	"Jawa Timur",
+	"Bali",
+	"Nusa Tenggara Barat",
+	"Nusa Tenggara Timur",
+	"Kalimantan Barat",
+	"Kalimantan Tengah",
+	"Kalimantan Selatan",
+	"Kalimantan Timur",
+	"Kalimantan Utara",
+	"Sulawesi Utara",
+	"Gorontalo",
+	"Sulawesi Tengah",
+	"Sulawesi Barat",
+	"Sulawesi Selatan",
+	"Sulawesi Tenggara",
+	"Maluku",
+	"Maluku Utara",
+	"Papua Barat",
+	"Papua",
+];
 
 const AdminEditEvent: React.FC = () => {
 	const { eventId } = useParams<{ eventId: string }>();
@@ -75,6 +115,8 @@ const AdminEditEvent: React.FC = () => {
 		endDate: "",
 		registrationDeadline: "",
 		location: "",
+		province: "",
+		city: "",
 		venue: "",
 		schoolCategoryLimits: [],
 		registrationFee: 0,
@@ -113,6 +155,8 @@ const AdminEditEvent: React.FC = () => {
 						? new Date(event.registrationDeadline).toISOString().slice(0, 16)
 						: "",
 					location: event.location || "",
+					province: event.province || "",
+					city: event.city || "",
 					venue: event.venue || "",
 					schoolCategoryLimits:
 						event.schoolCategoryLimits?.map((limit: any) => ({
@@ -355,6 +399,8 @@ const AdminEditEvent: React.FC = () => {
 					? new Date(formData.registrationDeadline).toISOString()
 					: null,
 				location: formData.location || null,
+				province: formData.province || null,
+				city: formData.city || null,
 				venue: formData.venue || null,
 				schoolCategoryLimits: uniqueLimits,
 				registrationFee: Number(formData.registrationFee),
@@ -547,14 +593,48 @@ const AdminEditEvent: React.FC = () => {
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div>
 								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-									Kota / Daerah
+									Provinsi
+								</label>
+								<select
+									value={formData.province}
+									onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+								>
+									<option value="">— Pilih provinsi —</option>
+									{PROVINCES.map((prov) => (
+										<option key={prov} value={prov}>
+											{prov}
+										</option>
+									))}
+								</select>
+								<p className="mt-1 text-xs text-gray-400">
+									Menentukan titik pada peta sebaran event.
+								</p>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+									Kabupaten / Kota
+								</label>
+								<input
+									type="text"
+									value={formData.city}
+									onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+									placeholder="Contoh: Kota Bandung"
+								/>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+									Alamat / Lokasi Lengkap
 								</label>
 								<input
 									type="text"
 									value={formData.location}
 									onChange={(e) => setFormData({ ...formData, location: e.target.value })}
 									className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
-									placeholder="Contoh: Jakarta Selatan"
+									placeholder="Contoh: Jl. Merdeka No. 1"
 								/>
 							</div>
 

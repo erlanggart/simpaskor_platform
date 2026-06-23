@@ -598,13 +598,17 @@ const TentangPage: React.FC = () => {
 							<motion.div
 								key={p.title}
 								variants={staggerChild}
-								className="group relative overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 p-6 shadow-sm shadow-gray-900/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-900/[0.06] dark:border-white/[0.07] dark:bg-white/[0.03] dark:hover:border-red-400/30"
+								className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 via-red-700 to-red-900 p-7 text-white shadow-xl shadow-red-900/20 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-red-900/30"
 							>
-								<div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-600 transition-transform duration-300 group-hover:scale-110 dark:text-red-400">
-									<p.icon className="h-6 w-6" />
+								<div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(120%_120%_at_85%_-10%,rgba(255,255,255,0.35),transparent_52%)]" />
+								<p.icon className="pointer-events-none absolute -bottom-6 -right-4 h-32 w-32 text-white/[0.08] transition-transform duration-500 group-hover:scale-110" />
+								<div className="relative">
+									<div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
+										<p.icon className="h-6 w-6" />
+									</div>
+									<h3 className="mt-5 text-lg font-bold">{p.title}</h3>
+									<p className="mt-2 text-sm leading-relaxed text-white/80">{p.desc}</p>
 								</div>
-								<h3 className="text-lg font-bold text-slate-800 dark:text-white">{p.title}</h3>
-								<p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{p.desc}</p>
 							</motion.div>
 						))}
 					</motion.div>
@@ -629,12 +633,19 @@ const TentangPage: React.FC = () => {
 					<div className="relative mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
 						{steps.map((s, i) => (
 							<Reveal key={s.no} delay={i * 0.1}>
-								<div className="relative h-full rounded-2xl border border-gray-200/70 bg-white/70 p-6 dark:border-white/[0.07] dark:bg-white/[0.03]">
-									<span className="bg-gradient-to-br from-red-500 to-red-700 bg-clip-text text-4xl font-black text-transparent dark:from-red-400 dark:to-red-600">
+								<div className="group relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 via-red-700 to-red-900 p-7 text-white shadow-xl shadow-red-900/20 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-red-900/30">
+									<div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(120%_120%_at_85%_-10%,rgba(255,255,255,0.32),transparent_52%)]" />
+									{/* nomor watermark besar */}
+									<span className="pointer-events-none absolute -right-2 -top-5 text-8xl font-black text-white/[0.1]">
 										{s.no}
 									</span>
-									<h3 className="mt-3 text-base font-bold text-slate-800 dark:text-white">{s.title}</h3>
-									<p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{s.desc}</p>
+									<div className="relative">
+										<div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-base font-black ring-1 ring-white/25 backdrop-blur-sm">
+											{s.no}
+										</div>
+										<h3 className="mt-5 text-base font-bold">{s.title}</h3>
+										<p className="mt-2 text-sm leading-relaxed text-white/80">{s.desc}</p>
+									</div>
 								</div>
 							</Reveal>
 						))}
@@ -666,13 +677,17 @@ const TentangPage: React.FC = () => {
 							<motion.div
 								key={v.title}
 								variants={staggerChild}
-								className="rounded-2xl border border-gray-200/70 bg-white/70 p-6 text-center dark:border-white/[0.07] dark:bg-white/[0.03]"
+								className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 via-red-700 to-red-900 p-8 text-center text-white shadow-xl shadow-red-900/20 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-red-900/30"
 							>
-								<div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-600 dark:text-red-400">
-									<v.icon className="h-6 w-6" />
+								<div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(110%_110%_at_50%_-10%,rgba(255,255,255,0.3),transparent_55%)]" />
+								<v.icon className="pointer-events-none absolute -bottom-6 -right-5 h-32 w-32 text-white/[0.08]" />
+								<div className="relative">
+									<div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
+										<v.icon className="h-7 w-7" />
+									</div>
+									<h3 className="mt-5 text-lg font-bold">{v.title}</h3>
+									<p className="mt-2 text-sm leading-relaxed text-white/80">{v.desc}</p>
 								</div>
-								<h3 className="text-lg font-bold text-slate-800 dark:text-white">{v.title}</h3>
-								<p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{v.desc}</p>
 							</motion.div>
 						))}
 					</motion.div>

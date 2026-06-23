@@ -934,6 +934,7 @@ router.patch(
 				startDate,
 				endDate,
 				registrationDeadline,
+				location,
 				province,
 				city,
 				venue,
@@ -1107,6 +1108,7 @@ router.patch(
 						registrationDeadline: registrationDeadline
 							? new Date(registrationDeadline)
 							: null,
+						location,
 						province,
 						city,
 						venue,
