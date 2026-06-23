@@ -51,10 +51,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 						</p>
 						<div className="grid w-full max-w-[18.5rem] grid-cols-1 gap-2.5 mx-auto sm:max-w-none sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:justify-center lg:justify-start">
 							<Link
-								to="/events"
+								to="/tentang"
 								className="landing-modern-btn landing-modern-btn-ghost group w-full sm:w-auto md:px-6 md:py-3"
 							>
-								<span>Jelajahi Event</span>
+								<span>Apa itu SIMPASKOR</span>
 								<LuArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
 							</Link>
 							<Link

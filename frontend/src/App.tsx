@@ -28,6 +28,7 @@ const KlasemenPage = lazy(() => import("./pages/KlasemenPage"));
 const EventsPage = lazy(() => import("./pages/EventsPage"));
 const PaymentSuccessPage = lazy(() => import("./pages/PaymentSuccessPage"));
 const PackagesPage = lazy(() => import("./pages/PackagesPage"));
+const TentangPage = lazy(() => import("./pages/TentangPage"));
 
 // Auth Pages
 const Login = lazy(() => import("./pages/Login"));
@@ -112,6 +113,7 @@ function App() {
 					{/* Public Routes - Main Layout */}
 					<Route element={<MainLayout />}>
 						<Route index element={<LandingPage />} />
+						<Route path="tentang" element={<TentangPage />} />
 						<Route path="events" element={<EventsPage />} />
 						<Route path="marketplace" element={<MarketplacePage />} />
 						<Route path="e-ticketing" element={<ETicketingPage />} />
