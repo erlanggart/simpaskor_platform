@@ -1,8 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, useMap } from "react-leaflet";
-import type { LatLngBoundsExpression } from "leaflet";
-import "leaflet/dist/leaflet.css";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import IndonesiaMap from "@svg-maps/indonesia";
 import { LuMapPin, LuCalendar, LuX, LuArrowUpRight, LuTicket } from "react-icons/lu";
 import { api } from "../../utils/api";
 import { config } from "../../utils/config";
@@ -20,98 +18,73 @@ interface MapEvent {
 	status: string;
 }
 
-interface EventGroup {
-	key: string;
-	label: string;
-	province: string | null;
-	coord: [number, number];
+interface ProvinceGroup {
+	provinceId: string; // id-jb, id-jt, ...
+	label: string; // nama provinsi event
 	events: MapEvent[];
 }
 
-// --- Tabel koordinat (lat, lng) untuk geocode lokasi event Indonesia ---
-const CITY_COORDS: Record<string, [number, number]> = {
-	semarang: [-6.9667, 110.4167],
-	kediri: [-7.8166, 112.0114],
-	tasikmalaya: [-7.3274, 108.2207],
-	singkawang: [0.9028, 108.9847],
-	sleman: [-7.7167, 110.3556],
-	bogor: [-6.595, 106.8166],
-	denpasar: [-8.65, 115.2167],
-	malang: [-7.9797, 112.6304],
-	"barito timur": [-2.18, 115.04],
-	tangerang: [-6.1781, 106.63],
-	jakarta: [-6.2, 106.8167],
-	bandung: [-6.9147, 107.6098],
-	surabaya: [-7.2575, 112.7521],
-	yogyakarta: [-7.7956, 110.3695],
-	medan: [3.5952, 98.6722],
-	makassar: [-5.1477, 119.4327],
-	palembang: [-2.9761, 104.7754],
-	pontianak: [-0.0226, 109.3414],
-	"palangka raya": [-2.2088, 113.9213],
-	palangkaraya: [-2.2088, 113.9213],
-	balikpapan: [-1.2379, 116.8529],
-	samarinda: [-0.5022, 117.1536],
-	pekanbaru: [0.5071, 101.4478],
-	padang: [-0.9471, 100.4172],
-	manado: [1.4748, 124.8421],
-	banjarmasin: [-3.3186, 114.5944],
-	mataram: [-8.5833, 116.1167],
-	kupang: [-10.1772, 123.6073],
-	jayapura: [-2.5337, 140.7181],
-	ambon: [-3.6954, 128.1814],
+// --- Pemetaan nama provinsi (DB) -> id provinsi pada @svg-maps/indonesia ---
+const norm = (s: string) =>
+	s
+		.toLowerCase()
+		.trim()
+		.replace(/^provinsi\s+/, "")
+		.replace(/^dki\s+/, "")
+		.replace(/^di\s+/, "")
+		.replace(/^daerah istimewa\s+/, "");
+
+// Lookup nama (ternormalisasi) -> id, dibangun dari data peta + alias.
+const NAME_TO_ID: Record<string, string> = (() => {
+	const map: Record<string, string> = {};
+	for (const loc of IndonesiaMap.locations) map[norm(loc.name)] = loc.id;
+	// alias variasi penulisan
+	map["jakarta"] = "id-jk";
+	map["dki jakarta"] = "id-jk";
+	map["jakarta raya"] = "id-jk";
+	map["yogyakarta"] = "id-yo";
+	map["di yogyakarta"] = "id-yo";
+	map["daerah istimewa yogyakarta"] = "id-yo";
+	map["bangka belitung"] = "id-bb";
+	map["kepulauan bangka belitung"] = "id-bb";
+	return map;
+})();
+
+// Fallback: tebak provinsi dari kota untuk event tanpa field province.
+const CITY_TO_PROVINCE_ID: Record<string, string> = {
+	semarang: "id-jt",
+	"kota semarang": "id-jt",
+	kediri: "id-ji",
+	malang: "id-ji",
+	"kota malang": "id-ji",
+	surabaya: "id-ji",
+	tasikmalaya: "id-jb",
+	bogor: "id-jb",
+	bandung: "id-jb",
+	bekasi: "id-jb",
+	depok: "id-jb",
+	singkawang: "id-kb",
+	"kota singkawang": "id-kb",
+	pontianak: "id-kb",
+	sleman: "id-yo",
+	bantul: "id-yo",
+	denpasar: "id-ba",
+	"kota denpasar": "id-ba",
+	"barito timur": "id-kt",
+	"palangka raya": "id-kt",
+	tangerang: "id-bt",
+	"kota tangerang": "id-bt",
+	serang: "id-bt",
 };
 
-const PROVINCE_COORDS: Record<string, [number, number]> = {
-	"dki jakarta": [-6.2, 106.8167],
-	"jawa barat": [-6.9, 107.6],
-	"jawa tengah": [-7.15, 110.14],
-	"jawa timur": [-7.54, 112.23],
-	"di yogyakarta": [-7.8, 110.37],
-	"daerah istimewa yogyakarta": [-7.8, 110.37],
-	yogyakarta: [-7.8, 110.37],
-	banten: [-6.45, 106.13],
-	bali: [-8.45, 115.18],
-	"kalimantan barat": [-0.0226, 109.3414],
-	"kalimantan tengah": [-2.2088, 113.9213],
-	"kalimantan selatan": [-3.3186, 114.5944],
-	"kalimantan timur": [-0.5022, 117.1536],
-	"kalimantan utara": [2.8, 116.0],
-	"sumatera utara": [3.5952, 98.6722],
-	"sumatera barat": [-0.9471, 100.4172],
-	"sumatera selatan": [-2.9761, 104.7754],
-	"riau": [0.5071, 101.4478],
-	"kepulauan riau": [0.9, 104.45],
-	jambi: [-1.6101, 103.6131],
-	bengkulu: [-3.8004, 102.2655],
-	lampung: [-5.45, 105.2667],
-	aceh: [5.5483, 95.3238],
-	"bangka belitung": [-2.13, 106.11],
-	"sulawesi selatan": [-5.1477, 119.4327],
-	"sulawesi utara": [1.4748, 124.8421],
-	"sulawesi tengah": [-0.9, 119.87],
-	"sulawesi tenggara": [-3.99, 122.51],
-	"sulawesi barat": [-2.68, 118.9],
-	gorontalo: [0.5435, 123.0568],
-	"nusa tenggara barat": [-8.5833, 116.1167],
-	"nusa tenggara timur": [-10.1772, 123.6073],
-	maluku: [-3.6954, 128.1814],
-	"maluku utara": [0.7, 127.4],
-	papua: [-2.5337, 140.7181],
-	"papua barat": [-0.86, 134.06],
-};
-
-const norm = (s: string) => s.toLowerCase().trim();
-const cityKey = (s: string) => norm(s).replace(/^(kota|kabupaten|kab\.?)\s+/i, "").trim();
-
-const geocode = (city: string | null, province: string | null): [number, number] | null => {
-	if (city) {
-		const c = CITY_COORDS[cityKey(city)];
-		if (c) return c;
+const resolveProvinceId = (ev: MapEvent): string | null => {
+	if (ev.province) {
+		const id = NAME_TO_ID[norm(ev.province)];
+		if (id) return id;
 	}
-	if (province) {
-		const p = PROVINCE_COORDS[norm(province)];
-		if (p) return p;
+	if (ev.city) {
+		const id = CITY_TO_PROVINCE_ID[norm(ev.city)];
+		if (id) return id;
 	}
 	return null;
 };
@@ -138,27 +111,13 @@ const statusTone = (status: string): string => {
 	}
 };
 
-/** Sesuaikan viewport peta agar semua titik terlihat. */
-const FitBounds: React.FC<{ coords: [number, number][] }> = ({ coords }) => {
-	const map = useMap();
-	useEffect(() => {
-		if (coords.length === 0) return;
-		if (coords.length === 1) {
-			map.setView(coords[0]!, 6);
-			return;
-		}
-		map.fitBounds(coords as LatLngBoundsExpression, { padding: [48, 48], maxZoom: 7 });
-	}, [coords, map]);
-	return null;
-};
-
 const EventSpreadMap: React.FC = () => {
 	const [events, setEvents] = useState<MapEvent[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [selected, setSelected] = useState<EventGroup | null>(null);
+	const [selected, setSelected] = useState<ProvinceGroup | null>(null);
+	const [centroids, setCentroids] = useState<Record<string, { cx: number; cy: number }>>({});
 
-	const isDark =
-		typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+	const pathRefs = useRef<Map<string, SVGPathElement>>(new Map());
 
 	useEffect(() => {
 		let cancelled = false;
@@ -178,45 +137,43 @@ const EventSpreadMap: React.FC = () => {
 		};
 	}, []);
 
-	// Kelompokkan event per lokasi + offset titik yang bertumpuk.
-	const groups = useMemo<EventGroup[]>(() => {
-		const map = new Map<string, EventGroup>();
+	// Kelompokkan event per provinsi.
+	const groups = useMemo<ProvinceGroup[]>(() => {
+		const map = new Map<string, ProvinceGroup>();
 		for (const ev of events) {
-			const coord = geocode(ev.city, ev.province);
-			if (!coord) continue;
-			const key = `${cityKey(ev.city || "")}|${norm(ev.province || "")}`;
-			const label = ev.city || ev.province || "Indonesia";
-			const existing = map.get(key);
+			const provinceId = resolveProvinceId(ev);
+			if (!provinceId) continue;
+			const existing = map.get(provinceId);
 			if (existing) existing.events.push(ev);
-			else map.set(key, { key, label, province: ev.province, coord, events: [ev] });
-		}
-
-		// Offset grup yang punya koordinat identik (mis. fallback provinsi sama).
-		const byCoord = new Map<string, EventGroup[]>();
-		for (const g of map.values()) {
-			const k = g.coord.join(",");
-			byCoord.set(k, [...(byCoord.get(k) || []), g]);
-		}
-		for (const list of byCoord.values()) {
-			if (list.length < 2) continue;
-			list.forEach((g, i) => {
-				const angle = (i / list.length) * Math.PI * 2;
-				g.coord = [g.coord[0] + Math.sin(angle) * 0.5, g.coord[1] + Math.cos(angle) * 0.5];
-			});
+			else map.set(provinceId, { provinceId, label: ev.province || ev.city || "Indonesia", events: [ev] });
 		}
 		return [...map.values()];
 	}, [events]);
 
-	const allCoords = useMemo(() => groups.map((g) => g.coord), [groups]);
-	const totalEvents = groups.reduce((sum, g) => sum + g.events.length, 0);
+	const activeProvinceIds = useMemo(() => new Set(groups.map((g) => g.provinceId)), [groups]);
 
-	const tileUrl = isDark
-		? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-		: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+	// Hitung centroid (pusat bounding box) tiap provinsi ber-event dari path SVG.
+	useLayoutEffect(() => {
+		if (groups.length === 0) return;
+		const next: Record<string, { cx: number; cy: number }> = {};
+		for (const g of groups) {
+			const el = pathRefs.current.get(g.provinceId);
+			if (!el) continue;
+			try {
+				const box = el.getBBox();
+				next[g.provinceId] = { cx: box.x + box.width / 2, cy: box.y + box.height / 2 };
+			} catch {
+				/* getBBox bisa gagal jika belum ter-render */
+			}
+		}
+		setCentroids(next);
+	}, [groups]);
+
+	const totalEvents = groups.reduce((sum, g) => sum + g.events.length, 0);
 
 	if (loading) {
 		return (
-			<div className="h-[460px] w-full animate-pulse rounded-3xl border border-gray-200/70 bg-white/60 dark:border-white/[0.07] dark:bg-white/[0.03]" />
+			<div className="h-[420px] w-full animate-pulse rounded-3xl border border-gray-200/70 bg-white/60 dark:border-white/[0.07] dark:bg-white/[0.03]" />
 		);
 	}
 
@@ -231,72 +188,82 @@ const EventSpreadMap: React.FC = () => {
 		);
 	}
 
+	// Radius titik dalam satuan viewBox (793x288) — kecil agar proporsional.
+	const dotRadius = (count: number) => Math.min(7, 3.5 + count * 0.9);
+
 	return (
-		<div className="relative overflow-hidden rounded-3xl border border-gray-200/70 shadow-xl shadow-gray-900/[0.06] dark:border-white/[0.08] dark:shadow-black/30">
+		<div className="relative overflow-hidden rounded-3xl border border-gray-200/70 bg-gradient-to-b from-sky-50 to-white p-4 shadow-xl shadow-gray-900/[0.06] dark:border-white/[0.08] dark:from-[#0e0e16] dark:to-[#0b0b12] dark:shadow-black/30 sm:p-6">
 			{/* Badge ringkasan */}
-			<div className="pointer-events-none absolute left-4 top-4 z-[500] rounded-2xl border border-white/60 bg-white/85 px-4 py-2.5 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/85">
+			<div className="absolute left-5 top-5 z-20 rounded-2xl border border-white/60 bg-white/85 px-4 py-2.5 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/85">
 				<p className="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
 					Sebaran Kolaborasi
 				</p>
 				<p className="text-lg font-black text-slate-900 dark:text-white">
-					{totalEvents} Event · {groups.length} Lokasi
+					{totalEvents} Event · {groups.length} Provinsi
 				</p>
 			</div>
 
-			<MapContainer
-				center={[-2.3, 117.5]}
-				zoom={4}
-				scrollWheelZoom={false}
-				className="h-[460px] w-full md:h-[540px]"
-				style={{ background: isDark ? "#0b0b14" : "#e8edf2" }}
+			{/* Peta SVG statis */}
+			<svg
+				viewBox={IndonesiaMap.viewBox}
+				className="h-auto w-full"
+				role="img"
+				aria-label="Peta sebaran event kolaborasi Simpaskor di Indonesia"
 			>
-				<TileLayer
-					url={tileUrl}
-					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-				/>
-				<FitBounds coords={allCoords} />
-
-				{groups.map((g) => {
-					const isActive = selected?.key === g.key;
-					const radius = Math.min(18, 8 + g.events.length * 2);
+				{/* Provinsi */}
+				{IndonesiaMap.locations.map((loc) => {
+					const isActive = activeProvinceIds.has(loc.id);
 					return (
-						<React.Fragment key={g.key}>
-							{/* halo */}
-							<CircleMarker
-								center={g.coord}
-								radius={radius + 6}
-								pathOptions={{
-									color: "transparent",
-									fillColor: "#ef4444",
-									fillOpacity: isActive ? 0.28 : 0.16,
-								}}
-							/>
-							{/* titik inti */}
-							<CircleMarker
-								center={g.coord}
-								radius={radius}
-								pathOptions={{
-									color: "#ffffff",
-									weight: 2,
-									fillColor: isActive ? "#b91c1c" : "#ef4444",
-									fillOpacity: 1,
-								}}
-								eventHandlers={{ click: () => setSelected(g) }}
-							/>
-						</React.Fragment>
+						<path
+							key={loc.id}
+							ref={(el) => {
+								if (el) pathRefs.current.set(loc.id, el);
+							}}
+							d={loc.path}
+							className={
+								isActive
+									? "fill-red-200 stroke-white dark:fill-red-500/30 dark:stroke-[#0b0b12]"
+									: "fill-slate-200 stroke-white dark:fill-white/[0.06] dark:stroke-[#0b0b12]"
+							}
+							strokeWidth={0.4}
+						/>
 					);
 				})}
-			</MapContainer>
+
+				{/* Titik event */}
+				{groups.map((g) => {
+					const c = centroids[g.provinceId];
+					if (!c) return null;
+					const isSel = selected?.provinceId === g.provinceId;
+					const r = dotRadius(g.events.length);
+					return (
+						<g
+							key={g.provinceId}
+							className="cursor-pointer"
+							onClick={() => setSelected(g)}
+							style={{ pointerEvents: "all" }}
+						>
+							<circle cx={c.cx} cy={c.cy} r={r + 3.5} className="fill-red-500/25" />
+							<circle
+								cx={c.cx}
+								cy={c.cy}
+								r={r}
+								className={isSel ? "fill-red-700" : "fill-red-500"}
+								stroke="#ffffff"
+								strokeWidth={1}
+							/>
+						</g>
+					);
+				})}
+			</svg>
 
 			{/* Panel detail event */}
 			{selected && (
-				<div className="absolute bottom-4 right-4 z-[500] max-h-[80%] w-[min(20rem,calc(100%-2rem))] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/95">
-					<div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-white/[0.06]">
+				<div className="absolute bottom-5 right-5 z-20 max-h-[78%] w-[min(20rem,calc(100%-2.5rem))] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/95">
+					<div className="sticky top-0 flex items-center justify-between gap-2 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur-md dark:border-white/[0.06] dark:bg-[#13131c]/95">
 						<div className="flex min-w-0 items-center gap-1.5">
 							<LuMapPin className="h-4 w-4 shrink-0 text-red-500" />
-							<p className="truncate text-sm font-bold text-slate-900 dark:text-white">
-								{selected.label}
-							</p>
+							<p className="truncate text-sm font-bold text-slate-900 dark:text-white">{selected.label}</p>
 						</div>
 						<button
 							type="button"
@@ -334,6 +301,7 @@ const EventSpreadMap: React.FC = () => {
 										<p className="mt-1 flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
 											<LuCalendar className="h-3 w-3" />
 											{formatDate(ev.startDate)}
+											{ev.city ? ` · ${ev.city}` : ""}
 										</p>
 									</div>
 									{ev.slug && (
@@ -352,6 +320,11 @@ const EventSpreadMap: React.FC = () => {
 					</div>
 				</div>
 			)}
+
+			{/* Hint */}
+			<p className="mt-2 text-center text-[11px] text-gray-400 dark:text-gray-600">
+				Klik titik merah untuk melihat event di provinsi tersebut.
+			</p>
 		</div>
 	);
 };
