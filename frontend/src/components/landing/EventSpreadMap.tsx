@@ -193,20 +193,21 @@ const EventSpreadMap: React.FC = () => {
 
 	return (
 		<div className="relative overflow-hidden rounded-3xl border border-gray-200/70 bg-gradient-to-b from-sky-50 to-white p-4 shadow-xl shadow-gray-900/[0.06] dark:border-white/[0.08] dark:from-[#0e0e16] dark:to-[#0b0b12] dark:shadow-black/30 sm:p-6">
-			{/* Badge ringkasan */}
-			<div className="absolute left-5 top-5 z-20 rounded-2xl border border-white/60 bg-white/85 px-4 py-2.5 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/85">
+			{/* Badge ringkasan — mengalir di atas peta pada mobile, overlay pada sm+ */}
+			<div className="mb-3 inline-block rounded-2xl border border-white/60 bg-white/85 px-4 py-2.5 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/85 sm:absolute sm:left-5 sm:top-5 sm:z-20 sm:mb-0">
 				<p className="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
 					Sebaran Kolaborasi
 				</p>
-				<p className="text-lg font-black text-slate-900 dark:text-white">
+				<p className="text-base font-black text-slate-900 dark:text-white sm:text-lg">
 					{totalEvents} Event · {groups.length} Provinsi
 				</p>
 			</div>
 
-			{/* Peta SVG statis */}
+			{/* Peta SVG statis — bisa digeser horizontal di layar sempit */}
+			<div className="-mx-1 overflow-x-auto pb-1 sm:mx-0 sm:overflow-visible [scrollbar-width:thin]">
 			<svg
 				viewBox={IndonesiaMap.viewBox}
-				className="h-auto w-full"
+				className="mx-auto h-auto w-full min-w-[34rem] sm:min-w-0"
 				role="img"
 				aria-label="Peta sebaran event kolaborasi Simpaskor di Indonesia"
 			>
@@ -252,27 +253,50 @@ const EventSpreadMap: React.FC = () => {
 								stroke="#ffffff"
 								strokeWidth={1}
 							/>
+							{g.events.length > 1 && (
+								<text
+									x={c.cx}
+									y={c.cy}
+									textAnchor="middle"
+									dominantBaseline="central"
+									className="pointer-events-none select-none fill-white font-bold"
+									style={{ fontSize: r * 1.1 }}
+								>
+									{g.events.length}
+								</text>
+							)}
 						</g>
 					);
 				})}
 			</svg>
+			</div>
 
 			{/* Panel detail event */}
 			{selected && (
-				<div className="absolute bottom-5 right-5 z-20 max-h-[78%] w-[min(20rem,calc(100%-2.5rem))] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/95">
-					<div className="sticky top-0 flex items-center justify-between gap-2 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur-md dark:border-white/[0.06] dark:bg-[#13131c]/95">
-						<div className="flex min-w-0 items-center gap-1.5">
-							<LuMapPin className="h-4 w-4 shrink-0 text-red-500" />
-							<p className="truncate text-sm font-bold text-slate-900 dark:text-white">{selected.label}</p>
+				<div className="absolute inset-x-3 bottom-3 z-30 mx-auto max-h-[70%] w-auto overflow-y-auto rounded-2xl border border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-[#13131c]/95 sm:inset-x-auto sm:bottom-5 sm:right-5 sm:w-[20rem]">
+					<div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur-md dark:border-white/[0.06] dark:bg-[#13131c]/95">
+						<div className="flex items-start justify-between gap-2">
+							<div className="flex min-w-0 items-center gap-1.5">
+								<LuMapPin className="h-4 w-4 shrink-0 text-red-500" />
+								<p className="truncate text-sm font-bold text-slate-900 dark:text-white">{selected.label}</p>
+								<span className="shrink-0 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-600 dark:text-red-400">
+									{selected.events.length} event
+								</span>
+							</div>
+							<button
+								type="button"
+								onClick={() => setSelected(null)}
+								aria-label="Tutup"
+								className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/[0.06]"
+							>
+								<LuX className="h-4 w-4" />
+							</button>
 						</div>
-						<button
-							type="button"
-							onClick={() => setSelected(null)}
-							aria-label="Tutup"
-							className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/[0.06]"
-						>
-							<LuX className="h-4 w-4" />
-						</button>
+						<p className="mt-1 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+							{selected.events.length > 1
+								? "Lihat semua event di wilayah ini"
+								: "Event di wilayah ini"}
+						</p>
 					</div>
 					<div className="divide-y divide-gray-100 dark:divide-white/[0.06]">
 						{selected.events.map((ev) => {
