@@ -30,6 +30,7 @@ type RegisterForm = z.infer<typeof registerSchema>;
 const Register = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [emailExists, setEmailExists] = useState(false);
 	const [success, setSuccess] = useState<string | null>(null);
 	const [showPassword, setShowPassword] = useState(false);
 	const { register: registerUser, setAuth } = useAuth();
@@ -118,6 +119,7 @@ const Register = () => {
 		try {
 			setIsLoading(true);
 			setError(null);
+			setEmailExists(false);
 			setSuccess(null);
 
 			// Check if reCAPTCHA is available
@@ -152,6 +154,9 @@ const Register = () => {
 					errorMessage ||
 						"Verifikasi keamanan gagal. Silakan refresh halaman dan coba lagi."
 				);
+			} else if (errorMessage?.includes("already exists")) {
+				setEmailExists(true);
+				setError("Email sudah digunakan.");
 			} else {
 				setError(errorMessage || "Registrasi gagal. Silakan coba lagi.");
 			}
@@ -176,6 +181,13 @@ const Register = () => {
 				{error && (
 					<div className="bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl">
 						{error}
+						{emailExists && (
+							<> Coba{" "}
+								<Link to="/login" className="font-semibold underline hover:text-red-900 dark:hover:text-red-300">
+									login di sini
+								</Link>.
+							</>
+						)}
 					</div>
 				)}
 
