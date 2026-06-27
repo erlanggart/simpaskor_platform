@@ -33,6 +33,7 @@ import {
 	LuBadgeDollarSign,
 	LuBell,
 	LuCode,
+	LuTrash2,
 } from "react-icons/lu";
 import { TrophyIcon } from "../components/common/LottieIcons";
 import "../components/landing/LandingPage.css";
@@ -190,6 +191,7 @@ export const DashboardLayout: React.FC = () => {
 
 					{ name: "Penilaian", icon: LuScale, path: "/admin/assessment-categories" },
 					{ name: "Event", icon: LuCalendar, path: "/admin/events" },
+					{ name: "Sampah Event", icon: LuTrash2, path: "/admin/events/trash" },
 					{ name: "Produk", icon: LuShoppingBag, path: "/admin/products" },
 					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
 					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },

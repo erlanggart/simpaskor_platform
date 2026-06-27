@@ -379,7 +379,7 @@ const EditEventForm: React.FC = () => {
 			"Apakah Anda yakin ingin menyimpan perubahan event ini?"
 		);
 
-		if (!confirmed) return;
+		if (!confirmed.isConfirmed) return;
 
 		try {
 			setLoading(true);

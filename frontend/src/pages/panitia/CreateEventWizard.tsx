@@ -386,7 +386,7 @@ const CreateEventWizard: React.FC = () => {
 			"Lanjutkan Edit"
 		);
 
-		if (confirmed) {
+		if (confirmed.isConfirmed) {
 			navigate("/panitia/dashboard");
 		}
 	};

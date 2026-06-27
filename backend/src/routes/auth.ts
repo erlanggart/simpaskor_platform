@@ -4,7 +4,7 @@ import { AuthUtils } from "../utils/auth";
 import { UserRole, UserStatus } from "@prisma/client";
 import { z } from "zod";
 import crypto from "crypto";
-import { registrationLimiter } from "../middleware/rateLimiter";
+import { registrationLimiter, loginLimiter } from "../middleware/rateLimiter";
 import { verifyRecaptcha } from "../middleware/recaptcha";
 import { GoogleAuthUtils } from "../utils/googleAuth";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth";
@@ -199,6 +199,7 @@ router.post(
 // Login endpoint
 router.post(
 	"/login",
+	loginLimiter,
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = loginSchema.parse(req.body);
@@ -314,6 +315,7 @@ router.post(
 // Forgot Password - Request reset token
 router.post(
 	"/forgot-password",
+	loginLimiter,
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = forgotPasswordSchema.parse(req.body);
@@ -379,6 +381,7 @@ router.post(
 // Reset Password - Verify token and update password
 router.post(
 	"/reset-password",
+	loginLimiter,
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = resetPasswordSchema.parse(req.body);

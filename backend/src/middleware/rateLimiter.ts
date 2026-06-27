@@ -46,6 +46,41 @@ export const registrationLimiter = rateLimit({
 	},
 });
 
+// Rate limiter for login & password-reset endpoints (brute-force protection).
+// Only FAILED attempts count (skipSuccessfulRequests), so legitimate users who
+// log in correctly are never blocked — but password guessing / credential
+// stuffing / login flooding (e.g. k6) is stopped after a handful of failures.
+export const loginLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 20, // 20 FAILED attempts per 15 min per IP
+	standardHeaders: true,
+	legacyHeaders: false,
+	skipSuccessfulRequests: true,
+	keyGenerator: (req: Request): string => {
+		const forwardedFor = req.headers["x-forwarded-for"];
+		if (forwardedFor) {
+			const ips = Array.isArray(forwardedFor)
+				? forwardedFor[0]
+				: forwardedFor.split(",")[0];
+			return ips?.trim() || "unknown";
+		}
+		const realIp = req.headers["x-real-ip"];
+		if (realIp) {
+			const ip = Array.isArray(realIp) ? realIp[0] : realIp;
+			return ip || "unknown";
+		}
+		return req.ip || "unknown";
+	},
+	handler: (req: Request, res: Response) => {
+		res.status(429).json({
+			error: "Too many attempts",
+			message:
+				"Terlalu banyak percobaan login gagal. Silakan coba lagi setelah 15 menit.",
+			retryAfter: "15 minutes",
+		});
+	},
+});
+
 // General API rate limiter (can be used for other endpoints)
 export const apiLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes

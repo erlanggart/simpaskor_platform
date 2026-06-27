@@ -193,13 +193,18 @@ npm run dev
 
 ## 🔑 Default Login Credentials
 
-| Role          | Email                    | Password    | Dashboard            |
-| ------------- | ------------------------ | ----------- | -------------------- |
-| 🔴 SuperAdmin | superadmin@simpaskor.com | Admin123!   | `/admin/dashboard`   |
-| 🟣 Panitia    | panitia@simpaskor.com    | Panitia123! | `/panitia/dashboard` |
-| 🔵 Juri       | juri@simpaskor.com       | Juri123!    | `/juri/dashboard`    |
-| 🟡 Peserta    | demo@simpaskor.com       | password123 | `/peserta/dashboard` |
-| 🟢 Pelatih    | pelatih@simpaskor.com    | Pelatih123! | `/pelatih/dashboard` |
+Seed accounts no longer use hardcoded passwords. When you run `npm run seed`, each
+account's password is taken from a `SEED_*_PASSWORD` env var, or a **random** one is
+generated and printed in the seed output. Never commit real passwords to the repo,
+and always change seeded credentials after first login.
+
+| Role          | Email                    | Password                          | Dashboard            |
+| ------------- | ------------------------ | --------------------------------- | -------------------- |
+| 🔴 SuperAdmin | superadmin@simpaskor.id  | `SEED_SUPERADMIN_PASSWORD` / random | `/admin/dashboard`   |
+| 🟣 Panitia    | panitia@simpaskor.com    | `SEED_PANITIA_PASSWORD` / random  | `/panitia/dashboard` |
+| 🔵 Juri       | juri@simpaskor.com       | `SEED_JURI_PASSWORD` / random     | `/juri/dashboard`    |
+| 🟡 Peserta    | demo@simpaskor.com       | `SEED_PESERTA_PASSWORD` / random  | `/peserta/dashboard` |
+| 🟢 Pelatih    | pelatih@simpaskor.com    | `SEED_PELATIH_PASSWORD` / random  | `/pelatih/dashboard` |
 
 ## 🎯 Role-Based Features
 

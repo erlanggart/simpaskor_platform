@@ -6,6 +6,7 @@ import {
 	AuthenticatedRequest,
 } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
+import { Prisma } from "@prisma/client";
 import crypto from "crypto";
 import {
 	cancelMidtransTransaction,
@@ -1790,7 +1791,7 @@ router.put(
 				return res.status(400).json({ error: "Nama nominee wajib diisi" });
 			}
 
-			const updateData: Record<string, unknown> = {
+			const updateData: Prisma.VotingNomineeUpdateInput = {
 				nomineeName,
 				nomineeSubtitle: nomineeSubtitle || null,
 			};

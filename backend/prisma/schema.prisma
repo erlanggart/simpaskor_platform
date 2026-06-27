@@ -206,6 +206,8 @@ model Event {
   createdBy            User          @relation("EventCreator", fields: [createdById], references: [id])
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
+  deletedAt            DateTime?     @map("deleted_at") // Soft delete: non-null = moved to trash
+  deletedById          String?       @map("deleted_by_id") // SuperAdmin who moved event to trash
 
   // Relations
   participations       EventParticipation[]
@@ -228,6 +230,7 @@ model Event {
   disbursements        Disbursement[]
   mitraCommission      MitraCommission?
 
+  @@index([deletedAt])
   @@map("events")
 }
 

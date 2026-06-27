@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
-import { prisma } from "../lib/prisma";
+import { prisma, PrismaTransactionClient } from "../lib/prisma";
 import { authenticate, optionalAuthenticate, AuthenticatedRequest } from "../middleware/auth";
 import { uploadEventThumbnail, uploadJuknis } from "../middleware/upload";
 import { computeEventStatus } from "../utils/eventStatus";
@@ -118,7 +118,7 @@ async function snapshotPaidAdminFeesForEvent(eventId: string) {
 }
 
 async function applyMitraReferral(
-	tx: Prisma.TransactionClient,
+	tx: PrismaTransactionClient,
 	eventId: string,
 	referralCode: string | null | undefined
 ) {
@@ -370,6 +370,66 @@ router.get(
 		} catch (error) {
 			console.error("Error fetching all events for admin:", error);
 			res.status(500).json({ message: "Failed to fetch events" });
+		}
+	}
+);
+
+// GET /api/events/trash - List soft-deleted (trashed) events (SuperAdmin only)
+router.get(
+	"/trash",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+
+			if (!user || user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Only SuperAdmin can access trashed events",
+				});
+			}
+
+			// `deletedAt` is mentioned explicitly so the soft-delete extension
+			// does NOT force `deletedAt: null` here.
+			const events = await prisma.event.findMany({
+				where: { deletedAt: { not: null } },
+				include: {
+					createdBy: {
+						select: { id: true, name: true, email: true },
+					},
+					_count: {
+						select: {
+							participations: true,
+							ticketPurchases: true,
+							votingPurchases: true,
+						},
+					},
+				},
+				orderBy: { deletedAt: "desc" },
+			});
+
+			// `deletedById` has no Prisma relation (audit-only column), resolve names manually.
+			const deleterIds = [
+				...new Set(events.map((e) => e.deletedById).filter(Boolean) as string[]),
+			];
+			const deleters = deleterIds.length
+				? await prisma.user.findMany({
+						where: { id: { in: deleterIds } },
+						select: { id: true, name: true },
+				  })
+				: [];
+			const deleterMap = new Map(deleters.map((d) => [d.id, d.name]));
+
+			const data = events.map((event) => ({
+				...event,
+				deletedByName: event.deletedById
+					? deleterMap.get(event.deletedById) ?? null
+					: null,
+			}));
+
+			res.json({ data, total: data.length });
+		} catch (error) {
+			console.error("Error fetching trashed events:", error);
+			res.status(500).json({ message: "Failed to fetch trashed events" });
 		}
 	}
 );
@@ -2758,7 +2818,9 @@ router.post(
 	}
 );
 
-// DELETE /api/events/:id - Delete event (SuperAdmin only)
+// DELETE /api/events/:id - Move event to trash (soft delete, SuperAdmin only)
+// The event and all its related data are kept intact and simply hidden; it can
+// be restored later from the trash, or removed for good via /:id/permanent.
 router.delete(
 	"/:id",
 	authenticate,
@@ -2784,6 +2846,104 @@ router.delete(
 				return res.status(404).json({ message: "Event not found" });
 			}
 
+			if (event.deletedAt) {
+				return res.status(400).json({ message: "Event sudah berada di sampah" });
+			}
+
+			await prisma.event.update({
+				where: { id },
+				data: {
+					deletedAt: new Date(),
+					deletedById: user.userId,
+				},
+			});
+
+			res.json({ message: "Event dipindahkan ke sampah" });
+		} catch (error) {
+			console.error("Error moving event to trash:", error);
+			res.status(500).json({ message: "Failed to delete event" });
+		}
+	}
+);
+
+// POST /api/events/:id/restore - Restore an event from trash (SuperAdmin only)
+router.post(
+	"/:id/restore",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { id } = req.params;
+
+			if (!user || user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Only SuperAdmin can restore events",
+				});
+			}
+			if (!id) {
+				return res.status(400).json({ message: "Event ID is required" });
+			}
+
+			const event = await prisma.event.findUnique({ where: { id } });
+
+			if (!event) {
+				return res.status(404).json({ message: "Event not found" });
+			}
+
+			if (!event.deletedAt) {
+				return res.status(400).json({ message: "Event tidak berada di sampah" });
+			}
+
+			await prisma.event.update({
+				where: { id },
+				data: {
+					deletedAt: null,
+					deletedById: null,
+				},
+			});
+
+			res.json({ message: "Event berhasil dipulihkan" });
+		} catch (error) {
+			console.error("Error restoring event:", error);
+			res.status(500).json({ message: "Failed to restore event" });
+		}
+	}
+);
+
+// DELETE /api/events/:id/permanent - Permanently delete a trashed event (SuperAdmin only)
+// This is the only path that physically removes an event (cascade deletes all
+// related records). The event must already be in the trash.
+router.delete(
+	"/:id/permanent",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			const { id } = req.params;
+
+			if (!user || user.role !== "SUPERADMIN") {
+				return res.status(403).json({
+					message: "Only SuperAdmin can delete events",
+				});
+			}
+			if (!id) {
+				return res.status(400).json({ message: "Event ID is required" });
+			}
+
+			const event = await prisma.event.findUnique({
+				where: { id },
+			});
+
+			if (!event) {
+				return res.status(404).json({ message: "Event not found" });
+			}
+
+			if (!event.deletedAt) {
+				return res.status(400).json({
+					message: "Event harus dipindahkan ke sampah terlebih dahulu sebelum dihapus permanen",
+				});
+			}
+
 			await snapshotPaidAdminFeesForEvent(id);
 
 			// Delete event (cascade will handle related records)
@@ -2806,9 +2966,9 @@ router.delete(
 					: []),
 			]);
 
-			res.json({ message: "Event deleted successfully" });
+			res.json({ message: "Event dihapus permanen" });
 		} catch (error) {
-			console.error("Error deleting event:", error);
+			console.error("Error permanently deleting event:", error);
 			res.status(500).json({ message: "Failed to delete event" });
 		}
 	}

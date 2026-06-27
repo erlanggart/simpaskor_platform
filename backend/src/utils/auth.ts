@@ -2,7 +2,20 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
+// JWT_SECRET MUST be provided. In production we refuse to start without a
+// strong secret — a hardcoded fallback would let anyone forge admin tokens.
+// In non-production we allow a clearly-insecure dev value so local setup works.
+const JWT_SECRET =
+	process.env.JWT_SECRET ||
+	(process.env.NODE_ENV !== "production" ? "dev-only-insecure-secret-change-me" : "");
+
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+	throw new Error(
+		"JWT_SECRET environment variable must be set to a strong random value (>= 32 chars). " +
+			"Generate one with: openssl rand -hex 48"
+	);
+}
+
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 
 export interface JWTPayload {

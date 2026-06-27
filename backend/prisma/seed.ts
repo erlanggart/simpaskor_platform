@@ -1,8 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { seedGuides } from './seed-guides';
 
 const prisma = new PrismaClient();
+
+// Generate a strong random password. Used when a SEED_*_PASSWORD env var is not
+// provided, so we never ship real credentials hardcoded in the repository.
+function randomPassword(): string {
+  return crypto.randomBytes(12).toString('base64url');
+}
 
 async function main() {
   console.log('🌱 Starting database seeding...\n');
@@ -12,8 +19,18 @@ async function main() {
   // ============================================================================
   console.log('👥 Creating default users...');
 
-  const defaultPassword = await bcrypt.hash('nobunaga1945', 12);
-  const pesertaPassword = await bcrypt.hash('password123', 12);
+  // Seed credentials are taken from env vars; if not provided a random password
+  // is generated and printed in the summary below. No secrets live in the repo.
+  const creds = {
+    superadmin: process.env.SEED_SUPERADMIN_PASSWORD || randomPassword(),
+    panitia: process.env.SEED_PANITIA_PASSWORD || randomPassword(),
+    juri: process.env.SEED_JURI_PASSWORD || randomPassword(),
+    peserta: process.env.SEED_PESERTA_PASSWORD || randomPassword(),
+    pelatih: process.env.SEED_PELATIH_PASSWORD || randomPassword(),
+  };
+
+  const defaultPassword = await bcrypt.hash(creds.superadmin, 12);
+  const pesertaPassword = await bcrypt.hash(creds.peserta, 12);
 
   // SuperAdmin
   const superadmin = await prisma.user.upsert({
@@ -46,7 +63,7 @@ async function main() {
     update: {},
     create: {
       email: 'panitia@simpaskor.com',
-      passwordHash: await bcrypt.hash('Panitia123!', 12),
+      passwordHash: await bcrypt.hash(creds.panitia, 12),
       name: 'Panitia Demo',
       phone: '081234567891',
       role: 'PANITIA',
@@ -71,7 +88,7 @@ async function main() {
     update: {},
     create: {
       email: 'juri@simpaskor.com',
-      passwordHash: await bcrypt.hash('Juri123!', 12),
+      passwordHash: await bcrypt.hash(creds.juri, 12),
       name: 'Juri Demo',
       phone: '081234567892',
       role: 'JURI',
@@ -121,7 +138,7 @@ async function main() {
     update: {},
     create: {
       email: 'pelatih@simpaskor.com',
-      passwordHash: await bcrypt.hash('Pelatih123!', 12),
+      passwordHash: await bcrypt.hash(creds.pelatih, 12),
       name: 'Pelatih Demo',
       phone: '081234567894',
       role: 'PELATIH',
@@ -676,12 +693,13 @@ async function main() {
   console.log('✅ Database seeding completed successfully!');
   console.log('='.repeat(60));
   console.log('\n📝 Summary:\n');
-  console.log('👤 Users Created:');
-  console.log('   • SuperAdmin: superadmin@simpaskor.id  / nobunaga1945');
-  console.log('   • Panitia:    panitia@simpaskor.com    / Panitia123!');
-  console.log('   • Juri:       juri@simpaskor.com       / Juri123!');
-  console.log('   • Peserta:    demo@simpaskor.com       / password123');
-  console.log('   • Pelatih:    pelatih@simpaskor.com    / Pelatih123!');
+  console.log('👤 Users Created (passwords below — CHANGE THEM after first login):');
+  console.log(`   • SuperAdmin: superadmin@simpaskor.id  / ${creds.superadmin}`);
+  console.log(`   • Panitia:    panitia@simpaskor.com    / ${creds.panitia}`);
+  console.log(`   • Juri:       juri@simpaskor.com       / ${creds.juri}`);
+  console.log(`   • Peserta:    demo@simpaskor.com       / ${creds.peserta}`);
+  console.log(`   • Pelatih:    pelatih@simpaskor.com    / ${creds.pelatih}`);
+  console.log('   ⚠️  Set SEED_*_PASSWORD env vars to control these; otherwise random ones are generated.');
   console.log('\n🏫 School Categories: SD, SMP, SMA, PURNA');
   console.log('📊 Assessment Categories: PBB, KOMANDAN, VARIASI, FORMASI, KOSTUM_MAKEUP');
   console.log('🎟️ Event Coupons: 3 coupons created');

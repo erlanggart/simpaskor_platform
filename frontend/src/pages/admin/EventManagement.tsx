@@ -99,10 +99,11 @@ const EventManagement: React.FC = () => {
 
 	const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
 		const confirmed = await showConfirm(
-			"Hapus Event?",
-			`Apakah Anda yakin ingin menghapus event "${eventTitle}"? Semua data terkait (peserta, penilaian, materi, dll) akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.`
+			`Event "${eventTitle}" akan dipindahkan ke Sampah Event. Data tidak hilang dan bisa dipulihkan kapan saja dari halaman Sampah Event.`,
+			"Pindahkan ke Sampah?",
+			"Ya, Pindahkan"
 		);
-		if (!confirmed) return;
+		if (!confirmed.isConfirmed) return;
 		try {
 			await api.delete(`/events/${eventId}`);
 			showSuccess("Event berhasil dihapus");
@@ -119,7 +120,7 @@ const EventManagement: React.FC = () => {
 				? "Event akan dihapus dari carousel"
 				: "Event akan ditampilkan di carousel landing page"
 		);
-		if (!confirmed) return;
+		if (!confirmed.isConfirmed) return;
 		try {
 			await api.patch(`/events/${eventId}/pin`, {
 				isPinned: !currentPinned,
@@ -285,8 +286,17 @@ const EventManagement: React.FC = () => {
 					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Event Management</h1>
 					<p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Kelola semua event dan atur carousel landing page</p>
 				</div>
-				<div className="text-sm text-gray-500 dark:text-gray-400">
-					Total: <span className="font-semibold text-gray-900 dark:text-white">{events.length}</span> event
+				<div className="flex items-center gap-4">
+					<Link
+						to="/admin/events/trash"
+						className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
+					>
+						<TrashIcon className="w-4 h-4" />
+						Sampah Event
+					</Link>
+					<div className="text-sm text-gray-500 dark:text-gray-400">
+						Total: <span className="font-semibold text-gray-900 dark:text-white">{events.length}</span> event
+					</div>
 				</div>
 			</div>
 

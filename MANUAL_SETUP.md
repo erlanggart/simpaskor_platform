@@ -146,15 +146,17 @@ Buka browser dan akses:
 
 ## 🔑 Login Credentials
 
-Setelah seed database berhasil, gunakan akun default berikut:
+Setelah seed database berhasil, **password tiap akun dicetak di output seed** (diambil
+dari env `SEED_*_PASSWORD`, atau di-generate acak bila tidak diset). Tidak ada lagi
+password default yang ditulis di repo. Ganti password setelah login pertama.
 
-| Role          | Email                    | Password    | Dashboard URL                         |
-| ------------- | ------------------------ | ----------- | ------------------------------------- |
-| 🔴 SuperAdmin | superadmin@simpaskor.com | Admin123!   | http://localhost:5173/admin/dashboard   |
-| 🟣 Panitia    | panitia@simpaskor.com    | Panitia123! | http://localhost:5173/panitia/dashboard |
-| 🔵 Juri       | juri@simpaskor.com       | Juri123!    | http://localhost:5173/juri/dashboard    |
-| 🟡 Peserta    | demo@simpaskor.com       | password123 | http://localhost:5173/peserta/dashboard |
-| 🟢 Pelatih    | pelatih@simpaskor.com    | Pelatih123! | http://localhost:5173/pelatih/dashboard |
+| Role          | Email                    | Password                              | Dashboard URL                           |
+| ------------- | ------------------------ | ------------------------------------- | --------------------------------------- |
+| 🔴 SuperAdmin | superadmin@simpaskor.id  | `SEED_SUPERADMIN_PASSWORD` / acak     | http://localhost:5173/admin/dashboard   |
+| 🟣 Panitia    | panitia@simpaskor.com    | `SEED_PANITIA_PASSWORD` / acak        | http://localhost:5173/panitia/dashboard |
+| 🔵 Juri       | juri@simpaskor.com       | `SEED_JURI_PASSWORD` / acak           | http://localhost:5173/juri/dashboard    |
+| 🟡 Peserta    | demo@simpaskor.com       | `SEED_PESERTA_PASSWORD` / acak        | http://localhost:5173/peserta/dashboard |
+| 🟢 Pelatih    | pelatih@simpaskor.com    | `SEED_PELATIH_PASSWORD` / acak        | http://localhost:5173/pelatih/dashboard |
 
 ---
 

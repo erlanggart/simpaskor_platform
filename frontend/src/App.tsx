@@ -48,6 +48,7 @@ const UserDetail = lazy(() => import("./pages/admin/UserDetail"));
 const CouponManagement = lazy(() => import("./pages/admin/CouponManagement"));
 const AssessmentCategoryManagement = lazy(() => import("./pages/admin/AssessmentCategoryManagement"));
 const EventManagement = lazy(() => import("./pages/admin/EventManagement"));
+const EventTrash = lazy(() => import("./pages/admin/EventTrash"));
 const AdminManageEvent = lazy(() => import("./pages/admin/ManageEvent"));
 const AdminEditEvent = lazy(() => import("./pages/admin/EditEvent"));
 const ProductManagement = lazy(() => import("./pages/admin/ProductManagement"));
@@ -157,6 +158,7 @@ function App() {
 								<Route path="users/:userId" element={<UserDetail />} />
 							<Route path="coupons" element={<CouponManagement />} />
 							<Route path="events" element={<EventManagement />} />
+							<Route path="events/trash" element={<EventTrash />} />
 							<Route path="events/:eventId/edit" element={<AdminEditEvent />} />
 							<Route path="events/:eventSlug/manage" element={<AdminManageEvent />} />
 							<Route path="events/:eventSlug/peserta" element={<EventParticipantManagement />} />

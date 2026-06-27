@@ -435,6 +435,8 @@ router.get(
 				where: {
 					juryId: user.userId,
 					status: "CONFIRMED",
+					// Hide assignments whose event has been moved to trash
+					event: { deletedAt: null },
 				},
 				include: {
 					event: {
