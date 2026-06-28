@@ -25,6 +25,8 @@ import {
 	TicketIcon,
 	BanknotesIcon,
 	ChartPieIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 
 interface RoleOption {
@@ -151,17 +153,45 @@ const RoleSelection = () => {
 	);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
+	// Target of an in-progress programmatic smooth-scroll. While set, onScroll
+	// ignores the intermediate slides the carousel passes through so the active
+	// tab's gradient doesn't flicker through every color en route.
+	const snapTarget = useRef<number | null>(null);
 	const [activeIndex, setActiveIndex] = useState(initialIndex);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const activeRole = roles[activeIndex]!;
 
+	// scrollLeft that centers slide i (cards are narrower than the viewport so
+	// neighbors peek, hence we can't assume one slide == clientWidth).
+	const centerLeft = (el: HTMLDivElement, i: number) => {
+		const child = el.children[i] as HTMLElement | undefined;
+		if (!child) return 0;
+		return child.offsetLeft - (el.clientWidth - child.clientWidth) / 2;
+	};
+
+	// Index of the slide currently nearest the viewport center.
+	const nearestIndex = (el: HTMLDivElement) => {
+		const center = el.scrollLeft + el.clientWidth / 2;
+		let best = Infinity;
+		let i = 0;
+		for (let k = 0; k < el.children.length; k++) {
+			const c = el.children[k] as HTMLElement;
+			const d = Math.abs(c.offsetLeft + c.clientWidth / 2 - center);
+			if (d < best) {
+				best = d;
+				i = k;
+			}
+		}
+		return i;
+	};
+
 	// Jump to the preselected slide on mount (no animation).
 	useEffect(() => {
 		const el = scrollRef.current;
 		if (el && initialIndex > 0) {
-			el.scrollLeft = el.clientWidth * initialIndex;
+			el.scrollLeft = centerLeft(el, initialIndex);
 		}
 		// run once
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +200,10 @@ const RoleSelection = () => {
 	// Slide the carousel to a given role and mark it selected.
 	const goTo = (i: number) => {
 		const el = scrollRef.current;
-		if (el) el.scrollTo({ left: el.clientWidth * i, behavior: "smooth" });
+		if (el) {
+			snapTarget.current = i;
+			el.scrollTo({ left: centerLeft(el, i), behavior: "smooth" });
+		}
 		setActiveIndex(i);
 	};
 
@@ -178,7 +211,13 @@ const RoleSelection = () => {
 	const onScroll = () => {
 		const el = scrollRef.current;
 		if (!el) return;
-		const i = Math.round(el.scrollLeft / el.clientWidth);
+		const i = nearestIndex(el);
+		// During a programmatic scroll, wait until we land on the target before
+		// reacting — otherwise intermediate slides flicker the tab color.
+		if (snapTarget.current !== null) {
+			if (i === snapTarget.current) snapTarget.current = null;
+			return;
+		}
 		setActiveIndex((prev) => (prev === i ? prev : i));
 	};
 
@@ -248,18 +287,38 @@ const RoleSelection = () => {
 						})}
 					</div>
 
-					{/* Slider — CSS scroll-snap, swipe native di mobile & trackpad */}
-					<div
-						ref={scrollRef}
-						onScroll={onScroll}
-						className="flex-1 flex overflow-x-auto snap-x snap-mandatory scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-					>
+					{/* Slider — CSS scroll-snap, swipe native di mobile & trackpad.
+					    Tombol panah kiri/kanan hanya tampil di desktop. */}
+					<div className="relative flex-1 lg:px-14">
+						<button
+							type="button"
+							onClick={() => goTo(activeIndex - 1)}
+							disabled={activeIndex === 0}
+							aria-label="Role sebelumnya"
+							className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 shadow-md hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all disabled:opacity-0 disabled:pointer-events-none"
+						>
+							<ChevronLeftIcon className="w-5 h-5" />
+						</button>
+						<button
+							type="button"
+							onClick={() => goTo(activeIndex + 1)}
+							disabled={activeIndex === roles.length - 1}
+							aria-label="Role berikutnya"
+							className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 shadow-md hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 transition-all disabled:opacity-0 disabled:pointer-events-none"
+						>
+							<ChevronRightIcon className="w-5 h-5" />
+						</button>
+						<div
+							ref={scrollRef}
+							onScroll={onScroll}
+							className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+						>
 						{roles.map((role) => {
 							const Icon = role.icon;
 							return (
 								<div
 									key={role.id}
-									className="snap-center shrink-0 w-full px-0.5"
+									className="snap-center shrink-0 w-[88%] sm:w-[90%] px-1.5"
 								>
 									<div className="h-full rounded-2xl border-2 border-gray-200 dark:border-gray-700/50 bg-white dark:bg-gray-800/60 p-5 sm:p-8 shadow-sm">
 										{/* Header kartu */}
@@ -305,6 +364,7 @@ const RoleSelection = () => {
 								</div>
 							);
 						})}
+						</div>
 					</div>
 				</div>
 
