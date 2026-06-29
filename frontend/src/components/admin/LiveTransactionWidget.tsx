@@ -46,6 +46,7 @@ type LiveTxResponse = {
 		buyerName: string;
 		buyerEmail: string | null;
 		amount: number;
+		amountLabel: "DP" | null;
 		status: TxStatus;
 		context: string | null;
 		createdAt: string;
@@ -224,7 +225,7 @@ const RecentRow: React.FC<{ row: LiveTxResponse["recent"][number]; now: number }
 			</div>
 			<div className="shrink-0 text-right">
 				<p className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
-					{row.amount === 0 ? "GRATIS" : formatCurrency(row.amount)}
+					{row.amountLabel || formatCurrency(row.amount)}
 				</p>
 				<span
 					className={`mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${status.tone}`}

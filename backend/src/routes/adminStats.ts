@@ -241,6 +241,7 @@ type LiveTxPayload = {
 		buyerName: string;
 		buyerEmail: string | null;
 		amount: number;
+		amountLabel: "DP" | null;
 		status: string;
 		context: string | null;
 		createdAt: string;
@@ -292,13 +293,13 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 	// planner use the smallest data path. Each query has its own timeout so
 	// one slow table can't drag the rest down.
 	const tickets = await Promise.all([
-		withTimeout(prisma.ticketPurchase.count({ where: { status: "PENDING" } }), 0, "ticket.pending"),
-		withTimeout(prisma.ticketPurchase.count({ where: { status: { in: [...PAID_TICKET_STATUSES] } } }), 0, "ticket.paid"),
-		withTimeout(prisma.ticketPurchase.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] } } }), 0, "ticket.failed"),
+		withTimeout(prisma.ticketPurchase.count({ where: { status: "PENDING", totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "ticket.pending"),
+		withTimeout(prisma.ticketPurchase.count({ where: { status: { in: [...PAID_TICKET_STATUSES] }, totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "ticket.paid"),
+		withTimeout(prisma.ticketPurchase.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] }, totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "ticket.failed"),
 		withTimeout(
 			prisma.ticketPurchase.aggregate({
 				_sum: { totalAmount: true },
-				where: { status: { in: [...PAID_TICKET_STATUSES] }, paidAt: { gte: oneHourAgo } },
+				where: { status: { in: [...PAID_TICKET_STATUSES] }, totalAmount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { gte: oneHourAgo } },
 			}),
 			{ _sum: { totalAmount: 0 } },
 			"ticket.revenue"
@@ -306,13 +307,13 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 	]);
 
 	const votes = await Promise.all([
-		withTimeout(prisma.votingPurchase.count({ where: { status: "PENDING" } }), 0, "vote.pending"),
-		withTimeout(prisma.votingPurchase.count({ where: { status: "PAID" } }), 0, "vote.paid"),
-		withTimeout(prisma.votingPurchase.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] } } }), 0, "vote.failed"),
+		withTimeout(prisma.votingPurchase.count({ where: { status: "PENDING", totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "vote.pending"),
+		withTimeout(prisma.votingPurchase.count({ where: { status: "PAID", totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "vote.paid"),
+		withTimeout(prisma.votingPurchase.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] }, totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "vote.failed"),
 		withTimeout(
 			prisma.votingPurchase.aggregate({
 				_sum: { totalAmount: true },
-				where: { status: "PAID", paidAt: { gte: oneHourAgo } },
+				where: { status: "PAID", totalAmount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { gte: oneHourAgo } },
 			}),
 			{ _sum: { totalAmount: 0 } },
 			"vote.revenue"
@@ -320,13 +321,13 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 	]);
 
 	const regs = await Promise.all([
-		withTimeout(prisma.registrationPayment.count({ where: { status: "PENDING" } }), 0, "reg.pending"),
-		withTimeout(prisma.registrationPayment.count({ where: { status: "PAID" } }), 0, "reg.paid"),
-		withTimeout(prisma.registrationPayment.count({ where: { status: "EXPIRED" } }), 0, "reg.failed"),
+		withTimeout(prisma.registrationPayment.count({ where: { status: "PENDING", amount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "reg.pending"),
+		withTimeout(prisma.registrationPayment.count({ where: { status: "PAID", amount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "reg.paid"),
+		withTimeout(prisma.registrationPayment.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] }, amount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "reg.failed"),
 		withTimeout(
 			prisma.registrationPayment.aggregate({
 				_sum: { amount: true },
-				where: { status: "PAID", paidAt: { gte: oneHourAgo } },
+				where: { status: "PAID", amount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { gte: oneHourAgo } },
 			}),
 			{ _sum: { amount: 0 } },
 			"reg.revenue"
@@ -334,13 +335,13 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 	]);
 
 	const events = await Promise.all([
-		withTimeout(prisma.eventPayment.count({ where: { status: "PENDING" } }), 0, "event.pending"),
-		withTimeout(prisma.eventPayment.count({ where: { status: "PAID" } }), 0, "event.paid"),
-		withTimeout(prisma.eventPayment.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] } } }), 0, "event.failed"),
+		withTimeout(prisma.eventPayment.count({ where: { status: "PENDING", amount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "event.pending"),
+		withTimeout(prisma.eventPayment.count({ where: { status: "PAID", amount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "event.paid"),
+		withTimeout(prisma.eventPayment.count({ where: { status: { in: ["CANCELLED", "EXPIRED"] }, amount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "event.failed"),
 		withTimeout(
 			prisma.eventPayment.aggregate({
 				_sum: { amount: true },
-				where: { status: "PAID", paidAt: { gte: oneHourAgo } },
+				where: { status: "PAID", amount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { gte: oneHourAgo } },
 			}),
 			{ _sum: { amount: 0 } },
 			"event.revenue"
@@ -348,13 +349,13 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 	]);
 
 	const orders = await Promise.all([
-		withTimeout(prisma.order.count({ where: { status: "PENDING" } }), 0, "order.pending"),
-		withTimeout(prisma.order.count({ where: { status: { in: [...PAID_ORDER_STATUSES] } } }), 0, "order.paid"),
-		withTimeout(prisma.order.count({ where: { status: "CANCELLED" } }), 0, "order.failed"),
+		withTimeout(prisma.order.count({ where: { status: "PENDING", totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "order.pending"),
+		withTimeout(prisma.order.count({ where: { status: { in: [...PAID_ORDER_STATUSES] }, totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "order.paid"),
+		withTimeout(prisma.order.count({ where: { status: "CANCELLED", totalAmount: { gt: 0 }, midtransOrderId: { not: null } } }), 0, "order.failed"),
 		withTimeout(
 			prisma.order.aggregate({
 				_sum: { totalAmount: true },
-				where: { status: { in: [...PAID_ORDER_STATUSES] }, paidAt: { gte: oneHourAgo } },
+				where: { status: { in: [...PAID_ORDER_STATUSES] }, totalAmount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { gte: oneHourAgo } },
 			}),
 			{ _sum: { totalAmount: 0 } },
 			"order.revenue"
@@ -368,6 +369,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 	const [recentTickets, recentVotes, recentRegs, recentEvents, recentOrders] = await Promise.all([
 		withTimeout(
 			prisma.ticketPurchase.findMany({
+				where: { totalAmount: { gt: 0 }, midtransOrderId: { not: null } },
 				orderBy: { updatedAt: "desc" },
 				take: 10,
 				select: {
@@ -386,6 +388,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 		),
 		withTimeout(
 			prisma.votingPurchase.findMany({
+				where: { totalAmount: { gt: 0 }, midtransOrderId: { not: null } },
 				orderBy: { updatedAt: "desc" },
 				take: 10,
 				select: {
@@ -404,6 +407,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 		),
 		withTimeout(
 			prisma.registrationPayment.findMany({
+				where: { amount: { gt: 0 }, midtransOrderId: { not: null } },
 				orderBy: { updatedAt: "desc" },
 				take: 6,
 				select: {
@@ -425,6 +429,12 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 		),
 		withTimeout(
 			prisma.eventPayment.findMany({
+				where: {
+					OR: [
+						{ amount: { gt: 0 }, midtransOrderId: { not: null } },
+						{ paymentType: { in: ["DP_REQUEST", "DP_CONFIRMED"] } },
+					],
+				},
 				orderBy: { updatedAt: "desc" },
 				take: 6,
 				select: {
@@ -432,6 +442,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 					amount: true,
 					status: true,
 					packageTier: true,
+					paymentType: true,
 					createdAt: true,
 					updatedAt: true,
 					event: { select: { title: true } },
@@ -442,6 +453,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 		),
 		withTimeout(
 			prisma.order.findMany({
+				where: { totalAmount: { gt: 0 }, midtransOrderId: { not: null } },
 				orderBy: { updatedAt: "desc" },
 				take: 6,
 				select: {
@@ -518,6 +530,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 			buyerName: tx.buyerName,
 			buyerEmail: tx.buyerEmail,
 			amount: tx.totalAmount,
+			amountLabel: null,
 			status: tx.status,
 			context: tx.event?.title || null,
 			createdAt: tx.createdAt.toISOString(),
@@ -532,6 +545,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 			buyerName: tx.buyerName,
 			buyerEmail: tx.buyerEmail,
 			amount: tx.totalAmount,
+			amountLabel: null,
 			status: tx.status,
 			context: tx.event?.title || null,
 			createdAt: tx.createdAt.toISOString(),
@@ -546,6 +560,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 			buyerName: tx.participation?.user?.name || "—",
 			buyerEmail: tx.participation?.user?.email || null,
 			amount: tx.amount,
+			amountLabel: null,
 			status: tx.status,
 			context: tx.participation?.event?.title || null,
 			createdAt: tx.createdAt.toISOString(),
@@ -560,6 +575,10 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 			buyerName: tx.event?.title || "—",
 			buyerEmail: null,
 			amount: tx.amount,
+			amountLabel:
+				tx.paymentType === "DP_REQUEST" || tx.paymentType === "DP_CONFIRMED"
+					? "DP"
+					: null,
 			status: tx.status,
 			context: `Paket ${tx.packageTier}`,
 			createdAt: tx.createdAt.toISOString(),
@@ -574,6 +593,7 @@ const computeLiveTransactions = async (): Promise<LiveTxPayload> => {
 			buyerName: tx.user?.name || "—",
 			buyerEmail: tx.user?.email || null,
 			amount: tx.totalAmount,
+			amountLabel: null,
 			status: tx.status,
 			context: null,
 			createdAt: tx.createdAt.toISOString(),
