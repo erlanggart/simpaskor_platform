@@ -652,6 +652,10 @@ router.post("/", authenticate, async (req: AuthenticatedRequest, res) => {
 					amount: Number(event.registrationFee),
 					status: "PENDING",
 					paymentMethod: "MANUAL",
+					// Clear any leftover Midtrans data so manual (pay-via-panitia)
+					// payments are never counted as online transactions.
+					midtransOrderId: null,
+					snapToken: null,
 				},
 				create: {
 					participationId: registration.id,
@@ -1350,8 +1354,11 @@ router.patch("/:id/restore", authenticate, async (req: AuthenticatedRequest, res
 						amount: Number(registration.event.registrationFee),
 						status: "PENDING",
 						paymentMethod,
-						midtransOrderId: paymentMethod === "MIDTRANS" ? null : undefined,
-						snapToken: paymentMethod === "MIDTRANS" ? null : undefined,
+						// Always clear stale Midtrans data on re-registration: a fresh
+						// order is created when paying online, and manual payments must
+						// never retain a Midtrans id (it would leak into transaction stats).
+						midtransOrderId: null,
+						snapToken: null,
 					},
 					create: {
 						participationId: registration.id,
