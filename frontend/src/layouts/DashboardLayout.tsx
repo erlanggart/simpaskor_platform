@@ -5,7 +5,6 @@ import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/api";
 import { RouteFallback } from "../components/RouteFallback";
 import { LocationGate } from "../components/LocationGate";
-import { activityAPI } from "../utils/api";
 import { preloadRoute } from "../utils/routePreload";
 import { hasFeature, MENU_FEATURE_MAP } from "../utils/packageFeatures";
 import Swal from "sweetalert2";
@@ -72,12 +71,6 @@ export const DashboardLayout: React.FC = () => {
 			return next;
 		});
 	};
-
-	// Track page views for SuperAdmin activity monitor
-	useEffect(() => {
-		if (!user) return;
-		activityAPI.logPage(location.pathname, document.title);
-	}, [location.pathname, user]);
 
 	// Extract eventSlug from URL for Juri
 	const juryEventSlugMatch = location.pathname.match(/\/juri\/events\/([^/]+)/);
@@ -451,7 +444,7 @@ export const DashboardLayout: React.FC = () => {
 			{/* ===== Left Sidebar Navigation (desktop) ===== */}
 			<nav
 				className={`fixed left-0 top-0 h-screen z-50 hidden md:flex flex-col border-r border-gray-200/10 dark:border-white/5 bg-white/40 dark:bg-gray-950/40 backdrop-blur-xl overflow-hidden transition-[width] duration-300 ${
-					collapsed ? "w-20" : "w-64"
+					collapsed ? "w-20" : "w-52"
 				}`}
 			>
 				{/* Logo + brand */}
@@ -589,7 +582,7 @@ export const DashboardLayout: React.FC = () => {
 				type="button"
 				onClick={toggleCollapsed}
 				className={`fixed top-[18px] z-[60] hidden md:flex w-7 h-7 -translate-x-1/2 items-center justify-center rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md shadow-black/10 transition-[left] duration-300 ${
-					collapsed ? "left-20" : "left-64"
+					collapsed ? "left-20" : "left-52"
 				}`}
 				aria-label={collapsed ? "Perbesar sidebar" : "Perkecil sidebar"}
 			>
@@ -601,7 +594,7 @@ export const DashboardLayout: React.FC = () => {
 				ref={mainRef}
 				onScroll={handleMainScroll}
 				className={`h-screen overflow-y-auto relative z-10 pl-0 pt-14 md:pt-0 pb-20 md:pb-6 transition-[padding] duration-300 ${
-					collapsed ? "md:pl-20" : "md:pl-64"
+					collapsed ? "md:pl-20" : "md:pl-52"
 				}`}
 			>
 				<Suspense fallback={<RouteFallback />}>
