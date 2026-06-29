@@ -6,6 +6,7 @@ import {
 	LuSearch,
 	LuRefreshCw,
 	LuExternalLink,
+	LuGlobe,
 } from "react-icons/lu";
 import { activityAPI } from "../../utils/api";
 
@@ -58,6 +59,30 @@ const roleColor = (role: string): string => {
 		default:
 			return "bg-gray-100 text-gray-600";
 	}
+};
+
+// Normalize IPv6-mapped IPv4 (::ffff:127.0.0.1 -> 127.0.0.1) and localhost
+const fmtIp = (ip?: string | null): string => {
+	if (!ip) return "—";
+	let v = ip.replace(/^::ffff:/i, "");
+	if (v === "::1") v = "127.0.0.1 (lokal)";
+	return v;
+};
+
+// Interpret GPS accuracy radius (meters): small = real device GPS/WiFi,
+// huge = browser fell back to a coarse IP estimate.
+const accuracyLabel = (acc: number): string => {
+	const m = Math.round(acc);
+	if (acc <= 50) return `±${m} m · GPS/WiFi (lokasi device)`;
+	if (acc <= 500) return `±${m} m · WiFi/seluler`;
+	if (acc <= 2000) return `±${(m / 1000).toFixed(1)} km · perkiraan kasar`;
+	return `±${(m / 1000).toFixed(1)} km · kemungkinan dari IP`;
+};
+
+const accuracyClass = (acc: number): string => {
+	if (acc <= 50) return "text-green-600";
+	if (acc <= 2000) return "text-amber-600";
+	return "text-red-500";
 };
 
 const fmt = (d: string) =>
@@ -293,6 +318,12 @@ const ActivityMonitor: React.FC = () => {
 														{log.session.deviceName}
 													</div>
 												)}
+												{(log.ipAddress || log.session?.ipAddress) && (
+													<div className="text-xs text-gray-400 flex items-center gap-1">
+														<LuGlobe className="w-3 h-3" />
+														IP: {fmtIp(log.ipAddress || log.session?.ipAddress)}
+													</div>
+												)}
 											</td>
 										</tr>
 									))
@@ -387,21 +418,38 @@ const ActivityMonitor: React.FC = () => {
 													<LuMonitor className="w-3.5 h-3.5" />
 													{s.deviceName || "—"}
 												</div>
-												<div className="text-xs text-gray-400">{s.ipAddress}</div>
+												<div className="text-xs text-gray-400 flex items-center gap-1">
+													<LuGlobe className="w-3 h-3" />
+													{fmtIp(s.ipAddress)}
+												</div>
 											</td>
 											<td className="px-4 py-3">
 												{s.latitude != null ? (
-													<a
-														href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`}
-														target="_blank"
-														rel="noreferrer"
-														className="inline-flex items-center gap-1 text-red-600 hover:underline"
-													>
-														<LuMapPin className="w-3.5 h-3.5" />
-														{s.locationLabel
-															? s.locationLabel.split(",").slice(0, 3).join(",")
-															: "Lihat peta"}
-													</a>
+													<>
+														<a
+															href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`}
+															target="_blank"
+															rel="noreferrer"
+															className="inline-flex items-center gap-1 text-red-600 hover:underline"
+														>
+															<LuMapPin className="w-3.5 h-3.5" />
+															{s.locationLabel
+																? s.locationLabel.split(",").slice(0, 3).join(",")
+																: "Lihat peta"}
+														</a>
+														<div className="text-[11px] text-gray-400 mt-0.5">
+															{s.latitude.toFixed(5)}, {s.longitude.toFixed(5)}
+														</div>
+														{s.accuracy != null && (
+															<div
+																className={`text-[11px] mt-0.5 ${accuracyClass(
+																	s.accuracy
+																)}`}
+															>
+																{accuracyLabel(s.accuracy)}
+															</div>
+														)}
+													</>
 												) : (
 													<span className="text-xs text-gray-400">—</span>
 												)}
