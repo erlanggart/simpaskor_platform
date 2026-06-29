@@ -34,8 +34,8 @@ import {
 	LuBadgeDollarSign,
 	LuBell,
 	LuCode,
-	LuTrash2,
 	LuActivity,
+	LuMail,
 	LuPanelLeftClose,
 	LuPanelLeftOpen,
 } from "react-icons/lu";
@@ -209,10 +209,10 @@ export const DashboardLayout: React.FC = () => {
 			case "SUPERADMIN":
 				roleSpecificItems.push(
 					{ name: "Pengguna", icon: LuUsers, path: "/admin/users" },
+				{ name: "Mail", icon: LuMail, path: "/admin/mail" },
 
 					{ name: "Penilaian", icon: LuScale, path: "/admin/assessment-categories" },
 					{ name: "Event", icon: LuCalendar, path: "/admin/events" },
-					{ name: "Sampah Event", icon: LuTrash2, path: "/admin/events/trash" },
 					{ name: "Produk", icon: LuShoppingBag, path: "/admin/products" },
 					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Kelola Paket", icon: LuCreditCard, path: "/admin/packages" },
@@ -454,8 +454,8 @@ export const DashboardLayout: React.FC = () => {
 					collapsed ? "w-20" : "w-64"
 				}`}
 			>
-				{/* Logo + brand + collapse toggle */}
-				<div className={`flex items-center gap-3 h-16 shrink-0 ${collapsed ? "justify-center px-0" : "px-4"}`}>
+				{/* Logo + brand */}
+				<div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-0" : "gap-3 px-4"}`}>
 					<Link to="/" className="flex items-center gap-3 min-w-0">
 						<div className="w-10 h-10 shrink-0 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
 							<img src="/simpaskor.webp" alt="Logo" className="w-8 h-8 object-contain" />
@@ -466,29 +466,7 @@ export const DashboardLayout: React.FC = () => {
 							</span>
 						)}
 					</Link>
-					{!collapsed && (
-						<button
-							type="button"
-							onClick={toggleCollapsed}
-							className="ml-auto w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-white/[0.06] transition-all"
-							aria-label="Perkecil sidebar"
-						>
-							<LuPanelLeftClose className="w-5 h-5" />
-						</button>
-					)}
 				</div>
-
-				{/* Expand toggle (collapsed mode) */}
-				{collapsed && (
-					<button
-						type="button"
-						onClick={toggleCollapsed}
-						className="mx-auto mb-2 w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-gray-100/50 dark:bg-white/[0.03] hover:bg-gray-200/70 dark:hover:bg-white/[0.08] transition-all"
-						aria-label="Perbesar sidebar"
-					>
-						<LuPanelLeftOpen className="w-5 h-5" />
-					</button>
-				)}
 
 				{/* Active event info */}
 				{activeEventTitle && !collapsed && (
@@ -513,8 +491,8 @@ export const DashboardLayout: React.FC = () => {
 								to={item.path}
 								onMouseEnter={() => preloadRoute(item.path)}
 								onFocus={() => preloadRoute(item.path)}
-								className={`group relative flex items-center rounded-xl outline-none flex-shrink-0 transition-all duration-300 ${
-									collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+								className={`group relative flex items-center h-11 rounded-xl outline-none flex-shrink-0 transition-all duration-300 ${
+									collapsed ? "w-11 justify-center" : "w-full gap-3 px-3"
 								} ${
 									active
 										? "bg-red-500/15 text-red-500 dark:text-red-400 shadow-lg shadow-red-500/10"
@@ -548,8 +526,8 @@ export const DashboardLayout: React.FC = () => {
 					{hasActiveEvent && (
 						<button
 							onClick={activeJuryEvent ? handleLeaveJuryEvent : handleLeaveEvent}
-							className={`group relative flex items-center rounded-xl outline-none transition-all duration-300 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20 ${
-								collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+							className={`group relative flex items-center h-11 rounded-xl outline-none transition-all duration-300 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20 ${
+								collapsed ? "w-11 justify-center" : "w-full gap-3 px-3"
 							}`}
 							aria-label="Keluar Event"
 						>
@@ -567,8 +545,8 @@ export const DashboardLayout: React.FC = () => {
 					{/* Theme Toggle */}
 					<button
 						onClick={() => { setThemeAnimating(true); toggleTheme(); setTimeout(() => setThemeAnimating(false), 500); }}
-						className={`group relative flex items-center rounded-xl outline-none transition-all duration-300 text-gray-500 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 ${
-							collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+						className={`group relative flex items-center h-11 rounded-xl outline-none transition-all duration-300 text-gray-500 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 ${
+							collapsed ? "w-11 justify-center" : "w-full gap-3 px-3"
 						}`}
 						aria-label="Toggle theme"
 					>
@@ -589,8 +567,8 @@ export const DashboardLayout: React.FC = () => {
 					{/* Logout */}
 					<button
 						onClick={handleLogout}
-						className={`group relative flex items-center rounded-xl outline-none transition-all duration-300 text-gray-500 dark:text-gray-400 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400 ${
-							collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+						className={`group relative flex items-center h-11 rounded-xl outline-none transition-all duration-300 text-gray-500 dark:text-gray-400 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400 ${
+							collapsed ? "w-11 justify-center" : "w-full gap-3 px-3"
 						}`}
 						aria-label="Logout"
 					>
@@ -605,6 +583,18 @@ export const DashboardLayout: React.FC = () => {
 					</button>
 				</div>
 			</nav>
+
+			{/* ===== Collapse toggle — floats on the sidebar edge, over main ===== */}
+			<button
+				type="button"
+				onClick={toggleCollapsed}
+				className={`fixed top-[18px] z-[60] hidden md:flex w-7 h-7 -translate-x-1/2 items-center justify-center rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shadow-md shadow-black/10 transition-[left] duration-300 ${
+					collapsed ? "left-20" : "left-64"
+				}`}
+				aria-label={collapsed ? "Perbesar sidebar" : "Perkecil sidebar"}
+			>
+				{collapsed ? <LuPanelLeftOpen className="w-4 h-4" /> : <LuPanelLeftClose className="w-4 h-4" />}
+			</button>
 
 			{/* ===== Main Content Area ===== */}
 			<main

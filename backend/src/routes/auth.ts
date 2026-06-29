@@ -4,7 +4,12 @@ import { AuthUtils } from "../utils/auth";
 import { UserRole, UserStatus } from "@prisma/client";
 import { z } from "zod";
 import crypto from "crypto";
-import { registrationLimiter, loginLimiter } from "../middleware/rateLimiter";
+import {
+	registrationLimiter,
+	loginLimiter,
+	verificationLimiter,
+	passwordResetLimiter,
+} from "../middleware/rateLimiter";
 import { verifyRecaptcha } from "../middleware/recaptcha";
 import { GoogleAuthUtils } from "../utils/googleAuth";
 import {
@@ -12,7 +17,7 @@ import {
 	optionalAuthenticate,
 	AuthenticatedRequest,
 } from "../middleware/auth";
-import { sendPasswordResetEmail } from "../utils/email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/email";
 import { getClientIp } from "../utils/clientIp";
 
 const router = Router();
@@ -82,6 +87,30 @@ const generateMitraReferralCode = async (name: string) => {
 	}
 
 	return `MTR-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+};
+
+// Generate a fresh email-verification token, store its hash on the user, and
+// send the verification link. Returns nothing — email failures are logged but
+// don't block the caller (the user can resend).
+const issueVerificationEmail = async (
+	userId: string,
+	email: string,
+	name: string
+): Promise<void> => {
+	const rawToken = crypto.randomBytes(32).toString("hex");
+	const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+	const expiry = new Date(Date.now() + 24 * 3600000); // 24 hours
+
+	await prisma.user.update({
+		where: { id: userId },
+		data: { verifyToken: tokenHash, verifyTokenExpiry: expiry },
+	});
+
+	try {
+		await sendVerificationEmail(email, name, rawToken, userId);
+	} catch (emailError) {
+		console.error("Failed to send verification email:", emailError);
+	}
 };
 
 // Register endpoint
@@ -459,6 +488,7 @@ router.post(
 router.post(
 	"/forgot-password",
 	loginLimiter,
+	passwordResetLimiter,
 	async (req: Request, res: Response): Promise<void | Response> => {
 		try {
 			const validatedData = forgotPasswordSchema.parse(req.body);
@@ -495,7 +525,7 @@ router.post(
 
 			// Send password reset email
 			try {
-				await sendPasswordResetEmail(user.email, user.name, resetToken);
+				await sendPasswordResetEmail(user.email, user.name, resetToken, user.id);
 			} catch (emailError) {
 				console.error("Failed to send password reset email:", emailError);
 				// Don't expose email errors to client, but log for debugging
@@ -590,6 +620,7 @@ router.post(
 // Select role for new users (status PENDING)
 router.patch(
 	"/select-role",
+	verificationLimiter,
 	authenticate,
 	async (req: AuthenticatedRequest, res: Response): Promise<void | Response> => {
 		try {
@@ -619,12 +650,18 @@ router.patch(
 				});
 			}
 
+			// PESERTA can enter directly; every other role must confirm their
+			// email first to keep fake accounts out of the panel/jury/payout flows.
+			const needsVerification = role !== "PESERTA";
+
 			const updatedUser = await prisma.$transaction(async (tx) => {
 				const nextUser = await tx.user.update({
 					where: { id: userId },
 					data: {
 						role: role as UserRole,
 						status: UserStatus.ACTIVE,
+						// Peserta needs no verification — mark it so the gate skips them.
+						emailVerified: needsVerification ? false : true,
 					},
 					include: { profile: true, mitraProfile: true },
 				});
@@ -647,6 +684,14 @@ router.patch(
 				return nextUser;
 			});
 
+			if (needsVerification) {
+				await issueVerificationEmail(
+					updatedUser.id,
+					updatedUser.email,
+					updatedUser.name
+				);
+			}
+
 			// Generate new token with updated role
 			const token = AuthUtils.generateToken({
 				userId: updatedUser.id,
@@ -656,7 +701,10 @@ router.patch(
 			});
 
 			res.json({
-				message: "Role berhasil dipilih",
+				message: needsVerification
+					? "Role berhasil dipilih. Cek email untuk verifikasi."
+					: "Role berhasil dipilih",
+				needsVerification,
 				user: AuthUtils.sanitizeUser(updatedUser),
 				token,
 			});
@@ -668,6 +716,101 @@ router.patch(
 				});
 			}
 			console.error("Select role error:", error);
+			res.status(500).json({ error: "Internal server error" });
+		}
+	}
+);
+
+// Verify email — token comes from the link in the verification email.
+// No auth required: the token itself is the proof, so the link works from any
+// browser/device the user opens it in.
+router.post(
+	"/verify-email",
+	async (req: Request, res: Response): Promise<void | Response> => {
+		try {
+			const { token } = z.object({ token: z.string().min(1) }).parse(req.body);
+
+			const tokenHash = crypto
+				.createHash("sha256")
+				.update(token)
+				.digest("hex");
+
+			const user = await prisma.user.findFirst({
+				where: {
+					verifyToken: tokenHash,
+					verifyTokenExpiry: { gte: new Date() },
+				},
+				include: { profile: true },
+			});
+
+			if (!user) {
+				return res.status(400).json({
+					error: "Invalid or expired verification token",
+					message: "Link verifikasi tidak valid atau sudah kedaluwarsa.",
+				});
+			}
+
+			const updatedUser = await prisma.user.update({
+				where: { id: user.id },
+				data: {
+					emailVerified: true,
+					verifyToken: null,
+					verifyTokenExpiry: null,
+				},
+				include: { profile: true },
+			});
+
+			// Fresh token so the frontend immediately sees the verified user.
+			const newToken = AuthUtils.generateToken({
+				userId: updatedUser.id,
+				email: updatedUser.email,
+				role: updatedUser.role,
+				name: updatedUser.name,
+			});
+
+			res.json({
+				message: "Email berhasil diverifikasi",
+				user: AuthUtils.sanitizeUser(updatedUser),
+				token: newToken,
+			});
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res
+					.status(400)
+					.json({ error: "Validation error", details: error.errors });
+			}
+			console.error("Verify email error:", error);
+			res.status(500).json({ error: "Internal server error" });
+		}
+	}
+);
+
+// Resend the verification email for the logged-in (still-unverified) user.
+router.post(
+	"/resend-verification",
+	verificationLimiter,
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response): Promise<void | Response> => {
+		try {
+			const userId = req.user?.userId;
+			if (!userId) {
+				return res.status(401).json({ error: "Unauthorized" });
+			}
+
+			const user = await prisma.user.findUnique({ where: { id: userId } });
+			if (!user) {
+				return res.status(404).json({ error: "User not found" });
+			}
+
+			if (user.emailVerified) {
+				return res.json({ message: "Email sudah terverifikasi" });
+			}
+
+			await issueVerificationEmail(user.id, user.email, user.name);
+
+			res.json({ message: "Email verifikasi telah dikirim ulang" });
+		} catch (error) {
+			console.error("Resend verification error:", error);
 			res.status(500).json({ error: "Internal server error" });
 		}
 	}

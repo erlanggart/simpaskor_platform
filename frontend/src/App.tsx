@@ -36,6 +36,7 @@ const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
 
 // Dashboard Pages
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -44,6 +45,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 // Role-based Dashboard Pages
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
+const MailUsage = lazy(() => import("./pages/admin/MailUsage"));
 const UserDetail = lazy(() => import("./pages/admin/UserDetail"));
 const CouponManagement = lazy(() => import("./pages/admin/CouponManagement"));
 const AssessmentCategoryManagement = lazy(() => import("./pages/admin/AssessmentCategoryManagement"));
@@ -144,6 +146,8 @@ function App() {
 							</ProtectedRoute>
 						}
 					/>
+					{/* Email verification - public so the link works on any device */}
+					<Route path="verify-email" element={<VerifyEmail />} />
 					{/* SuperAdmin Routes - Dashboard Layout */}
 					<Route
 						element={
@@ -155,6 +159,7 @@ function App() {
 						<Route path="admin">
 							<Route path="dashboard" element={<AdminDashboard />} />
 							<Route path="users" element={<UserManagement />} />
+							<Route path="mail" element={<MailUsage />} />
 								<Route path="users/:userId" element={<UserDetail />} />
 							<Route path="coupons" element={<CouponManagement />} />
 							<Route path="events" element={<EventManagement />} />

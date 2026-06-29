@@ -30,6 +30,18 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 		return <Navigate to="/select-role" replace />;
 	}
 
+	// Non-PESERTA roles must verify their email before reaching any dashboard.
+	// PESERTA and SUPERADMIN are exempt; existing accounts were backfilled.
+	if (
+		user &&
+		user.role !== "PESERTA" &&
+		user.role !== "SUPERADMIN" &&
+		!user.emailVerified &&
+		location.pathname !== "/verify-email"
+	) {
+		return <Navigate to="/verify-email" replace />;
+	}
+
 	if (allowedRoles && user && !allowedRoles.includes(user.role)) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">

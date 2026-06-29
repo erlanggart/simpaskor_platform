@@ -65,7 +65,8 @@ export class GoogleAuthUtils {
 				include: { profile: true },
 			});
 		} else {
-			// Create new user - emailVerified defaults to false, admin must verify
+			// Create new user. Google has already verified ownership of the email,
+			// so we trust it — these users skip the email-verification gate.
 			isNewUser = true;
 			user = await prisma.user.create({
 				data: {
@@ -73,8 +74,8 @@ export class GoogleAuthUtils {
 					name: googleUser.name,
 					passwordHash: "", // No password for Google OAuth users
 					role: UserRole.PESERTA, // Default role for Google sign-up
-					status: UserStatus.PENDING, // Pending until verified by admin
-					emailVerified: false, // Not verified until admin approves
+					status: UserStatus.PENDING, // Pending until role is selected
+					emailVerified: googleUser.email_verified ?? true,
 					profile: {
 						create: {
 							avatar: googleUser.picture,

@@ -1,6 +1,23 @@
 import rateLimit from "express-rate-limit";
 import { Request, Response } from "express";
 
+// Resolve the real client IP through proxy/load-balancer headers.
+const ipKey = (req: Request): string => {
+	const forwardedFor = req.headers["x-forwarded-for"];
+	if (forwardedFor) {
+		const ips = Array.isArray(forwardedFor)
+			? forwardedFor[0]
+			: forwardedFor.split(",")[0];
+		return ips?.trim() || "unknown";
+	}
+	const realIp = req.headers["x-real-ip"];
+	if (realIp) {
+		const ip = Array.isArray(realIp) ? realIp[0] : realIp;
+		return ip || "unknown";
+	}
+	return req.ip || "unknown";
+};
+
 // Rate limiter for registration endpoint
 // Limits: 3 registrations per hour per IP address
 export const registrationLimiter = rateLimit({
@@ -77,6 +94,50 @@ export const loginLimiter = rateLimit({
 			message:
 				"Terlalu banyak percobaan login gagal. Silakan coba lagi setelah 15 menit.",
 			retryAfter: "15 minutes",
+		});
+	},
+});
+
+// Email-verification throttle: one verification email per IP per 15 minutes.
+// Stops an IP from spinning up many fresh accounts and blasting verify emails.
+// Shared across select-role and resend-verification so the window is global.
+export const verificationLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 1,
+	standardHeaders: true,
+	legacyHeaders: false,
+	keyGenerator: ipKey,
+	// Peserta selection sends no email, so it must not consume the budget.
+	skip: (req: Request) => req.body?.role === "PESERTA",
+	handler: (_req: Request, res: Response) => {
+		res.status(429).json({
+			error: "Too many verification requests",
+			message:
+				"Permintaan email verifikasi terlalu sering. Tunggu 15 menit sebelum mencoba lagi.",
+			retryAfter: "15 minutes",
+		});
+	},
+});
+
+// Password-reset throttle: one reset email per email address per 30 minutes,
+// so a given account can't be spammed with reset links.
+export const passwordResetLimiter = rateLimit({
+	windowMs: 30 * 60 * 1000, // 30 minutes
+	max: 1,
+	standardHeaders: true,
+	legacyHeaders: false,
+	keyGenerator: (req: Request): string => {
+		const email = req.body?.email;
+		return typeof email === "string" && email
+			? `reset:${email.trim().toLowerCase()}`
+			: ipKey(req);
+	},
+	handler: (_req: Request, res: Response) => {
+		res.status(429).json({
+			error: "Too many reset requests",
+			message:
+				"Email reset password baru saja dikirim. Tunggu 30 menit sebelum meminta lagi.",
+			retryAfter: "30 minutes",
 		});
 	},
 });

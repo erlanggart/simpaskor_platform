@@ -39,6 +39,8 @@ model User {
   lastLogin        DateTime?  @map("last_login")
   resetToken       String?    @map("reset_token")
   resetTokenExpiry DateTime?  @map("reset_token_expiry")
+  verifyToken       String?   @map("verify_token")
+  verifyTokenExpiry DateTime? @map("verify_token_expiry")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
@@ -64,6 +66,24 @@ model User {
   mitraProfile             MitraProfile?
 
   @@map("users")
+}
+
+// One row per outgoing email, so the superadmin Mail page can show volume per
+// category and how close we are to the SMTP provider's daily send limit.
+model EmailLog {
+  id            String   @id @default(uuid())
+  category      String // VERIFICATION | PASSWORD_RESET | TICKET | VOTING
+  recipient     String // email address the mail was sent to
+  recipientName String?  @map("recipient_name") // account/buyer name, for display
+  userId        String?  @map("user_id") // requesting account when known (null for guest buyers)
+  subject       String
+  status        String   @default("SENT") // SENT | FAILED
+  error         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([category])
+  @@index([createdAt])
+  @@map("email_logs")
 }
 
 model UserProfile {

@@ -231,6 +231,13 @@ const RoleSelection = () => {
 			});
 
 			setAuth(response.data.user, response.data.token);
+
+			// Non-PESERTA roles must confirm their email before the dashboard.
+			if (response.data.needsVerification) {
+				navigate("/verify-email", { replace: true });
+				return;
+			}
+
 			navigate(dashboardPaths[activeRole.id] || "/dashboard", {
 				replace: true,
 			});

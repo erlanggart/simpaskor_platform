@@ -206,6 +206,16 @@ export const authAPI = {
 		localStorage.removeItem(USER_KEY);
 	},
 
+	verifyEmail: async (token: string): Promise<AuthResponse> => {
+		const response = await api.post("/auth/verify-email", { token });
+		return response.data;
+	},
+
+	resendVerification: async (): Promise<{ message: string }> => {
+		const response = await api.post("/auth/resend-verification");
+		return response.data;
+	},
+
 	getProfile: async (): Promise<User> => {
 		const response = await api.get("/auth/me");
 		return response.data.user;
@@ -244,6 +254,41 @@ export const activityAPI = {
 
 	getSessions: async (): Promise<{ sessions: any[] }> => {
 		const response = await api.get("/activity/sessions");
+		return response.data;
+	},
+};
+
+export interface MailUsage {
+	dailyLimit: number;
+	warnThreshold: number;
+	totals: { all: number; today: number; month: number };
+	failedToday: number;
+	byCategory: {
+		category: string;
+		all: number;
+		today: number;
+		month: number;
+		failed: number;
+	}[];
+	recent: {
+		id: string;
+		category: string;
+		recipient: string;
+		recipientName: string | null;
+		userId: string | null;
+		subject: string;
+		status: string;
+		error: string | null;
+		createdAt: string;
+	}[];
+}
+
+export const mailAPI = {
+	getUsage: async (params?: {
+		category?: string;
+		limit?: number;
+	}): Promise<MailUsage> => {
+		const response = await api.get("/admin/mail", { params });
 		return response.data;
 	},
 };

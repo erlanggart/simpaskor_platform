@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { sendAndLog } from "./mailLog";
 
 const transporter = nodemailer.createTransport({
 	host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -17,7 +18,8 @@ const APP_NAME = "Simpaskor";
 export async function sendPasswordResetEmail(
 	toEmail: string,
 	userName: string,
-	resetToken: string
+	resetToken: string,
+	userId?: string
 ): Promise<void> {
 	const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
 
@@ -91,11 +93,102 @@ export async function sendPasswordResetEmail(
 </html>
 	`.trim();
 
-	await transporter.sendMail({
-		from: `"${APP_NAME}" <${EMAIL_FROM}>`,
-		to: toEmail,
-		subject: `Reset Password ${APP_NAME}`,
-		html,
-		text: `Halo ${userName},\n\nKlik link berikut untuk mereset password Anda (berlaku 1 jam):\n${resetLink}\n\nJika Anda tidak meminta reset password, abaikan email ini.\n\n- Tim ${APP_NAME}`,
-	});
+	await sendAndLog(
+		transporter,
+		{
+			from: `"${APP_NAME}" <${EMAIL_FROM}>`,
+			to: toEmail,
+			subject: `Reset Password ${APP_NAME}`,
+			html,
+			text: `Halo ${userName},\n\nKlik link berikut untuk mereset password Anda (berlaku 1 jam):\n${resetLink}\n\nJika Anda tidak meminta reset password, abaikan email ini.\n\n- Tim ${APP_NAME}`,
+		},
+		"PASSWORD_RESET",
+		{ userId, name: userName }
+	);
+}
+
+export async function sendVerificationEmail(
+	toEmail: string,
+	userName: string,
+	verifyToken: string,
+	userId?: string
+): Promise<void> {
+	const verifyLink = `${FRONTEND_URL}/verify-email?token=${verifyToken}`;
+
+	const html = `
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Verifikasi Email - ${APP_NAME}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:32px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:-0.5px;">${APP_NAME}</h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">Sistem Paskibra Digital</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <h2 style="margin:0 0 12px;color:#111827;font-size:20px;font-weight:700;">Verifikasi Email Anda</h2>
+              <p style="margin:0 0 8px;color:#374151;font-size:15px;line-height:1.6;">Halo <strong>${userName}</strong>,</p>
+              <p style="margin:0 0 28px;color:#6b7280;font-size:14px;line-height:1.7;">
+                Untuk mengaktifkan akun Anda di ${APP_NAME}, mohon konfirmasi alamat email ini dengan
+                mengklik tombol di bawah. Link ini hanya berlaku selama <strong>24 jam</strong>.
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+                <tr>
+                  <td style="border-radius:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);">
+                    <a href="${verifyLink}"
+                       style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;border-radius:10px;letter-spacing:0.2px;">
+                      Verifikasi Email Sekarang
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 6px;color:#9ca3af;font-size:12px;">Atau salin link berikut ke browser Anda:</p>
+              <p style="margin:0 0 28px;word-break:break-all;">
+                <a href="${verifyLink}" style="color:#dc2626;font-size:12px;text-decoration:underline;">${verifyLink}</a>
+              </p>
+              <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px;margin-bottom:0;">
+                <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6;">
+                  ⚠️ Jika Anda tidak membuat akun di ${APP_NAME}, abaikan email ini.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">
+                &copy; ${new Date().getFullYear()} ${APP_NAME}. Semua hak dilindungi.<br/>
+                Email ini dikirim otomatis, mohon tidak membalas email ini.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+	`.trim();
+
+	await sendAndLog(
+		transporter,
+		{
+			from: `"${APP_NAME}" <${EMAIL_FROM}>`,
+			to: toEmail,
+			subject: `Verifikasi Email ${APP_NAME}`,
+			html,
+			text: `Halo ${userName},\n\nKlik link berikut untuk memverifikasi email Anda (berlaku 24 jam):\n${verifyLink}\n\nJika Anda tidak membuat akun di ${APP_NAME}, abaikan email ini.\n\n- Tim ${APP_NAME}`,
+		},
+		"VERIFICATION",
+		{ userId, name: userName }
+	);
 }
