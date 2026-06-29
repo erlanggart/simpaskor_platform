@@ -96,26 +96,6 @@ const EventTrash: React.FC = () => {
 		}
 	};
 
-	const handlePermanentDelete = async (event: TrashedEvent) => {
-		const result = await showConfirm(
-			`PERINGATAN: Event "${event.title}" dan SEMUA data terkait (peserta, penilaian, materi, tiket, voting, transaksi) akan dihapus PERMANEN dan TIDAK BISA dikembalikan lagi. Lanjutkan?`,
-			"Hapus Permanen?",
-			"Ya, Hapus Permanen"
-		);
-		if (!result.isConfirmed) return;
-
-		try {
-			setBusyId(event.id);
-			await api.delete(`/events/${event.id}/permanent`);
-			showSuccess("Event dihapus permanen");
-			setEvents((prev) => prev.filter((e) => e.id !== event.id));
-		} catch (error: any) {
-			showError(error.response?.data?.message || "Gagal menghapus event");
-		} finally {
-			setBusyId(null);
-		}
-	};
-
 	return (
 		<div className="p-4 md:p-6 max-w-[1200px] mx-auto">
 			{/* Header */}
@@ -142,9 +122,9 @@ const EventTrash: React.FC = () => {
 			<div className="flex items-start gap-3 p-4 mb-5 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/[0.06]">
 				<ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
 				<p className="text-sm text-amber-700 dark:text-amber-300">
-					Menghapus event dari halaman <span className="font-semibold">Event Management</span> tidak langsung
-					menghilangkan datanya — event dipindahkan ke sampah ini dan bisa dipulihkan kapan saja. Hapus
-					permanen hanya jika Anda benar-benar yakin.
+					Menghapus event dari halaman <span className="font-semibold">Event Management</span> tidak
+					menghilangkan datanya — event dipindahkan ke sampah ini dan bisa dipulihkan kapan saja. Data
+					event tidak akan pernah dihapus permanen.
 				</p>
 			</div>
 
@@ -207,14 +187,6 @@ const EventTrash: React.FC = () => {
 								>
 									<ArrowUturnLeftIcon className="w-4 h-4" />
 									Pulihkan
-								</button>
-								<button
-									onClick={() => handlePermanentDelete(event)}
-									disabled={busyId === event.id}
-									className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
-								>
-									<TrashIcon className="w-4 h-4" />
-									Hapus Permanen
 								</button>
 							</div>
 						</div>

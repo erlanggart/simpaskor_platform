@@ -4,12 +4,6 @@ import { prisma, PrismaTransactionClient } from "../lib/prisma";
 import { authenticate, optionalAuthenticate, AuthenticatedRequest } from "../middleware/auth";
 import { uploadEventThumbnail, uploadJuknis, convertToWebp } from "../middleware/upload";
 import { computeEventStatus } from "../utils/eventStatus";
-import {
-	calculateRegistrationAdminFee,
-	calculateTicketAdminFee,
-	calculateVotingAdminFee,
-	recordAdminFeeTransaction,
-} from "../lib/adminFeeLedger";
 
 const router = express.Router();
 
@@ -25,96 +19,6 @@ const EVENT_PACKAGE_PRICES: Record<string, number> = {
 function getEventPackageAmount(packageTier: string | null | undefined) {
 	if (!packageTier) return 0;
 	return EVENT_PACKAGE_PRICES[packageTier] ?? 0;
-}
-
-async function snapshotPaidAdminFeesForEvent(eventId: string) {
-	const [ticketPurchases, votingPurchases, registrationPayments] = await Promise.all([
-		prisma.ticketPurchase.findMany({
-			where: { eventId, status: { in: ["PAID", "USED"] }, totalAmount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { not: null } },
-			select: {
-				id: true,
-				eventId: true,
-				quantity: true,
-				totalAmount: true,
-				midtransOrderId: true,
-				paymentType: true,
-				paidAt: true,
-				event: { select: { title: true, slug: true } },
-			},
-		}),
-		prisma.votingPurchase.findMany({
-			where: { eventId, status: "PAID", totalAmount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { not: null } },
-			select: {
-				id: true,
-				eventId: true,
-				voteCount: true,
-				totalAmount: true,
-				midtransOrderId: true,
-				paymentType: true,
-				paidAt: true,
-				event: { select: { title: true, slug: true } },
-			},
-		}),
-		prisma.registrationPayment.findMany({
-			where: { eventId, status: "PAID", amount: { gt: 0 }, midtransOrderId: { not: null }, paidAt: { not: null } },
-			select: {
-				id: true,
-				eventId: true,
-				amount: true,
-				midtransOrderId: true,
-				paymentType: true,
-				paidAt: true,
-				participation: { select: { event: { select: { title: true, slug: true } } } },
-			},
-		}),
-	]);
-
-	await Promise.all([
-		...ticketPurchases.map((purchase) =>
-			recordAdminFeeTransaction({
-				source: "ticket",
-				sourceId: purchase.id,
-				eventId: purchase.eventId,
-				eventTitle: purchase.event.title,
-				eventSlug: purchase.event.slug,
-				midtransOrderId: purchase.midtransOrderId!,
-				baseAmount: purchase.totalAmount,
-				adminFee: calculateTicketAdminFee(purchase.quantity),
-				quantity: purchase.quantity,
-				paymentType: purchase.paymentType,
-				paidAt: purchase.paidAt!,
-			})
-		),
-		...votingPurchases.map((purchase) =>
-			recordAdminFeeTransaction({
-				source: "voting",
-				sourceId: purchase.id,
-				eventId: purchase.eventId,
-				eventTitle: purchase.event.title,
-				eventSlug: purchase.event.slug,
-				midtransOrderId: purchase.midtransOrderId!,
-				baseAmount: purchase.totalAmount,
-				adminFee: calculateVotingAdminFee(purchase.totalAmount, purchase.voteCount),
-				voteCount: purchase.voteCount,
-				paymentType: purchase.paymentType,
-				paidAt: purchase.paidAt!,
-			})
-		),
-		...registrationPayments.map((payment) =>
-			recordAdminFeeTransaction({
-				source: "registration",
-				sourceId: payment.id,
-				eventId: payment.eventId,
-				eventTitle: payment.participation.event.title,
-				eventSlug: payment.participation.event.slug,
-				midtransOrderId: payment.midtransOrderId!,
-				baseAmount: payment.amount,
-				adminFee: calculateRegistrationAdminFee(),
-				paymentType: payment.paymentType,
-				paidAt: payment.paidAt!,
-			})
-		),
-	]);
 }
 
 async function applyMitraReferral(
@@ -2910,68 +2814,7 @@ router.post(
 	}
 );
 
-// DELETE /api/events/:id/permanent - Permanently delete a trashed event (SuperAdmin only)
-// This is the only path that physically removes an event (cascade deletes all
-// related records). The event must already be in the trash.
-router.delete(
-	"/:id/permanent",
-	authenticate,
-	async (req: AuthenticatedRequest, res: Response) => {
-		try {
-			const user = req.user;
-			const { id } = req.params;
-
-			if (!user || user.role !== "SUPERADMIN") {
-				return res.status(403).json({
-					message: "Only SuperAdmin can delete events",
-				});
-			}
-			if (!id) {
-				return res.status(400).json({ message: "Event ID is required" });
-			}
-
-			const event = await prisma.event.findUnique({
-				where: { id },
-			});
-
-			if (!event) {
-				return res.status(404).json({ message: "Event not found" });
-			}
-
-			if (!event.deletedAt) {
-				return res.status(400).json({
-					message: "Event harus dipindahkan ke sampah terlebih dahulu sebelum dihapus permanen",
-				});
-			}
-
-			await snapshotPaidAdminFeesForEvent(id);
-
-			// Delete event (cascade will handle related records)
-			await prisma.$transaction([
-				prisma.event.delete({
-					where: { id },
-				}),
-				// Restore coupon if exists
-				...(event.couponId
-					? [
-							prisma.eventCoupon.update({
-								where: { id: event.couponId },
-								data: {
-									isUsed: false,
-									usedById: null,
-									usedAt: null,
-								},
-							}),
-					  ]
-					: []),
-			]);
-
-			res.json({ message: "Event dihapus permanen" });
-		} catch (error) {
-			console.error("Error permanently deleting event:", error);
-			res.status(500).json({ message: "Failed to delete event" });
-		}
-	}
-);
+// Permanent delete intentionally not supported — trashed events can only be
+// restored. Soft delete (DELETE /:id) is the deepest removal available.
 
 export default router;

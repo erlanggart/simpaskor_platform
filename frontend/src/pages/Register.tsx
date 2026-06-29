@@ -122,15 +122,18 @@ const Register = () => {
 			setEmailExists(false);
 			setSuccess(null);
 
-			// Check if reCAPTCHA is available
-			if (!executeRecaptcha) {
-				setError("reCAPTCHA tidak tersedia. Silakan refresh halaman.");
-				setIsLoading(false);
-				return;
+			// reCAPTCHA only runs when a site key is configured (prod).
+			// In dev the key is empty, so we skip it — backend also skips
+			// verification when NODE_ENV=development.
+			let recaptchaToken: string | undefined;
+			if (recaptchaSiteKey) {
+				if (!executeRecaptcha) {
+					setError("reCAPTCHA tidak tersedia. Silakan refresh halaman.");
+					setIsLoading(false);
+					return;
+				}
+				recaptchaToken = await executeRecaptcha("register");
 			}
-
-			// Execute reCAPTCHA and get token
-			const recaptchaToken = await executeRecaptcha("register");
 
 			// Add reCAPTCHA token to registration data
 			const registrationData = {

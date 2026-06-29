@@ -36,6 +36,8 @@ import {
 	LuCode,
 	LuTrash2,
 	LuActivity,
+	LuPanelLeftClose,
+	LuPanelLeftOpen,
 } from "react-icons/lu";
 import { TrophyIcon } from "../components/common/LottieIcons";
 import "../components/landing/LandingPage.css";
@@ -59,6 +61,17 @@ export const DashboardLayout: React.FC = () => {
 	const [isMobileContentAtTop, setIsMobileContentAtTop] = useState(true);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
 	const [activeJuryEvent, setActiveJuryEvent] = useState<any>(null);
+	const [collapsed, setCollapsed] = useState(
+		() => localStorage.getItem("sidebar_collapsed") === "1"
+	);
+
+	const toggleCollapsed = () => {
+		setCollapsed((c) => {
+			const next = !c;
+			localStorage.setItem("sidebar_collapsed", next ? "1" : "0");
+			return next;
+		});
+	};
 
 	// Track page views for SuperAdmin activity monitor
 	useEffect(() => {
@@ -436,29 +449,60 @@ export const DashboardLayout: React.FC = () => {
 			</header>
 
 			{/* ===== Left Sidebar Navigation (desktop) ===== */}
-			<nav className="fixed left-0 top-0 h-screen w-16 md:w-20 z-50 hidden md:flex flex-col items-center gap-2 border-r border-gray-200/10 dark:border-white/5 overflow-hidden">
-				{/* Logo at top */}
-				<div className="mt-4 mb-4">
-					<Link to="/">
-						<div className="w-10 h-10 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
-							<img
-								src="/simpaskor.webp"
-								alt="Logo"
-								className="w-8 h-8 object-contain"
-							/>
+			<nav
+				className={`fixed left-0 top-0 h-screen z-50 hidden md:flex flex-col border-r border-gray-200/10 dark:border-white/5 bg-white/40 dark:bg-gray-950/40 backdrop-blur-xl overflow-hidden transition-[width] duration-300 ${
+					collapsed ? "w-20" : "w-64"
+				}`}
+			>
+				{/* Logo + brand + collapse toggle */}
+				<div className={`flex items-center gap-3 h-16 shrink-0 ${collapsed ? "justify-center px-0" : "px-4"}`}>
+					<Link to="/" className="flex items-center gap-3 min-w-0">
+						<div className="w-10 h-10 shrink-0 rounded-xl bg-black border border-white/10 shadow-lg shadow-black/20 flex items-center justify-center overflow-hidden">
+							<img src="/simpaskor.webp" alt="Logo" className="w-8 h-8 object-contain" />
 						</div>
+						{!collapsed && (
+							<span className="text-base font-bold tracking-wide text-gray-900 dark:text-white truncate">
+								Simpaskor
+							</span>
+						)}
 					</Link>
+					{!collapsed && (
+						<button
+							type="button"
+							onClick={toggleCollapsed}
+							className="ml-auto w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-white/[0.06] transition-all"
+							aria-label="Perkecil sidebar"
+						>
+							<LuPanelLeftClose className="w-5 h-5" />
+						</button>
+					)}
 				</div>
 
-				{/* Active event indicator */}
-				{activeEventTitle && (
-					<div className="w-10 mb-2">
-						<div className="w-full h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent" />
-					</div>
+				{/* Expand toggle (collapsed mode) */}
+				{collapsed && (
+					<button
+						type="button"
+						onClick={toggleCollapsed}
+						className="mx-auto mb-2 w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-gray-100/50 dark:bg-white/[0.03] hover:bg-gray-200/70 dark:hover:bg-white/[0.08] transition-all"
+						aria-label="Perbesar sidebar"
+					>
+						<LuPanelLeftOpen className="w-5 h-5" />
+					</button>
 				)}
 
-				{/* Navigation Items (centered) */}
-				<div className="flex-1 flex flex-col items-center gap-1.5 overflow-y-auto overflow-x-hidden py-2 sidebar-scroll min-h-0">
+				{/* Active event info */}
+				{activeEventTitle && !collapsed && (
+					<div className="mx-3 mb-2 px-3 py-2 rounded-xl bg-red-500/5 dark:bg-red-500/10 border border-red-500/10 dark:border-red-500/20">
+						<p className="text-[10px] text-gray-500 dark:text-gray-500 mb-0.5">Mengelola Event:</p>
+						<p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{activeEventTitle}</p>
+					</div>
+				)}
+				{activeEventTitle && collapsed && (
+					<div className="w-10 mx-auto mb-2 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent" />
+				)}
+
+				{/* Navigation Items */}
+				<div className={`flex-1 flex flex-col gap-1 overflow-y-auto overflow-x-hidden py-2 sidebar-scroll min-h-0 ${collapsed ? "items-center px-0" : "px-3"}`}>
 					{menuItems.map((item) => {
 						const active = isActive(item.path);
 						const Icon = item.icon;
@@ -469,138 +513,95 @@ export const DashboardLayout: React.FC = () => {
 								to={item.path}
 								onMouseEnter={() => preloadRoute(item.path)}
 								onFocus={() => preloadRoute(item.path)}
-								className="group relative flex flex-col items-center gap-0.5 outline-none flex-shrink-0"
+								className={`group relative flex items-center rounded-xl outline-none flex-shrink-0 transition-all duration-300 ${
+									collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+								} ${
+									active
+										? "bg-red-500/15 text-red-500 dark:text-red-400 shadow-lg shadow-red-500/10"
+										: "text-gray-500 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200"
+								}`}
 								aria-label={item.name}
 							>
 								{active && (
-									<div className="absolute -left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full transition-all" />
+									<div className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full" />
+								)}
+								<Icon className="w-5 h-5 shrink-0" />
+								{!collapsed && (
+									<span className="text-sm font-medium truncate">{item.name}</span>
 								)}
 
-								<div
-									className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${
-										active
-											? "bg-red-500/15 text-red-500 dark:text-red-400 shadow-lg shadow-red-500/10"
-											: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
-									}`}
-								>
-									<Icon className="w-5 h-5" />
-								</div>
-
-								<span
-									className={`text-[10px] font-medium transition-all duration-300 leading-tight ${
-										active
-											? "text-red-500 dark:text-red-400 opacity-100"
-											: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
-									}`}
-								>
-									{item.name}
-								</span>
-
-								{/* Tooltip */}
-								<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
-									{item.name}
-									<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
-								</div>
+								{/* Tooltip (collapsed only) */}
+								{collapsed && (
+									<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+										{item.name}
+										<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+									</div>
+								)}
 							</Link>
 						);
 					})}
-
-					{/* Profile nav item */}
-					{/* <Link
-						to={profilePath}
-						className="group relative flex flex-col items-center gap-0.5 outline-none mt-1"
-						aria-label="Profile"
-					>
-						{isActive(profilePath) && (
-							<div className="absolute -left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-red-500 rounded-r-full transition-all" />
-						)}
-						<div
-							className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
-								isActive(profilePath)
-									? "bg-red-500/15 text-red-500 dark:text-red-400 scale-110 shadow-lg shadow-red-500/10"
-									: "bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300"
-							}`}
-						>
-							<LuUser className="w-5 h-5" />
-						</div>
-						<span
-							className={`text-[9px] font-medium transition-all duration-300 leading-tight ${
-								isActive(profilePath)
-									? "text-red-500 dark:text-red-400 opacity-100"
-									: "text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100"
-							}`}
-						>
-							Profile
-						</span>
-						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
-							Profile
-							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
-						</div>
-					</Link> */}
 				</div>
 
 				{/* Bottom: Leave Event / Theme Toggle / Logout */}
-				<div className="mb-6 flex flex-col items-center gap-1.5">
+				<div className={`mb-4 flex flex-col gap-1 shrink-0 ${collapsed ? "items-center px-0" : "px-3"}`}>
 					{/* Leave Event */}
 					{hasActiveEvent && (
 						<button
 							onClick={activeJuryEvent ? handleLeaveJuryEvent : handleLeaveEvent}
-							className="group relative flex flex-col items-center gap-0.5 outline-none"
+							className={`group relative flex items-center rounded-xl outline-none transition-all duration-300 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20 ${
+								collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+							}`}
 							aria-label="Keluar Event"
 						>
-							<div className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 bg-red-500/10 text-red-500 dark:text-red-400 hover:bg-red-500/20">
-								<LuArrowRightFromLine className="w-5 h-5" />
-							</div>
-							<span className="text-[10px] font-medium text-red-500 dark:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
-								Keluar
-							</span>
-							<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
-								Keluar Event
-								<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
-							</div>
+							<LuArrowRightFromLine className="w-5 h-5 shrink-0" />
+							{!collapsed && <span className="text-sm font-medium">Keluar Event</span>}
+							{collapsed && (
+								<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+									Keluar Event
+									<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+								</div>
+							)}
 						</button>
 					)}
 
 					{/* Theme Toggle */}
 					<button
 						onClick={() => { setThemeAnimating(true); toggleTheme(); setTimeout(() => setThemeAnimating(false), 500); }}
-						className="group relative flex flex-col items-center gap-0.5 outline-none"
+						className={`group relative flex items-center rounded-xl outline-none transition-all duration-300 text-gray-500 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 ${
+							collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+						}`}
 						aria-label="Toggle theme"
 					>
-						<div className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-gray-200/70 dark:hover:bg-white/[0.08] hover:text-gray-700 dark:hover:text-gray-300">
-							<div className={`transition-all duration-500 ${themeAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"}`}>
-								{theme === "light" ? (
-									<LuMoon className="w-5 h-5" />
-								) : (
-									<LuSun className="w-5 h-5" />
-								)}
+						<div className={`shrink-0 transition-all duration-500 ${themeAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"}`}>
+							{theme === "light" ? <LuMoon className="w-5 h-5" /> : <LuSun className="w-5 h-5" />}
+						</div>
+						{!collapsed && (
+							<span className="text-sm font-medium">{theme === "light" ? "Mode Gelap" : "Mode Terang"}</span>
+						)}
+						{collapsed && (
+							<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+								{theme === "light" ? "Dark Mode" : "Light Mode"}
+								<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
 							</div>
-						</div>
-						<span className="text-[10px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
-							Theme
-						</span>
-						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
-							{theme === "light" ? "Dark Mode" : "Light Mode"}
-							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
-						</div>
+						)}
 					</button>
 
 					{/* Logout */}
 					<button
 						onClick={handleLogout}
-						className="group relative flex flex-col items-center gap-0.5 outline-none"
+						className={`group relative flex items-center rounded-xl outline-none transition-all duration-300 text-gray-500 dark:text-gray-400 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400 ${
+							collapsed ? "w-11 h-11 justify-center" : "w-full gap-3 px-3 py-2.5"
+						}`}
 						aria-label="Logout"
 					>
-						<div className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100/50 dark:bg-white/[0.03] text-gray-400 dark:text-gray-500 hover:bg-red-500/15 hover:text-red-500 dark:hover:text-red-400">
-							<LuLogOut className="w-5 h-5" />
-						</div>
-						<span className="text-[10px] font-medium text-gray-500 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-all duration-300 leading-tight">
-							Logout
-						</span>
-						<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
-							Logout
-							<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
-						</div>
+						<LuLogOut className="w-5 h-5 shrink-0" />
+						{!collapsed && <span className="text-sm font-medium">Logout</span>}
+						{collapsed && (
+							<div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl z-[60]">
+								Logout
+								<div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white dark:border-r-gray-900" />
+							</div>
+						)}
 					</button>
 				</div>
 			</nav>
@@ -609,7 +610,9 @@ export const DashboardLayout: React.FC = () => {
 			<main
 				ref={mainRef}
 				onScroll={handleMainScroll}
-				className="h-screen overflow-y-auto relative z-10 pl-0 md:pl-20 pt-14 md:pt-0 pb-20 md:pb-6"
+				className={`h-screen overflow-y-auto relative z-10 pl-0 pt-14 md:pt-0 pb-20 md:pb-6 transition-[padding] duration-300 ${
+					collapsed ? "md:pl-20" : "md:pl-64"
+				}`}
 			>
 				<Suspense fallback={<RouteFallback />}>
 					<Outlet />
