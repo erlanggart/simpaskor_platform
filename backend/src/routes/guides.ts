@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { authenticate, authorize, AuthenticatedRequest } from "../middleware/auth";
-import { uploadGuideSlide } from "../middleware/upload";
+import { uploadGuideSlide, convertToWebp } from "../middleware/upload";
 import fs from "fs";
 import path from "path";
 
@@ -311,7 +311,7 @@ router.post(
 	"/slides/upload-image",
 	authenticate,
 	authorize("SUPERADMIN"),
-	uploadGuideSlide.single("image"),
+	uploadGuideSlide.single("image"), convertToWebp,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			if (!req.file) {

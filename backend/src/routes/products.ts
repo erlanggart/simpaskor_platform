@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { authenticate, authorize, optionalAuthenticate, AuthenticatedRequest } from "../middleware/auth";
-import { uploadProductImage } from "../middleware/upload";
+import { uploadProductImage, convertToWebp } from "../middleware/upload";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -123,7 +123,7 @@ router.post(
 	"/",
 	authenticate,
 	authorize("SUPERADMIN"),
-	uploadProductImage.single("thumbnail"),
+	uploadProductImage.single("thumbnail"), convertToWebp,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const { name, description, price, stock } = req.body;
@@ -168,7 +168,7 @@ router.put(
 	"/:id",
 	authenticate,
 	authorize("SUPERADMIN"),
-	uploadProductImage.single("thumbnail"),
+	uploadProductImage.single("thumbnail"), convertToWebp,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const { id } = req.params;

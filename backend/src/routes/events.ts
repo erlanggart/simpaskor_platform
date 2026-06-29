@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma, PrismaTransactionClient } from "../lib/prisma";
 import { authenticate, optionalAuthenticate, AuthenticatedRequest } from "../middleware/auth";
-import { uploadEventThumbnail, uploadJuknis } from "../middleware/upload";
+import { uploadEventThumbnail, uploadJuknis, convertToWebp } from "../middleware/upload";
 import { computeEventStatus } from "../utils/eventStatus";
 import {
 	calculateRegistrationAdminFee,
@@ -584,7 +584,7 @@ router.get("/public/map", async (_req: Request, res: Response) => {
 router.post(
 	"/upload-thumbnail",
 	authenticate,
-	uploadEventThumbnail.single("thumbnail"),
+	uploadEventThumbnail.single("thumbnail"), convertToWebp,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			if (!req.file) {

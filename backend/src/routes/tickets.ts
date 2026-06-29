@@ -15,7 +15,7 @@ import {
 	PaymentPrefix,
 } from "../lib/midtrans";
 import { sendTicketEmailFromServer } from "../lib/email";
-import { uploadTicketTeamLogo } from "../middleware/upload";
+import { uploadTicketTeamLogo, convertToWebp } from "../middleware/upload";
 
 const router = Router();
 type TicketTeamAssignmentInput = { attendeeId: string; ticketTeamId: string };
@@ -941,7 +941,7 @@ router.post(
 	"/admin/event/:eventId/teams",
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
-	uploadTicketTeamLogo.single("ticketTeamLogo"),
+	uploadTicketTeamLogo.single("ticketTeamLogo"), convertToWebp,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const eventId = await resolveEventId(req.params.eventId);

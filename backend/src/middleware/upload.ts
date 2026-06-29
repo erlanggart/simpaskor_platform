@@ -1,6 +1,7 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import sharp from "sharp";
 import type { Request, Response, NextFunction } from "express";
 
 // Ensure upload directories exist
@@ -265,4 +266,70 @@ export const handleUploadError = (
 		});
 	}
 	return next(err);
+};
+
+// ─── WebP conversion ──────────────────────────────────────────────
+// Every uploaded image is re-encoded to WebP. This (a) shrinks files served on
+// the landing page, and (b) hardens security: re-encoding through sharp strips
+// metadata and guarantees the stored file is a real raster image — anything
+// that isn't a decodable image (a disguised script, SVG, etc.) is rejected.
+const WEBP_QUALITY = 80;
+
+async function convertFileToWebp(file: Express.Multer.File): Promise<void> {
+	const inputPath = file.path;
+	const dir = path.dirname(inputPath);
+	const baseNoExt = path.basename(file.filename, path.extname(file.filename));
+	const webpName = `${baseNoExt}.webp`;
+	const webpPath = path.join(dir, webpName);
+
+	// Decode fully to a buffer first, so we can safely overwrite even when the
+	// source already has a .webp name (input path == output path).
+	const buffer = await sharp(inputPath)
+		.rotate() // honour EXIF orientation before stripping metadata
+		.webp({ quality: WEBP_QUALITY })
+		.toBuffer();
+
+	await fs.promises.writeFile(webpPath, buffer);
+	if (path.resolve(inputPath) !== path.resolve(webpPath)) {
+		await fs.promises.unlink(inputPath).catch(() => {});
+	}
+
+	file.filename = webpName;
+	file.path = webpPath;
+	file.mimetype = "image/webp";
+	file.size = buffer.length;
+}
+
+function collectFiles(req: Request): Express.Multer.File[] {
+	if (req.file) return [req.file];
+	if (!req.files) return [];
+	return Array.isArray(req.files)
+		? req.files
+		: Object.values(req.files).flat();
+}
+
+// Express middleware: run AFTER a multer image uploader. Converts the uploaded
+// image(s) to WebP; if a file is not a valid image, deletes it and returns 400.
+export const convertToWebp = async (
+	req: Request,
+	res: Response,
+	next: NextFunction
+) => {
+	const files = collectFiles(req);
+	if (files.length === 0) return next();
+
+	try {
+		for (const file of files) {
+			await convertFileToWebp(file);
+		}
+		return next();
+	} catch {
+		// Invalid/corrupt image — clean up temp files and reject.
+		await Promise.all(
+			files.map((f) => (f?.path ? fs.promises.unlink(f.path).catch(() => {}) : Promise.resolve()))
+		);
+		return res.status(400).json({
+			error: "File gambar tidak valid atau rusak. Gunakan JPG, PNG, atau WEBP.",
+		});
+	}
 };

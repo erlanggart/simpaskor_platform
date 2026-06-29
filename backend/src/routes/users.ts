@@ -7,7 +7,7 @@ import {
 	requireSuperAdmin,
 	requireOwnershipOrAdmin,
 } from "../middleware/auth";
-import { uploadAvatar } from "../middleware/upload";
+import { uploadAvatar, convertToWebp } from "../middleware/upload";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
@@ -716,7 +716,7 @@ router.delete(
 router.post(
 	"/avatar",
 	authenticate,
-	uploadAvatar.single("avatar"),
+	uploadAvatar.single("avatar"), convertToWebp,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
 			const userId = req.user?.userId;

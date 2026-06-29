@@ -14,7 +14,7 @@ import {
 	createSnapTransaction,
 	resolvePaymentStatus,
 } from "../lib/midtrans";
-import { uploadNomineePhoto, handleUploadError } from "../middleware/upload";
+import { uploadNomineePhoto, handleUploadError, convertToWebp } from "../middleware/upload";
 import { recordVotingRevenueShare } from "../lib/revenueLedger";
 import { applyPaidVotingPurchaseVotes } from "../lib/votingAutoApply";
 import { recordAdminFeeTransaction } from "../lib/adminFeeLedger";
@@ -1740,7 +1740,7 @@ router.post(
 	"/admin/categories/:categoryId/nominees",
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
-	uploadNomineePhoto.single("nomineePhoto"),
+	uploadNomineePhoto.single("nomineePhoto"), convertToWebp,
 	handleUploadError,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
@@ -1781,7 +1781,7 @@ router.put(
 	"/admin/nominees/:nomineeId",
 	authenticate,
 	authorize("SUPERADMIN", "PANITIA"),
-	uploadNomineePhoto.single("nomineePhoto"),
+	uploadNomineePhoto.single("nomineePhoto"), convertToWebp,
 	handleUploadError,
 	async (req: AuthenticatedRequest, res: Response) => {
 		try {
