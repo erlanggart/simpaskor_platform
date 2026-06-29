@@ -64,17 +64,17 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 	}
 
 	return (
-		<div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-white p-5">
+		<div className="fixed inset-0 z-[9999] flex h-[100dvh] overflow-y-auto overflow-x-hidden bg-white p-4 sm:p-5">
 			<div className="pointer-events-none absolute -left-16 -top-16 h-52 w-52 rounded-full bg-orange-50" />
 			<div className="pointer-events-none absolute -bottom-20 -right-16 h-60 w-60 rounded-full bg-emerald-50" />
 
 			<div
-				className="relative w-full max-w-sm rounded-3xl border border-gray-100 bg-white px-6 py-7 text-center shadow-[0_24px_70px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8"
+				className="relative z-10 m-auto w-full max-w-sm shrink-0 rounded-3xl border border-gray-100 bg-white px-5 py-6 text-center shadow-[0_24px_70px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8"
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="location-gate-title"
 			>
-				<div className="mx-auto mb-3 h-28 w-28">
+				<div className="mx-auto mb-2 h-24 w-24 sm:mb-3 sm:h-28 sm:w-28">
 					<Lottie
 						animationData={locationAnimation}
 						loop
@@ -88,7 +88,7 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 					<>
 						<h2
 							id="location-gate-title"
-							className="mb-2 text-2xl font-bold tracking-tight text-gray-900"
+							className="mb-2 text-xl font-bold tracking-tight text-gray-900 sm:text-2xl"
 						>
 							{submitting
 								? "Sip, lokasimu ditemukan!"
@@ -110,7 +110,7 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 					<>
 						<h2
 							id="location-gate-title"
-							className="mb-2 text-2xl font-bold tracking-tight text-gray-900"
+							className="mb-2 text-xl font-bold tracking-tight text-gray-900 sm:text-2xl"
 						>
 							Ups, izinnya belum aktif
 						</h2>
@@ -139,7 +139,7 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 					<>
 						<h2
 							id="location-gate-title"
-							className="mb-2 text-2xl font-bold tracking-tight text-gray-900"
+							className="mb-2 text-xl font-bold tracking-tight text-gray-900 sm:text-2xl"
 						>
 							Browser ini belum siap
 						</h2>
