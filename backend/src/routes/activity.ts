@@ -6,8 +6,26 @@ import {
 	AuthenticatedRequest,
 } from "../middleware/auth";
 import { z } from "zod";
+import { getClientIp } from "../utils/clientIp";
 
 const router = Router();
+
+// GET /api/activity/whoami - diagnostic: shows how the proxy chain reports the IP.
+// Hit this from your phone (mobile data, outside the LAN) to see the real client IP.
+router.get("/whoami", (req, res) => {
+	res.json({
+		resolvedClientIp: getClientIp(req),
+		expressReqIp: req.ip,
+		expressReqIps: req.ips, // full trusted chain Express parsed
+		socketRemoteAddress: req.socket.remoteAddress,
+		headers: {
+			"x-real-ip": req.headers["x-real-ip"] || null,
+			"x-forwarded-for": req.headers["x-forwarded-for"] || null,
+			"x-forwarded-proto": req.headers["x-forwarded-proto"] || null,
+		},
+		trustProxySetting: req.app.get("trust proxy"),
+	});
+});
 
 // POST /api/activity/page - record a client-side page view (any authenticated role)
 const pageSchema = z.object({
@@ -37,7 +55,7 @@ router.post(
 					method: "GET",
 					path,
 					statusCode: 200,
-					ipAddress: req.ip || req.socket.remoteAddress || undefined,
+					ipAddress: getClientIp(req),
 					userAgent: (req.headers["user-agent"] as string) || undefined,
 				},
 			});

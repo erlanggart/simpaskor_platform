@@ -13,6 +13,7 @@ import {
 	AuthenticatedRequest,
 } from "../middleware/auth";
 import { sendPasswordResetEmail } from "../utils/email";
+import { getClientIp } from "../utils/clientIp";
 
 const router = Router();
 
@@ -266,7 +267,7 @@ router.post(
 
 			// Store session with device info
 			const userAgentStr = req.headers["user-agent"] || "Unknown";
-			const ipAddress = req.ip || req.socket.remoteAddress || "Unknown";
+			const ipAddress = getClientIp(req) || "Unknown";
 			const deviceName = parseDeviceName(userAgentStr);
 
 			const expiresAt = new Date();

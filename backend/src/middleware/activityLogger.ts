@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthUtils, JWTPayload } from "../utils/auth";
+import { getClientIp } from "../utils/clientIp";
 
 interface ReqWithUser extends Request {
 	user?: JWTPayload;
@@ -98,7 +99,7 @@ export const activityLogger = (
 		return next();
 	}
 
-	const ipAddress = req.ip || req.socket.remoteAddress || undefined;
+	const ipAddress = getClientIp(req);
 	const userAgent = req.headers["user-agent"] || undefined;
 	const loggedUser = user;
 	const loggedToken = token;
