@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { LuMapPin, LuLoaderCircle, LuTriangleAlert } from "react-icons/lu";
+import Lottie from "lottie-react";
+import { LuLoaderCircle, LuLockKeyhole, LuTriangleAlert } from "react-icons/lu";
+import locationAnimation from "../assets/lottie/location.json";
 import { authAPI } from "../utils/api";
 
 type GateState = "checking" | "granted" | "denied" | "unsupported";
@@ -34,7 +36,7 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 						status: "GRANTED",
 					});
 				} catch {
-					// even if save fails, allow in (location was granted)
+					// Even if saving fails, allow access because location was granted.
 				} finally {
 					setSubmitting(false);
 					sessionStorage.setItem("location_granted", "1");
@@ -42,10 +44,7 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 				}
 			},
 			() => {
-				// denied or unavailable
-				authAPI
-					.sendLocation({ status: "DENIED" })
-					.catch(() => {});
+				authAPI.sendLocation({ status: "DENIED" }).catch(() => {});
 				setState("denied");
 			},
 			{ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -53,7 +52,6 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 	}, []);
 
 	useEffect(() => {
-		// If already granted in this browser session, skip re-prompting
 		if (sessionStorage.getItem("location_granted") === "1") {
 			setState("granted");
 			return;
@@ -66,59 +64,93 @@ export const LocationGate: React.FC<LocationGateProps> = ({ children }) => {
 	}
 
 	return (
-		<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-red-600 via-red-700 to-red-900 p-4">
-			<div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
-				<div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-					{state === "checking" ? (
-						<LuLoaderCircle className="h-8 w-8 animate-spin text-red-600" />
-					) : state === "unsupported" ? (
-						<LuTriangleAlert className="h-8 w-8 text-red-600" />
-					) : (
-						<LuMapPin className="h-8 w-8 text-red-600" />
-					)}
+		<div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-white p-5">
+			<div className="pointer-events-none absolute -left-16 -top-16 h-52 w-52 rounded-full bg-orange-50" />
+			<div className="pointer-events-none absolute -bottom-20 -right-16 h-60 w-60 rounded-full bg-emerald-50" />
+
+			<div
+				className="relative w-full max-w-sm rounded-3xl border border-gray-100 bg-white px-6 py-7 text-center shadow-[0_24px_70px_rgba(15,23,42,0.10)] sm:px-8 sm:py-8"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="location-gate-title"
+			>
+				<div className="mx-auto mb-3 h-28 w-28">
+					<Lottie
+						animationData={locationAnimation}
+						loop
+						autoplay
+						className="h-full w-full"
+						rendererSettings={{ preserveAspectRatio: "xMidYMid meet" }}
+					/>
 				</div>
 
 				{state === "checking" && (
 					<>
-						<h2 className="mb-2 text-xl font-bold text-gray-800">
-							{submitting ? "Menyimpan lokasi…" : "Meminta izin lokasi…"}
+						<h2
+							id="location-gate-title"
+							className="mb-2 text-2xl font-bold tracking-tight text-gray-900"
+						>
+							{submitting
+								? "Sip, lokasimu ditemukan!"
+								: "Yuk, aktifkan lokasi!"}
 						</h2>
-						<p className="text-sm text-gray-500">
-							Mohon izinkan akses lokasi pada popup browser untuk melanjutkan ke
-							dashboard.
+						<p className="text-sm leading-6 text-gray-500">
+							{submitting
+								? "Sebentar ya, kami sedang menyiapkan dashboard untukmu."
+								: "Izinkan akses lokasi dari browser, lalu kamu bisa langsung lanjut. Prosesnya cuma sebentar."}
 						</p>
+						<div className="mt-5 inline-flex items-center gap-2 rounded-full bg-orange-50 px-4 py-2 text-xs font-semibold text-orange-700">
+							<LuLoaderCircle className="h-4 w-4 animate-spin" />
+							{submitting ? "Menyiapkan dashboard..." : "Menunggu izinmu..."}
+						</div>
 					</>
 				)}
 
 				{state === "denied" && (
 					<>
-						<h2 className="mb-2 text-xl font-bold text-gray-800">
-							Lokasi wajib diaktifkan
+						<h2
+							id="location-gate-title"
+							className="mb-2 text-2xl font-bold tracking-tight text-gray-900"
+						>
+							Ups, izinnya belum aktif
 						</h2>
-						<p className="mb-5 text-sm text-gray-500">
-							Untuk masuk ke dashboard, Anda harus mengizinkan akses lokasi. Jika
-							sebelumnya diblokir, buka ikon gembok/izin di address bar browser,
-							ubah <b>Location</b> menjadi <b>Allow</b>, lalu klik tombol di
-							bawah.
+						<p className="text-sm leading-6 text-gray-500">
+							Buka ikon gembok di address bar, ubah izin{" "}
+							<span className="font-semibold text-gray-700">Location</span>{" "}
+							menjadi{" "}
+							<span className="font-semibold text-gray-700">Allow</span>, lalu
+							coba lagi. Kamu tinggal selangkah lagi!
 						</p>
 						<button
+							type="button"
 							onClick={requestLocation}
-							className="w-full rounded-lg bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-700"
+							className="mt-6 w-full rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-100"
 						>
-							Aktifkan Lokasi & Coba Lagi
+							Coba Aktifkan Lagi
 						</button>
+						<div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
+							<LuLockKeyhole className="h-3.5 w-3.5" />
+							Lokasi digunakan untuk keamanan akunmu
+						</div>
 					</>
 				)}
 
 				{state === "unsupported" && (
 					<>
-						<h2 className="mb-2 text-xl font-bold text-gray-800">
-							Browser tidak mendukung lokasi
+						<h2
+							id="location-gate-title"
+							className="mb-2 text-2xl font-bold tracking-tight text-gray-900"
+						>
+							Browser ini belum siap
 						</h2>
-						<p className="text-sm text-gray-500">
-							Perangkat/browser Anda tidak mendukung geolokasi. Silakan gunakan
-							browser lain (Chrome/Edge/Firefox) dengan koneksi HTTPS.
+						<p className="text-sm leading-6 text-gray-500">
+							Coba buka Simpaskor lewat Chrome, Edge, atau Firefox dengan
+							koneksi HTTPS agar fitur lokasi bisa digunakan.
 						</p>
+						<div className="mt-5 inline-flex items-center gap-2 rounded-full bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700">
+							<LuTriangleAlert className="h-4 w-4" />
+							Fitur lokasi tidak tersedia
+						</div>
 					</>
 				)}
 			</div>
