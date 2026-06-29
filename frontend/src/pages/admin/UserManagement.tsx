@@ -13,14 +13,9 @@ import {
 	PlusIcon,
 	EyeIcon,
 	EyeSlashIcon,
-	InformationCircleIcon,
-	ShieldCheckIcon,
-	ShieldExclamationIcon,
 	StarIcon,
-	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
-import Swal from "sweetalert2";
 import { api } from "../../utils/api";
 import { showSuccess, showError, showWarning } from "../../utils/sweetalert";
 
@@ -80,7 +75,7 @@ const UserManagement: React.FC = () => {
 	const [hasLoadedUsers, setHasLoadedUsers] = useState(false);
 	const [statsLoading, setStatsLoading] = useState(true);
 	const [searchTerm, setSearchTerm] = useState("");
-	const [selectedRole, setSelectedRole] = useState<string>("ALL");
+	const [selectedRole, setSelectedRole] = useState<string>("PANITIA");
 	const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
 	const [selectedVerification, setSelectedVerification] = useState<string>("ALL");
 
@@ -157,16 +152,6 @@ const UserManagement: React.FC = () => {
 		}
 	};
 
-	const handleVerifyUser = async (user: User) => {
-		try {
-			await api.patch(`/users/${user.id}/verify`);
-			showSuccess(user.emailVerified ? "Verifikasi user dicabut" : "User berhasil diverifikasi");
-			await Promise.all([fetchUsers(), fetchUserStats()]);
-		} catch (error: any) {
-			showError(error.response?.data?.message || "Gagal mengubah status verifikasi");
-		}
-	};
-
 	const handleTogglePin = async (user: User) => {
 		try {
 			await api.patch(`/users/${user.id}/pin`);
@@ -174,26 +159,6 @@ const UserManagement: React.FC = () => {
 			await Promise.all([fetchUsers(), fetchUserStats()]);
 		} catch (error: any) {
 			showError(error.response?.data?.message || "Gagal mengubah status pin");
-		}
-	};
-
-	const handleDeleteUser = async (user: User) => {
-		const result = await Swal.fire({
-			icon: "warning",
-			title: "Hapus Akun?",
-			html: `<p>Apakah Anda yakin ingin menghapus akun <strong>${user.name}</strong> (${user.email})?</p><p class="text-sm text-red-600 mt-2">Semua data terkait (pendaftaran, evaluasi, dll) akan ikut terhapus. Tindakan ini tidak dapat dibatalkan.</p>`,
-			showCancelButton: true,
-			confirmButtonColor: "#dc2626",
-			cancelButtonText: "Batal",
-			confirmButtonText: "Ya, Hapus",
-		});
-		if (!result.isConfirmed) return;
-		try {
-			await api.delete(`/users/${user.id}`);
-			showSuccess("Akun berhasil dihapus");
-			await Promise.all([fetchUsers(), fetchUserStats()]);
-		} catch (error: any) {
-			showError(error.response?.data?.message || "Gagal menghapus akun");
 		}
 	};
 
@@ -274,18 +239,6 @@ const UserManagement: React.FC = () => {
 		return pages;
 	};
 
-	const getRoleBadgeColor = (role: string) => {
-		const colors: Record<string, string> = {
-			SUPERADMIN: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-			PANITIA: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-			PESERTA: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-			JURI: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-			PELATIH: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-			MITRA: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
-		};
-		return colors[role] || "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
-	};
-
 	const getStatusBadgeColor = (status: string) => {
 		const colors: Record<string, string> = {
 			ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
@@ -333,13 +286,12 @@ const UserManagement: React.FC = () => {
 	};
 
 	const roleOptions = [
-		{ value: "ALL", label: "Semua Role" },
-		{ value: "SUPERADMIN", label: "Super Admin" },
 		{ value: "PANITIA", label: "Panitia" },
 		{ value: "PESERTA", label: "Peserta" },
 		{ value: "JURI", label: "Juri" },
 		{ value: "PELATIH", label: "Pelatih" },
 		{ value: "MITRA", label: "Mitra" },
+		{ value: "SUPERADMIN", label: "Super Admin" },
 	];
 
 	const statusFilterOptions = [
@@ -477,39 +429,53 @@ const UserManagement: React.FC = () => {
 				</div>
 			</div>
 
+			{/* ── Role Tabs (tabel & pencarian terpisah per role) ── */}
+			<div className="flex w-full gap-2">
+				{roleOptions.map((o) => {
+					const active = selectedRole === o.value;
+					return (
+						<button
+							key={o.value}
+							onClick={() => {
+								if (active) return;
+								setSelectedRole(o.value);
+								setSearchTerm("");
+								setSelectedStatus("ALL");
+								setSelectedVerification("ALL");
+							}}
+							className={`flex-1 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+								active
+									? "bg-red-600 dark:bg-red-500 text-white shadow"
+									: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+							}`}
+						>
+							<span className="truncate">{o.label}</span>
+							{userStats && (
+								<span className={`inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded-md text-xs font-bold ${
+									active ? "bg-white text-red-600" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+								}`}>
+									{(userStats.byRole[o.value] || 0).toLocaleString("id-ID")}
+								</span>
+							)}
+						</button>
+					);
+				})}
+			</div>
+
 			{/* ── Filters ── */}
 			<div className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm rounded-lg shadow dark:shadow-gray-900/50 p-4 space-y-3">
 				<div className="relative">
 					<MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
 					<input
 						type="text"
-						placeholder="Cari nama atau email..."
+						placeholder={`Cari nama atau email di ${roleOptions.find((o) => o.value === selectedRole)?.label || ""}...`}
 						value={searchTerm}
 						onChange={(e) => setSearchTerm(e.target.value)}
 						className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 focus:border-transparent"
 					/>
 				</div>
 
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-					{/* Role */}
-					<div>
-						<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Role</label>
-						<div className="flex flex-wrap gap-1.5">
-							{roleOptions.map((o) => (
-								<button
-									key={o.value}
-									onClick={() => setSelectedRole(o.value)}
-									className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-										selectedRole === o.value
-											? "bg-red-600 dark:bg-red-500 text-white shadow"
-											: "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-									}`}
-								>
-									{o.label}
-								</button>
-							))}
-						</div>
-					</div>
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 					{/* Status */}
 					<div>
 						<label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Status</label>
@@ -567,10 +533,10 @@ const UserManagement: React.FC = () => {
 							<tr>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kontak</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Institusi</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Activity</th>
+								<th className="px-6 py-3 w-10"><span className="sr-only">Pin</span></th>
 							</tr>
 						</thead>
 						<tbody className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm divide-y divide-gray-200 dark:divide-gray-700">
@@ -583,7 +549,11 @@ const UserManagement: React.FC = () => {
 								</tr>
 							) : (
 								users.map((user) => (
-									<tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+									<tr
+											key={user.id}
+											onClick={() => navigate(`/admin/users/${user.id}`)}
+											className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+										>
 										<td className="px-6 py-4 whitespace-nowrap">
 											<div className="flex items-center">
 												<div className="relative flex-shrink-0 h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
@@ -601,26 +571,20 @@ const UserManagement: React.FC = () => {
 															<CheckCircleIcon className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0" title="Verified" />
 														)}
 													</div>
-													<p className={`text-[11px] mt-0.5 ${user.isOnline ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-gray-400 dark:text-gray-500"}`}>
-														{getLastActivityText(user.lastLogin, user.isOnline)}
-													</p>
-												</div>
-											</div>
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap">
-											<div className="text-sm text-gray-900 dark:text-gray-300">
-												<div className="flex items-center gap-2 mb-1">
-													<EnvelopeIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />{user.email}
-												</div>
-												{user.phone && (
-													<div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-														<PhoneIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />{user.phone}
+													<div className="flex items-center gap-1.5 text-[11px] mt-0.5 text-gray-500 dark:text-gray-400">
+														<EnvelopeIcon className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />{user.email}
 													</div>
-												)}
+												</div>
 											</div>
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap">
-											<span className={`px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeColor(user.role)}`}>{user.role}</span>
+											{user.phone ? (
+												<div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+													<PhoneIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />{user.phone}
+												</div>
+											) : (
+												<span className="text-sm text-gray-400 dark:text-gray-500">-</span>
+											)}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap">
 											<span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>{user.status}</span>
@@ -632,57 +596,31 @@ const UserManagement: React.FC = () => {
 											)}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm">
-											<div className="flex items-center gap-2">
+											<span className={user.isOnline ? "text-emerald-600 dark:text-emerald-400 font-medium" : "text-gray-500 dark:text-gray-400"}>
+												{getLastActivityText(user.lastLogin, user.isOnline)}
+											</span>
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap text-right">
+											{user.role === "JURI" && (
 												<button
-													onClick={() => navigate(`/admin/users/${user.id}`)}
-													title="Detail User"
-													className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-xs font-medium"
-												>
-													<InformationCircleIcon className="w-4 h-4" />Detail
-												</button>
-												<button
-													onClick={() => handleVerifyUser(user)}
-													title={user.emailVerified ? "Cabut Verifikasi" : "Verifikasi User"}
-													className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${
-														user.emailVerified
-															? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
-															: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+													onClick={(e) => {
+														e.stopPropagation();
+														handleTogglePin(user);
+													}}
+													title={user.isPinned ? "Unpin Juri" : "Pin Juri"}
+													className={`transition-colors ${
+														user.isPinned
+															? "text-yellow-400 hover:text-yellow-500"
+															: "text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
 													}`}
 												>
-													{user.emailVerified ? (
-														<><ShieldCheckIcon className="w-4 h-4" /> Verified</>
+													{user.isPinned ? (
+														<StarIconSolid className="w-5 h-5" />
 													) : (
-														<><ShieldExclamationIcon className="w-4 h-4" /> Verifikasi</>
+														<StarIcon className="w-5 h-5" />
 													)}
 												</button>
-												{user.role === "JURI" && (
-													<button
-														onClick={() => handleTogglePin(user)}
-														title={user.isPinned ? "Unpin Juri" : "Pin Juri"}
-														className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors text-xs font-medium ${
-															user.isPinned
-																? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
-																: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-														}`}
-													>
-														{user.isPinned ? (
-															<><StarIconSolid className="w-4 h-4" /> Pinned</>
-														) : (
-															<><StarIcon className="w-4 h-4" /> Pin</>
-														)}
-													</button>
-												)}
-
-												{user.role !== "SUPERADMIN" && (
-													<button
-														onClick={() => handleDeleteUser(user)}
-														title="Hapus Akun"
-														className="flex items-center gap-1 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors text-xs font-medium"
-													>
-														<TrashIcon className="w-4 h-4" />Hapus
-													</button>
-												)}
-											</div>
+											)}
 										</td>
 									</tr>
 								))
