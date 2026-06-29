@@ -45,12 +45,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Trust the first proxy hop (nginx in front of the Node container).
-// Without this, Express sees req.ip as 127.0.0.1 for every request and
-// express-rate-limit cannot distinguish users — all panitia gates would
-// share one rate-limit bucket. Set to the number of proxy hops in front
-// of the app (1 = single nginx). Override via TRUST_PROXY env if needed.
-app.set("trust proxy", process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : 1);
+// Trust the reverse-proxy chain so req.ip resolves to the real client IP.
+// Instead of counting hops (brittle — our chain has host nginx + an infra
+// proxy + docker, and X-Forwarded-For = "realClient, 172.168.20.23"), we
+// trust the infrastructure subnets by address. Express then returns the
+// left-most X-Forwarded-For entry that is NOT in a trusted range = the real
+// public client. This is robust to hop-count changes and not spoofable
+// (only known infra ranges are trusted).
+//   - loopback:    127.0.0.1/8, ::1
+//   - linklocal:   169.254.0.0/16, fe80::/10
+//   - uniquelocal: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7
+//   - 172.168.0.0/16: this deployment's host/MikroTik subnet (NOT RFC1918)
+// Override via TRUST_PROXY env (number, single IP, or comma-separated list).
+app.set(
+	"trust proxy",
+	process.env.TRUST_PROXY
+		? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY
+		: ["loopback", "linklocal", "uniquelocal", "172.168.0.0/16"]
+);
 
 // Middleware
 app.use(

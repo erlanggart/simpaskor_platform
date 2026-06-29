@@ -1,36 +1,22 @@
 import { Request } from "express";
 
 /**
- * Resolve the real client IP behind the nginx reverse-proxy chain.
+ * Resolve the real client IP.
  *
- * Order of preference:
- *  1. X-Real-IP — set by the immediate (trusted) nginx. After the container
- *     nginx real_ip config this is the actual client IP.
- *  2. First entry of X-Forwarded-For — the original client appended by the
- *     first proxy in the chain.
- *  3. req.ip / socket.remoteAddress — last-resort fallback.
+ * We rely on Express's own X-Forwarded-For resolution (req.ip), which is
+ * correct as long as `trust proxy` is configured with the infrastructure
+ * subnets (see server.ts). This is preferred over reading X-Real-IP or the
+ * raw X-Forwarded-For directly because:
+ *   - X-Real-IP in this deployment is set by an intermediate proxy to its own
+ *     address (172.168.20.23), not the client.
+ *   - The left-most X-Forwarded-For entry is client-spoofable unless filtered
+ *     against trusted proxies — which is exactly what req.ip already does.
  *
  * IPv6-mapped IPv4 (::ffff:1.2.3.4) is normalized to 1.2.3.4.
  */
 export function getClientIp(req: Request): string | undefined {
-	const normalize = (ip?: string | null): string | undefined => {
-		if (!ip) return undefined;
-		const v = ip.trim().replace(/^::ffff:/i, "");
-		return v || undefined;
-	};
-
-	const realIp = req.headers["x-real-ip"];
-	if (typeof realIp === "string" && realIp.trim()) {
-		return normalize(realIp);
-	}
-
-	const xff = req.headers["x-forwarded-for"];
-	if (xff) {
-		const raw = Array.isArray(xff) ? xff[0] : xff;
-		const first = raw ? raw.split(",")[0] : undefined;
-		const normalized = normalize(first);
-		if (normalized) return normalized;
-	}
-
-	return normalize(req.ip || req.socket.remoteAddress);
+	const ip = req.ip || req.socket.remoteAddress;
+	if (!ip) return undefined;
+	const v = ip.trim().replace(/^::ffff:/i, "");
+	return v || undefined;
 }
