@@ -36,6 +36,8 @@ import disbursementRoutes from "./routes/disbursements";
 import externalFinanceRoutes from "./routes/externalFinance";
 import mitraRoutes from "./routes/mitra";
 import seoRoutes from "./routes/seo";
+import activityRoutes from "./routes/activity";
+import { activityLogger } from "./middleware/activityLogger";
 import { startPendingPaymentSweeper } from "./lib/pendingPaymentSweeper";
 
 dotenv.config();
@@ -198,8 +200,12 @@ app.get("/api/health", (req, res) => {
 	});
 });
 
+// Activity logging (records mutating, authenticated API requests)
+app.use("/api", activityLogger);
+
 // API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/activity", activityRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/coupons", couponRoutes);

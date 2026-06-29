@@ -92,12 +92,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 	};
 
 	const logout = () => {
+		// Fire the logout request first so the token is still present and the
+		// backend can record the LOGOUT activity. authAPI.logout() removes the
+		// token + user from localStorage after the request is sent.
+		authAPI.logout().catch(console.error);
+
 		setUser(null);
 		setToken(null);
-		localStorage.removeItem("token");
-		localStorage.removeItem("user");
 		localStorage.removeItem("panitia_active_event");
-		
+		sessionStorage.removeItem("location_granted");
+
 		// Clear any scoring draft data (keys starting with "scoring_")
 		const keysToRemove: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {
@@ -107,8 +111,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 			}
 		}
 		keysToRemove.forEach(key => localStorage.removeItem(key));
-		
-		authAPI.logout().catch(console.error);
 	};
 
 	const value = {

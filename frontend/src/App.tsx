@@ -52,7 +52,6 @@ const EventTrash = lazy(() => import("./pages/admin/EventTrash"));
 const AdminManageEvent = lazy(() => import("./pages/admin/ManageEvent"));
 const AdminEditEvent = lazy(() => import("./pages/admin/EditEvent"));
 const ProductManagement = lazy(() => import("./pages/admin/ProductManagement"));
-const OrderManagement = lazy(() => import("./pages/admin/OrderManagement"));
 const GuideManagement = lazy(() => import("./pages/admin/GuideManagement"));
 const PackageManagement = lazy(() => import("./pages/admin/PackageManagement"));
 const RevenueShareManagement = lazy(() => import("./pages/admin/RevenueShareManagement"));
@@ -60,6 +59,7 @@ const AdminSettings = lazy(() => import("./pages/admin/Settings"));
 const AdminBackup = lazy(() => import("./pages/admin/Backup"));
 const DisbursementManagement = lazy(() => import("./pages/admin/DisbursementManagement"));
 const ApiIntegration = lazy(() => import("./pages/admin/ApiIntegration"));
+const ActivityMonitor = lazy(() => import("./pages/admin/ActivityMonitor"));
 const PanitiaDashboard = lazy(() => import("./pages/panitia/Dashboard"));
 const PanitiaEventsList = lazy(() => import("./pages/panitia/Events"));
 const PanitiaPanduan = lazy(() => import("./pages/panitia/Panduan"));
@@ -178,12 +178,12 @@ function App() {
 								element={<AssessmentCategoryManagement />}
 							/>
 							<Route path="products" element={<ProductManagement />} />
-							<Route path="orders" element={<OrderManagement />} />
 							<Route path="guides" element={<GuideManagement />} />
 							<Route path="packages" element={<PackageManagement />} />
 							<Route path="revenue-share" element={<RevenueShareManagement />} />
 							<Route path="settings" element={<AdminSettings />} />
 							<Route path="api-integration" element={<ApiIntegration />} />
+							<Route path="activity" element={<ActivityMonitor />} />
 							<Route path="backup" element={<AdminBackup />} />
 							<Route path="profile" element={<Profile />} />
 						</Route>

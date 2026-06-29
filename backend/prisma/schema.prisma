@@ -45,6 +45,7 @@ model User {
   // Relations
   profile                  UserProfile?
   sessions                 UserSession[]
+  activityLogs             ActivityLog[]
   createdEvents            Event[]               @relation("EventCreator")
   participations           EventParticipation[]
   evaluations              Evaluation[]
@@ -91,11 +92,41 @@ model UserSession {
   ipAddress  String?  @map("ip_address")
   userAgent  String?  @map("user_agent")
   deviceName String?  @map("device_name")
+  // Geolocation captured from the browser after login (mandatory location gate)
+  latitude       Float?    @map("latitude")
+  longitude      Float?    @map("longitude")
+  accuracy       Float?    @map("accuracy")
+  locationLabel  String?   @map("location_label")
+  locationStatus String    @default("PENDING") @map("location_status") // PENDING | GRANTED | DENIED
+  locationAt     DateTime? @map("location_at")
   lastActive DateTime @default(now()) @map("last_active")
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  activityLogs ActivityLog[]
+
   @@map("user_sessions")
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId   String?  @map("session_id")
+  session     UserSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  action      String // LOGIN | LOGOUT | PAGE_VIEW | CREATE | UPDATE | DELETE | OTHER
+  description String?
+  method      String? // HTTP method for API actions
+  path        String? // request path or page route
+  statusCode  Int?     @map("status_code")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
 }
 
 // Many-to-many relationship: Event can be available for multiple school levels

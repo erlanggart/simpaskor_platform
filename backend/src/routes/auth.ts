@@ -7,7 +7,11 @@ import crypto from "crypto";
 import { registrationLimiter, loginLimiter } from "../middleware/rateLimiter";
 import { verifyRecaptcha } from "../middleware/recaptcha";
 import { GoogleAuthUtils } from "../utils/googleAuth";
-import { authenticate, AuthenticatedRequest } from "../middleware/auth";
+import {
+	authenticate,
+	optionalAuthenticate,
+	AuthenticatedRequest,
+} from "../middleware/auth";
 import { sendPasswordResetEmail } from "../utils/email";
 
 const router = Router();
@@ -268,7 +272,7 @@ router.post(
 			const expiresAt = new Date();
 			expiresAt.setDate(expiresAt.getDate() + 7);
 
-			await prisma.userSession.create({
+			const session = await prisma.userSession.create({
 				data: {
 					userId: user.id,
 					token,
@@ -278,6 +282,23 @@ router.post(
 					expiresAt,
 				},
 			});
+
+			// Record login activity (fire-and-forget)
+			void prisma.activityLog
+				.create({
+					data: {
+						userId: user.id,
+						sessionId: session.id,
+						action: "LOGIN",
+						description: `Login sebagai ${user.role}`,
+						method: "POST",
+						path: "/api/auth/login",
+						statusCode: 200,
+						ipAddress,
+						userAgent: userAgentStr,
+					},
+				})
+				.catch(() => {});
 
 			res.json({
 				message: "Login successful",
@@ -304,11 +325,132 @@ router.post(
 // Logout endpoint (optional - for token blacklisting)
 router.post(
 	"/logout",
-	async (_req: Request, res: Response): Promise<void | Response> => {
-		// In a real app, you might want to blacklist the token
+	optionalAuthenticate,
+	async (req: AuthenticatedRequest, res: Response): Promise<void | Response> => {
+		try {
+			const authHeader = req.headers.authorization || "";
+			const token = authHeader.substring(7);
+			if (req.user) {
+				const session = await prisma.userSession.findUnique({
+					where: { token },
+					select: { id: true },
+				});
+				void prisma.activityLog
+					.create({
+						data: {
+							userId: req.user.userId,
+							sessionId: session?.id,
+							action: "LOGOUT",
+							description: "Logout",
+							method: "POST",
+							path: "/api/auth/logout",
+							statusCode: 200,
+						},
+					})
+					.catch(() => {});
+			}
+		} catch {
+			// ignore
+		}
 		res.json({
 			message: "Logout successful",
 		});
+	}
+);
+
+// Reverse geocode coordinates to a human-readable place name (best-effort)
+async function reverseGeocode(
+	lat: number,
+	lng: number
+): Promise<string | null> {
+	try {
+		const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&accept-language=id`;
+		const resp = await fetch(url, {
+			headers: { "User-Agent": "simpaskor-platform/1.0" },
+		});
+		if (!resp.ok) return null;
+		const data: any = await resp.json();
+		return data?.display_name || null;
+	} catch {
+		return null;
+	}
+}
+
+const locationSchema = z.object({
+	latitude: z.number().min(-90).max(90).optional(),
+	longitude: z.number().min(-180).max(180).optional(),
+	accuracy: z.number().optional(),
+	status: z.enum(["GRANTED", "DENIED"]).default("GRANTED"),
+});
+
+// Save geolocation for the current session (mandatory location gate)
+router.post(
+	"/location",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response): Promise<void | Response> => {
+		try {
+			const data = locationSchema.parse(req.body);
+			const authHeader = req.headers.authorization || "";
+			const token = authHeader.substring(7);
+
+			const session = await prisma.userSession.findUnique({
+				where: { token },
+				select: { id: true },
+			});
+			if (!session) {
+				return res.status(404).json({ message: "Session not found" });
+			}
+
+			let locationLabel: string | null = null;
+			if (
+				data.status === "GRANTED" &&
+				typeof data.latitude === "number" &&
+				typeof data.longitude === "number"
+			) {
+				locationLabel = await reverseGeocode(data.latitude, data.longitude);
+			}
+
+			await prisma.userSession.update({
+				where: { id: session.id },
+				data: {
+					latitude: data.latitude ?? null,
+					longitude: data.longitude ?? null,
+					accuracy: data.accuracy ?? null,
+					locationLabel,
+					locationStatus: data.status,
+					locationAt: new Date(),
+				},
+			});
+
+			void prisma.activityLog
+				.create({
+					data: {
+						userId: req.user!.userId,
+						sessionId: session.id,
+						action: "OTHER",
+						description:
+							data.status === "GRANTED"
+								? `Mengaktifkan lokasi${
+										locationLabel ? `: ${locationLabel}` : ""
+								  }`
+								: "Menolak izin lokasi",
+						method: "POST",
+						path: "/api/auth/location",
+						statusCode: 200,
+					},
+				})
+				.catch(() => {});
+
+			return res.json({ message: "Location saved", locationLabel });
+		} catch (error) {
+			if (error instanceof z.ZodError) {
+				return res
+					.status(400)
+					.json({ error: "Validation error", details: error.errors });
+			}
+			console.error("Save location error:", error);
+			return res.status(500).json({ message: "Failed to save location" });
+		}
 	}
 );
 

@@ -4,6 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/api";
 import { RouteFallback } from "../components/RouteFallback";
+import { LocationGate } from "../components/LocationGate";
+import { activityAPI } from "../utils/api";
 import { preloadRoute } from "../utils/routePreload";
 import { hasFeature, MENU_FEATURE_MAP } from "../utils/packageFeatures";
 import Swal from "sweetalert2";
@@ -22,7 +24,6 @@ import {
 	LuGraduationCap,
 	LuMapPin,
 	LuShoppingBag,
-	LuClipboardList,
 	LuThumbsUp,
 	LuArrowRightFromLine,
 	LuEllipsis,
@@ -34,6 +35,7 @@ import {
 	LuBell,
 	LuCode,
 	LuTrash2,
+	LuActivity,
 } from "react-icons/lu";
 import { TrophyIcon } from "../components/common/LottieIcons";
 import "../components/landing/LandingPage.css";
@@ -57,6 +59,12 @@ export const DashboardLayout: React.FC = () => {
 	const [isMobileContentAtTop, setIsMobileContentAtTop] = useState(true);
 	const [activeEvent, setActiveEvent] = useState<any>(null);
 	const [activeJuryEvent, setActiveJuryEvent] = useState<any>(null);
+
+	// Track page views for SuperAdmin activity monitor
+	useEffect(() => {
+		if (!user) return;
+		activityAPI.logPage(location.pathname, document.title);
+	}, [location.pathname, user]);
 
 	// Extract eventSlug from URL for Juri
 	const juryEventSlugMatch = location.pathname.match(/\/juri\/events\/([^/]+)/);
@@ -193,11 +201,11 @@ export const DashboardLayout: React.FC = () => {
 					{ name: "Event", icon: LuCalendar, path: "/admin/events" },
 					{ name: "Sampah Event", icon: LuTrash2, path: "/admin/events/trash" },
 					{ name: "Produk", icon: LuShoppingBag, path: "/admin/products" },
-					{ name: "Pesanan", icon: LuClipboardList, path: "/admin/orders" },
 					{ name: "Panduan", icon: LuBookOpen, path: "/admin/guides" },
 					{ name: "Kelola Paket", icon: LuCreditCard, path: "/admin/packages" },
 					{ name: "Bagi Hasil", icon: LuBadgeDollarSign, path: "/admin/revenue-share" },
 					{ name: "Pencairan", icon: LuBanknote, path: "/admin/disbursements" },
+					{ name: "Aktivitas", icon: LuActivity, path: "/admin/activity" },
 					{ name: "API", icon: LuCode, path: "/admin/api-integration" },
 					{ name: "Setting", icon: LuSettings, path: "/admin/settings" },
 					{ name: "Backup", icon: LuDatabase, path: "/admin/backup" }
@@ -341,6 +349,7 @@ export const DashboardLayout: React.FC = () => {
 	const hasActiveEvent = !!(activeEvent || activeJuryEvent);
 
 	return (
+		<LocationGate>
 		<div className="h-screen w-screen overflow-hidden relative">
 			{/* Fixed background with grid + gradient */}
 			<div className="main-layout-bg" />
@@ -805,5 +814,6 @@ export const DashboardLayout: React.FC = () => {
 				</>
 			)}
 		</div>
+		</LocationGate>
 	);
 };

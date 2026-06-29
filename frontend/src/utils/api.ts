@@ -210,6 +210,42 @@ export const authAPI = {
 		const response = await api.get("/auth/me");
 		return response.data.user;
 	},
+
+	sendLocation: async (data: {
+		latitude?: number;
+		longitude?: number;
+		accuracy?: number;
+		status: "GRANTED" | "DENIED";
+	}): Promise<{ message: string; locationLabel?: string | null }> => {
+		const response = await api.post("/auth/location", data);
+		return response.data;
+	},
+};
+
+export const activityAPI = {
+	logPage: async (path: string, title?: string): Promise<void> => {
+		try {
+			await api.post("/activity/page", { path, title });
+		} catch {
+			// non-blocking
+		}
+	},
+
+	getActivity: async (params?: {
+		page?: number;
+		limit?: number;
+		userId?: string;
+		action?: string;
+		search?: string;
+	}): Promise<{ logs: any[]; pagination: any }> => {
+		const response = await api.get("/activity", { params });
+		return response.data;
+	},
+
+	getSessions: async (): Promise<{ sessions: any[] }> => {
+		const response = await api.get("/activity/sessions");
+		return response.data;
+	},
 };
 
 export const userAPI = {

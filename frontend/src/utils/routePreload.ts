@@ -26,7 +26,6 @@ const ROUTE_IMPORTERS: Array<{ test: (p: string) => boolean; load: Importer }> =
 	{ test: (p) => p.startsWith("/admin/assessment-categories"), load: () => import("../pages/admin/AssessmentCategoryManagement") },
 	{ test: (p) => p === "/admin/events", load: () => import("../pages/admin/EventManagement") },
 	{ test: (p) => p.startsWith("/admin/products"), load: () => import("../pages/admin/ProductManagement") },
-	{ test: (p) => p.startsWith("/admin/orders"), load: () => import("../pages/admin/OrderManagement") },
 	{ test: (p) => p.startsWith("/admin/guides"), load: () => import("../pages/admin/GuideManagement") },
 	{ test: (p) => p.startsWith("/admin/packages"), load: () => import("../pages/admin/PackageManagement") },
 	{ test: (p) => p.startsWith("/admin/revenue-share"), load: () => import("../pages/admin/RevenueShareManagement") },
