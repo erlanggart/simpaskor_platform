@@ -7,10 +7,32 @@ import {
 	LuRefreshCw,
 	LuExternalLink,
 	LuGlobe,
+	LuShield,
+	LuUserSearch,
 } from "react-icons/lu";
 import { activityAPI } from "../../utils/api";
+import { useNavigate } from "react-router-dom";
+import SecurityMonitor from "../../components/admin/SecurityMonitor";
+import {
+	actionColor,
+	roleColor,
+	fmtIp,
+	accuracyLabel,
+	accuracyClass,
+	fmt,
+} from "../../utils/activityFormat";
 
-type Tab = "logs" | "sessions";
+type Tab = "logs" | "sessions" | "security";
+
+const ROLE_TABS = [
+	{ value: "", label: "Semua" },
+	{ value: "SUPERADMIN", label: "Superadmin" },
+	{ value: "PANITIA", label: "Panitia" },
+	{ value: "JURI", label: "Juri" },
+	{ value: "PESERTA", label: "Peserta" },
+	{ value: "PELATIH", label: "Pelatih" },
+	{ value: "MITRA", label: "Mitra" },
+];
 
 const ACTION_OPTIONS = [
 	{ value: "", label: "Semua aksi" },
@@ -20,80 +42,14 @@ const ACTION_OPTIONS = [
 	{ value: "CREATE", label: "Membuat" },
 	{ value: "UPDATE", label: "Mengubah" },
 	{ value: "DELETE", label: "Menghapus" },
+	{ value: "FAILED_LOGIN", label: "Login gagal" },
+	{ value: "ACCESS_DENIED", label: "Akses ditolak" },
 	{ value: "OTHER", label: "Lainnya" },
 ];
 
-const actionColor = (action: string): string => {
-	switch (action) {
-		case "LOGIN":
-			return "bg-green-100 text-green-700";
-		case "LOGOUT":
-			return "bg-gray-100 text-gray-600";
-		case "CREATE":
-			return "bg-blue-100 text-blue-700";
-		case "UPDATE":
-			return "bg-amber-100 text-amber-700";
-		case "DELETE":
-			return "bg-red-100 text-red-700";
-		case "PAGE_VIEW":
-			return "bg-purple-100 text-purple-700";
-		default:
-			return "bg-slate-100 text-slate-600";
-	}
-};
-
-const roleColor = (role: string): string => {
-	switch (role) {
-		case "SUPERADMIN":
-			return "bg-red-100 text-red-700";
-		case "PANITIA":
-			return "bg-indigo-100 text-indigo-700";
-		case "JURI":
-			return "bg-cyan-100 text-cyan-700";
-		case "PESERTA":
-			return "bg-emerald-100 text-emerald-700";
-		case "PELATIH":
-			return "bg-orange-100 text-orange-700";
-		case "MITRA":
-			return "bg-pink-100 text-pink-700";
-		default:
-			return "bg-gray-100 text-gray-600";
-	}
-};
-
-// Normalize IPv6-mapped IPv4 (::ffff:127.0.0.1 -> 127.0.0.1) and localhost
-const fmtIp = (ip?: string | null): string => {
-	if (!ip) return "—";
-	let v = ip.replace(/^::ffff:/i, "");
-	if (v === "::1") v = "127.0.0.1 (lokal)";
-	return v;
-};
-
-// Interpret GPS accuracy radius (meters): small = real device GPS/WiFi,
-// huge = browser fell back to a coarse IP estimate.
-const accuracyLabel = (acc: number): string => {
-	const m = Math.round(acc);
-	if (acc <= 50) return `±${m} m · GPS/WiFi (lokasi device)`;
-	if (acc <= 500) return `±${m} m · WiFi/seluler`;
-	if (acc <= 2000) return `±${(m / 1000).toFixed(1)} km · perkiraan kasar`;
-	return `±${(m / 1000).toFixed(1)} km · kemungkinan dari IP`;
-};
-
-const accuracyClass = (acc: number): string => {
-	if (acc <= 50) return "text-green-600";
-	if (acc <= 2000) return "text-amber-600";
-	return "text-red-500";
-};
-
-const fmt = (d: string) =>
-	new Date(d).toLocaleString("id-ID", {
-		day: "2-digit",
-		month: "short",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
-
 const ActivityMonitor: React.FC = () => {
+	const navigate = useNavigate();
+	const openUserDetail = (userId: string) => navigate(`/admin/users/${userId}`);
 	const [tab, setTab] = useState<Tab>("logs");
 
 	// logs state
@@ -101,9 +57,16 @@ const ActivityMonitor: React.FC = () => {
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
 	const [action, setAction] = useState("");
+	const [role, setRole] = useState("");
 	const [search, setSearch] = useState("");
 	const [searchInput, setSearchInput] = useState("");
 	const [loading, setLoading] = useState(false);
+
+	// user list (master) state
+	const [users, setUsers] = useState<any[]>([]);
+	const [usersLoading, setUsersLoading] = useState(false);
+	const [selectedUserId, setSelectedUserId] = useState("");
+	const [userQuery, setUserQuery] = useState("");
 
 	// sessions state
 	const [sessions, setSessions] = useState<any[]>([]);
@@ -115,7 +78,9 @@ const ActivityMonitor: React.FC = () => {
 			const res = await activityAPI.getActivity({
 				page,
 				limit: 50,
+				userId: selectedUserId || undefined,
 				action: action || undefined,
+				role: role || undefined,
 				search: search || undefined,
 			});
 			setLogs(res.logs);
@@ -125,7 +90,19 @@ const ActivityMonitor: React.FC = () => {
 		} finally {
 			setLoading(false);
 		}
-	}, [page, action, search]);
+	}, [page, action, role, search, selectedUserId]);
+
+	const loadUsers = useCallback(async () => {
+		setUsersLoading(true);
+		try {
+			const res = await activityAPI.getActivityUsers(role || undefined);
+			setUsers(res.users);
+		} catch {
+			setUsers([]);
+		} finally {
+			setUsersLoading(false);
+		}
+	}, [role]);
 
 	const loadSessions = useCallback(async () => {
 		setSessionsLoading(true);
@@ -141,8 +118,12 @@ const ActivityMonitor: React.FC = () => {
 
 	useEffect(() => {
 		if (tab === "logs") loadLogs();
-		else loadSessions();
+		else if (tab === "sessions") loadSessions();
 	}, [tab, loadLogs, loadSessions]);
+
+	useEffect(() => {
+		if (tab === "logs") loadUsers();
+	}, [tab, loadUsers]);
 
 	const submitSearch = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -150,8 +131,17 @@ const ActivityMonitor: React.FC = () => {
 		setSearch(searchInput.trim());
 	};
 
+	const filteredUsers = users.filter((u) => {
+		const q = userQuery.trim().toLowerCase();
+		if (!q) return true;
+		return (
+			(u.name || "").toLowerCase().includes(q) ||
+			(u.email || "").toLowerCase().includes(q)
+		);
+	});
+
 	return (
-		<div className="p-4 md:p-6 max-w-7xl mx-auto">
+		<div className="p-4 md:p-6 w-full">
 			{/* Header */}
 			<div className="flex items-center gap-3 mb-6">
 				<div className="w-11 h-11 rounded-xl bg-red-600 flex items-center justify-center text-white">
@@ -189,10 +179,135 @@ const ActivityMonitor: React.FC = () => {
 				>
 					Sesi & Lokasi
 				</button>
+				<button
+					onClick={() => setTab("security")}
+					className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+						tab === "security"
+							? "bg-red-600 text-white"
+							: "bg-white dark:bg-white/5 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10"
+					}`}
+				>
+					<LuShield className="w-4 h-4" />
+					Keamanan
+				</button>
 			</div>
 
 			{tab === "logs" ? (
-				<div className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden">
+				<div>
+					{/* Role tabs */}
+					<div className="flex flex-wrap gap-1.5 mb-4">
+						{ROLE_TABS.map((r) => (
+							<button
+								key={r.value}
+								onClick={() => {
+									setPage(1);
+									setSelectedUserId("");
+									setRole(r.value);
+								}}
+								className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+									role === r.value
+										? "bg-red-600 text-white"
+										: "bg-white dark:bg-white/5 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
+								}`}
+							>
+								{r.label}
+							</button>
+						))}
+					</div>
+
+					<div className="flex flex-col lg:flex-row gap-4 items-start">
+						{/* Master: daftar pengguna */}
+						<aside className="w-full lg:w-72 shrink-0 bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden">
+							<div className="p-3 border-b border-gray-100 dark:border-white/10">
+								<div className="relative">
+									<LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+									<input
+										value={userQuery}
+										onChange={(e) => setUserQuery(e.target.value)}
+										placeholder="Cari pengguna…"
+										className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-transparent text-sm text-gray-800 dark:text-white"
+									/>
+								</div>
+							</div>
+							<div className="max-h-[65vh] overflow-y-auto">
+								<button
+									onClick={() => {
+										setPage(1);
+										setSelectedUserId("");
+									}}
+									className={`w-full text-left px-4 py-2.5 border-b border-gray-100 dark:border-white/5 text-sm transition ${
+										selectedUserId === ""
+											? "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 font-medium"
+											: "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-700 dark:text-gray-200"
+									}`}
+								>
+									Semua pengguna
+								</button>
+								{usersLoading ? (
+									<div className="px-4 py-6 text-center text-gray-400 text-sm">
+										Memuat…
+									</div>
+								) : filteredUsers.length === 0 ? (
+									<div className="px-4 py-6 text-center text-gray-400 text-sm">
+										Tidak ada pengguna
+									</div>
+								) : (
+									filteredUsers.map((u) => (
+										<div
+											key={u.id}
+											className={`flex items-stretch border-b border-gray-100 dark:border-white/5 transition ${
+												selectedUserId === u.id
+													? "bg-red-50 dark:bg-red-500/10"
+													: "hover:bg-gray-50 dark:hover:bg-white/5"
+											}`}
+										>
+											<button
+												onClick={() => {
+													setPage(1);
+													setSelectedUserId(u.id);
+												}}
+												className="flex-1 min-w-0 text-left px-4 py-2.5"
+												title="Filter aktivitas pengguna ini"
+											>
+												<div className="flex items-center justify-between gap-2">
+													<span className="font-medium text-gray-800 dark:text-white text-sm truncate">
+														{u.name}
+													</span>
+													<span className="text-[11px] text-gray-400 shrink-0">
+														{u.count}×
+													</span>
+												</div>
+												<div className="flex items-center gap-2 mt-0.5">
+													<span
+														className={`text-[10px] px-1.5 py-0.5 rounded ${roleColor(
+															u.role
+														)}`}
+													>
+														{u.role}
+													</span>
+													<span className="text-[11px] text-gray-400 truncate">
+														{u.email}
+													</span>
+												</div>
+												<div className="text-[11px] text-gray-400 mt-0.5">
+													Terakhir: {fmt(u.lastActive)}
+												</div>
+											</button>
+											<button
+												onClick={() => openUserDetail(u.id)}
+												className="px-3 flex items-center text-gray-400 hover:text-red-600 border-l border-gray-100 dark:border-white/5"
+												title="Pantau detail lengkap"
+											>
+												<LuUserSearch className="w-4 h-4" />
+											</button>
+										</div>
+									))
+								)}
+							</div>
+						</aside>
+
+						{/* Detail: tabel aktivitas */}
+						<div className="flex-1 min-w-0 w-full bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden">
 					{/* Filters */}
 					<div className="p-3 flex flex-col sm:flex-row gap-2 border-b border-gray-100 dark:border-white/10">
 						<form onSubmit={submitSearch} className="flex-1 flex gap-2">
@@ -262,7 +377,7 @@ const ActivityMonitor: React.FC = () => {
 									</tr>
 								) : (
 									logs.map((log) => (
-										<tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
+										<tr key={log.id} onClick={() => log.user?.id && openUserDetail(log.user.id)} className="hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer">
 											<td className="px-4 py-3 whitespace-nowrap text-gray-500">
 												{fmt(log.createdAt)}
 											</td>
@@ -355,7 +470,9 @@ const ActivityMonitor: React.FC = () => {
 						</div>
 					</div>
 				</div>
-			) : (
+					</div>
+				</div>
+			) : tab === "sessions" ? (
 				/* Sessions tab */
 				<div className="bg-white dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 overflow-hidden">
 					<div className="p-3 flex justify-between items-center border-b border-gray-100 dark:border-white/10">
@@ -397,7 +514,7 @@ const ActivityMonitor: React.FC = () => {
 									</tr>
 								) : (
 									sessions.map((s) => (
-										<tr key={s.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
+										<tr key={s.id} onClick={() => s.user?.id && openUserDetail(s.user.id)} className="hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer">
 											<td className="px-4 py-3">
 												<div className="font-medium text-gray-800 dark:text-white">
 													{s.user?.name}
@@ -477,7 +594,9 @@ const ActivityMonitor: React.FC = () => {
 						</table>
 					</div>
 				</div>
-			)}
+			) : (
+					<SecurityMonitor onOpenUser={openUserDetail} />
+				)}
 		</div>
 	);
 };

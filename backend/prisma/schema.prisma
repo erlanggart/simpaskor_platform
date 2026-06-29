@@ -134,7 +134,7 @@ model ActivityLog {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessionId   String?  @map("session_id")
   session     UserSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  action      String // LOGIN | LOGOUT | PAGE_VIEW | CREATE | UPDATE | DELETE | OTHER
+  action      String // LOGIN | LOGOUT | PAGE_VIEW | CREATE | UPDATE | DELETE | OTHER | FAILED_LOGIN | ACCESS_DENIED
   description String?
   method      String? // HTTP method for API actions
   path        String? // request path or page route

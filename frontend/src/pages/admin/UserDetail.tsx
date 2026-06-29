@@ -20,6 +20,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { api } from "../../utils/api";
 import { showSuccess, showError, showConfirm } from "../../utils/sweetalert";
+import UserActivityPanel from "../../components/admin/UserActivityPanel";
 
 interface UserProfile {
 	avatar: string | null;
@@ -474,6 +475,9 @@ const UserDetailPage: React.FC = () => {
 					</button>
 				</div>
 			</div>
+
+			{/* Activity / Session / Security monitor */}
+			<UserActivityPanel userId={user.id} />
 
 			{/* Role-specific Data */}
 			{user.role === "PANITIA" && roleData && (

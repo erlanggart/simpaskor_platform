@@ -19,6 +19,7 @@ import {
 } from "../middleware/auth";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/email";
 import { getClientIp } from "../utils/clientIp";
+import { logFailedLogin } from "../lib/securityLog";
 
 const router = Router();
 
@@ -262,6 +263,7 @@ router.post(
 			);
 
 			if (!isPasswordValid) {
+				logFailedLogin(req, user.id, user.email);
 				return res.status(401).json({
 					error: "Login failed",
 					message: "Password salah",

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma";
 import { AuthUtils, JWTPayload } from "../utils/auth";
 import { UserRole } from "@prisma/client";
+import { logAccessDenied } from "../lib/securityLog";
 
 const PRESENCE_HEARTBEAT_MS = 60 * 1000;
 const presenceHeartbeatCache = new Map<string, number>();
@@ -121,6 +122,7 @@ export const authorize = (...allowedRoles: UserRole[]) => {
 		const hasPermission = allowedRoles.some((role) => role === userRole);
 
 		if (!hasPermission) {
+			logAccessDenied(req, "Akses ditolak: izin tidak mencukupi");
 			return res.status(403).json({
 				error: "Forbidden",
 				message: "Insufficient permissions",
@@ -170,6 +172,7 @@ export const requireOwnershipOrAdmin = (
 		req.user.role === UserRole.SUPERADMIN || req.user.role === UserRole.PANITIA;
 
 	if (!isOwner && !isAdmin) {
+		logAccessDenied(req, "Akses ditolak: bukan pemilik resource");
 		return res.status(403).json({
 			error: "Forbidden",
 			message: "You can only access your own resources",

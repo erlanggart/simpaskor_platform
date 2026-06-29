@@ -246,14 +246,55 @@ export const activityAPI = {
 		limit?: number;
 		userId?: string;
 		action?: string;
+		role?: string;
 		search?: string;
 	}): Promise<{ logs: any[]; pagination: any }> => {
 		const response = await api.get("/activity", { params });
 		return response.data;
 	},
 
+	getActivityUsers: async (
+		role?: string
+	): Promise<{ users: any[] }> => {
+		const response = await api.get("/activity/users", {
+			params: role ? { role } : undefined,
+		});
+		return response.data;
+	},
+
 	getSessions: async (): Promise<{ sessions: any[] }> => {
 		const response = await api.get("/activity/sessions");
+		return response.data;
+	},
+
+	getSecurity: async (): Promise<{
+		stats: {
+			failedLogins24h: number;
+			accessDenied24h: number;
+			riskyAccounts: number;
+		};
+		failedLogins: any[];
+		accessDenied: any[];
+		anomalies: {
+			newDevice: any[];
+			impossibleTravel: any[];
+			multiIp: any[];
+		};
+		massDelete: any[];
+	}> => {
+		const response = await api.get("/activity/security");
+		return response.data;
+	},
+
+	getUserDetail: async (
+		userId: string
+	): Promise<{
+		user: any;
+		logs: any[];
+		sessions: any[];
+		security: { failedLogins: any[]; accessDenied: any[] };
+	}> => {
+		const response = await api.get(`/activity/users/${userId}`);
 		return response.data;
 	},
 };
