@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma, PrismaTransactionClient } from "../lib/prisma";
 import { authenticate, optionalAuthenticate, AuthenticatedRequest } from "../middleware/auth";
 import { uploadEventThumbnail, uploadJuknis, convertToWebp } from "../middleware/upload";
-import { computeEventStatus } from "../utils/eventStatus";
+import { computeEventStatus, statusDateWhere } from "../utils/eventStatus";
 
 const router = express.Router();
 
@@ -210,29 +210,41 @@ router.get(
 				});
 			}
 
-			const { search, status: statusFilter, limit, offset } = req.query;
+			const { search, status: statusFilter, limit, offset, sortField, sortDir } = req.query;
 
-			const where: any = {};
-
-			// Optional status filter
+			// Combine status (computed → date predicates) and search with AND so
+			// neither clobbers the other's top-level `OR` key.
+			const and: any[] = [];
 			if (statusFilter && statusFilter !== "all") {
-				where.status = statusFilter as string;
+				and.push(statusDateWhere(statusFilter as string));
 			}
-
-			// Search filter
 			if (search) {
-				where.OR = [
-					{ title: { contains: search as string, mode: "insensitive" } },
-					{ description: { contains: search as string, mode: "insensitive" } },
-					{ organizer: { contains: search as string, mode: "insensitive" } },
-					{ location: { contains: search as string, mode: "insensitive" } },
-				];
+				and.push({
+					OR: [
+						{ title: { contains: search as string, mode: "insensitive" } },
+						{ description: { contains: search as string, mode: "insensitive" } },
+						{ organizer: { contains: search as string, mode: "insensitive" } },
+						{ location: { contains: search as string, mode: "insensitive" } },
+					],
+				});
 			}
+			const where: any = and.length ? { AND: and } : {};
 
-			// Get total count
-			const total = await prisma.event.count({ where });
+			// Sorting (computed "status" can't be sorted in SQL, so it's not allowed)
+			const allowedSort = ["createdAt", "title", "startDate"];
+			const sf = allowedSort.includes(sortField as string) ? (sortField as string) : "createdAt";
+			const sd = (sortDir as string) === "asc" ? "asc" : "desc";
 
-			// Get ALL events without date filtering
+			// Per-status counts (global, ignore search) for the dashboard stat cards
+			const statusKeys = ["ONGOING", "PUBLISHED", "DRAFT", "COMPLETED", "CANCELLED"];
+			const [total, totalAll, ...countList] = await Promise.all([
+				prisma.event.count({ where }),
+				prisma.event.count({}),
+				...statusKeys.map((s) => prisma.event.count({ where: statusDateWhere(s) })),
+			]);
+			const counts: Record<string, number> = {};
+			statusKeys.forEach((s, i) => (counts[s] = countList[i] ?? 0));
+
 			const events = await prisma.event.findMany({
 				where,
 				include: {
@@ -254,7 +266,7 @@ router.get(
 						},
 					},
 				},
-				orderBy: [{ isPinned: "desc" }, { pinnedOrder: "asc" }, { createdAt: "desc" }],
+				orderBy: [{ [sf]: sd }],
 				take: limit ? parseInt(limit as string) : undefined,
 				skip: offset ? parseInt(offset as string) : undefined,
 			});
@@ -268,12 +280,67 @@ router.get(
 			res.json({
 				data: eventsWithComputedStatus,
 				total,
+				totalAll,
+				counts,
 				limit: limit ? parseInt(limit as string) : events.length,
 				offset: offset ? parseInt(offset as string) : 0,
 			});
 		} catch (error) {
 			console.error("Error fetching all events for admin:", error);
 			res.status(500).json({ message: "Failed to fetch events" });
+		}
+	}
+);
+
+// GET /api/events/admin/overview - Lightweight data for the admin sidebar widgets
+// (pinned carousel, calendar, upcoming list) that need the full set, not a page.
+router.get(
+	"/admin/overview",
+	authenticate,
+	async (req: AuthenticatedRequest, res: Response) => {
+		try {
+			const user = req.user;
+			if (!user || user.role !== "SUPERADMIN") {
+				return res.status(403).json({ message: "Only SuperAdmin can access this" });
+			}
+
+			const now = new Date();
+			const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+			const selectFields = {
+				id: true,
+				slug: true,
+				title: true,
+				thumbnail: true,
+				startDate: true,
+				endDate: true,
+				registrationDeadline: true,
+				status: true,
+				isPinned: true,
+				pinnedOrder: true,
+			} as const;
+
+			const [pinned, active] = await Promise.all([
+				prisma.event.findMany({
+					where: { isPinned: true },
+					select: selectFields,
+					orderBy: { pinnedOrder: "asc" },
+				}),
+				// Calendar + upcoming widgets: non-draft/cancelled events still relevant
+				// (running or ending from this month onward). Bounded even with many events.
+				prisma.event.findMany({
+					where: { status: { notIn: ["DRAFT", "CANCELLED"] }, endDate: { gte: startOfMonth } },
+					select: selectFields,
+					orderBy: { startDate: "asc" },
+				}),
+			]);
+
+			res.json({
+				pinned: pinned.map((e) => ({ ...e, status: computeEventStatus(e) })),
+				active: active.map((e) => ({ ...e, status: computeEventStatus(e) })),
+			});
+		} catch (error) {
+			console.error("Error fetching admin overview:", error);
+			res.status(500).json({ message: "Failed to fetch overview" });
 		}
 	}
 );

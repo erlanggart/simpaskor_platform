@@ -152,4 +152,45 @@ html.dark body {
 	}
 }
 
+/* Running neon-red border on event cards (dark theme only, subtle) */
+@property --neon-angle {
+	syntax: "<angle>";
+	initial-value: 0deg;
+	inherits: false;
+}
+
+@keyframes neon-border-spin {
+	to {
+		--neon-angle: 360deg;
+	}
+}
+
+html.dark .event-neon::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	padding: 1px; /* border thickness */
+	background: conic-gradient(
+		from var(--neon-angle),
+		transparent 0deg,
+		transparent 250deg,
+		rgba(239, 68, 68, 0.35) 300deg,
+		rgba(248, 113, 113, 0.65) 335deg,
+		transparent 360deg
+	);
+	-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	mask-composite: exclude;
+	animation: neon-border-spin 5s linear infinite;
+	pointer-events: none;
+	z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html.dark .event-neon::before {
+		animation: none;
+	}
+}
+
 /* Remove default button and heading styling - let Tailwind handle this */

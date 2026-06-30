@@ -52,6 +52,40 @@ export function computeEventStatus(event: EventDates): EventStatus {
 }
 
 /**
+ * Build a Prisma `where` fragment that matches a COMPUTED status using date
+ * predicates (mirror of computeEventStatus). Needed for server-side filtering,
+ * pagination and counts, since computed status is not stored in the DB.
+ */
+export function statusDateWhere(status: string): any {
+	const now = new Date();
+	switch (status) {
+		case "DRAFT":
+			return { status: "DRAFT" };
+		case "CANCELLED":
+			return { status: "CANCELLED" };
+		case "COMPLETED":
+			return { status: { notIn: ["DRAFT", "CANCELLED"] }, endDate: { lt: now } };
+		case "ONGOING":
+			return {
+				status: { notIn: ["DRAFT", "CANCELLED"] },
+				endDate: { gte: now },
+				OR: [
+					{ startDate: { lte: now } },
+					{ startDate: { gt: now }, registrationDeadline: { not: null, lt: now } },
+				],
+			};
+		case "PUBLISHED":
+			return {
+				status: { notIn: ["DRAFT", "CANCELLED"] },
+				startDate: { gt: now },
+				OR: [{ registrationDeadline: null }, { registrationDeadline: { gte: now } }],
+			};
+		default:
+			return {};
+	}
+}
+
+/**
  * Get status display info
  */
 export function getStatusInfo(status: EventStatus) {
